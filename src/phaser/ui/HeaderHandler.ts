@@ -19,7 +19,8 @@ export class HeaderHandler {
 
     const containerW = BASE_W;
     const containerX = BASE_W / 2 + offset.x;
-    const containerY = this.framePadding + height / 2 + offset.y;
+    // Pin header to the very top of the play area (no vertical padding).
+    const containerY = height / 2 + offset.y;
     const containerLeft = containerX - containerW / 2;
     const containerRight = containerX + containerW / 2;
     const containerTop = containerY - height / 2;

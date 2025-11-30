@@ -30,9 +30,13 @@ export class FieldHandler {
     baseSize: 70,
     barCount: 5,
     barGap: -40,
-    towerGap: 8,
+    towerGap: -10,
     columnGap: 2,
   };
+
+  // Keep header reference to anchor top-side stacks just below it.
+  private headerHeight = 82;
+  private headerGap = 8;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -86,7 +90,7 @@ export class FieldHandler {
     const shieldW = deckH;
     const shieldH = deckW;
     const stackHeight = this.computeStackHeight(barCount, shieldH, barGap, towerGap, baseSize, isTop);
-    const stackTop = originY - stackHeight / 2;
+    const stackTop = isTop ? this.headerHeight + this.headerGap : originY - stackHeight / 2;
     this.drawShieldStack(towerX, stackTop, barCount, barGap, towerGap, baseSize, shieldW, shieldH, isTop);
   }
 
