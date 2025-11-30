@@ -17,7 +17,7 @@ export class HeaderHandler {
     const { height, padding, avatar, orbRadius, orbGap, orbMax } = this.layout;
     const { handCount, orbCount, scoreCurrent, scoreMax, name } = this.state;
 
-    const containerW = BASE_W - this.framePadding * 2;
+    const containerW = BASE_W;
     const containerX = BASE_W / 2 + offset.x;
     const containerY = this.framePadding + height / 2 + offset.y;
     const containerLeft = containerX - containerW / 2;
