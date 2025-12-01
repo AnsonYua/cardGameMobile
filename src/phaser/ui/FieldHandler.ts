@@ -68,7 +68,7 @@ export class FieldHandler {
     gap: 5,
     cols: 3,
     rows: 2,
-    deckW: 60,
+    deckW: 57,
     deckH: 80,
     towerWidth: 64,
     baseSize: { w: 60, h: 80 },
@@ -224,10 +224,12 @@ export class FieldHandler {
 
   private drawPile(x: number, y: number, w: number, h: number, label: string) {
     if (label === "deck") {
-      this.drawHandStyleCard(x, y, w, h, 0xb8673f);
-      this.scene.add
-        .text(x, y, "deck", { fontSize: "14px", fontFamily: "Arial", color: "#0f1118" })
-        .setOrigin(0.5);
+      if (this.scene.textures.exists("deckBack")) {
+        this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setDepth(10);
+      } else {
+        this.drawHandStyleCard(x, y, w, h, 0xb8673f);
+        this.scene.add.text(x, y, "deck", { fontSize: "14px", fontFamily: "Arial", color: "#0f1118" }).setOrigin(0.5);
+      }
     } else {
       this.drawCardBox(x, y, w, h, label);
     }
@@ -258,7 +260,7 @@ export class FieldHandler {
     if (isTop) {
       for (let i = 0; i < barCount; i++) {
         const y = barsTop + shieldH / 2 + i * (shieldH + barGap) + shieldYOffset;
-        this.drawHandStyleCard(shieldX, y, shieldW, shieldH, this.drawHelpers.toColor("#b0b7c5"));
+        this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
       this.drawHandStyleCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, this.drawHelpers.toColor("#c9d5e0"));
       this.scene.add
@@ -267,7 +269,7 @@ export class FieldHandler {
     } else {
       for (let i = barCount - 1; i >= 0; i--) {
         const y = barsTop + shieldH / 2 + i * (shieldH + barGap) + shieldYOffset;
-        this.drawHandStyleCard(shieldX, y, shieldW, shieldH, this.drawHelpers.toColor("#b0b7c5"));
+        this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
       this.drawHandStyleCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, this.drawHelpers.toColor("#c9d5e0"));
       this.scene.add
@@ -362,5 +364,21 @@ export class FieldHandler {
       strokeAlpha: 0.7,
       strokeWidth: 2,
     });
+  }
+
+  private drawShieldCard(x: number, y: number, w: number, h: number) {
+    if (this.scene.textures.exists("deckBack")) {
+      // Keep shield box size but fit cardback with 63/88 ratio (rotated => 88/63).
+      const rotatedRatio = 88 / 63;
+      let targetW = w;
+      let targetH = targetW / rotatedRatio;
+      if (targetH > h) {
+        targetH = h;
+        targetW = targetH * rotatedRatio;
+      }
+      this.scene.add.image(x, y, "deckBack").setDisplaySize(targetW, targetH).setOrigin(0.5).setAngle(90);
+    } else {
+      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"));
+    }
   }
 }

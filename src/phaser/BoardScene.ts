@@ -17,6 +17,10 @@ export class BoardScene extends Phaser.Scene {
     super("BoardScene");
   }
 
+  preload() {
+    this.load.image("deckBack", "/cardback.png");
+  }
+
   private offset = { x: 0, y: 0 };
   private ui: BoardUI | null = null;
 
