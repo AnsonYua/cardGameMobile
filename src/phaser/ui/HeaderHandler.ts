@@ -1,7 +1,38 @@
 import Phaser from "phaser";
 import { BASE_W } from "../../config/gameLayout";
-import { DrawHelpers } from "./DrawHelpers";
-import { Offset, Palette } from "./types";
+import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
+
+// Shared drawing helpers for UI shapes.
+export class DrawHelpers {
+  constructor(private scene: Phaser.Scene) {}
+
+  drawRoundedRect(config: RoundedRectConfig) {
+    const {
+      x,
+      y,
+      width,
+      height,
+      radius,
+      fillColor,
+      fillAlpha = 1,
+      strokeColor,
+      strokeAlpha = 1,
+      strokeWidth = 0,
+    } = config;
+    const g = this.scene.add.graphics({ x: x - width / 2, y: y - height / 2 });
+    g.fillStyle(toColor(fillColor), fillAlpha);
+    g.fillRoundedRect(0, 0, width, height, radius);
+    if (strokeWidth > 0 && strokeColor !== undefined) {
+      g.lineStyle(strokeWidth, toColor(strokeColor), strokeAlpha);
+      g.strokeRoundedRect(0, 0, width, height, radius);
+    }
+    return g;
+  }
+
+  toColor(value: number | string) {
+    return toColor(value);
+  }
+}
 
 type HeaderLayout = { height: number; padding: number; avatar: number; orbRadius: number; orbGap: number; orbMax: number };
 type HeaderState = { handCount: number; orbCount: number; scoreCurrent: number; scoreMax: number; name: string };

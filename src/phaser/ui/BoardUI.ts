@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
-import { DrawHelpers } from "./DrawHelpers";
 import { FieldHandler } from "./FieldHandler";
 import { HandAreaHandler } from "./HandAreaHandler";
 import { HeaderHandler } from "./HeaderHandler";
+import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 
 export class BoardUI {
