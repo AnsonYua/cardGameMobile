@@ -80,7 +80,7 @@ export class HeaderHandler {
     }).setDepth(this.depth);
 
     // Avatar block
-    const avatarX = containerLeft + padding + avatar / 2;
+    const avatarX = containerLeft + padding + avatar / 2 + (BASE_W-400)/2;
     const avatarY = containerY;
     this.drawHelpers.drawRoundedRect({
       x: avatarX,
@@ -98,7 +98,7 @@ export class HeaderHandler {
     // Name next to avatar (left side)
     const nameX = avatarX + avatar / 2 + padding;
     this.scene.add
-      .text(nameX, containerTop + padding+9, name, {
+      .text(nameX, containerTop + padding, name, {
         fontSize: "20px",
         fontFamily: "Arial",
         color: this.palette.ink,
@@ -106,16 +106,16 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    // Hand count in the right corner
-    const handTextX = containerRight - padding;
-    const handY = avatarY-15;
+    // Hand count below name
+    const handTextX = nameX;
+    const handY = containerTop + padding +25;
     this.scene.add
       .text(handTextX, handY, `Hand Num:  ${handCount}`, {
         fontSize: "16px",
         fontFamily: "Arial",
         color: this.palette.ink,
       })
-      .setOrigin(1, 0.5)
+      .setOrigin(0, 0)
       .setDepth(this.depth);
 
   }
