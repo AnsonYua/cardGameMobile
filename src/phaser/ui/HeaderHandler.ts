@@ -65,7 +65,7 @@ export class HeaderHandler {
       .setDepth(this.depth);
 
     // Hand count text
-    const textX = avatarX + avatar / 2 + padding;
+    const textX = avatarX + avatar / 2 + 10;
     const handY = avatarY;
     this.scene.add
       .text(textX, handY, `Hand Num:  ${handCount}`, {
@@ -78,7 +78,7 @@ export class HeaderHandler {
 
     // Orb row (max 12)
     const orbY = containerBottom - padding - orbRadius;
-    const orbX = textX;
+    const orbX = textX+8;
     const visibleOrbs = Math.min(orbCount, orbMax);
     for (let i = 0; i < orbMax; i++) {
       const x = orbX + i * (orbRadius * 2 + orbGap);
@@ -91,9 +91,14 @@ export class HeaderHandler {
     }
 
     // Score text on the right
-    const scoreX = containerRight - padding;
+    const scoreX = containerRight - 2;
     this.scene.add
-      .text(scoreX, orbY, `${scoreCurrent}/${scoreMax}`, { fontSize: "20px", fontFamily: "Arial", color: this.palette.ink })
+      .text(scoreX, orbY, `${scoreCurrent}/${scoreMax} [+1]`, 
+          { fontSize: "16px", 
+            fontFamily: "Arial", 
+            color: this.palette.ink ,
+            align: "right" 
+          })
       .setOrigin(1, 0.5)
       .setDepth(this.depth);
   }

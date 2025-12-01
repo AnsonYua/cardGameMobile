@@ -12,6 +12,26 @@ type FieldConfig = {
   deckH: number;
   towerWidth: number;
   baseSize: { w: number; h: number };
+  shieldSize: { w: number; h: number };
+  energy: {
+    count: number;
+    perRow: number;
+    rows: number;
+    radius: number;
+    gap: number;
+    rowGap: number;
+    offsetFromSlots: number;
+    fillColor: string;
+    emptyColor: string;
+    offsetX: {
+      opponent: number;
+      player: number;
+    };
+    offsetY: {
+      opponent: number;
+      player: number;
+    };
+  };
   side: {
     opponent: {
       centerX: number;
@@ -22,6 +42,7 @@ type FieldConfig = {
       shieldCenterX: number;
       baseCenterY: number;
       shieldCenterY: number;
+      deckTrashOffsetY: number;
     };
     player: {
       centerX: number;
@@ -32,6 +53,7 @@ type FieldConfig = {
       shieldCenterX: number;
       baseCenterY: number;
       shieldCenterY: number;
+      deckTrashOffsetY: number;
     };
   };
   barCount: number;
@@ -46,10 +68,24 @@ export class FieldHandler {
     gap: 14,
     cols: 3,
     rows: 2,
-    deckW: 50,
-    deckH: (90 * 50) / 60,
+    deckW: 60,
+    deckH: 80,
     towerWidth: 64,
     baseSize: { w: 60, h: 80 },
+    shieldSize: { w: 75, h: 50 },
+    energy: {
+      count: 12,
+      perRow: 12,
+      rows: 1,
+      radius: 6,
+      gap: 4,
+      rowGap: 8,
+      offsetFromSlots: 16,
+      fillColor: "#18c56c",
+      emptyColor: "#d94d4d",
+      offsetX: { opponent: 8, player: 8 },
+      offsetY: { opponent: 0, player: 0 },
+    },
     side: {
       opponent: {
         centerX: BASE_W / 2,
@@ -60,18 +96,20 @@ export class FieldHandler {
         shieldCenterX: 15,
         baseCenterY: 0,
         shieldCenterY: 0,
+        deckTrashOffsetY: 20,
       },
       player: {
         centerX: BASE_W / 2,
-        originY: 170 + 240,
+        originY: 170 + 180,
         towerOffsetX: 0,
-        towerOffsetY: 0,
+        towerOffsetY: 60,
         baseCenterX: -15,
         shieldCenterX: -15,
         baseCenterY: 10,
         shieldCenterY: 0,
+        deckTrashOffsetY: 60,
       },
-    },
+  },
     barCount: 5,
     barGap: -25,
     towerGap: -5,
@@ -90,7 +128,8 @@ export class FieldHandler {
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isTop: boolean) {
-    const { slot, gap, cols, rows, deckW, deckH, towerWidth, baseSize, barCount, barGap, towerGap, columnGap } = this.field;
+    const { slot, gap, cols, rows, deckW, deckH, towerWidth, baseSize, barCount, barGap, towerGap, columnGap, energy } = this.field;
+    const { shieldSize } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
     const sideOffsets = sideConfig;
@@ -125,6 +164,7 @@ export class FieldHandler {
       rightX + this.field.side.opponent.towerOffsetX + this.field.side.opponent.baseCenterX;
     const playerBaseCenterX = leftX + this.field.side.player.towerOffsetX + this.field.side.player.baseCenterX;
     const pileX = isTop ? playerBaseCenterX : opponentBaseCenterX;
+    const pileYOffset = sideOffsets.deckTrashOffsetY;
     const shieldX = towerX + sideOffsets.shieldCenterX;
     const baseX = towerX + sideOffsets.baseCenterX;
     const shieldYOffset = sideOffsets.shieldCenterY;
@@ -133,13 +173,13 @@ export class FieldHandler {
     const pileGap = 12;
     const topPileLabel = isTop ? "trash" : "deck";
     const bottomPileLabel = isTop ? "deck" : "trash";
-    const topPileY = originY - deckH / 2 - pileGap / 2;
-    const bottomPileY = originY + deckH / 2 + pileGap / 2;
+    const topPileY = originY - deckH / 2 - pileGap / 2 + pileYOffset;
+    const bottomPileY = originY + deckH / 2 + pileGap / 2 + pileYOffset;
     this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel);
     this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel);
 
-    const shieldW = deckH;
-    const shieldH = deckW;
+    const shieldW = shieldSize.w;
+    const shieldH = shieldSize.h;
     const stackHeight = this.computeStackHeight(barCount, shieldH, barGap, towerGap, baseSize.h, isTop);
     const baseStackTop = isTop ? this.headerHeight + this.headerGap : originY - stackHeight / 2;
     const stackTop = baseStackTop + sideOffsets.towerOffsetY;
@@ -157,6 +197,16 @@ export class FieldHandler {
       shieldH,
       isTop
     );
+
+    // Energy bar: opponent above slots, player below slots.
+    const energyYOffset = isTop ? energy.offsetY.opponent : energy.offsetY.player;
+    const energyY =
+      (isTop
+        ? originY - slot / 2 - energy.offsetFromSlots
+        : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
+    const energyX = centerX + (isTop ? energy.offsetX.opponent : energy.offsetX.player);
+    this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
+    this.drawEnergyLabels(energyX, energyY, gridTotalW, isTop);
   }
 
   private drawPile(x: number, y: number, w: number, h: number, label: string) {
@@ -217,6 +267,43 @@ export class FieldHandler {
     const totalBarsHeight = barCount * shieldH + (barCount - 1) * barGap;
     const baseOverlap = 20;
     return isTop ? totalBarsHeight + towerGap - baseOverlap + baseHeight : baseHeight - baseOverlap + towerGap + totalBarsHeight;
+  }
+
+  private drawEnergyBar(centerX: number, baseY: number, cfg: FieldConfig["energy"], barWidth: number, isTop: boolean) {
+    const totalWidth = cfg.perRow * cfg.radius * 2 + (cfg.perRow - 1) * cfg.gap;
+    // Opponent: align to right edge and draw right-to-left. Player: align to left edge.
+    const startX = isTop ? centerX + barWidth / 2 - totalWidth : centerX - barWidth / 2;
+    let drawn = 0;
+    for (let row = 0; row < cfg.rows; row++) {
+      const y = baseY + row * (cfg.radius * 2 + cfg.rowGap);
+      for (let i = 0; i < cfg.perRow && drawn < cfg.count; i++) {
+        const index = isTop ? cfg.perRow - 1 - i : i;
+        const x = startX + index * (cfg.radius * 2 + cfg.gap);
+        const filled = drawn < cfg.count / 2;
+        const circle = this.scene.add.circle(x, y, cfg.radius);
+        circle.setStrokeStyle(2, this.drawHelpers.toColor(cfg.emptyColor), 1);
+        if (filled) {
+          circle.setFillStyle(this.drawHelpers.toColor(cfg.fillColor), 1);
+        }
+        drawn++;
+      }
+    }
+  }
+
+  private drawEnergyLabels(centerX: number, baseY: number, barWidth: number, isTop: boolean) {
+    const labelY = baseY + (isTop ? -16 : 16);
+    const textStyle = {
+      fontSize: "20px",
+      fontFamily: "Arial",
+      color: "#e74c3c",
+      fontStyle: "bold",
+    };
+    const leftX = centerX - barWidth / 3;
+    const midX = centerX;
+    const rightX = centerX + barWidth / 3;
+    this.scene.add.text(leftX, labelY, "Active:0", textStyle).setOrigin(0.5);
+    this.scene.add.text(midX, labelY, "Rest:0", textStyle).setOrigin(0.5);
+    this.scene.add.text(rightX, labelY, "Ex:0", textStyle).setOrigin(0.5);
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {
