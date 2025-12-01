@@ -23,6 +23,6 @@ body,
 
 .game-container {
   width: min(400px, 100%);
-  aspect-ratio: 420 / 800;
+  aspect-ratio: 420 / 700;
   overflow: hidden;
 }
