@@ -1,11 +1,12 @@
 import Phaser from "phaser";
-import { BASE_H, BASE_W } from "../../config/gameLayout";
+import { BASE_H, BASE_W, INTERNAL_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 
 export class ActionBarHandler {
   private barHeight = 40;
   private barPadding = 16;
+  private barWidth = INTERNAL_W - this.barPadding * 2;
   private buttons = ["Action 1", "Action 2", "Action 3", "Action 4", "Action 5"];
 
   // These mirror HandAreaHandler layout so the bar can sit just above the hand.
@@ -14,7 +15,7 @@ export class ActionBarHandler {
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
   draw(offset: { x: number; y: number }) {
-    const barWidth = BASE_W - this.barPadding * 2;
+    const barWidth = this.barWidth;
 
     // Compute hand top using HandAreaHandler's layout to avoid overlap.
     const { cardH, gap, rows, bottomPadding } = this.handLayout;
@@ -22,6 +23,7 @@ export class ActionBarHandler {
     const handTop = BASE_H - bottomPadding - totalHandHeight + offset.y;
 
     const barY = handTop - this.barHeight / 2 - 12; // small gap above hand
+    // Center bar against the full board width while using internal width for sizing.
     const barX = BASE_W / 2 + offset.x;
 
     this.drawHelpers.drawRoundedRect({
