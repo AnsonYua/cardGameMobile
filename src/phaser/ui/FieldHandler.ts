@@ -291,19 +291,19 @@ export class FieldHandler {
   }
 
   private drawEnergyLabels(centerX: number, baseY: number, barWidth: number, isTop: boolean) {
-    const labelY = baseY + (isTop ? -16 : 16);
+    const labelY = baseY + (isTop ? -20 : 20);
     const textStyle = {
-      fontSize: "20px",
+      fontSize: "16px",
       fontFamily: "Arial",
       color: "#e74c3c",
       fontStyle: "bold",
     };
-    const leftX = centerX - barWidth / 3;
+    const leftX = centerX - barWidth / 3 -15;
     const midX = centerX;
-    const rightX = centerX + barWidth / 3;
+    const rightX = centerX + barWidth /3 +10;
     this.scene.add.text(leftX, labelY, "Active:0", textStyle).setOrigin(0.5);
-    this.scene.add.text(midX, labelY, "Rest:0", textStyle).setOrigin(0.5);
-    this.scene.add.text(rightX, labelY, "Ex:0", textStyle).setOrigin(0.5);
+    this.scene.add.text(midX, labelY, "Rested:0", textStyle).setOrigin(0.5);
+    this.scene.add.text(rightX, labelY, "Extra:0", textStyle).setOrigin(0.5);
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {
