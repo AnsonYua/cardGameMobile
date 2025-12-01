@@ -72,7 +72,7 @@ export class FieldHandler {
     deckH: 80,
     towerWidth: 64,
     baseSize: { w: 60, h: 80 },
-    shieldSize: { w: 75, h: 50 },
+    shieldSize: { w: 60, h: 80 },
     energy: {
       count: 12,
       perRow: 12,
@@ -111,7 +111,7 @@ export class FieldHandler {
       },
   },
     barCount: 5,
-    barGap: -25,
+    barGap: -65,
     towerGap: -5,
     columnGap: 2,
   };
@@ -368,15 +368,7 @@ export class FieldHandler {
 
   private drawShieldCard(x: number, y: number, w: number, h: number) {
     if (this.scene.textures.exists("deckBack")) {
-      // Keep shield box size but fit cardback with 63/88 ratio (rotated => 88/63).
-      const rotatedRatio = 88 / 63;
-      let targetW = w;
-      let targetH = targetW / rotatedRatio;
-      if (targetH > h) {
-        targetH = h;
-        targetW = targetH * rotatedRatio;
-      }
-      this.scene.add.image(x, y, "deckBack").setDisplaySize(targetW, targetH).setOrigin(0.5).setAngle(90);
+      this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setAngle(90);
     } else {
       this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"));
     }
