@@ -64,8 +64,8 @@ type FieldConfig = {
 
 export class FieldHandler {
   private field: FieldConfig = {
-    slot: 70,
-    gap: 14,
+    slot: 90,
+    gap: 5,
     cols: 3,
     rows: 2,
     deckW: 60,
@@ -92,19 +92,19 @@ export class FieldHandler {
         originY: 170,
         towerOffsetX: 0,
         towerOffsetY: 0,
-        baseCenterX: 15,
-        shieldCenterX: 15,
+        baseCenterX: 0,
+        shieldCenterX: 0,
         baseCenterY: 0,
         shieldCenterY: 0,
         deckTrashOffsetY: 20,
       },
       player: {
         centerX: BASE_W / 2,
-        originY: 170 + 180,
+        originY: 170 + 195,
         towerOffsetX: 0,
         towerOffsetY: 60,
-        baseCenterX: -15,
-        shieldCenterX: -15,
+        baseCenterX: 0,
+        shieldCenterX: 0,
         baseCenterY: 10,
         shieldCenterY: 0,
         deckTrashOffsetY: 60,
@@ -152,6 +152,19 @@ export class FieldHandler {
           strokeColor: this.palette.ink,
           strokeAlpha: 0.8,
           strokeWidth: 2,
+        });
+        // Overlay rect on top of slot to indicate a stack area.
+        this.drawHelpers.drawRoundedRect({
+          x,
+          y,
+          width: 70,
+          height: 80,
+          radius: 4,
+          fillColor: "#f5f5f5",
+          fillAlpha: 0.35,
+          strokeColor: this.palette.ink,
+          strokeAlpha: 0.6,
+          strokeWidth: 1,
         });
         this.scene.add.text(x, y, "slot", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
       }
