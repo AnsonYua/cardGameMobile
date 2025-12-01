@@ -89,7 +89,7 @@ export class FieldHandler {
     side: {
       opponent: {
         centerX: BASE_W / 2,
-        originY: 170,
+        originY: 155,
         towerOffsetX: 0,
         towerOffsetY: 0,
         baseCenterX: 0,
@@ -100,7 +100,7 @@ export class FieldHandler {
       },
       player: {
         centerX: BASE_W / 2,
-        originY: 170 + 195,
+        originY: 155 + 195,
         towerOffsetX: 0,
         towerOffsetY: 60,
         baseCenterX: 0,

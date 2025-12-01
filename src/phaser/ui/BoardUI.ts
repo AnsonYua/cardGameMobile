@@ -2,8 +2,7 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { FieldHandler } from "./FieldHandler";
 import { HandAreaHandler } from "./HandAreaHandler";
-import { HeaderHandler } from "./HeaderHandler";
-import { DrawHelpers } from "./HeaderHandler";
+import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 
 export class BoardUI {
@@ -28,12 +27,8 @@ export class BoardUI {
       y: BASE_H / 2 + offset.y,
       width,
       height,
-      radius: 18,
       fillColor: this.palette.bg,
-      fillAlpha: 0.98,
-      strokeColor: 0x000000,
-      strokeAlpha: 0.4,
-      strokeWidth: 2,
+      ...FRAME_STYLE,
     });
   }
 

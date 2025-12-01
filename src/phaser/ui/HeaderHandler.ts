@@ -2,6 +2,15 @@ import Phaser from "phaser";
 import { BASE_W } from "../../config/gameLayout";
 import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
 
+// Shared frame styling used by BoardUI.
+export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "strokeColor" | "strokeAlpha" | "strokeWidth"> = {
+  radius: 18,
+  fillAlpha: 0.98,
+  strokeColor: 0x000000,
+  strokeAlpha: 0.4,
+  strokeWidth: 2,
+};
+
 // Shared drawing helpers for UI shapes.
 export class DrawHelpers {
   constructor(private scene: Phaser.Scene) {}
@@ -34,19 +43,19 @@ export class DrawHelpers {
   }
 }
 
-type HeaderLayout = { height: number; padding: number; avatar: number; orbRadius: number; orbGap: number; orbMax: number };
-type HeaderState = { handCount: number; orbCount: number; scoreCurrent: number; scoreMax: number; name: string };
+type HeaderLayout = { height: number; padding: number; avatar: number };
+type HeaderState = { handCount: number; name: string };
 
 export class HeaderHandler {
-  private layout: HeaderLayout = { height: 82, padding: 12, avatar: 56, orbRadius: 8, orbGap: 4, orbMax: 12 };
-  private state: HeaderState = { handCount: 8, orbCount: 3, scoreCurrent: 12, scoreMax: 10, name: "Opponent" };
+  private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
+  private state: HeaderState = { handCount: 8, name: "Opponent" };
   private depth = 1000;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
   draw(offset: Offset) {
-    const { height, padding, avatar, orbRadius, orbGap, orbMax } = this.layout;
-    const { handCount, orbCount, scoreCurrent, scoreMax, name } = this.state;
+    const { height, padding, avatar } = this.layout;
+    const { handCount, name } = this.state;
 
     const containerW = BASE_W;
     const containerX = BASE_W / 2 + offset.x;
@@ -86,52 +95,29 @@ export class HeaderHandler {
       strokeWidth: 2,
     }).setDepth(this.depth);
 
+    // Name next to avatar (left side)
+    const nameX = avatarX + avatar / 2 + padding;
     this.scene.add
-      .text(containerRight - padding, containerTop + padding, name, {
+      .text(nameX, containerTop + padding+9, name, {
         fontSize: "20px",
         fontFamily: "Arial",
         color: this.palette.ink,
       })
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    // Hand count text
-    const textX = avatarX + avatar / 2 + 10;
-    const handY = avatarY;
+    // Hand count in the right corner
+    const handTextX = containerRight - padding;
+    const handY = avatarY-15;
     this.scene.add
-      .text(textX, handY, `Hand Num:  ${handCount}`, {
+      .text(handTextX, handY, `Hand Num:  ${handCount}`, {
         fontSize: "16px",
         fontFamily: "Arial",
         color: this.palette.ink,
       })
-      .setOrigin(0, 0.5)
-      .setDepth(this.depth);
-
-    // Orb row (max 12)
-    const orbY = containerBottom - padding - orbRadius;
-    const orbX = textX+8;
-    const visibleOrbs = Math.min(orbCount, orbMax);
-    for (let i = 0; i < orbMax; i++) {
-      const x = orbX + i * (orbRadius * 2 + orbGap);
-      const circle = this.scene.add.circle(x, orbY, orbRadius, 0xffffff);
-      circle.setStrokeStyle(2, this.drawHelpers.toColor(this.palette.ink), 1);
-      if (i < visibleOrbs) {
-        circle.setFillStyle(this.drawHelpers.toColor(this.palette.ink), 1);
-      }
-      circle.setDepth(this.depth);
-    }
-
-    // Score text on the right
-    const scoreX = containerRight - 2;
-    this.scene.add
-      .text(scoreX, orbY, `${scoreCurrent}/${scoreMax} [+1]`, 
-          { fontSize: "16px", 
-            fontFamily: "Arial", 
-            color: this.palette.ink ,
-            align: "right" 
-          })
       .setOrigin(1, 0.5)
       .setDepth(this.depth);
+
   }
 
   updateState(state: Partial<HeaderState>) {
