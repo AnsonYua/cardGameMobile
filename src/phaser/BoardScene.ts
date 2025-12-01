@@ -38,6 +38,7 @@ export class BoardScene extends Phaser.Scene {
     this.ui.drawFrame(this.offset);
     this.ui.drawHeader(this.offset);
     this.ui.drawField(this.offset);
+    this.ui.drawActions(this.offset);
     this.ui.drawHand(this.offset);
   }
 

@@ -31,8 +31,8 @@ export class HandAreaHandler {
     const rows = 2;
     const bottomPadding = 24;
     const startY = BASE_H - bottomPadding - cardH / 2 - (rows - 1) * (cardH + gap) + offset.y;
-    const labelY = startY - 50;
-
+    //const labelY = startY - 50;
+    /*
     this.scene
       .add.text(BASE_W / 2 + offset.x, labelY, "Hand", {
         fontSize: "20px",
@@ -43,6 +43,7 @@ export class HandAreaHandler {
       })
       .setOrigin(0.5)
       .setDepth(10);
+    */
 
     for (let i = 0; i < this.handCards.length; i++) {
       const row = Math.floor(i / perRow);
