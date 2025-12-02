@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
+import { GameStatusHandler } from "./GameStatusHandler";
 
 export type FieldConfig = {
   slot: number;
@@ -121,9 +122,11 @@ export class FieldHandler {
   private headerGap = 8;
 
   private field: FieldConfig;
+  private gameStatus: GameStatusHandler;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
+    this.gameStatus = new GameStatusHandler(scene, palette);
   }
 
   draw(offset: Offset) {
@@ -223,7 +226,12 @@ export class FieldHandler {
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isTop ? energy.offsetX.opponent : energy.offsetX.player);
     this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
-    this.drawGameStatusLabel(energyX, energyY, gridTotalW, isTop);
+    this.gameStatus.draw(energyX, energyY, gridTotalW, isTop, {
+      shield: this.field.shieldCount,
+      active: 0,
+      rested: 0,
+      extra: 0,
+    });
   }
 
   private drawPile(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
@@ -311,24 +319,6 @@ export class FieldHandler {
         drawn++;
       }
     }
-  }
-
-  private drawGameStatusLabel(centerX: number, baseY: number, barWidth: number, isTop: boolean) {
-    const labelY = baseY + (isTop ? -20 : 20);
-    const textStyle = {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      color: "#e74c3c",
-      fontStyle: "bold",
-    };
-
-    const labels = ["Shield:6", "Active:0", "Rested:0", "Extra:0"];
-    const step = barWidth / (labels.length - 1);
-    const startX = centerX - barWidth / 2;
-    labels.forEach((txt, i) => {
-      const x = startX + i * step;
-      this.scene.add.text(x, labelY, txt, textStyle).setOrigin(0.5);
-    });
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {
