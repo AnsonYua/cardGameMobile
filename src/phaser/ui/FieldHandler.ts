@@ -223,7 +223,7 @@ export class FieldHandler {
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isTop ? energy.offsetX.opponent : energy.offsetX.player);
     this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
-    this.drawEnergyLabels(energyX, energyY, gridTotalW, isTop);
+    this.drawGameStatusLabel(energyX, energyY, gridTotalW, isTop);
   }
 
   private drawPile(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
@@ -313,7 +313,7 @@ export class FieldHandler {
     }
   }
 
-  private drawEnergyLabels(centerX: number, baseY: number, barWidth: number, isTop: boolean) {
+  private drawGameStatusLabel(centerX: number, baseY: number, barWidth: number, isTop: boolean) {
     const labelY = baseY + (isTop ? -20 : 20);
     const textStyle = {
       fontSize: "16px",
@@ -321,12 +321,14 @@ export class FieldHandler {
       color: "#e74c3c",
       fontStyle: "bold",
     };
-    const leftX = centerX - barWidth / 3 -15;
-    const midX = centerX;
-    const rightX = centerX + barWidth /3 +10;
-    this.scene.add.text(leftX, labelY, "Active:0", textStyle).setOrigin(0.5);
-    this.scene.add.text(midX, labelY, "Rested:0", textStyle).setOrigin(0.5);
-    this.scene.add.text(rightX, labelY, "Extra:0", textStyle).setOrigin(0.5);
+
+    const labels = ["Shield:6", "Active:0", "Rested:0", "Extra:0"];
+    const step = barWidth / (labels.length - 1);
+    const startX = centerX - barWidth / 2;
+    labels.forEach((txt, i) => {
+      const x = startX + i * step;
+      this.scene.add.text(x, labelY, txt, textStyle).setOrigin(0.5);
+    });
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {
