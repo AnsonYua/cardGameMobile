@@ -88,8 +88,12 @@ export class BaseShieldHandler {
   }
 
   private drawBaseCard(x: number, y: number, w: number, h: number) {
-    this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"));
-    this.scene.add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
+    if (this.scene.textures.exists("baseCard")) {
+      this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5);
+    } else {
+      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"));
+      this.scene.add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
+    }
   }
 
   private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number) {
