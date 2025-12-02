@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../config/gameLayout";
 import { BoardUI } from "./ui/BoardUI";
+import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
+import { DrawHelpers } from "./ui/HeaderHandler";
 
 const colors = {
   bg: "#153ae0ff",
@@ -23,6 +25,7 @@ export class BoardScene extends Phaser.Scene {
 
   private offset = { x: 0, y: 0 };
   private ui: BoardUI | null = null;
+  private shuffleManager: ShuffleAnimationManager | null = null;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -38,6 +41,12 @@ export class BoardScene extends Phaser.Scene {
       accent: colors.accent,
       text: colors.text,
       bg: colors.bg,
+    });
+    this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
+    this.ui.setActionHandler((index) => {
+      if (index === 0) {
+        this.shuffleManager?.play();
+      }
     });
     this.ui.drawFrame(this.offset);
     this.ui.drawHeader(this.offset);

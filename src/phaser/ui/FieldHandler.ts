@@ -3,7 +3,7 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 
-type FieldConfig = {
+export type FieldConfig = {
   slot: number;
   gap: number;
   cols: number;
@@ -63,7 +63,7 @@ type FieldConfig = {
 };
 
 export class FieldHandler {
-  private field: FieldConfig = {
+  static readonly DEFAULT_CONFIG: FieldConfig = {
     slot: 90,
     gap: 5,
     cols: 3,
@@ -120,7 +120,11 @@ export class FieldHandler {
   private headerHeight = 82;
   private headerGap = 8;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  private field: FieldConfig;
+
+  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
+    this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
+  }
 
   draw(offset: Offset) {
     this.drawFieldSide(this.field.side.opponent, offset, true);
@@ -188,8 +192,8 @@ export class FieldHandler {
     const bottomPileLabel = isTop ? "deck" : "trash";
     const topPileY = originY - deckH / 2 - pileGap / 2 + pileYOffset;
     const bottomPileY = originY + deckH / 2 + pileGap / 2 + pileYOffset;
-    this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel);
-    this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel);
+    this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel, isTop ? "opponent" : "player");
+    this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel, isTop ? "opponent" : "player");
 
     const shieldW = shieldSize.w;
     const shieldH = shieldSize.h;
@@ -222,13 +226,17 @@ export class FieldHandler {
     this.drawEnergyLabels(energyX, energyY, gridTotalW, isTop);
   }
 
-  private drawPile(x: number, y: number, w: number, h: number, label: string) {
+  private drawPile(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
     if (label === "deck") {
       if (this.scene.textures.exists("deckBack")) {
-        this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setDepth(10);
+        this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setDepth(10).setName(`deck-pile-${owner}`);
       } else {
-        this.drawHandStyleCard(x, y, w, h, 0xb8673f);
-        this.scene.add.text(x, y, "deck", { fontSize: "14px", fontFamily: "Arial", color: "#0f1118" }).setOrigin(0.5);
+        const deckShape = this.drawHandStyleCard(x, y, w, h, 0xb8673f);
+        deckShape?.setName(`deck-pile-${owner}`);
+        this.scene
+          .add.text(x, y, "deck", { fontSize: "14px", fontFamily: "Arial", color: "#0f1118" })
+          .setOrigin(0.5)
+          .setName(`deck-pile-text-${owner}`);
       }
     } else {
       this.drawCardBox(x, y, w, h, label);
@@ -340,7 +348,7 @@ export class FieldHandler {
   }
 
   private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number) {
-    this.drawHelpers.drawRoundedRect({
+    const outer = this.drawHelpers.drawRoundedRect({
       x,
       y,
       width: w,
@@ -364,6 +372,7 @@ export class FieldHandler {
       strokeAlpha: 0.7,
       strokeWidth: 2,
     });
+    return outer;
   }
 
   private drawShieldCard(x: number, y: number, w: number, h: number) {

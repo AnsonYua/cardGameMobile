@@ -58,4 +58,8 @@ export class BoardUI {
   setHand(cards: Array<{ color: number; cost?: string }>) {
     this.hand.setHand(cards);
   }
+
+  setActionHandler(handler: (index: number) => void) {
+    this.actions.setActionHandler(handler);
+  }
 }

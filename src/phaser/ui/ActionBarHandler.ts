@@ -8,13 +8,22 @@ export class ActionBarHandler {
   private barPadding = 16;
   private barWidth = INTERNAL_W - this.barPadding * 2;
   private buttons = ["Action 1", "Action 2", "Action 3", "Action 4", "Action 5"];
+  private hitAreas: Phaser.GameObjects.Rectangle[] = [];
+  private onAction: (index: number) => void = () => {};
 
   // These mirror HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = { cardH: 90, gap: 8, rows: 2, bottomPadding: 24 };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
+  setActionHandler(handler: (index: number) => void) {
+    this.onAction = handler;
+  }
+
   draw(offset: { x: number; y: number }) {
+    this.hitAreas.forEach((h) => h.destroy());
+    this.hitAreas = [];
+
     const barWidth = this.barWidth;
 
     // Compute hand top using HandAreaHandler's layout to avoid overlap.
@@ -66,6 +75,10 @@ export class ActionBarHandler {
           color: "#ffffff",
         })
         .setOrigin(0.5);
+
+      const hit = this.scene.add.rectangle(x, y, btnWidth, btnHeight, 0x000000, 0).setInteractive({ useHandCursor: true });
+      hit.on("pointerdown", () => this.onAction(i));
+      this.hitAreas.push(hit);
     }
   }
 }
