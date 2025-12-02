@@ -24,25 +24,34 @@ export class GameStatusHandler {
       fontStyle: "bold",
     } as Phaser.Types.GameObjects.Text.TextStyle;
 
-    const entries: Array<[keyof GameStatus, string]> = [
-      ["shield", `Shield:${this.status.shield}`],
-      ["active", `Active:${this.status.active}`],
-      ["rested", `Rested:${this.status.rested}`],
-      ["extra", `Extra:${this.status.extra}`],
-    ];
+    // Precompute positions so each label can be tuned independently later.
+    const positions = this.computeLabelPositions(centerX, barWidth);
 
-    const step = barWidth / (entries.length - 1);
+    this.upsertLabel("shield", `Shield:${this.status.shield}`, positions.shield, labelY, textStyle);
+    this.upsertLabel("active", `Active(E):${this.status.active}`, positions.active, labelY, textStyle);
+    this.upsertLabel("rested", `Rested(E):${this.status.rested}`, positions.rested, labelY, textStyle);
+    this.upsertLabel("extra", `Extra(E):${this.status.extra}`, positions.extra, labelY, textStyle);
+  }
+
+  private computeLabelPositions(centerX: number, barWidth: number) {
+    // Evenly spaced for now; adjust individually here if needed.
     const startX = centerX - barWidth / 2;
+    const step = barWidth / 3;
+    return {
+      shield: startX-30,
+      active: startX +70,
+      rested: startX + 180,
+      extra: startX + 280
+    };
+  }
 
-    entries.forEach(([key, text], i) => {
-      const x = startX + i * step;
-      const existing = this.labels[key];
-      if (existing) {
-        existing.setText(text).setPosition(x, labelY);
-      } else {
-        this.labels[key] = this.scene.add.text(x, labelY, text, textStyle).setOrigin(0.5);
-      }
-    });
+  private upsertLabel(key: keyof GameStatus, text: string, x: number, y: number, style: Phaser.Types.GameObjects.Text.TextStyle) {
+    const existing = this.labels[key];
+    if (existing) {
+      existing.setText(text).setPosition(x, y);
+    } else {
+      this.labels[key] = this.scene.add.text(x, y, text, style).setOrigin(0.5);
+    }
   }
 
   update(status: Partial<GameStatus>) {
