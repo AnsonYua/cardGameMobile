@@ -41,7 +41,7 @@ export class ShuffleAnimationManager {
   }
 
   private createDeckStacks() {
-    const numCards = 12;
+    const numCards = 50;
     this.playerCards = [];
     this.opponentCards = [];
 
@@ -91,7 +91,7 @@ export class ShuffleAnimationManager {
       this.scene.tweens.add({
         targets: card,
         x: target.x,
-        y: target.y - stackLevel * 4,
+        y: target.y - stackLevel * 2,
         duration: travelDuration,
         delay: idx * delayBetween,
         ease: "Power2",
