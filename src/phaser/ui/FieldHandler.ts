@@ -3,6 +3,7 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
+import { BaseShieldHandler } from "./BaseShieldHandler";
 
 export type FieldConfig = {
   slot: number;
@@ -124,11 +125,13 @@ export class FieldHandler {
   private field: FieldConfig;
   private gameStatusOpponent: GameStatusHandler;
   private gameStatusPlayer: GameStatusHandler;
+  private baseShield: BaseShieldHandler;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
     this.gameStatusOpponent = new GameStatusHandler(scene, palette);
     this.gameStatusPlayer = new GameStatusHandler(scene, palette);
+    this.baseShield = new BaseShieldHandler(scene, palette, drawHelpers);
   }
 
   draw(offset: Offset) {
@@ -187,10 +190,6 @@ export class FieldHandler {
     const playerBaseCenterX = leftX + this.field.side.player.towerOffsetX + this.field.side.player.baseCenterX;
     const pileX = isTop ? playerBaseCenterX : opponentBaseCenterX;
     const pileYOffset = sideOffsets.deckTrashOffsetY;
-    const shieldX = towerX + sideOffsets.shieldCenterX;
-    const baseX = towerX + sideOffsets.baseCenterX;
-    const shieldYOffset = sideOffsets.shieldCenterY;
-    const baseYOffset = sideOffsets.baseCenterY;
 
     const pileGap = 12;
     const topPileLabel = isTop ? "trash" : "deck";
@@ -200,25 +199,25 @@ export class FieldHandler {
     this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel, isTop ? "opponent" : "player");
     this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel, isTop ? "opponent" : "player");
 
-    const shieldW = shieldSize.w;
-    const shieldH = shieldSize.h;
-    const stackHeight = this.computeStackHeight(shieldCount, shieldH, shieldGap, towerGap, baseSize.h, isTop);
-    const baseStackTop = isTop ? this.headerHeight + this.headerGap : originY - stackHeight / 2;
-    const stackTop = baseStackTop + sideOffsets.towerOffsetY;
-    this.drawShieldStack(
-      shieldX,
-      baseX,
-      shieldYOffset,
-      baseYOffset,
-      stackTop,
+    this.baseShield.drawStack({
+      towerX,
+      originY,
+      isTop,
+      offsets: {
+        shieldCenterX: sideOffsets.shieldCenterX,
+        baseCenterX: sideOffsets.baseCenterX,
+        shieldCenterY: sideOffsets.shieldCenterY,
+        baseCenterY: sideOffsets.baseCenterY,
+        towerOffsetY: sideOffsets.towerOffsetY,
+      },
+      baseSize,
+      shieldSize,
       shieldCount,
       shieldGap,
       towerGap,
-      baseSize,
-      shieldW,
-      shieldH,
-      isTop
-    );
+      headerHeight: this.headerHeight,
+      headerGap: this.headerGap,
+    });
 
     // Energy bar: opponent above slots, player below slots.
     const energyYOffset = isTop ? energy.offsetY.opponent : energy.offsetY.player;
@@ -252,55 +251,6 @@ export class FieldHandler {
     } else {
       this.drawCardBox(x, y, w, h, label);
     }
-  }
-
-  private drawShieldStack(
-    shieldX: number,
-    baseX: number,
-    shieldYOffset: number,
-    baseYOffset: number,
-    stackTop: number,
-    shieldCount: number,
-    shieldGap: number,
-    towerGap: number,
-    baseSize: { w: number; h: number },
-    shieldW: number,
-    shieldH: number,
-    isTop: boolean
-  ) {
-    const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
-    const baseOverlap = 20;
-    const barsTop = isTop ? stackTop : stackTop + baseSize.h - baseOverlap + towerGap;
-    const baseY = isTop
-      ? barsTop + totalBarsHeight + towerGap - baseOverlap + baseSize.h / 2
-      : stackTop + baseSize.h / 2 - baseOverlap / 2;
-    const baseYWithOffset = baseY + baseYOffset;
-
-    if (isTop) {
-      for (let i = 0; i < shieldCount; i++) {
-        const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
-        this.drawShieldCard(shieldX, y, shieldW, shieldH);
-      }
-      this.drawHandStyleCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, this.drawHelpers.toColor("#c9d5e0"));
-      this.scene.add
-        .text(baseX, baseYWithOffset, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
-        .setOrigin(0.5);
-    } else {
-      for (let i = shieldCount - 1; i >= 0; i--) {
-        const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
-        this.drawShieldCard(shieldX, y, shieldW, shieldH);
-      }
-      this.drawHandStyleCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, this.drawHelpers.toColor("#c9d5e0"));
-      this.scene.add
-        .text(baseX, baseYWithOffset, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
-        .setOrigin(0.5);
-    }
-  }
-
-  private computeStackHeight(shieldCount: number, shieldH: number, shieldGap: number, towerGap: number, baseHeight: number, isTop: boolean) {
-    const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
-    const baseOverlap = 20;
-    return isTop ? totalBarsHeight + towerGap - baseOverlap + baseHeight : baseHeight - baseOverlap + towerGap + totalBarsHeight;
   }
 
   private drawEnergyBar(centerX: number, baseY: number, cfg: FieldConfig["energy"], barWidth: number, isTop: boolean) {
@@ -370,11 +320,4 @@ export class FieldHandler {
     return outer;
   }
 
-  private drawShieldCard(x: number, y: number, w: number, h: number) {
-    if (this.scene.textures.exists("deckBack")) {
-      this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setAngle(90);
-    } else {
-      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"));
-    }
-  }
 }
