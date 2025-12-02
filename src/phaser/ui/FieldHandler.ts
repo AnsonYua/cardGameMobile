@@ -13,8 +13,6 @@ export type FieldConfig = {
   deckW: number;
   deckH: number;
   towerWidth: number;
-  baseSize: { w: number; h: number };
-  shieldSize: { w: number; h: number };
   energy: {
     count: number;
     perRow: number;
@@ -58,9 +56,6 @@ export type FieldConfig = {
       deckTrashOffsetY: number;
     };
   };
-  shieldCount: number;
-  shieldGap: number;
-  towerGap: number;
   columnGap: number;
 };
 
@@ -73,8 +68,6 @@ export class FieldHandler {
     deckW: 57,
     deckH: 80,
     towerWidth: 64,
-    baseSize: { w: 60, h: 80 },
-    shieldSize: { w: 60, h: 80 },
     energy: {
       count: 12,
       perRow: 12,
@@ -111,10 +104,7 @@ export class FieldHandler {
         shieldCenterY: 0,
         deckTrashOffsetY: 60,
       },
-  },
-    shieldCount: 6,
-    shieldGap: -65,
-    towerGap: -5,
+    },
     columnGap: 2,
   };
 
@@ -140,8 +130,7 @@ export class FieldHandler {
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isTop: boolean) {
-    const { slot, gap, cols, rows, deckW, deckH, towerWidth, baseSize, shieldCount, shieldGap, towerGap, columnGap, energy } = this.field;
-    const { shieldSize } = this.field;
+    const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
     const sideOffsets = sideConfig;
@@ -210,11 +199,6 @@ export class FieldHandler {
         baseCenterY: sideOffsets.baseCenterY,
         towerOffsetY: sideOffsets.towerOffsetY,
       },
-      baseSize,
-      shieldSize,
-      shieldCount,
-      shieldGap,
-      towerGap,
       headerHeight: this.headerHeight,
       headerGap: this.headerGap,
     });
@@ -229,7 +213,7 @@ export class FieldHandler {
     this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
     const statusHandler = isTop ? this.gameStatusOpponent : this.gameStatusPlayer;
     statusHandler.draw(energyX, energyY, gridTotalW, isTop, {
-      shield: this.field.shieldCount,
+      shield: this.baseShield.getShieldCount(),
       active: 0,
       rested: 0,
       extra: 0,
