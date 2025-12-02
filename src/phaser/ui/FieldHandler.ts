@@ -122,11 +122,13 @@ export class FieldHandler {
   private headerGap = 8;
 
   private field: FieldConfig;
-  private gameStatus: GameStatusHandler;
+  private gameStatusOpponent: GameStatusHandler;
+  private gameStatusPlayer: GameStatusHandler;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
-    this.gameStatus = new GameStatusHandler(scene, palette);
+    this.gameStatusOpponent = new GameStatusHandler(scene, palette);
+    this.gameStatusPlayer = new GameStatusHandler(scene, palette);
   }
 
   draw(offset: Offset) {
@@ -226,7 +228,8 @@ export class FieldHandler {
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isTop ? energy.offsetX.opponent : energy.offsetX.player);
     this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
-    this.gameStatus.draw(energyX, energyY, gridTotalW, isTop, {
+    const statusHandler = isTop ? this.gameStatusOpponent : this.gameStatusPlayer;
+    statusHandler.draw(energyX, energyY, gridTotalW, isTop, {
       shield: this.field.shieldCount,
       active: 0,
       rested: 0,
