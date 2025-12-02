@@ -5,7 +5,7 @@ import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
 import { DrawHelpers } from "./ui/HeaderHandler";
 
 const colors = {
-  bg: "#153ae0ff",
+  bg: "#ffffff",
   board: "#1a1d26",
   slot: "#2a2d38",
   accent: "#d0d5e0",

@@ -72,7 +72,7 @@ export class HeaderHandler {
       width: containerW,
       height,
       radius: 0,
-      fillColor: "#ffffff",
+      fillColor: "#153ae0",
       fillAlpha: 1,
       strokeColor: this.palette.ink,
       strokeAlpha: 0.7,
