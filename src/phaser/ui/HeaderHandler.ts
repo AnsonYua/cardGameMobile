@@ -7,8 +7,8 @@ export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "stro
   radius: 18,
   fillAlpha: 0.98,
   strokeColor: 0x000000,
-  strokeAlpha: 0.4,
-  strokeWidth: 2,
+  strokeAlpha: 0,
+  strokeWidth: 0,
 };
 
 // Shared drawing helpers for UI shapes.
@@ -75,8 +75,8 @@ export class HeaderHandler {
       fillColor: "#153ae0",
       fillAlpha: 1,
       strokeColor: this.palette.ink,
-      strokeAlpha: 0.7,
-      strokeWidth: 2,
+      strokeAlpha: 0,
+      strokeWidth: 0,
     }).setDepth(this.depth);
 
     // Avatar block
