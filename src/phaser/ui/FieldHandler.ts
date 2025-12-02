@@ -57,7 +57,7 @@ export type FieldConfig = {
       deckTrashOffsetY: number;
     };
   };
-  barCount: number;
+  shieldCount: number;
   shieldGap: number;
   towerGap: number;
   columnGap: number;
@@ -111,7 +111,7 @@ export class FieldHandler {
         deckTrashOffsetY: 60,
       },
   },
-    barCount: 6,
+    shieldCount: 6,
     shieldGap: -65,
     towerGap: -5,
     columnGap: 2,
@@ -135,7 +135,7 @@ export class FieldHandler {
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isTop: boolean) {
-    const { slot, gap, cols, rows, deckW, deckH, towerWidth, baseSize, barCount, shieldGap, towerGap, columnGap, energy } = this.field;
+    const { slot, gap, cols, rows, deckW, deckH, towerWidth, baseSize, shieldCount, shieldGap, towerGap, columnGap, energy } = this.field;
     const { shieldSize } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
@@ -200,7 +200,7 @@ export class FieldHandler {
 
     const shieldW = shieldSize.w;
     const shieldH = shieldSize.h;
-    const stackHeight = this.computeStackHeight(barCount, shieldH, shieldGap, towerGap, baseSize.h, isTop);
+    const stackHeight = this.computeStackHeight(shieldCount, shieldH, shieldGap, towerGap, baseSize.h, isTop);
     const baseStackTop = isTop ? this.headerHeight + this.headerGap : originY - stackHeight / 2;
     const stackTop = baseStackTop + sideOffsets.towerOffsetY;
     this.drawShieldStack(
@@ -209,7 +209,7 @@ export class FieldHandler {
       shieldYOffset,
       baseYOffset,
       stackTop,
-      barCount,
+      shieldCount,
       shieldGap,
       towerGap,
       baseSize,
@@ -257,7 +257,7 @@ export class FieldHandler {
     shieldYOffset: number,
     baseYOffset: number,
     stackTop: number,
-    barCount: number,
+    shieldCount: number,
     shieldGap: number,
     towerGap: number,
     baseSize: { w: number; h: number },
@@ -265,7 +265,7 @@ export class FieldHandler {
     shieldH: number,
     isTop: boolean
   ) {
-    const totalBarsHeight = barCount * shieldH + (barCount - 1) * shieldGap;
+    const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
     const baseOverlap = 20;
     const barsTop = isTop ? stackTop : stackTop + baseSize.h - baseOverlap + towerGap;
     const baseY = isTop
@@ -274,7 +274,7 @@ export class FieldHandler {
     const baseYWithOffset = baseY + baseYOffset;
 
     if (isTop) {
-      for (let i = 0; i < barCount; i++) {
+      for (let i = 0; i < shieldCount; i++) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
         this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
@@ -283,7 +283,7 @@ export class FieldHandler {
         .text(baseX, baseYWithOffset, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
         .setOrigin(0.5);
     } else {
-      for (let i = barCount - 1; i >= 0; i--) {
+      for (let i = shieldCount - 1; i >= 0; i--) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
         this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
@@ -294,8 +294,8 @@ export class FieldHandler {
     }
   }
 
-  private computeStackHeight(barCount: number, shieldH: number, shieldGap: number, towerGap: number, baseHeight: number, isTop: boolean) {
-    const totalBarsHeight = barCount * shieldH + (barCount - 1) * shieldGap;
+  private computeStackHeight(shieldCount: number, shieldH: number, shieldGap: number, towerGap: number, baseHeight: number, isTop: boolean) {
+    const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
     const baseOverlap = 20;
     return isTop ? totalBarsHeight + towerGap - baseOverlap + baseHeight : baseHeight - baseOverlap + towerGap + totalBarsHeight;
   }
