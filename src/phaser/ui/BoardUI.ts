@@ -5,7 +5,7 @@ import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionBarHandler } from "./ActionBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-import type { BaseStatus } from "./BaseShieldHandler";
+import type { BaseControls, BaseStatus } from "./BaseShieldHandler";
 
 export class BoardUI {
   private framePadding = 12;
@@ -14,11 +14,13 @@ export class BoardUI {
   private field: FieldHandler;
   private hand: HandAreaHandler;
   private actions: ActionBarHandler;
+  private baseControls: BaseControls;
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {
     this.drawHelpers = new DrawHelpers(scene);
     this.header = new HeaderHandler(scene, palette, this.drawHelpers, this.framePadding);
     this.field = new FieldHandler(scene, palette, this.drawHelpers);
+    this.baseControls = this.field.getBaseControls();
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
     this.actions = new ActionBarHandler(scene, palette, this.drawHelpers);
   }
@@ -75,15 +77,7 @@ export class BoardUI {
     this.actions.setActionHandler(handler);
   }
 
-  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
-    this.field.setBaseStatus(isOpponent, status);
-  }
-
-  setBaseBadgeLabel(isOpponent: boolean, text: string) {
-    this.field.setBaseBadgeLabel(isOpponent, text);
-  }
-
-  setShieldCount(isOpponent: boolean, count: number) {
-    this.field.setShieldCount(isOpponent, count);
+  getBaseControls(): BaseControls {
+    return this.baseControls;
   }
 }

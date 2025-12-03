@@ -33,6 +33,11 @@ export type BaseStatus = "normal" | "rested" | "destroyed";
 type BaseCardObject = Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
 type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text };
 
+export type BaseControls = Pick<
+  BaseShieldHandler,
+  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount"
+>;
+
 export class BaseShieldHandler {
   private config: BaseShieldConfig = {
     baseSize: { w: 60, h: 80 },

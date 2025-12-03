@@ -48,21 +48,22 @@ export class BoardScene extends Phaser.Scene {
       bg: colors.bg,
     });
     this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
+    const baseControls = this.ui.getBaseControls();
     this.ui.setActionHandler((index) => {
       if (index === 0) {
         this.shuffleManager?.play();
       } else if (index === 1) {
         this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
-        this.ui?.setBaseStatus(false, this.playerBaseStatus);
-        this.ui?.setBaseBadgeLabel(false, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
+        baseControls.setBaseStatus(true, this.playerBaseStatus);
+        baseControls.setBaseBadgeLabel(true, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
       } else if (index == 2) {
-        this.ui?.setBaseStatus(false, "normal");
-        this.ui?.setBaseBadgeLabel(false, "0|0");
+        baseControls.setBaseStatus(true, "normal");
+        baseControls.setBaseBadgeLabel(true, "0|0");
       } else if (index === 3) {
         // Cycle player shield count to demo dynamic stack redraw.
         this.playerShieldCount = (this.playerShieldCount + 1) % 7;
-        this.ui?.setShieldCount(false, this.playerShieldCount);
-        this.ui?.setBaseBadgeLabel(false, `${this.playerShieldCount}|6`);
+        baseControls.setShieldCount(true, this.playerShieldCount);
+        baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
       }
     });
     this.ui.drawFrame(this.offset);

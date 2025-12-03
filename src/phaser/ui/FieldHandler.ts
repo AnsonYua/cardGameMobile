@@ -3,7 +3,7 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
-import { BaseShieldHandler, BaseStatus } from "./BaseShieldHandler";
+import { BaseControls, BaseShieldHandler, BaseStatus } from "./BaseShieldHandler";
 
 export type FieldConfig = {
   slot: number;
@@ -116,12 +116,14 @@ export class FieldHandler {
   private gameStatusOpponent: GameStatusHandler;
   private gameStatusPlayer: GameStatusHandler;
   private baseShield: BaseShieldHandler;
+  private baseControls: BaseControls;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
     this.gameStatusOpponent = new GameStatusHandler(scene, palette);
     this.gameStatusPlayer = new GameStatusHandler(scene, palette);
     this.baseShield = new BaseShieldHandler(scene, palette, drawHelpers);
+    this.baseControls = this.baseShield;
   }
 
   draw(offset: Offset) {
@@ -129,16 +131,8 @@ export class FieldHandler {
     this.drawFieldSide(this.field.side.player, offset, false);
   }
 
-  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
-    this.baseShield.setBaseStatus(isOpponent, status);
-  }
-
-  setBaseBadgeLabel(isOpponent: boolean, text: string) {
-    this.baseShield.setBaseBadgeLabel(isOpponent, text);
-  }
-
-  setShieldCount(isOpponent: boolean, count: number) {
-    this.baseShield.setShieldCount(isOpponent, count);
+  getBaseControls(): BaseControls {
+    return this.baseControls;
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
