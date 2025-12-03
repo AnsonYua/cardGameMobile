@@ -7,7 +7,7 @@ type BaseSize = { w: number; h: number };
 type StackParams = {
   towerX: number;
   originY: number;
-  isTop: boolean;
+  isOpponent: boolean;
   offsets: {
     shieldCenterX: number;
     baseCenterX: number;
@@ -37,10 +37,12 @@ export class BaseShieldHandler {
     towerGap: -5,
     cornerRadius: 5,
   };
-  private baseRested = { top: false, bottom: false };
-  private baseOverlays: { top?: Phaser.GameObjects.Graphics; bottom?: Phaser.GameObjects.Graphics } = {};
-  private baseMasks: { top?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }; bottom?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics } } =
-    {};
+  private baseRested = { opponent: false, player: false };
+  private baseOverlays: { opponent?: Phaser.GameObjects.Graphics; player?: Phaser.GameObjects.Graphics } = {};
+  private baseMasks: {
+    opponent?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics };
+    player?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics };
+  } = {};
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -52,51 +54,60 @@ export class BaseShieldHandler {
     return this.config.shieldCount;
   }
 
-  setBaseStatus(isTop: boolean, rested: boolean) {
-    const key = isTop ? "top" : "bottom";
+  setBaseStatus(isOpponent: boolean, rested: boolean) {
+    const key = isOpponent ? "opponent" : "player";
     this.baseRested[key] = rested;
     const overlay = this.baseOverlays[key];
     overlay?.setVisible(rested);
   }
 
-  private computeStackHeight(shieldCount: number, shieldH: number, shieldGap: number, towerGap: number, baseHeight: number, isTop: boolean) {
+  private computeStackHeight(
+    shieldCount: number,
+    shieldH: number,
+    shieldGap: number,
+    towerGap: number,
+    baseHeight: number,
+    isOpponent: boolean,
+  ) {
     const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
     const baseOverlap = 20;
-    return isTop ? totalBarsHeight + towerGap - baseOverlap + baseHeight : baseHeight - baseOverlap + towerGap + totalBarsHeight;
+    return isOpponent
+      ? totalBarsHeight + towerGap - baseOverlap + baseHeight
+      : baseHeight - baseOverlap + towerGap + totalBarsHeight;
   }
 
   drawStack(params: StackParams) {
-    const { towerX, originY, isTop, offsets, headerHeight, headerGap } = params;
+    const { towerX, originY, isOpponent, offsets, headerHeight, headerGap } = params;
     const { baseSize, shieldSize, shieldCount, shieldGap, towerGap } = this.config;
     const shieldX = towerX + offsets.shieldCenterX;
     const baseX = towerX + offsets.baseCenterX;
     const shieldW = shieldSize.w;
     const shieldH = shieldSize.h;
-    const stackHeight = this.computeStackHeight(shieldCount, shieldH, shieldGap, towerGap, baseSize.h, isTop);
-    const baseStackTop = isTop ? headerHeight + headerGap : originY - stackHeight / 2;
+    const stackHeight = this.computeStackHeight(shieldCount, shieldH, shieldGap, towerGap, baseSize.h, isOpponent);
+    const baseStackTop = isOpponent ? headerHeight + headerGap : originY - stackHeight / 2;
     const stackTop = baseStackTop + offsets.towerOffsetY;
     const shieldYOffset = offsets.shieldCenterY;
     const baseYOffset = offsets.baseCenterY;
     const totalBarsHeight = shieldCount * shieldH + (shieldCount - 1) * shieldGap;
     const baseOverlap = 20;
-    const barsTop = isTop ? stackTop : stackTop + baseSize.h - baseOverlap + towerGap;
-    const baseY = isTop
+    const barsTop = isOpponent ? stackTop : stackTop + baseSize.h - baseOverlap + towerGap;
+    const baseY = isOpponent
       ? barsTop + totalBarsHeight + towerGap - baseOverlap + baseSize.h / 2
       : stackTop + baseSize.h / 2 - baseOverlap / 2;
     const baseYWithOffset = baseY + baseYOffset;
 
-    if (isTop) {
+    if (isOpponent) {
       for (let i = 0; i < shieldCount; i++) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
         this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
-      this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isTop);
+      this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     } else {
       for (let i = shieldCount - 1; i >= 0; i--) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
         this.drawShieldCard(shieldX, y, shieldW, shieldH);
       }
-      this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isTop);
+      this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     }
   }
 
@@ -108,9 +119,9 @@ export class BaseShieldHandler {
     }
   }
 
-  private drawBaseCard(x: number, y: number, w: number, h: number, isTop: boolean) {
-    const angle = isTop ? 180 : 0;
-    const overlayKey = isTop ? "top" : "bottom";
+  private drawBaseCard(x: number, y: number, w: number, h: number, isOpponent: boolean) {
+    const angle = isOpponent ? 180 : 0;
+    const overlayKey = isOpponent ? "opponent" : "player";
     const radius = this.config.cornerRadius;
     // Clean up any previous overlay for this side before drawing anew.
     this.baseOverlays[overlayKey]?.destroy();
@@ -146,7 +157,7 @@ export class BaseShieldHandler {
         height: h,
         radius,
         fillColor: 0x666666,
-        fillAlpha: 0.6,
+        fillAlpha: 0.25,
         strokeAlpha: 0,
         strokeWidth: 0,
       })
@@ -174,8 +185,8 @@ export class BaseShieldHandler {
     // Bottom-right count badge
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
-    const badgeX = isTop ? x - w * 0.34 + 5 : x + w * 0.34 - 5;
-    const badgeY = isTop ? y - h * 0.36 : y + h * 0.36;
+    const badgeX = isOpponent ? x - w * 0.34 + 5 : x + w * 0.34 - 5;
+    const badgeY = isOpponent ? y - h * 0.36 : y + h * 0.36;
 
     const badgeRectX = badgeX;
     const badgeRectY = badgeY;

@@ -129,11 +129,11 @@ export class FieldHandler {
     this.drawFieldSide(this.field.side.player, offset, false);
   }
 
-  setBaseRested(rested: boolean, isTop: boolean) {
-    this.baseShield.setBaseStatus(isTop, rested);
+  setBaseRested(rested: boolean, isOpponent: boolean) {
+    this.baseShield.setBaseStatus(isOpponent, rested);
   }
 
-  private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isTop: boolean) {
+  private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
     const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
@@ -177,25 +177,25 @@ export class FieldHandler {
 
     const leftX = gridStartX - slot / 2 - columnGap;
     const rightX = gridStartX + gridTotalW + slot / 2 + columnGap;
-    const towerX = (isTop ? rightX : leftX) + sideOffsets.towerOffsetX;
+    const towerX = (isOpponent ? rightX : leftX) + sideOffsets.towerOffsetX;
     const opponentBaseCenterX =
       rightX + this.field.side.opponent.towerOffsetX + this.field.side.opponent.baseCenterX;
     const playerBaseCenterX = leftX + this.field.side.player.towerOffsetX + this.field.side.player.baseCenterX;
-    const pileX = isTop ? playerBaseCenterX : opponentBaseCenterX;
+    const pileX = isOpponent ? playerBaseCenterX : opponentBaseCenterX;
     const pileYOffset = sideOffsets.deckTrashOffsetY;
 
     const pileGap = 12;
-    const topPileLabel = isTop ? "trash" : "deck";
-    const bottomPileLabel = isTop ? "deck" : "trash";
+    const topPileLabel = isOpponent ? "trash" : "deck";
+    const bottomPileLabel = isOpponent ? "deck" : "trash";
     const topPileY = originY - deckH / 2 - pileGap / 2 + pileYOffset;
     const bottomPileY = originY + deckH / 2 + pileGap / 2 + pileYOffset;
-    this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel, isTop ? "opponent" : "player");
-    this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel, isTop ? "opponent" : "player");
+    this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel, isOpponent ? "opponent" : "player");
+    this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel, isOpponent ? "opponent" : "player");
 
     this.baseShield.drawStack({
       towerX,
       originY,
-      isTop,
+      isOpponent,
       offsets: {
         shieldCenterX: sideOffsets.shieldCenterX,
         baseCenterX: sideOffsets.baseCenterX,
@@ -208,15 +208,15 @@ export class FieldHandler {
     });
 
     // Energy bar: opponent above slots, player below slots.
-    const energyYOffset = isTop ? energy.offsetY.opponent : energy.offsetY.player;
+    const energyYOffset = isOpponent ? energy.offsetY.opponent : energy.offsetY.player;
     const energyY =
-      (isTop
+      (isOpponent
         ? originY - slot / 2 - energy.offsetFromSlots
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
-    const energyX = centerX + (isTop ? energy.offsetX.opponent : energy.offsetX.player);
-    this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isTop);
-    const statusHandler = isTop ? this.gameStatusOpponent : this.gameStatusPlayer;
-    statusHandler.draw(energyX, energyY, gridTotalW, isTop, {
+    const energyX = centerX + (isOpponent ? energy.offsetX.opponent : energy.offsetX.player);
+    this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isOpponent);
+    const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
+    statusHandler.draw(energyX, energyY, gridTotalW, isOpponent, {
       shield: this.baseShield.getShieldCount(),
       active: 0,
       rested: 0,
@@ -241,15 +241,15 @@ export class FieldHandler {
     }
   }
 
-  private drawEnergyBar(centerX: number, baseY: number, cfg: FieldConfig["energy"], barWidth: number, isTop: boolean) {
+  private drawEnergyBar(centerX: number, baseY: number, cfg: FieldConfig["energy"], barWidth: number, isOpponent: boolean) {
     const totalWidth = cfg.perRow * cfg.radius * 2 + (cfg.perRow - 1) * cfg.gap;
     // Opponent: align to right edge and draw right-to-left. Player: align to left edge.
-    const startX = isTop ? centerX + barWidth / 2 - totalWidth : centerX - barWidth / 2;
+    const startX = isOpponent ? centerX + barWidth / 2 - totalWidth : centerX - barWidth / 2;
     let drawn = 0;
     for (let row = 0; row < cfg.rows; row++) {
       const y = baseY + row * (cfg.radius * 2 + cfg.rowGap);
       for (let i = 0; i < cfg.perRow && drawn < cfg.count; i++) {
-        const index = isTop ? cfg.perRow - 1 - i : i;
+        const index = isOpponent ? cfg.perRow - 1 - i : i;
         const x = startX + index * (cfg.radius * 2 + cfg.gap);
         const filled = drawn < cfg.count / 2;
         const circle = this.scene.add.circle(x, y, cfg.radius);

@@ -70,12 +70,12 @@ export class ShuffleAnimationManager {
     }
   }
 
-  private shuffleSide(isTop: boolean, done: () => void) {
-    const deckPos = this.getDeckPosition(isTop);
-    const slots = this.getSlotPositions(isTop);
-    const cards = isTop ? this.opponentCards : this.playerCards;
-    const deckSprite = isTop ? this.opponentDeckSprite : this.playerDeckSprite;
-    const owner = isTop ? "opponent" : "player";
+  private shuffleSide(isOpponent: boolean, done: () => void) {
+    const deckPos = this.getDeckPosition(isOpponent);
+    const slots = this.getSlotPositions(isOpponent);
+    const cards = isOpponent ? this.opponentCards : this.playerCards;
+    const deckSprite = isOpponent ? this.opponentDeckSprite : this.playerDeckSprite;
+    const owner = isOpponent ? "opponent" : "player";
 
     // Hide deck visuals as soon as the shuffle starts.
     deckSprite?.setVisible(false);
@@ -135,10 +135,10 @@ export class ShuffleAnimationManager {
     });
   }
 
-  private getSlotPositions(isTop: boolean) {
+  private getSlotPositions(isOpponent: boolean) {
     const { slot, gap, cols, rows } = this.config;
-    const centerX = this.config.side[isTop ? "opponent" : "player"].centerX + this.offset.x;
-    const originY = this.config.side[isTop ? "opponent" : "player"].originY + this.offset.y;
+    const centerX = this.config.side[isOpponent ? "opponent" : "player"].centerX + this.offset.x;
+    const originY = this.config.side[isOpponent ? "opponent" : "player"].originY + this.offset.y;
     const gridTotalW = cols * slot + (cols - 1) * gap;
     const gridStartX = centerX - gridTotalW / 2;
     const rowY = (rowIndex: number) => originY + rowIndex * (slot + gap);
@@ -154,9 +154,9 @@ export class ShuffleAnimationManager {
     return positions;
   }
 
-  private getDeckPosition(isTop: boolean) {
+  private getDeckPosition(isOpponent: boolean) {
     const cfg = this.config;
-    const side = cfg.side[isTop ? "opponent" : "player"];
+    const side = cfg.side[isOpponent ? "opponent" : "player"];
     const centerX = side.centerX + this.offset.x;
     const originY = side.originY + this.offset.y;
     const gridTotalW = cfg.cols * cfg.slot + (cfg.cols - 1) * cfg.gap;
@@ -165,10 +165,10 @@ export class ShuffleAnimationManager {
     const rightX = gridStartX + gridTotalW + cfg.slot / 2 + cfg.columnGap;
     const opponentBaseCenterX = rightX + cfg.side.opponent.towerOffsetX + cfg.side.opponent.baseCenterX;
     const playerBaseCenterX = leftX + cfg.side.player.towerOffsetX + cfg.side.player.baseCenterX;
-    const pileX = isTop ? playerBaseCenterX : opponentBaseCenterX;
+    const pileX = isOpponent ? playerBaseCenterX : opponentBaseCenterX;
     const pileYOffset = side.deckTrashOffsetY;
     const pileGap = 12;
-    const deckY = isTop
+    const deckY = isOpponent
       ? originY + cfg.deckH / 2 + pileGap / 2 + pileYOffset
       : originY - cfg.deckH / 2 - pileGap / 2 + pileYOffset;
     return { x: pileX, y: deckY };

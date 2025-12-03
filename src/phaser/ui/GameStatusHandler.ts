@@ -14,9 +14,9 @@ export class GameStatusHandler {
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {}
 
-  draw(centerX: number, baseY: number, barWidth: number, isTop: boolean, status?: Partial<GameStatus>) {
+  draw(centerX: number, baseY: number, barWidth: number, isOpponent: boolean, status?: Partial<GameStatus>) {
     if (status) this.status = { ...this.status, ...status };
-    const labelY = baseY + (isTop ? -20 : 20);
+    const labelY = baseY + (isOpponent ? -20 : 20);
     const textStyle = {
       fontSize: "16px",
       fontFamily: "Arial",
