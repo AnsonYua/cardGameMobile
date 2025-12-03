@@ -65,6 +65,15 @@ export class BaseShieldHandler {
     this.applyBaseStatus(key);
   }
 
+  // Update the shield badge text per side (e.g., "3|6"); pass `true` for opponent (top) and `false` for player (bottom).
+  setShieldBadge(isOpponent: boolean, text: string) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    const badge = this.badges[key];
+    if (badge) {
+      badge.label.setText(text);
+    }
+  }
+
   private computeStackHeight(
     shieldCount: number,
     shieldH: number,

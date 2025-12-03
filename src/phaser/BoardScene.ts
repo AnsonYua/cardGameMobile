@@ -52,9 +52,11 @@ export class BoardScene extends Phaser.Scene {
         this.shuffleManager?.play();
       } else if (index === 1) {
         this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
-        this.ui?.setBaseStatus(false, "destroyed");
-      }else if (index ==2){
-         this.ui?.setBaseStatus(false, "normal");
+        this.ui?.setBaseStatus(false, this.playerBaseStatus);
+        this.ui?.setShieldBadge(false, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
+      } else if (index == 2) {
+        this.ui?.setBaseStatus(false, "normal");
+        this.ui?.setShieldBadge(false, "0|0");
       }
     });
     this.ui.drawFrame(this.offset);

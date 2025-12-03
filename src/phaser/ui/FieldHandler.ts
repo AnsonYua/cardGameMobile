@@ -133,6 +133,10 @@ export class FieldHandler {
     this.baseShield.setBaseStatus(isOpponent, status);
   }
 
+  setShieldBadge(isOpponent: boolean, text: string) {
+    this.baseShield.setShieldBadge(isOpponent, text);
+  }
+
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
     const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;

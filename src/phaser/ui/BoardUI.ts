@@ -78,4 +78,8 @@ export class BoardUI {
   setBaseStatus(isOpponent: boolean, status: BaseStatus) {
     this.field.setBaseStatus(isOpponent, status);
   }
+
+  setShieldBadge(isOpponent: boolean, text: string) {
+    this.field.setShieldBadge(isOpponent, text);
+  }
 }
