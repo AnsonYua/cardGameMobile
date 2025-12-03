@@ -137,6 +137,10 @@ export class FieldHandler {
     this.baseShield.setBaseBadgeLabel(isOpponent, text);
   }
 
+  setShieldCount(isOpponent: boolean, count: number) {
+    this.baseShield.setShieldCount(isOpponent, count);
+  }
+
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
     const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;
@@ -221,7 +225,7 @@ export class FieldHandler {
     this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isOpponent);
     const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
     statusHandler.draw(energyX, energyY, gridTotalW, isOpponent, {
-      shield: this.baseShield.getShieldCount(),
+      shield: this.baseShield.getShieldCount(isOpponent),
       active: 0,
       rested: 0,
       extra: 0,

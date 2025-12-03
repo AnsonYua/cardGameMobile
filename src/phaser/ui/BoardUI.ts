@@ -82,4 +82,8 @@ export class BoardUI {
   setBaseBadgeLabel(isOpponent: boolean, text: string) {
     this.field.setBaseBadgeLabel(isOpponent, text);
   }
+
+  setShieldCount(isOpponent: boolean, count: number) {
+    this.field.setShieldCount(isOpponent, count);
+  }
 }

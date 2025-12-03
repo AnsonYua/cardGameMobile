@@ -47,18 +47,30 @@ export class BaseShieldHandler {
   private baseMasks: Partial<Record<BaseSide, { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }>> = {};
   private baseCards: Partial<Record<BaseSide, BaseCardObject>> = {};
   private badges: Partial<Record<BaseSide, BadgePair>> = {};
+  private shieldCounts: Record<BaseSide, number>;
+  private lastStackParams: Partial<Record<BaseSide, StackParams>> = {};
+  private shieldCards: Record<BaseSide, Phaser.GameObjects.GameObject[]>;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
+    this.shieldCounts = { opponent: this.config.shieldCount, player: this.config.shieldCount };
+    this.shieldCards = { opponent: [], player: [] };
+  }
 
   setConfig(cfg: Partial<BaseShieldConfig>) {
     this.config = { ...this.config, ...cfg };
+    if (cfg.shieldCount !== undefined) {
+      this.shieldCounts = { opponent: cfg.shieldCount, player: cfg.shieldCount };
+    }
   }
 
-  getShieldCount() {
+  getShieldCount(isOpponent?: boolean) {
+    if (typeof isOpponent === "boolean") {
+      return this.shieldCounts[isOpponent ? "opponent" : "player"];
+    }
     return this.config.shieldCount;
   }
 
-// Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
+  // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
   setBaseStatus(isOpponent: boolean, status: BaseStatus) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     this.baseStatus[key] = status;
@@ -71,6 +83,16 @@ export class BaseShieldHandler {
     const badge = this.badges[key];
     if (badge) {
       badge.label.setText(text);
+    }
+  }
+
+  // Update the number of shield cards in the tower and redraw if already rendered.
+  setShieldCount(isOpponent: boolean, count: number) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    this.shieldCounts[key] = count;
+    const last = this.lastStackParams[key];
+    if (last) {
+      this.drawStack(last);
     }
   }
 
@@ -91,7 +113,10 @@ export class BaseShieldHandler {
 
   drawStack(params: StackParams) {
     const { towerX, originY, isOpponent, offsets, headerHeight, headerGap } = params;
-    const { baseSize, shieldSize, shieldCount, shieldGap, towerGap } = this.config;
+    const side: BaseSide = isOpponent ? "opponent" : "player";
+    this.lastStackParams[side] = params;
+    const { baseSize, shieldSize, shieldGap, towerGap } = this.config;
+    const shieldCount = this.shieldCounts[side] ?? this.config.shieldCount;
     const shieldX = towerX + offsets.shieldCenterX;
     const baseX = towerX + offsets.baseCenterX;
     const shieldW = shieldSize.w;
@@ -109,26 +134,34 @@ export class BaseShieldHandler {
       : stackTop + baseSize.h / 2 - baseOverlap / 2;
     const baseYWithOffset = baseY + baseYOffset;
 
+    this.clearShieldsForSide(side);
     if (isOpponent) {
       for (let i = 0; i < shieldCount; i++) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
-        this.drawShieldCard(shieldX, y, shieldW, shieldH);
+        const card = this.drawShieldCard(shieldX, y, shieldW, shieldH);
+        this.shieldCards[side].push(card);
       }
       this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     } else {
       for (let i = shieldCount - 1; i >= 0; i--) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
-        this.drawShieldCard(shieldX, y, shieldW, shieldH);
+        const card = this.drawShieldCard(shieldX, y, shieldW, shieldH);
+        this.shieldCards[side].push(card);
       }
       this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     }
   }
 
+  private clearShieldsForSide(side: BaseSide) {
+    this.shieldCards[side].forEach((c) => c.destroy());
+    this.shieldCards[side] = [];
+  }
+
   private drawShieldCard(x: number, y: number, w: number, h: number) {
     if (this.scene.textures.exists("deckBack")) {
-      this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setAngle(90);
+      return this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setAngle(90);
     } else {
-      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"), this.config.cornerRadius);
+      return this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"), this.config.cornerRadius);
     }
   }
 

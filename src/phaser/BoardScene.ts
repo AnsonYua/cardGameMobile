@@ -30,6 +30,7 @@ export class BoardScene extends Phaser.Scene {
   private ui: BoardUI | null = null;
   private shuffleManager: ShuffleAnimationManager | null = null;
   private playerBaseStatus: BaseStatus = "normal";
+  private playerShieldCount = 6;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -57,6 +58,11 @@ export class BoardScene extends Phaser.Scene {
       } else if (index == 2) {
         this.ui?.setBaseStatus(false, "normal");
         this.ui?.setBaseBadgeLabel(false, "0|0");
+      } else if (index === 3) {
+        // Cycle player shield count to demo dynamic stack redraw.
+        this.playerShieldCount = (this.playerShieldCount + 1) % 7;
+        this.ui?.setShieldCount(false, this.playerShieldCount);
+        this.ui?.setBaseBadgeLabel(false, `${this.playerShieldCount}|6`);
       }
     });
     this.ui.drawFrame(this.offset);
