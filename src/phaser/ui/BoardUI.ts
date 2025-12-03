@@ -73,4 +73,8 @@ export class BoardUI {
   setActionHandler(handler: (index: number) => void) {
     this.actions.setActionHandler(handler);
   }
+
+  setBaseRested(rested: boolean, isTop: boolean) {
+    this.field.setBaseRested(rested, isTop);
+  }
 }

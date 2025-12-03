@@ -35,6 +35,10 @@ export class BaseShieldHandler {
     shieldGap: -65,
     towerGap: -5,
   };
+  private baseRested = { top: false, bottom: false };
+  private baseOverlays: { top?: Phaser.GameObjects.Graphics; bottom?: Phaser.GameObjects.Graphics } = {};
+  private baseMasks: { top?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }; bottom?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics } } =
+    {};
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -44,6 +48,13 @@ export class BaseShieldHandler {
 
   getShieldCount() {
     return this.config.shieldCount;
+  }
+
+  setBaseStatus(isTop: boolean, rested: boolean) {
+    const key = isTop ? "top" : "bottom";
+    this.baseRested[key] = rested;
+    const overlay = this.baseOverlays[key];
+    overlay?.setVisible(rested);
   }
 
   private computeStackHeight(shieldCount: number, shieldH: number, shieldGap: number, towerGap: number, baseHeight: number, isTop: boolean) {
@@ -97,8 +108,24 @@ export class BaseShieldHandler {
 
   private drawBaseCard(x: number, y: number, w: number, h: number, isTop: boolean) {
     const angle = isTop ? 180 : 0;
+    const overlayKey = isTop ? "top" : "bottom";
+    // Clean up any previous overlay for this side before drawing anew.
+    this.baseOverlays[overlayKey]?.destroy();
+    this.baseOverlays[overlayKey] = undefined;
+    this.baseMasks[overlayKey]?.shape.destroy();
+    this.baseMasks[overlayKey]?.mask.destroy();
+    this.baseMasks[overlayKey] = undefined;
+
     if (this.scene.textures.exists("baseCard")) {
-      this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle);
+      const baseImg = this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle);
+      // Rounded corner mask so the transparent PNG keeps its soft edges.
+      const shape = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
+      shape.fillStyle(0xffffff, 1);
+      shape.fillRoundedRect(0, 0, w, h, 8);
+      shape.setVisible(false);
+      const mask = shape.createGeometryMask();
+      baseImg.setMask(mask);
+      this.baseMasks[overlayKey] = { mask, shape };
     } else {
       this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0")).setAngle(angle);
       this.scene
@@ -107,8 +134,8 @@ export class BaseShieldHandler {
         .setAngle(angle);
     }
 
-    // Grey transparent overlay as rested indicator.
-    this.drawHelpers
+    // Grey transparent overlay as rested indicator; always created, visibility controlled by state.
+    const restedOverlay = this.drawHelpers
       .drawRoundedRect({
         x,
         y,
@@ -120,7 +147,11 @@ export class BaseShieldHandler {
         strokeAlpha: 0,
         strokeWidth: 0,
       })
-      .setDepth(495);
+      .setDepth(495)
+      .setAngle(angle)
+      .setVisible(this.baseRested[overlayKey]);
+    this.baseOverlays[overlayKey] = restedOverlay;
+
 
     // Overlay status text (scaled to base size)
     /*

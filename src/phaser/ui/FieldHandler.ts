@@ -129,6 +129,10 @@ export class FieldHandler {
     this.drawFieldSide(this.field.side.player, offset, false);
   }
 
+  setBaseRested(rested: boolean, isTop: boolean) {
+    this.baseShield.setBaseStatus(isTop, rested);
+  }
+
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isTop: boolean) {
     const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;

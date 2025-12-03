@@ -28,6 +28,7 @@ export class BoardScene extends Phaser.Scene {
   private offset = { x: 0, y: 0 };
   private ui: BoardUI | null = null;
   private shuffleManager: ShuffleAnimationManager | null = null;
+  private playerRested = false;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -48,6 +49,9 @@ export class BoardScene extends Phaser.Scene {
     this.ui.setActionHandler((index) => {
       if (index === 0) {
         this.shuffleManager?.play();
+      } else if (index === 1) {
+        this.playerRested = !this.playerRested;
+        this.ui?.setBaseRested(this.playerRested, false);
       }
     });
     this.ui.drawFrame(this.offset);
