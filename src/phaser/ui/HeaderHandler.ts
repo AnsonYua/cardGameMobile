@@ -6,7 +6,7 @@ import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
 export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "strokeColor" | "strokeAlpha" | "strokeWidth"> = {
   radius: 18,
   fillAlpha: 0.98,
-  strokeColor: 0x000000,
+  strokeColor: "#ffffff",
   strokeAlpha: 0,
   strokeWidth: 0,
 };
@@ -73,7 +73,7 @@ export class HeaderHandler {
       height,
       radius: 0,
       fillColor: "#153ae0",
-      fillAlpha: 1,
+      fillAlpha: 0.5,
       strokeColor: this.palette.ink,
       strokeAlpha: 0,
       strokeWidth: 0,
@@ -101,7 +101,7 @@ export class HeaderHandler {
       .text(nameX, containerTop + padding, name, {
         fontSize: "20px",
         fontFamily: "Arial",
-        color: this.palette.ink,
+        color:"#ffffff",
       })
       .setOrigin(0, 0)
       .setDepth(this.depth);
@@ -113,7 +113,7 @@ export class HeaderHandler {
       .text(handTextX, handY, `Hand Num:  ${handCount}`, {
         fontSize: "16px",
         fontFamily: "Arial",
-        color: this.palette.ink,
+        color:"#ffffff",
       })
       .setOrigin(0, 0)
       .setDepth(this.depth);
