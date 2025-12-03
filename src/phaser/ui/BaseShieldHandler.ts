@@ -127,8 +127,21 @@ export class BaseShieldHandler {
     const badgeH = h * 0.3;
     const badgeX = isTop ? x - w * 0.34 + 5: x + w * 0.34 -5;
     const badgeY = isTop ? y - h * 0.36 : y + h * 0.36;
-    const badge = this.scene.add.rectangle(badgeX, badgeY, badgeW+5, badgeH, 0x000000, 0.9);
-    badge.setOrigin(0.5).setAngle(angle).setDepth(500);
+
+    const badgeRectX = isTop ? x + w * 0.34 : x + w * 0.34 -5;
+    const badgeRectY = isTop ? y -5 : y + h * 0.36;
+    const badge = this.drawHelpers.drawRoundedRect({
+      x: badgeRectX,
+      y: badgeRectY,
+      width: badgeW + 5,
+      height: badgeH,
+      radius: 6,
+      fillColor: 0x000000,
+      fillAlpha: 0.9,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    });
+    badge.setAngle(angle).setDepth(500);
     const badgeFontSize = 20;
     this.scene
       .add.text(badgeX, badgeY, "0|3", {
