@@ -25,6 +25,7 @@ type BaseShieldConfig = {
   shieldCount: number;
   shieldGap: number;
   towerGap: number;
+  cornerRadius: number;
 };
 
 export class BaseShieldHandler {
@@ -34,6 +35,7 @@ export class BaseShieldHandler {
     shieldCount: 6,
     shieldGap: -65,
     towerGap: -5,
+    cornerRadius: 5,
   };
   private baseRested = { top: false, bottom: false };
   private baseOverlays: { top?: Phaser.GameObjects.Graphics; bottom?: Phaser.GameObjects.Graphics } = {};
@@ -102,13 +104,14 @@ export class BaseShieldHandler {
     if (this.scene.textures.exists("deckBack")) {
       this.scene.add.image(x, y, "deckBack").setDisplaySize(w, h).setOrigin(0.5).setAngle(90);
     } else {
-      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"));
+      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#b0b7c5"), this.config.cornerRadius);
     }
   }
 
   private drawBaseCard(x: number, y: number, w: number, h: number, isTop: boolean) {
     const angle = isTop ? 180 : 0;
     const overlayKey = isTop ? "top" : "bottom";
+    const radius = this.config.cornerRadius;
     // Clean up any previous overlay for this side before drawing anew.
     this.baseOverlays[overlayKey]?.destroy();
     this.baseOverlays[overlayKey] = undefined;
@@ -121,13 +124,13 @@ export class BaseShieldHandler {
       // Rounded corner mask so the transparent PNG keeps its soft edges.
       const shape = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
       shape.fillStyle(0xffffff, 1);
-      shape.fillRoundedRect(0, 0, w, h, 8);
+      shape.fillRoundedRect(0, 0, w, h, radius);
       shape.setVisible(false);
       const mask = shape.createGeometryMask();
       baseImg.setMask(mask);
       this.baseMasks[overlayKey] = { mask, shape };
     } else {
-      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0")).setAngle(angle);
+      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"), radius).setAngle(angle);
       this.scene
         .add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
         .setOrigin(0.5)
@@ -141,9 +144,9 @@ export class BaseShieldHandler {
         y,
         width: w,
         height: h,
-        radius: 8,
+        radius,
         fillColor: 0x666666,
-        fillAlpha: 0.25,
+        fillAlpha: 0.6,
         strokeAlpha: 0,
         strokeWidth: 0,
       })
@@ -201,13 +204,15 @@ export class BaseShieldHandler {
       .setDepth(501);
   }
 
-  private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number) {
+  private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number, cornerRadius: number) {
+    const outerRadius = Math.max(cornerRadius + 2, 0);
+    const innerRadius = Math.max(cornerRadius, 0);
     const outer = this.drawHelpers.drawRoundedRect({
       x,
       y,
       width: w,
       height: h,
-      radius: 10,
+      radius: outerRadius,
       fillColor: fill,
       fillAlpha: 1,
       strokeColor: this.drawHelpers.toColor("#5a463a"),
@@ -219,7 +224,7 @@ export class BaseShieldHandler {
       y,
       width: w - 12,
       height: h - 18,
-      radius: 8,
+      radius: innerRadius,
       fillColor: this.drawHelpers.toColor("#d7a97d"),
       fillAlpha: 0.6,
       strokeColor: this.drawHelpers.toColor("#9b6c4b"),
