@@ -133,8 +133,8 @@ export class FieldHandler {
     this.baseShield.setBaseStatus(isOpponent, status);
   }
 
-  setShieldBadge(isOpponent: boolean, text: string) {
-    this.baseShield.setShieldBadge(isOpponent, text);
+  setBaseBadgeLabel(isOpponent: boolean, text: string) {
+    this.baseShield.setBaseBadgeLabel(isOpponent, text);
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {

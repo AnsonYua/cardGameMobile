@@ -58,15 +58,15 @@ export class BaseShieldHandler {
     return this.config.shieldCount;
   }
 
-  // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
+// Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
   setBaseStatus(isOpponent: boolean, status: BaseStatus) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     this.baseStatus[key] = status;
     this.applyBaseStatus(key);
   }
 
-  // Update the shield badge text per side (e.g., "3|6"); pass `true` for opponent (top) and `false` for player (bottom).
-  setShieldBadge(isOpponent: boolean, text: string) {
+  // Update the base badge text per side (e.g., "3|6"); pass `true` for opponent (top) and `false` for player (bottom).
+  setBaseBadgeLabel(isOpponent: boolean, text: string) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const badge = this.badges[key];
     if (badge) {
