@@ -3,7 +3,7 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
-import { BaseShieldHandler } from "./BaseShieldHandler";
+import { BaseShieldHandler, BaseStatus } from "./BaseShieldHandler";
 
 export type FieldConfig = {
   slot: number;
@@ -129,8 +129,8 @@ export class FieldHandler {
     this.drawFieldSide(this.field.side.player, offset, false);
   }
 
-  setBaseRested(rested: boolean, isOpponent: boolean) {
-    this.baseShield.setBaseStatus(isOpponent, rested);
+  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
+    this.baseShield.setBaseStatus(isOpponent, status);
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {

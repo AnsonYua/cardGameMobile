@@ -3,6 +3,7 @@ import { BASE_H, BASE_W } from "../config/gameLayout";
 import { BoardUI } from "./ui/BoardUI";
 import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
 import { DrawHelpers } from "./ui/HeaderHandler";
+import { BaseStatus } from "./ui/BaseShieldHandler";
 
 const colors = {
   bg: "#ffffff",
@@ -28,7 +29,7 @@ export class BoardScene extends Phaser.Scene {
   private offset = { x: 0, y: 0 };
   private ui: BoardUI | null = null;
   private shuffleManager: ShuffleAnimationManager | null = null;
-  private playerRested = false;
+  private playerBaseStatus: BaseStatus = "normal";
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -50,8 +51,10 @@ export class BoardScene extends Phaser.Scene {
       if (index === 0) {
         this.shuffleManager?.play();
       } else if (index === 1) {
-        this.playerRested = !this.playerRested;
-        this.ui?.setBaseRested(this.playerRested, false);
+        this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
+        this.ui?.setBaseStatus(false, "destroyed");
+      }else if (index ==2){
+         this.ui?.setBaseStatus(false, "normal");
       }
     });
     this.ui.drawFrame(this.offset);

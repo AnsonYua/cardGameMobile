@@ -28,6 +28,11 @@ type BaseShieldConfig = {
   cornerRadius: number;
 };
 
+type BaseSide = "opponent" | "player";
+export type BaseStatus = "normal" | "rested" | "destroyed";
+type BaseCardObject = Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text };
+
 export class BaseShieldHandler {
   private config: BaseShieldConfig = {
     baseSize: { w: 60, h: 80 },
@@ -37,12 +42,11 @@ export class BaseShieldHandler {
     towerGap: -5,
     cornerRadius: 5,
   };
-  private baseRested = { opponent: false, player: false };
-  private baseOverlays: { opponent?: Phaser.GameObjects.Graphics; player?: Phaser.GameObjects.Graphics } = {};
-  private baseMasks: {
-    opponent?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics };
-    player?: { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics };
-  } = {};
+  private baseStatus: Record<BaseSide, BaseStatus> = { opponent: "normal", player: "normal" };
+  private baseOverlays: Partial<Record<BaseSide, Phaser.GameObjects.Graphics>> = {};
+  private baseMasks: Partial<Record<BaseSide, { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }>> = {};
+  private baseCards: Partial<Record<BaseSide, BaseCardObject>> = {};
+  private badges: Partial<Record<BaseSide, BadgePair>> = {};
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -54,11 +58,11 @@ export class BaseShieldHandler {
     return this.config.shieldCount;
   }
 
-  setBaseStatus(isOpponent: boolean, rested: boolean) {
-    const key = isOpponent ? "opponent" : "player";
-    this.baseRested[key] = rested;
-    const overlay = this.baseOverlays[key];
-    overlay?.setVisible(rested);
+  // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
+  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    this.baseStatus[key] = status;
+    this.applyBaseStatus(key);
   }
 
   private computeStackHeight(
@@ -129,6 +133,11 @@ export class BaseShieldHandler {
     this.baseMasks[overlayKey]?.shape.destroy();
     this.baseMasks[overlayKey]?.mask.destroy();
     this.baseMasks[overlayKey] = undefined;
+    this.baseCards[overlayKey]?.destroy();
+    this.baseCards[overlayKey] = undefined;
+    this.badges[overlayKey]?.box.destroy();
+    this.badges[overlayKey]?.label.destroy();
+    this.badges[overlayKey] = undefined;
 
     if (this.scene.textures.exists("baseCard")) {
       const baseImg = this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle);
@@ -140,8 +149,10 @@ export class BaseShieldHandler {
       const mask = shape.createGeometryMask();
       baseImg.setMask(mask);
       this.baseMasks[overlayKey] = { mask, shape };
+      this.baseCards[overlayKey] = baseImg;
     } else {
-      this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"), radius).setAngle(angle);
+      const card = this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"), radius).setAngle(angle);
+      this.baseCards[overlayKey] = card;
       this.scene
         .add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
         .setOrigin(0.5)
@@ -163,24 +174,8 @@ export class BaseShieldHandler {
       })
       .setDepth(495)
       .setAngle(angle)
-      .setVisible(this.baseRested[overlayKey]);
+      .setVisible(this.baseStatus[overlayKey] === "rested");
     this.baseOverlays[overlayKey] = restedOverlay;
-
-
-    // Overlay status text (scaled to base size)
-    /*
-    const restedFontSize = 14;
-    const restedText = this.scene.add
-      .text(x, y - h * 0.05, "Rested", {
-        fontSize: `${restedFontSize}px`,
-        fontFamily: "Arial",
-        color: "#e74c3c",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setAngle(angle)
-      .setDepth(500);
-      */
 
     // Bottom-right count badge
     const badgeW = w * 0.5;
@@ -203,7 +198,7 @@ export class BaseShieldHandler {
     });
     badge.setDepth(500);
     const badgeFontSize = 20;
-    this.scene
+    const badgeLabel = this.scene
       .add.text(badgeX, badgeY, "0|3", {
         fontSize: `${badgeFontSize}px`,
         fontFamily: "Arial",
@@ -213,6 +208,29 @@ export class BaseShieldHandler {
       .setOrigin(0.5)
       .setAngle(angle)
       .setDepth(501);
+    this.badges[overlayKey] = { box: badge, label: badgeLabel };
+
+    // Apply any previously-set status now that visuals exist.
+    this.applyBaseStatus(overlayKey);
+  }
+
+  private applyBaseStatus(side: BaseSide) {
+    const status = this.baseStatus[side];
+    const overlay = this.baseOverlays[side];
+    const card = this.baseCards[side];
+    const badge = this.badges[side];
+
+    if (!overlay && !card && !badge) {
+      return;
+    }
+
+    // Rested overlay visibility
+    overlay?.setVisible(status === "rested");
+    // Base visibility (hidden if destroyed)
+    card?.setVisible(status !== "destroyed");
+    // Badge visibility mirrors base visibility.
+    badge?.box.setVisible(status !== "destroyed");
+    badge?.label.setVisible(status !== "destroyed");
   }
 
   private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number, cornerRadius: number) {

@@ -5,6 +5,7 @@ import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionBarHandler } from "./ActionBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
+import type { BaseStatus } from "./BaseShieldHandler";
 
 export class BoardUI {
   private framePadding = 12;
@@ -74,7 +75,7 @@ export class BoardUI {
     this.actions.setActionHandler(handler);
   }
 
-  setBaseRested(rested: boolean, isOpponent: boolean) {
-    this.field.setBaseRested(rested, isOpponent);
+  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
+    this.field.setBaseStatus(isOpponent, status);
   }
 }
