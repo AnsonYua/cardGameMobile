@@ -35,19 +35,6 @@ export class ActionBarHandler {
     // Center bar against the full board width while using internal width for sizing.
     const barX = BASE_W / 2 + offset.x;
 
-    this.drawHelpers.drawRoundedRect({
-      x: barX,
-      y: barY,
-      width: barWidth,
-      height: this.barHeight,
-      radius: 6,
-      fillColor: "#3f2bd8",
-      fillAlpha: 1,
-      strokeColor: 0x000000,
-      strokeAlpha: 0.4,
-      strokeWidth: 2,
-    });
-
     const btnCount = this.buttons.length;
     const btnGap = 12;
     const btnWidth = (barWidth - (btnCount - 1) * btnGap) / btnCount;
@@ -64,9 +51,9 @@ export class ActionBarHandler {
         radius: 6,
         fillColor: "#5e48f0",
         fillAlpha: 1,
-        strokeColor: 0xffffff,
-        strokeAlpha: 0.7,
-        strokeWidth: 2,
+        strokeColor: 0x5e48f0,
+        strokeAlpha: 0,
+        strokeWidth: 0,
       });
       this.scene.add
         .text(x, y, this.buttons[i], {
