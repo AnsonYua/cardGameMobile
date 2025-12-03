@@ -23,16 +23,27 @@ export class BoardUI {
   }
 
   drawFrame(offset: Offset) {
-    const width = BASE_W - this.framePadding * 2;
-    const height = BASE_H - this.framePadding * 2;
-    this.drawHelpers.drawRoundedRect({
-      x: BASE_W / 2 + offset.x,
-      y: BASE_H / 2 + offset.y,
-      width,
-      height,
-      fillColor: this.palette.bg,
-      ...FRAME_STYLE,
-    });
+    const camW = this.scene.scale.width;
+    const camH = this.scene.scale.height;
+    const width = camW;
+    const height = camH;
+    // Playmat background image stretched to full view.
+    if (this.scene.textures.exists("playmat")) {
+      this.scene.add
+        .image(camW / 2, camH / 2, "playmat")
+        .setDisplaySize(width, height)
+        .setOrigin(0.5)
+        .setDepth(-10);
+    } else {
+      this.drawHelpers.drawRoundedRect({
+        x: camW / 2,
+        y: camH / 2,
+        width,
+        height,
+        fillColor: this.palette.bg,
+        ...FRAME_STYLE,
+      });
+    }
   }
 
   drawHeader(offset: Offset) {

@@ -22,6 +22,7 @@ export class BoardScene extends Phaser.Scene {
   preload() {
     this.load.image("deckBack", "/cardback.png");
     this.load.image("baseCard", "/ex-base.png");
+    this.load.image("playmat", "/playmart.png");
   }
 
   private offset = { x: 0, y: 0 };
