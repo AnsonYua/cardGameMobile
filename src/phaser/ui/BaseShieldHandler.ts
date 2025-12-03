@@ -206,22 +206,11 @@ export class BaseShieldHandler {
         .setAngle(angle);
     }
 
-    // Grey transparent overlay as rested indicator; always created, visibility controlled by state.
-    const restedOverlay = this.drawHelpers
-      .drawRoundedRect({
-        x,
-        y,
-        width: w,
-        height: h,
-        radius,
-        fillColor: 0x666666,
-        fillAlpha: 0.25,
-        strokeAlpha: 0,
-        strokeWidth: 0,
-      })
-      .setDepth(495)
-      .setAngle(angle)
-      .setVisible(this.baseStatus[overlayKey] === "rested");
+    // Grey transparent overlay as rested indicator; draw centered so rotation pivots correctly.
+    const restedOverlay = this.scene.add.graphics({ x, y });
+    restedOverlay.fillStyle(0x666666, 0.25);
+    restedOverlay.fillRoundedRect(-w / 2, -h / 2, w, h, radius);
+    restedOverlay.setDepth(495).setAngle(angle).setVisible(this.baseStatus[overlayKey] === "rested");
     this.baseOverlays[overlayKey] = restedOverlay;
 
     // Bottom-right count badge
