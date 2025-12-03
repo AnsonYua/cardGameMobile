@@ -107,6 +107,21 @@ export class BaseShieldHandler {
         .setAngle(angle);
     }
 
+    // Grey transparent overlay as rested indicator.
+    this.drawHelpers
+      .drawRoundedRect({
+        x,
+        y,
+        width: w,
+        height: h,
+        radius: 8,
+        fillColor: 0x666666,
+        fillAlpha: 0.25,
+        strokeAlpha: 0,
+        strokeWidth: 0,
+      })
+      .setDepth(495);
+
     // Overlay status text (scaled to base size)
     /*
     const restedFontSize = 14;
@@ -125,11 +140,11 @@ export class BaseShieldHandler {
     // Bottom-right count badge
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
-    const badgeX = isTop ? x - w * 0.34 + 5: x + w * 0.34 -5;
+    const badgeX = isTop ? x - w * 0.34 + 5 : x + w * 0.34 - 5;
     const badgeY = isTop ? y - h * 0.36 : y + h * 0.36;
 
-    const badgeRectX = isTop ? x + w * 0.34 : x + w * 0.34 -5;
-    const badgeRectY = isTop ? y -5 : y + h * 0.36;
+    const badgeRectX = badgeX;
+    const badgeRectY = badgeY;
     const badge = this.drawHelpers.drawRoundedRect({
       x: badgeRectX,
       y: badgeRectY,
@@ -141,7 +156,7 @@ export class BaseShieldHandler {
       strokeAlpha: 0,
       strokeWidth: 0,
     });
-    badge.setAngle(angle).setDepth(500);
+    badge.setDepth(500);
     const badgeFontSize = 20;
     this.scene
       .add.text(badgeX, badgeY, "0|3", {
