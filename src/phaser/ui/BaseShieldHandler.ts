@@ -125,13 +125,13 @@ export class BaseShieldHandler {
     // Bottom-right count badge
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
-    const badgeX = isTop ? x - w * 0.34 : x + w * 0.34;
+    const badgeX = isTop ? x - w * 0.34 + 5: x + w * 0.34 -5;
     const badgeY = isTop ? y - h * 0.36 : y + h * 0.36;
-    const badge = this.scene.add.rectangle(badgeX, badgeY, badgeW, badgeH, 0x000000, 0.9);
+    const badge = this.scene.add.rectangle(badgeX, badgeY, badgeW+5, badgeH, 0x000000, 0.9);
     badge.setOrigin(0.5).setAngle(angle).setDepth(500);
     const badgeFontSize = 20;
     this.scene
-      .add.text(badgeX, badgeY, "0/3", {
+      .add.text(badgeX, badgeY, "0|3", {
         fontSize: `${badgeFontSize}px`,
         fontFamily: "Arial",
         color: "#ffffff",
