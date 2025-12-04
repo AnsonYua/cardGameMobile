@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { FieldHandler } from "./FieldHandler";
 import { HandAreaHandler } from "./HandAreaHandler";
-import { ActionBarHandler } from "./ActionBarHandler";
+import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { BaseControls, BaseStatus } from "./BaseShieldHandler";
@@ -13,7 +13,7 @@ export class BoardUI {
   private header: HeaderHandler;
   private field: FieldHandler;
   private hand: HandAreaHandler;
-  private actions: ActionBarHandler;
+  private actions: ActionButtonBarHandler;
   private baseControls: BaseControls;
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {
@@ -22,7 +22,7 @@ export class BoardUI {
     this.field = new FieldHandler(scene, palette, this.drawHelpers);
     this.baseControls = this.field.getBaseControls();
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
-    this.actions = new ActionBarHandler(scene, palette, this.drawHelpers);
+    this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
   }
 
   drawFrame(offset: Offset) {

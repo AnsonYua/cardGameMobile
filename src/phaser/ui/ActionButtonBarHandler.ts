@@ -3,7 +3,7 @@ import { BASE_H, BASE_W, INTERNAL_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 
-export class ActionBarHandler {
+export class ActionButtonBarHandler {
   private barHeight = 40;
   private barPadding = 16;
   private barWidth = INTERNAL_W - this.barPadding * 2;
