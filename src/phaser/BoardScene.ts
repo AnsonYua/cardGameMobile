@@ -4,6 +4,7 @@ import { BoardUI } from "./ui/BoardUI";
 import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
 import { DrawHelpers } from "./ui/HeaderHandler";
 import { BaseStatus } from "./ui/BaseShieldHandler";
+import { ApiManager } from "./api/ApiManager";
 
 const colors = {
   bg: "#ffffff",
@@ -35,6 +36,7 @@ export class BoardScene extends Phaser.Scene {
   private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
+  private api = new ApiManager("http://localhost:8080");
   private uiVisible = true;
 
   create() {
@@ -43,6 +45,8 @@ export class BoardScene extends Phaser.Scene {
     this.offset.x = cam.centerX - BASE_W / 2;
     this.offset.y = cam.centerY - BASE_H / 2;
     console.log("offset y ", cam.centerY)
+
+
 
     this.cameras.main.setBackgroundColor(colors.bg);
     this.ui = new BoardUI(this, {
@@ -84,7 +88,13 @@ export class BoardScene extends Phaser.Scene {
     this.ui.drawActions(this.offset);
     this.ui.drawHand(this.offset);
 
+    this.ui.setHeaderButtonHandler(() => this.startGame());
     this.hideDefaultUI();
+
+    // Kick off game session on load.
+    this.callStartGame("playerId_1", { playerName: "Demo Player" }).then((resp) => {
+      console.log("startGame API response", resp);
+    });
   }
    
   public startGame(){
@@ -122,5 +132,12 @@ export class BoardScene extends Phaser.Scene {
 
   private showHandCards() {
     console.log("show hand cards (placeholder)");
+  }
+
+  private callStartGame(playerId: string, gameConfig: { playerName: string }): Promise<any> {
+    return this.api.startGame({ playerId, gameConfig }).catch((err) => {
+      console.error("startGame API failed", err);
+      throw err;
+    });
   }
 }

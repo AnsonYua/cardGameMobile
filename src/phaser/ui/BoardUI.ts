@@ -97,6 +97,10 @@ export class BoardUI {
     this.actions.setActionHandler(handler);
   }
 
+  setHeaderButtonHandler(handler: () => void) {
+    this.header.setCtaHandler(handler);
+  }
+
   getBaseControls(): BaseControls {
     return this.baseControls;
   }

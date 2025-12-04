@@ -200,7 +200,7 @@ export class FieldHandler {
           height: slot,
           radius: 6,
           fillColor: "#ffffff",
-          fillAlpha: 1,
+          fillAlpha: 0.35,
           strokeColor: this.palette.ink,
           strokeAlpha: 0.8,
           strokeWidth: 2,
@@ -209,16 +209,16 @@ export class FieldHandler {
         this.drawHelpers.drawRoundedRect({
           x,
           y,
-          width: 70,
-          height: 80,
+          width: 60,
+          height: 60,
           radius: 4,
           fillColor: "#f5f5f5",
-          fillAlpha: 0.35,
+          fillAlpha: 0,
           strokeColor: this.palette.ink,
           strokeAlpha: 0.6,
           strokeWidth: 1,
         });
-        this.scene.add.text(x, y, "slot", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
+        //this.scene.add.text(x, y, "slot", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
       }
     }
 
@@ -286,8 +286,27 @@ export class FieldHandler {
           .setOrigin(0.5)
           .setName(`deck-pile-text-${owner}`);
       }
-    } else {
+    }if(label === 'trash') {
+      this.drawTrashBox(x, y, w, h, label);
+    }else {
       this.drawCardBox(x, y, w, h, label);
+    }
+  }
+  private drawTrashBox(x: number, y: number, w: number, h: number, label: string) {
+    this.drawHelpers.drawRoundedRect({
+      x,
+      y,
+      width: w,
+      height: h,
+      radius: 8,
+      fillColor: "#ffffff",
+      fillAlpha: 0.3,
+      strokeColor: this.palette.ink,
+      strokeAlpha: 1,
+      strokeWidth: 2,
+    });
+    if (label) {
+      this.scene.add.text(x, y, label, { fontSize: "13px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
     }
   }
 

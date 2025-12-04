@@ -50,6 +50,9 @@ export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
   private state: HeaderState = { handCount: 8, name: "Opponent" };
   private depth = 1000;
+  private ctaButton?: Phaser.GameObjects.Rectangle;
+  private ctaLabel?: Phaser.GameObjects.Text;
+  private onCta?: () => void;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
@@ -118,9 +121,31 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
+    this.drawStartButton(containerRight - padding -35, containerY, 80, height - padding * 2);
+
   }
 
   updateState(state: Partial<HeaderState>) {
     this.state = { ...this.state, ...state };
+  }
+
+  setCtaHandler(handler: () => void) {
+    this.onCta = handler;
+  }
+
+  private drawStartButton(x: number, y: number, w: number, h: number) {
+    this.ctaButton?.destroy();
+    this.ctaLabel?.destroy();
+    this.ctaButton = this.scene.add.rectangle(x, y, w, h, 0xffffff, 0.15).setStrokeStyle(1.5, 0xffffff, 0.8).setDepth(this.depth);
+    this.ctaLabel = this.scene.add
+      .text(x, y, "Start", {
+        fontSize: "14px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(this.depth + 1);
+
+    this.ctaButton.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onCta?.());
   }
 }
