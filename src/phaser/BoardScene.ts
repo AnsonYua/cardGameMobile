@@ -48,6 +48,7 @@ export class BoardScene extends Phaser.Scene {
   private playerId = "playerId_1";
   private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
+  private errorText?: Phaser.GameObjects.Text;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -71,6 +72,7 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
+    this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.setupActions();
     this.ui.setActionHandler((index) => this.actionDispatcher.dispatch(index));
     this.ui.drawFrame(this.offset);
@@ -81,11 +83,11 @@ export class BoardScene extends Phaser.Scene {
 
     this.ui.setHeaderButtonHandler(() => this.startGame());
     this.hideDefaultUI();
+    // Sync header with initial state before async work.
+    this.onMatchStatus(this.match.getState());
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
-
-    this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
   }
    
   public startGame(){
@@ -134,12 +136,16 @@ export class BoardScene extends Phaser.Scene {
   private async initSession() {
     try {
       const params = new URLSearchParams(window.location.search);
-      const mode = params.get("mode") === "join" ? GameMode.Join : GameMode.Host;
-      const roomParam = params.get("roomid");
-      this.gameMode = mode;
-      if (params.get("mode") && mode !== GameMode.Host && mode !== GameMode.Join) {
+      const rawMode = params.get("mode");
+      if (!rawMode) {
+        throw new Error("Missing mode");
+      }
+      const mode = rawMode === "join" ? GameMode.Join : rawMode === "host" ? GameMode.Host : undefined;
+      if (!mode) {
         throw new Error("Invalid mode");
       }
+      const roomParam = params.get("roomid");
+      this.gameMode = mode;
       if (mode === GameMode.Join) {
         if (!roomParam) {
           throw new Error("Missing room id for join mode");
@@ -153,6 +159,8 @@ export class BoardScene extends Phaser.Scene {
     } catch (err) {
       this.gameStatus = GameStatus.Error;
       console.error("Session init failed", err);
+      this.onMatchStatus({ status: GameStatus.Error, roomId: null, mode: this.gameMode });
+      this.showErrorOverlay((err as Error)?.message ?? "Init failed");
     }
   }
 
@@ -160,15 +168,8 @@ export class BoardScene extends Phaser.Scene {
     this.gameStatus = state.status;
     this.roomId = state.roomId;
     this.updateHeaderStatus(state);
-    if (state.status === GameStatus.CreatingRoom) {
-      this.ui?.setHeaderButtonVisible(false);
-    } else if (state.status === GameStatus.WaitingOpponent) {
-      this.ui?.setHeaderButtonVisible(false);
-    } else if (state.status === GameStatus.Ready) {
-      this.ui?.setHeaderButtonVisible(true);
-    } else if (state.status === GameStatus.Error) {
-      this.ui?.setHeaderButtonVisible(false);
-    }
+    const showButton = state.status === GameStatus.Ready || state.status === GameStatus.InMatch;
+    this.ui?.setHeaderButtonVisible(showButton);
   }
 
   private setupActions() {
@@ -209,5 +210,22 @@ export class BoardScene extends Phaser.Scene {
               ? "In match"
               : "Error";
     this.ui?.setHeaderStatus(`Status: ${label}`);
+  }
+
+  private showErrorOverlay(message: string) {
+    if (this.errorText) {
+      this.errorText.setText(message).setVisible(true);
+      return;
+    }
+    this.errorText = this.add
+      .text(BASE_W / 2 + this.offset.x, 50 + this.offset.y, message, {
+        fontSize: "18px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+        backgroundColor: "#c0392b",
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setDepth(1300);
   }
 }
