@@ -22,7 +22,12 @@ export class ShuffleAnimationManager {
 
   constructor(private scene: Phaser.Scene, private drawHelpers: DrawHelpers, private offset: { x: number; y: number }) {}
 
-  play(onComplete?: () => void) {
+  play(onComplete?: () => void): Promise<void> {
+    let resolvePromise: () => void;
+    const completion = new Promise<void>((resolve) => {
+      resolvePromise = resolve;
+    });
+
     this.createDeckStacks();
 
     let completed = 0;
@@ -32,12 +37,15 @@ export class ShuffleAnimationManager {
       if (completed >= total) {
         this.cleanup();
         onComplete?.();
+        resolvePromise?.();
       }
     };
 
     // Run both shuffles concurrently
     this.shuffleSide(true, markDone);
     this.shuffleSide(false, markDone);
+
+    return completion;
   }
 
   private createDeckStacks() {

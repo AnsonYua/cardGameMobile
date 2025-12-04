@@ -78,7 +78,7 @@ export class ActionButtonBarHandler {
 
     // Mask to clip horizontal scroll content.
     this.maskGraphics = this.scene.add.graphics();
-    this.maskGraphics.fillStyle(0xffffff, 1);
+    this.maskGraphics.fillStyle(0xffffff, 0.0001); // nearly transparent; only needed for mask
     this.maskGraphics.fillRect(barX - barWidth / 2, barY - btnHeight / 2, barWidth, btnHeight);
     this.mask = this.maskGraphics.createGeometryMask();
 

@@ -73,6 +73,10 @@ export class BoardUI {
     this.hand.setHand(cards);
   }
 
+  setHandVisible(visible: boolean) {
+    this.hand.setVisible(visible);
+  }
+
   setActionHandler(handler: (index: number) => void) {
     this.actions.setActionHandler(handler);
   }

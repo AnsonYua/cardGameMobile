@@ -31,6 +31,7 @@ export class BoardScene extends Phaser.Scene {
   private shuffleManager: ShuffleAnimationManager | null = null;
   private playerBaseStatus: BaseStatus = "normal";
   private playerShieldCount = 6;
+  private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -48,10 +49,12 @@ export class BoardScene extends Phaser.Scene {
       bg: colors.bg,
     });
     this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
-    const baseControls = this.ui.getBaseControls();
+    this.baseControls = this.ui.getBaseControls();
+    const baseControls = this.baseControls;
     this.ui.setActionHandler((index) => {
       if (index === 0) {
-        this.shuffleManager?.play();
+        const promise = this.shuffleManager?.play();
+        promise?.then(() => console.log("Shuffle animation finished"));
       } else if (index === 1) {
         this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
         baseControls.setBaseStatus(true, this.playerBaseStatus);
@@ -64,6 +67,8 @@ export class BoardScene extends Phaser.Scene {
         this.playerShieldCount = (this.playerShieldCount + 1) % 7;
         baseControls.setShieldCount(true, this.playerShieldCount);
         baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
+      }else if(index ===9){
+        this.startGame()
       }
     });
     this.ui.drawFrame(this.offset);
@@ -71,6 +76,37 @@ export class BoardScene extends Phaser.Scene {
     this.ui.drawField(this.offset);
     this.ui.drawActions(this.offset);
     this.ui.drawHand(this.offset);
+
+    this.hideDefaultUI();
+  }
+   
+  public startGame(){
+    this.hideDefaultUI();
+    const promise = this.shuffleManager?.play();
+    promise
+      ?.then(() => {
+        this.showDefaultUI();
+        this.showHandCards();
+      })
+      .then(() => console.log("Shuffle animation finished"));
   }
 
+  // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
+  private hideDefaultUI() {
+    this.baseControls?.setBaseTowerVisible(true, false);
+    this.baseControls?.setBaseTowerVisible(false, false);
+    this.ui?.setHandVisible(false);
+    console.log("hide default UI (placeholder)");
+  }
+
+  private showDefaultUI() {
+    this.baseControls?.setBaseTowerVisible(true, true);
+    this.baseControls?.setBaseTowerVisible(false, true);
+    this.ui?.setHandVisible(true);
+    console.log("show default UI (placeholder)");
+  }
+
+  private showHandCards() {
+    console.log("show hand cards (placeholder)");
+  }
 }

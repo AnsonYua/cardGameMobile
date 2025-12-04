@@ -35,7 +35,7 @@ type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.T
 
 export type BaseControls = Pick<
   BaseShieldHandler,
-  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount"
+  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount" | "setBaseTowerVisible"
 >;
 
 export class BaseShieldHandler {
@@ -99,6 +99,49 @@ export class BaseShieldHandler {
     if (last) {
       this.drawStack(last);
     }
+  }
+
+  // Show or hide the full base + shield tower for a side.
+  setBaseTowerVisible(isOpponent: boolean, visible: boolean) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    const status = this.baseStatus[key];
+    const elements: Phaser.GameObjects.GameObject[] = [];
+    if (this.baseCards[key]) elements.push(this.baseCards[key] as any);
+    if (this.baseOverlays[key]) elements.push(this.baseOverlays[key] as any);
+    const badge = this.badges[key];
+    if (badge) elements.push(badge.box, badge.label);
+    elements.push(...this.shieldCards[key]);
+
+    // Toggle visibility immediately when hiding; when showing, fade in for a smoother reveal.
+    if (!visible) {
+      elements.forEach((el: any) => {
+        if (!el) return;
+        el.setVisible(false);
+        if (typeof el.setAlpha === "function") el.setAlpha(1);
+      });
+      return;
+    }
+
+    elements.forEach((el: any) => {
+      if (!el) return;
+      // Respect status-driven visibility: only show overlay when rested, badges hidden if destroyed.
+      if (el === this.baseOverlays[key] && status !== "rested") {
+        el.setVisible(false);
+        return;
+      }
+      if (badge && (el === badge.box || el === badge.label) && status === "destroyed") {
+        el.setVisible(false);
+        return;
+      }
+      el.setVisible(true);
+      if (typeof el.setAlpha === "function") el.setAlpha(0);
+      this.scene.tweens.add({
+        targets: el,
+        alpha: 1,
+        duration: 200,
+        ease: "Quad.easeOut",
+      });
+    });
   }
 
   private computeStackHeight(

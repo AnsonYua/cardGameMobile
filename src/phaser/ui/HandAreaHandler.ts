@@ -20,10 +20,15 @@ export class HandAreaHandler {
     { color: 0xf28d6c, cost: "1" },
     { color: 0x6e6f8a, cost: "3" },
   ];
+  private lastOffset: Offset = { x: 0, y: 0 };
+  private drawnObjects: Phaser.GameObjects.GameObject[] = [];
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
   draw(offset: Offset) {
+    this.lastOffset = offset;
+    this.clear();
+
     const cardW = 60;
     const cardH = 90;
     const gap = 8;
@@ -58,10 +63,17 @@ export class HandAreaHandler {
 
   setHand(cards: HandCard[]) {
     this.handCards = cards;
+    this.draw(this.lastOffset);
+  }
+
+  setVisible(visible: boolean) {
+    // Skip any objects that may have been destroyed; be defensive to avoid runtime errors.
+    this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
+    this.drawnObjects.forEach((obj: any) => obj?.setVisible?.(visible));
   }
 
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCard) {
-    this.drawHelpers.drawRoundedRect({
+    const bg = this.drawHelpers.drawRoundedRect({
       x,
       y,
       width: w,
@@ -73,15 +85,17 @@ export class HandAreaHandler {
       strokeAlpha: 0.5,
       strokeWidth: 2,
     });
+    this.drawnObjects.push(bg);
 
     if (card.cost !== undefined) {
       const cx = x - w / 2 + 10;
       const cy = y - h / 2 + 10;
-      this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8);
-      this.scene.add.text(cx, cy, card.cost, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" }).setOrigin(0.5);
+      const badge = this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8);
+      const costText = this.scene.add.text(cx, cy, card.cost, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" }).setOrigin(0.5);
+      this.drawnObjects.push(badge, costText);
     }
 
-    this.drawHelpers.drawRoundedRect({
+    const inner = this.drawHelpers.drawRoundedRect({
       x,
       y,
       width: w - 14,
@@ -93,5 +107,11 @@ export class HandAreaHandler {
       strokeAlpha: 0.3,
       strokeWidth: 1,
     });
+    this.drawnObjects.push(inner);
+  }
+
+  private clear() {
+    this.drawnObjects.forEach((obj) => obj.destroy());
+    this.drawnObjects = [];
   }
 }
