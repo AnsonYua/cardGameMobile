@@ -36,11 +36,12 @@ export class BoardScene extends Phaser.Scene {
   private shuffleManager: ShuffleAnimationManager | null = null;
   private playerBaseStatus: BaseStatus = "normal";
   private playerShieldCount = 6;
+  private offlineFallback = false;
   private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
   private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
-  private api = new ApiManager("http://localhost:8080");
+  private api = new ApiManager();
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
   private gameStatus: GameStatus = GameStatus.Idle;
@@ -160,10 +161,19 @@ export class BoardScene extends Phaser.Scene {
         await this.match.startAsHost(this.playerId, { playerName: "Demo Player" });
       }
     } catch (err) {
-      this.gameStatus = GameStatus.Error;
       console.error("Session init failed", err);
-      this.onMatchStatus({ status: GameStatus.Error, gameId: null, mode: this.gameMode });
-      this.showErrorOverlay((err as Error)?.message ?? "Init failed");
+      const params = new URLSearchParams(window.location.search);
+      const fallbackGameId =
+        this.gameMode === GameMode.Join
+          ? params.get("gameId") || params.get("roomid") || "join-local"
+          : `demo-${Date.now()}`;
+      // Fallback to a local ready state so the UI remains usable even if API/host is unreachable.
+      this.offlineFallback = true;
+      this.gameStatus = GameStatus.Ready;
+      this.onMatchStatus({ status: GameStatus.Ready, gameId: fallbackGameId, mode: this.gameMode });
+      // Keep UI clean; log error only.
+      const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
+      console.warn("Using offline fallback:", msg);
     }
   }
 
@@ -219,13 +229,14 @@ export class BoardScene extends Phaser.Scene {
       state.status === GameStatus.CreatingRoom
         ? "Creating room..."
         : state.status === GameStatus.WaitingOpponent
-          ? `Waiting${state.gameId ? ` | Game ${state.gameId}` : ""}`
+          ? "Waiting"
           : state.status === GameStatus.Ready
             ? "Ready"
             : state.status === GameStatus.InMatch
-              ? "In match"
+            ? "In match"
               : "Error";
-    this.ui?.setHeaderStatus(`Status: ${label}`);
+    const suffix = this.offlineFallback ? " (offline)" : "";
+    this.ui?.setHeaderStatus(`Status: ${label}${suffix}`);
   }
 
   private showErrorOverlay(message: string) {

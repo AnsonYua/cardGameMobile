@@ -1,2 +1,3 @@
-http://localhost:5173/?mode=host
-http://localhost:5173/?mode=join&roomid=
+http://localhost:5173?mode=host
+http://localhost:5173/?mode=join&gameid=
+ npm run dev -- --host 0.0.0.0 --port 5173
