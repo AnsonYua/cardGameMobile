@@ -56,6 +56,8 @@ export class HeaderHandler {
   private ctaVisible = true;
   private statusLabel?: Phaser.GameObjects.Text;
   private headerX = { left: 0, right: 0, centerY: 0 };
+  private avatarHit?: Phaser.GameObjects.Rectangle;
+  private onAvatar?: () => void;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
@@ -101,6 +103,7 @@ export class HeaderHandler {
       strokeAlpha: 1,
       strokeWidth: 2,
     }).setDepth(this.depth);
+    this.drawAvatarHit(avatarX, avatarY, avatar, avatar);
 
     // Name next to avatar (left side)
     const nameX = avatarX + avatar / 2 + padding;
@@ -135,6 +138,11 @@ export class HeaderHandler {
 
   setCtaHandler(handler: () => void) {
     this.onCta = handler;
+  }
+
+  setAvatarHandler(handler: () => void) {
+    this.onAvatar = handler;
+    this.avatarHit?.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
   }
 
   setCtaVisible(visible: boolean) {
@@ -186,5 +194,13 @@ export class HeaderHandler {
     const padding = this.layout.padding;
     const offsetWithButton = 160;
     return this.ctaVisible ? this.headerX.right - padding - offsetWithButton : this.headerX.right - padding - 60;
+  }
+
+  private drawAvatarHit(x: number, y: number, w: number, h: number) {
+    this.avatarHit?.destroy();
+    this.avatarHit = this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(this.depth + 2);
+    if (this.onAvatar) {
+      this.avatarHit.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
+    }
   }
 }

@@ -16,7 +16,7 @@ export enum GameMode {
 
 export class GameSessionService {
   private status: GameStatus = GameStatus.Idle;
-  private roomId: string | null = null;
+  private gameId: string | null = null;
   private gameMode: GameMode = GameMode.Host;
 
   constructor(private api: ApiManager) {}
@@ -24,7 +24,7 @@ export class GameSessionService {
   getState() {
     return {
       status: this.status,
-      roomId: this.roomId,
+      gameId: this.gameId,
       gameMode: this.gameMode,
     };
   }
@@ -33,16 +33,16 @@ export class GameSessionService {
     this.gameMode = GameMode.Host;
     this.status = GameStatus.CreatingRoom;
     const resp = await this.api.startGame({ playerId, gameConfig });
-    this.roomId = resp?.roomId ?? null;
+    this.gameId = resp?.gameId ?? resp?.roomId ?? null;
     this.status = GameStatus.WaitingOpponent;
     return resp;
   }
 
-  async joinRoom(roomId: string, playerId: string) {
+  async joinRoom(gameId: string, playerId: string) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.joinRoom(roomId, playerId);
-    this.roomId = roomId;
+    const resp = await this.api.joinRoom(gameId, playerId);
+    this.gameId = gameId;
     this.status = GameStatus.Ready;
     return resp;
   }

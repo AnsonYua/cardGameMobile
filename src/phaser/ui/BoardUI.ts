@@ -109,6 +109,10 @@ export class BoardUI {
     this.header.setStatusText(text);
   }
 
+  setAvatarHandler(handler: () => void) {
+    this.header.setAvatarHandler(handler);
+  }
+
   getBaseControls(): BaseControls {
     return this.baseControls;
   }

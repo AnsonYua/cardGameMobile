@@ -1,24 +1,24 @@
 import Phaser from "phaser";
 import { GameSessionService, GameStatus, GameMode } from "./GameSessionService";
 
-export type MatchState = { status: GameStatus; roomId: string | null; mode: GameMode };
+export type MatchState = { status: GameStatus; gameId: string | null; mode: GameMode };
 
 export class MatchStateMachine {
   public events = new Phaser.Events.EventEmitter();
   private status: GameStatus = GameStatus.Idle;
-  private roomId: string | null = null;
+  private gameId: string | null = null;
   private mode: GameMode = GameMode.Host;
 
   constructor(private session: GameSessionService) {}
 
   getState(): MatchState {
-    return { status: this.status, roomId: this.roomId, mode: this.mode };
+    return { status: this.status, gameId: this.gameId, mode: this.mode };
   }
 
   async startAsHost(playerId: string, gameConfig: { playerName: string }) {
     this.transition(GameStatus.CreatingRoom);
     const resp = await this.session.startAsHost(playerId, gameConfig);
-    this.roomId = resp?.roomId ?? null;
+    this.gameId = resp?.gameId ?? resp?.roomId ?? null;
     this.transition(GameStatus.WaitingOpponent);
     /*
     // Placeholder: simulate opponent join after short delay.
@@ -28,11 +28,11 @@ export class MatchStateMachine {
     */
   }
 
-  async joinRoom(roomId: string, playerId: string) {
+  async joinRoom(gameId: string, playerId: string) {
     this.mode = GameMode.Join;
     this.transition(GameStatus.CreatingRoom);
-    await this.session.joinRoom(roomId, playerId);
-    this.roomId = roomId;
+    await this.session.joinRoom(gameId, playerId);
+    this.gameId = gameId;
     this.transition(GameStatus.Ready);
   }
 

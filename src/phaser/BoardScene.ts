@@ -8,6 +8,7 @@ import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
+import { TestButtonPopup } from "./ui/TestButtonPopup";
 
 const colors = {
   bg: "#ffffff",
@@ -44,11 +45,12 @@ export class BoardScene extends Phaser.Scene {
   private match = new MatchStateMachine(this.session);
   private gameStatus: GameStatus = GameStatus.Idle;
   private gameMode: GameMode = GameMode.Host;
-  private roomId: string | null = null;
+  private gameId: string | null = null;
   private playerId = "playerId_1";
   private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
   private errorText?: Phaser.GameObjects.Text;
+  private popup?: TestButtonPopup;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -82,6 +84,7 @@ export class BoardScene extends Phaser.Scene {
     this.ui.drawHand(this.offset);
 
     this.ui.setHeaderButtonHandler(() => this.startGame());
+    this.ui.setAvatarHandler(() => this.showPopup());
     this.hideDefaultUI();
     // Sync header with initial state before async work.
     this.onMatchStatus(this.match.getState());
@@ -144,11 +147,11 @@ export class BoardScene extends Phaser.Scene {
       if (!mode) {
         throw new Error("Invalid mode");
       }
-      const roomParam = params.get("roomid");
+      const roomParam = params.get("gameId") || params.get("roomid");
       this.gameMode = mode;
       if (mode === GameMode.Join) {
         if (!roomParam) {
-          throw new Error("Missing room id for join mode");
+          throw new Error("Missing game id for join mode");
         }
         this.gameStatus = GameStatus.CreatingRoom;
         await this.match.joinRoom(roomParam, this.playerId);
@@ -159,14 +162,14 @@ export class BoardScene extends Phaser.Scene {
     } catch (err) {
       this.gameStatus = GameStatus.Error;
       console.error("Session init failed", err);
-      this.onMatchStatus({ status: GameStatus.Error, roomId: null, mode: this.gameMode });
+      this.onMatchStatus({ status: GameStatus.Error, gameId: null, mode: this.gameMode });
       this.showErrorOverlay((err as Error)?.message ?? "Init failed");
     }
   }
 
   private onMatchStatus(state: MatchState) {
     this.gameStatus = state.status;
-    this.roomId = state.roomId;
+    this.gameId = state.gameId;
     this.updateHeaderStatus(state);
     const showButton = state.status === GameStatus.Ready || state.status === GameStatus.InMatch;
     this.ui?.setHeaderButtonVisible(showButton);
@@ -198,12 +201,25 @@ export class BoardScene extends Phaser.Scene {
     this.actionDispatcher.register(9, () => this.startGame());
   }
 
+  private showPopup() {
+    if (!this.popup) {
+      this.popup = new TestButtonPopup(this);
+    }
+    this.popup.show(
+      Array.from({ length: 6 }, () => ({
+        label: "Test button1",
+        onClick: () => console.log("Test button clicked"),
+      })),
+      this.gameId ?? "N/A",
+    );
+  }
+
   private updateHeaderStatus(state: MatchState) {
     const label =
       state.status === GameStatus.CreatingRoom
         ? "Creating room..."
         : state.status === GameStatus.WaitingOpponent
-          ? `Waiting${state.roomId ? ` | Room ${state.roomId}` : ""}`
+          ? `Waiting${state.gameId ? ` | Game ${state.gameId}` : ""}`
           : state.status === GameStatus.Ready
             ? "Ready"
             : state.status === GameStatus.InMatch
