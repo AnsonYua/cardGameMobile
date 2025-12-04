@@ -3,7 +3,8 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
-import { BaseControls, BaseShieldHandler, BaseStatus } from "./BaseShieldHandler";
+import { BaseControls, BaseShieldHandler } from "./BaseShieldHandler";
+import { EnergyBarHandler } from "./EnergyBarHandler";
 
 export type FieldConfig = {
   slot: number;
@@ -117,6 +118,10 @@ export class FieldHandler {
   private gameStatusPlayer: GameStatusHandler;
   private baseShield: BaseShieldHandler;
   private baseControls: BaseControls;
+  private energyBarOpponent: EnergyBarHandler;
+  private energyBarPlayer: EnergyBarHandler;
+  private statusVisible = true;
+  private energyVisible = true;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
@@ -124,11 +129,51 @@ export class FieldHandler {
     this.gameStatusPlayer = new GameStatusHandler(scene, palette);
     this.baseShield = new BaseShieldHandler(scene, palette, drawHelpers);
     this.baseControls = this.baseShield;
+    this.energyBarOpponent = new EnergyBarHandler(scene, drawHelpers);
+    this.energyBarPlayer = new EnergyBarHandler(scene, drawHelpers);
   }
 
   draw(offset: Offset) {
     this.drawFieldSide(this.field.side.opponent, offset, true);
     this.drawFieldSide(this.field.side.player, offset, false);
+  }
+
+  setStatusVisible(visible: boolean) {
+    this.statusVisible = visible;
+    this.gameStatusOpponent.setVisible(visible);
+    this.gameStatusPlayer.setVisible(visible);
+  }
+
+  fadeInStatus(duration = 200) {
+    this.statusVisible = true;
+    this.gameStatusOpponent.fadeIn(duration);
+    this.gameStatusPlayer.fadeIn(duration);
+  }
+
+  setEnergyVisible(visible: boolean) {
+    this.energyVisible = visible;
+    this.energyBarOpponent.setVisible(visible);
+    this.energyBarPlayer.setVisible(visible);
+  }
+
+  fadeInEnergy(duration = 200) {
+    this.energyVisible = true;
+    this.energyBarOpponent.fadeIn(duration);
+    this.energyBarPlayer.fadeIn(duration);
+  }
+
+  getEnergyControls() {
+    return {
+      setVisible: (visible: boolean) => this.setEnergyVisible(visible),
+      fadeIn: (duration?: number) => this.fadeInEnergy(duration),
+    };
+  }
+
+  getStatusControls() {
+    return {
+      setVisible: (visible: boolean) => this.setStatusVisible(visible),
+      fadeIn: (duration?: number) => this.fadeInStatus(duration),
+    };
   }
 
   getBaseControls(): BaseControls {
@@ -216,7 +261,9 @@ export class FieldHandler {
         ? originY - slot / 2 - energy.offsetFromSlots
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isOpponent ? energy.offsetX.opponent : energy.offsetX.player);
-    this.drawEnergyBar(energyX, energyY, energy, gridTotalW, isOpponent);
+    const energyBar = isOpponent ? this.energyBarOpponent : this.energyBarPlayer;
+    energyBar.drawBar(energyX, energyY, energy, gridTotalW, isOpponent);
+    energyBar.setVisible(this.energyVisible);
     const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
     statusHandler.draw(energyX, energyY, gridTotalW, isOpponent, {
       shield: this.baseShield.getShieldCount(isOpponent),
@@ -224,6 +271,7 @@ export class FieldHandler {
       rested: 0,
       extra: 0,
     });
+    statusHandler.setVisible(this.statusVisible);
   }
 
   private drawPile(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
@@ -240,27 +288,6 @@ export class FieldHandler {
       }
     } else {
       this.drawCardBox(x, y, w, h, label);
-    }
-  }
-
-  private drawEnergyBar(centerX: number, baseY: number, cfg: FieldConfig["energy"], barWidth: number, isOpponent: boolean) {
-    const totalWidth = cfg.perRow * cfg.radius * 2 + (cfg.perRow - 1) * cfg.gap;
-    // Opponent: align to right edge and draw right-to-left. Player: align to left edge.
-    const startX = isOpponent ? centerX + barWidth / 2 - totalWidth : centerX - barWidth / 2;
-    let drawn = 0;
-    for (let row = 0; row < cfg.rows; row++) {
-      const y = baseY + row * (cfg.radius * 2 + cfg.rowGap);
-      for (let i = 0; i < cfg.perRow && drawn < cfg.count; i++) {
-        const index = isOpponent ? cfg.perRow - 1 - i : i;
-        const x = startX + index * (cfg.radius * 2 + cfg.gap);
-        const filled = drawn < cfg.count / 2;
-        const circle = this.scene.add.circle(x, y, cfg.radius);
-        circle.setStrokeStyle(2, this.drawHelpers.toColor(cfg.emptyColor), 1);
-        if (filled) {
-          circle.setFillStyle(this.drawHelpers.toColor(cfg.fillColor), 1);
-        }
-        drawn++;
-      }
     }
   }
 

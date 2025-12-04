@@ -72,6 +72,21 @@ export class HandAreaHandler {
     this.drawnObjects.forEach((obj: any) => obj?.setVisible?.(visible));
   }
 
+  fadeIn(duration = 200) {
+    this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
+    this.drawnObjects.forEach((obj: any) => {
+      if (!obj) return;
+      obj.setVisible(true);
+      if (typeof obj.setAlpha === "function") obj.setAlpha(0);
+      this.scene.tweens.add({
+        targets: obj as any,
+        alpha: 1,
+        duration,
+        ease: "Quad.easeOut",
+      });
+    });
+  }
+
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCard) {
     const bg = this.drawHelpers.drawRoundedRect({
       x,

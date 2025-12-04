@@ -5,7 +5,10 @@ import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-import type { BaseControls, BaseStatus } from "./BaseShieldHandler";
+import type { BaseControls } from "./BaseShieldHandler";
+type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
+type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
+type HandControls = { setVisible: (visible: boolean) => void; fadeIn: (duration?: number) => void };
 
 export class BoardUI {
   private framePadding = 12;
@@ -15,13 +18,22 @@ export class BoardUI {
   private hand: HandAreaHandler;
   private actions: ActionButtonBarHandler;
   private baseControls: BaseControls;
+  private energyControls: EnergyControls;
+  private statusControls: StatusControls;
+  private handControls: HandControls;
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {
     this.drawHelpers = new DrawHelpers(scene);
     this.header = new HeaderHandler(scene, palette, this.drawHelpers, this.framePadding);
     this.field = new FieldHandler(scene, palette, this.drawHelpers);
     this.baseControls = this.field.getBaseControls();
+    this.energyControls = this.field.getEnergyControls();
+    this.statusControls = this.field.getStatusControls();
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
+    this.handControls = {
+      setVisible: (visible: boolean) => this.hand.setVisible(visible),
+      fadeIn: (duration?: number) => this.hand.fadeIn(duration),
+    };
     this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
   }
 
@@ -77,11 +89,35 @@ export class BoardUI {
     this.hand.setVisible(visible);
   }
 
+  fadeInHand(duration = 200) {
+    this.hand.fadeIn(duration);
+  }
+
   setActionHandler(handler: (index: number) => void) {
     this.actions.setActionHandler(handler);
   }
 
   getBaseControls(): BaseControls {
     return this.baseControls;
+  }
+
+  setStatusVisible(visible: boolean) {
+    this.field.setStatusVisible(visible);
+  }
+
+  fadeInStatus(duration = 200) {
+    this.field.fadeInStatus(duration);
+  }
+
+  getEnergyControls() {
+    return this.energyControls;
+  }
+
+  getStatusControls() {
+    return this.statusControls;
+  }
+
+  getHandControls() {
+    return this.handControls;
   }
 }

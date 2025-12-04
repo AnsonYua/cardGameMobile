@@ -11,6 +11,7 @@ export type GameStatus = {
 export class GameStatusHandler {
   private labels: Partial<Record<keyof GameStatus, Phaser.GameObjects.Text>> = {};
   private status: GameStatus = { shield: 0, active: 0, rested: 0, extra: 0 };
+  private visible = true;
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {}
 
@@ -31,6 +32,8 @@ export class GameStatusHandler {
     this.upsertLabel("active", `Active(E):${this.status.active}`, positions.active, labelY, textStyle);
     this.upsertLabel("rested", `Rested(E):${this.status.rested}`, positions.rested, labelY, textStyle);
     this.upsertLabel("extra", `Extra(E):${this.status.extra}`, positions.extra, labelY, textStyle);
+
+    this.setVisible(this.visible);
   }
 
   private computeLabelPositions(centerX: number, barWidth: number) {
@@ -64,6 +67,25 @@ export class GameStatusHandler {
         const prefix = key === "active" ? "Active" : key === "rested" ? "Rested" : key === "extra" ? "Extra" : "Shield";
         label.setText(`${prefix}:${value}`);
       }
+    });
+  }
+
+  setVisible(visible: boolean) {
+    this.visible = visible;
+    (Object.values(this.labels) as Phaser.GameObjects.Text[]).forEach((label) => label?.setVisible(visible));
+  }
+
+  fadeIn(duration = 200) {
+    this.visible = true;
+    (Object.values(this.labels) as Phaser.GameObjects.Text[]).forEach((label) => {
+      if (!label) return;
+      label.setVisible(true).setAlpha(0);
+      this.scene.tweens.add({
+        targets: label,
+        alpha: 1,
+        duration,
+        ease: "Quad.easeOut",
+      });
     });
   }
 }

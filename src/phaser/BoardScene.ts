@@ -32,6 +32,10 @@ export class BoardScene extends Phaser.Scene {
   private playerBaseStatus: BaseStatus = "normal";
   private playerShieldCount = 6;
   private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
+  private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
+  private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
+  private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
+  private uiVisible = true;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -50,6 +54,9 @@ export class BoardScene extends Phaser.Scene {
     });
     this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
     this.baseControls = this.ui.getBaseControls();
+    this.energyControls = this.ui.getEnergyControls();
+    this.statusControls = this.ui.getStatusControls();
+    this.handControls = this.ui.getHandControls();
     const baseControls = this.baseControls;
     this.ui.setActionHandler((index) => {
       if (index === 0) {
@@ -95,14 +102,21 @@ export class BoardScene extends Phaser.Scene {
   private hideDefaultUI() {
     this.baseControls?.setBaseTowerVisible(true, false);
     this.baseControls?.setBaseTowerVisible(false, false);
-    this.ui?.setHandVisible(false);
+    this.energyControls?.setVisible(false);
+    this.statusControls?.setVisible(false);
+    this.handControls?.setVisible(false);
     console.log("hide default UI (placeholder)");
   }
 
   private showDefaultUI() {
     this.baseControls?.setBaseTowerVisible(true, true);
     this.baseControls?.setBaseTowerVisible(false, true);
-    this.ui?.setHandVisible(true);
+    this.energyControls?.setVisible(true);
+    this.statusControls?.setVisible(true);
+    this.handControls?.setVisible(true);
+    this.energyControls?.fadeIn();
+    this.statusControls?.fadeIn();
+    this.handControls?.fadeIn();
     console.log("show default UI (placeholder)");
   }
 
