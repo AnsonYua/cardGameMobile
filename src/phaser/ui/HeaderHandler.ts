@@ -53,6 +53,8 @@ export class HeaderHandler {
   private ctaButton?: Phaser.GameObjects.Rectangle;
   private ctaLabel?: Phaser.GameObjects.Text;
   private onCta?: () => void;
+  private ctaVisible = true;
+  private statusLabel?: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
@@ -121,8 +123,8 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    this.drawStartButton(containerRight - padding -35, containerY, 80, height - padding * 2);
-
+    this.drawStartButton(containerRight - padding - 35, containerY, 80, height - padding * 2);
+    this.drawStatus(containerRight - padding - 160, containerY);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -131,6 +133,17 @@ export class HeaderHandler {
 
   setCtaHandler(handler: () => void) {
     this.onCta = handler;
+  }
+
+  setCtaVisible(visible: boolean) {
+    this.ctaVisible = visible;
+    this.ctaButton?.setVisible(visible);
+    this.ctaLabel?.setVisible(visible);
+  }
+
+  setStatusText(text: string) {
+    if (!this.statusLabel) return;
+    this.statusLabel.setText(text);
   }
 
   private drawStartButton(x: number, y: number, w: number, h: number) {
@@ -147,5 +160,18 @@ export class HeaderHandler {
       .setDepth(this.depth + 1);
 
     this.ctaButton.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onCta?.());
+    this.setCtaVisible(this.ctaVisible);
+  }
+
+  private drawStatus(x: number, y: number) {
+    this.statusLabel?.destroy();
+    this.statusLabel = this.scene.add
+      .text(x, y, "Status: idle", {
+        fontSize: "14px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(this.depth + 1);
   }
 }

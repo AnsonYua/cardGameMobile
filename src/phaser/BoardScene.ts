@@ -5,6 +5,9 @@ import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
 import { DrawHelpers } from "./ui/HeaderHandler";
 import { BaseStatus } from "./ui/BaseShieldHandler";
 import { ApiManager } from "./api/ApiManager";
+import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
+import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
+import { ActionDispatcher } from "./controllers/ActionDispatcher";
 
 const colors = {
   bg: "#ffffff",
@@ -37,6 +40,13 @@ export class BoardScene extends Phaser.Scene {
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
   private api = new ApiManager("http://localhost:8080");
+  private session = new GameSessionService(this.api);
+  private match = new MatchStateMachine(this.session);
+  private gameStatus: GameStatus = GameStatus.Idle;
+  private gameMode: GameMode = GameMode.Host;
+  private roomId: string | null = null;
+  private playerId = "playerId_1";
+  private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
 
   create() {
@@ -61,27 +71,8 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
-    const baseControls = this.baseControls;
-    this.ui.setActionHandler((index) => {
-      if (index === 0) {
-        const promise = this.shuffleManager?.play();
-        promise?.then(() => console.log("Shuffle animation finished"));
-      } else if (index === 1) {
-        this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
-        baseControls.setBaseStatus(true, this.playerBaseStatus);
-        baseControls.setBaseBadgeLabel(true, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
-      } else if (index == 2) {
-        baseControls.setBaseStatus(true, "normal");
-        baseControls.setBaseBadgeLabel(true, "0|0");
-      } else if (index === 3) {
-        // Cycle player shield count to demo dynamic stack redraw.
-        this.playerShieldCount = (this.playerShieldCount + 1) % 7;
-        baseControls.setShieldCount(true, this.playerShieldCount);
-        baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
-      }else if(index ===9){
-        this.startGame()
-      }
-    });
+    this.setupActions();
+    this.ui.setActionHandler((index) => this.actionDispatcher.dispatch(index));
     this.ui.drawFrame(this.offset);
     this.ui.drawHeader(this.offset);
     this.ui.drawField(this.offset);
@@ -91,13 +82,19 @@ export class BoardScene extends Phaser.Scene {
     this.ui.setHeaderButtonHandler(() => this.startGame());
     this.hideDefaultUI();
 
-    // Kick off game session on load.
-    this.callStartGame("playerId_1", { playerName: "Demo Player" }).then((resp) => {
-      console.log("startGame API response", resp);
-    });
+    // Kick off game session on load (host flow placeholder).
+    this.initSession();
+
+    this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
   }
    
   public startGame(){
+    if (this.gameStatus !== GameStatus.Ready && this.gameStatus !== GameStatus.InMatch) {
+      console.log("Not ready to start match yet");
+      return;
+    }
+    this.session.markInMatch();
+    this.gameStatus = GameStatus.InMatch;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
     promise
@@ -134,10 +131,68 @@ export class BoardScene extends Phaser.Scene {
     console.log("show hand cards (placeholder)");
   }
 
-  private callStartGame(playerId: string, gameConfig: { playerName: string }): Promise<any> {
-    return this.api.startGame({ playerId, gameConfig }).catch((err) => {
-      console.error("startGame API failed", err);
-      throw err;
+  private async initSession() {
+    try {
+      this.gameStatus = GameStatus.CreatingRoom;
+      await this.match.startAsHost(this.playerId, { playerName: "Demo Player" });
+    } catch (err) {
+      this.gameStatus = GameStatus.Error;
+      console.error("Session init failed", err);
+    }
+  }
+
+  private onMatchStatus(state: MatchState) {
+    this.gameStatus = state.status;
+    this.roomId = state.roomId;
+    this.updateHeaderStatus(state);
+    if (state.status === GameStatus.CreatingRoom) {
+      this.ui?.setHeaderButtonVisible(false);
+    } else if (state.status === GameStatus.WaitingOpponent) {
+      this.ui?.setHeaderButtonVisible(false);
+    } else if (state.status === GameStatus.Ready) {
+      this.ui?.setHeaderButtonVisible(true);
+    } else if (state.status === GameStatus.Error) {
+      this.ui?.setHeaderButtonVisible(false);
+    }
+  }
+
+  private setupActions() {
+    const baseControls = this.baseControls;
+    this.actionDispatcher.register(0, () => {
+      const promise = this.shuffleManager?.play();
+      promise?.then(() => console.log("Shuffle animation finished"));
     });
+    this.actionDispatcher.register(1, () => {
+      if (!baseControls) return;
+      this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
+      baseControls.setBaseStatus(true, this.playerBaseStatus);
+      baseControls.setBaseBadgeLabel(true, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
+    });
+    this.actionDispatcher.register(2, () => {
+      if (!baseControls) return;
+      baseControls.setBaseStatus(true, "normal");
+      baseControls.setBaseBadgeLabel(true, "0|0");
+    });
+    this.actionDispatcher.register(3, () => {
+      if (!baseControls) return;
+      this.playerShieldCount = (this.playerShieldCount + 1) % 7;
+      baseControls.setShieldCount(true, this.playerShieldCount);
+      baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
+    });
+    this.actionDispatcher.register(9, () => this.startGame());
+  }
+
+  private updateHeaderStatus(state: MatchState) {
+    const label =
+      state.status === GameStatus.CreatingRoom
+        ? "Creating room..."
+        : state.status === GameStatus.WaitingOpponent
+          ? `Waiting${state.roomId ? ` | Room ${state.roomId}` : ""}`
+          : state.status === GameStatus.Ready
+            ? "Ready"
+            : state.status === GameStatus.InMatch
+              ? "In match"
+              : "Error";
+    this.ui?.setHeaderStatus(`Status: ${label}`);
   }
 }

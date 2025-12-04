@@ -1,0 +1,52 @@
+import Phaser from "phaser";
+import { GameSessionService, GameStatus, GameMode } from "./GameSessionService";
+
+export type MatchState = { status: GameStatus; roomId: string | null; mode: GameMode };
+
+export class MatchStateMachine {
+  public events = new Phaser.Events.EventEmitter();
+  private status: GameStatus = GameStatus.Idle;
+  private roomId: string | null = null;
+  private mode: GameMode = GameMode.Host;
+
+  constructor(private session: GameSessionService) {}
+
+  getState(): MatchState {
+    return { status: this.status, roomId: this.roomId, mode: this.mode };
+  }
+
+  async startAsHost(playerId: string, gameConfig: { playerName: string }) {
+    this.transition(GameStatus.CreatingRoom);
+    const resp = await this.session.startAsHost(playerId, gameConfig);
+    this.roomId = resp?.roomId ?? null;
+    this.transition(GameStatus.WaitingOpponent);
+
+    // Placeholder: simulate opponent join after short delay.
+    setTimeout(() => {
+      this.transition(GameStatus.Ready);
+    }, 500);
+  }
+
+  async joinRoom(roomId: string, playerId: string) {
+    this.mode = GameMode.Join;
+    this.transition(GameStatus.CreatingRoom);
+    await this.session.joinRoom(roomId, playerId);
+    this.roomId = roomId;
+    this.transition(GameStatus.Ready);
+  }
+
+  startMatch() {
+    if (this.status !== GameStatus.Ready) return;
+    this.transition(GameStatus.InMatch);
+  }
+
+  markError() {
+    this.transition(GameStatus.Error);
+  }
+
+  private transition(next: GameStatus) {
+    this.status = next;
+    this.session.getState(); // keep session in sync for future expansion
+    this.events.emit("status", this.getState());
+  }
+}

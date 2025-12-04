@@ -101,6 +101,14 @@ export class BoardUI {
     this.header.setCtaHandler(handler);
   }
 
+  setHeaderButtonVisible(visible: boolean) {
+    this.header.setCtaVisible(visible);
+  }
+
+  setHeaderStatus(text: string) {
+    this.header.setStatusText(text);
+  }
+
   getBaseControls(): BaseControls {
     return this.baseControls;
   }

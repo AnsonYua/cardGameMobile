@@ -23,4 +23,9 @@ export class ApiManager {
       return json;
     });
   }
+
+  joinRoom(roomId: string, playerId: string): Promise<any> {
+    // Placeholder join-room API; replace with real endpoint.
+    return Promise.resolve({ roomId, playerId, joined: true });
+  }
 }
