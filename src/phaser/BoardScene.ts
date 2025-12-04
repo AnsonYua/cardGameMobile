@@ -133,8 +133,23 @@ export class BoardScene extends Phaser.Scene {
 
   private async initSession() {
     try {
-      this.gameStatus = GameStatus.CreatingRoom;
-      await this.match.startAsHost(this.playerId, { playerName: "Demo Player" });
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode") === "join" ? GameMode.Join : GameMode.Host;
+      const roomParam = params.get("roomid");
+      this.gameMode = mode;
+      if (params.get("mode") && mode !== GameMode.Host && mode !== GameMode.Join) {
+        throw new Error("Invalid mode");
+      }
+      if (mode === GameMode.Join) {
+        if (!roomParam) {
+          throw new Error("Missing room id for join mode");
+        }
+        this.gameStatus = GameStatus.CreatingRoom;
+        await this.match.joinRoom(roomParam, this.playerId);
+      } else {
+        this.gameStatus = GameStatus.CreatingRoom;
+        await this.match.startAsHost(this.playerId, { playerName: "Demo Player" });
+      }
     } catch (err) {
       this.gameStatus = GameStatus.Error;
       console.error("Session init failed", err);

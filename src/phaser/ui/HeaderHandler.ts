@@ -55,6 +55,7 @@ export class HeaderHandler {
   private onCta?: () => void;
   private ctaVisible = true;
   private statusLabel?: Phaser.GameObjects.Text;
+  private headerX = { left: 0, right: 0, centerY: 0 };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
@@ -70,6 +71,7 @@ export class HeaderHandler {
     const containerRight = containerX + containerW / 2;
     const containerTop = containerY - height / 2;
     const containerBottom = containerY + height / 2;
+    this.headerX = { left: containerLeft, right: containerRight, centerY: containerY };
 
     this.drawHelpers.drawRoundedRect({
       x: containerX,
@@ -124,7 +126,7 @@ export class HeaderHandler {
       .setDepth(this.depth);
 
     this.drawStartButton(containerRight - padding - 35, containerY, 80, height - padding * 2);
-    this.drawStatus(containerRight - padding - 160, containerY);
+    this.drawStatus(this.computeStatusX(), containerY);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -139,6 +141,10 @@ export class HeaderHandler {
     this.ctaVisible = visible;
     this.ctaButton?.setVisible(visible);
     this.ctaLabel?.setVisible(visible);
+    // Recompute status position when button visibility changes.
+    if (this.statusLabel) {
+      this.statusLabel.setPosition(this.computeStatusX(), this.headerX.centerY);
+    }
   }
 
   setStatusText(text: string) {
@@ -173,5 +179,12 @@ export class HeaderHandler {
       })
       .setOrigin(0.5)
       .setDepth(this.depth + 1);
+  }
+
+  private computeStatusX() {
+    // If CTA is visible, keep status slightly left of the button; otherwise align nearer the right edge.
+    const padding = this.layout.padding;
+    const offsetWithButton = 160;
+    return this.ctaVisible ? this.headerX.right - padding - offsetWithButton : this.headerX.right - padding - 60;
   }
 }

@@ -20,11 +20,12 @@ export class MatchStateMachine {
     const resp = await this.session.startAsHost(playerId, gameConfig);
     this.roomId = resp?.roomId ?? null;
     this.transition(GameStatus.WaitingOpponent);
-
+    /*
     // Placeholder: simulate opponent join after short delay.
     setTimeout(() => {
       this.transition(GameStatus.Ready);
     }, 500);
+    */
   }
 
   async joinRoom(roomId: string, playerId: string) {
