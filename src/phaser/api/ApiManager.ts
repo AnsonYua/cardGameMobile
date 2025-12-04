@@ -12,13 +12,13 @@ export class ApiManager {
   }
 
   startGame(payload: StartGamePayload): Promise<any> {
-    const url = `${this.baseUrl}/api/game/player/startGame`;
+    const url = this.buildUrl("/api/game/player/startGame");
     return this.requestWithFallback(url, payload);
   }
 
   joinRoom(gameId: string, playerId: string): Promise<any> {
     // Placeholder join-room API; replace with real endpoint.
-    const url = `${this.baseUrl}/api/game/player/join`;
+    const url = this.buildUrl("/api/game/player/join");
     return this.requestWithFallback(url, { gameId, playerId });
   }
 
@@ -31,14 +31,18 @@ export class ApiManager {
     if (apiUrlParam) {
       return apiUrlParam.startsWith("http") ? apiUrlParam : `${window.location.protocol}//${apiUrlParam}`;
     }
-    const host = apiHostParam || window.location.hostname || "localhost";
-    return `${window.location.protocol}//${host}:8080`;
+    if (apiHostParam) {
+      return `${window.location.protocol}//${apiHostParam}:8080`;
+    }
+    // Default to same origin and rely on Vite proxy for /api.
+    return "";
   }
 
   private async requestWithFallback(url: string, body: Record<string, any>) {
     try {
       return await this.doFetch(url, body);
     } catch (err) {
+      if (!this.baseUrl) throw err; // relative path already tried through proxy
       // If primary host failed and isn't localhost, try localhost as a fallback (helps when API bound only to loopback).
       if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
         const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
@@ -50,6 +54,11 @@ export class ApiManager {
       }
       throw err;
     }
+  }
+
+  private buildUrl(path: string) {
+    if (!this.baseUrl) return path;
+    return `${this.baseUrl}${path}`;
   }
 
   private async doFetch(url: string, body: Record<string, any>) {
