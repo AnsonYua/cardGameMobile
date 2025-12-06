@@ -8,7 +8,12 @@ import { Offset, Palette } from "./types";
 import type { BaseControls } from "./BaseShieldHandler";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
-type HandControls = { setVisible: (visible: boolean) => void; fadeIn: (duration?: number) => void };
+type HandControls = {
+  setVisible: (visible: boolean) => void;
+  fadeIn: (duration?: number) => void;
+  setHand: (cards: Array<{ color: number; cost?: string; textureKey?: string }>) => void;
+  clearHand: () => void;
+};
 type HeaderControls = {
   setStatus: (text: string) => void;
   setButtonVisible: (visible: boolean) => void;
@@ -40,6 +45,8 @@ export class BoardUI {
     this.handControls = {
       setVisible: (visible: boolean) => this.hand.setVisible(visible),
       fadeIn: (duration?: number) => this.hand.fadeIn(duration),
+      setHand: (cards) => this.hand.setHand(cards),
+      clearHand: () => this.hand.clearHand(),
     };
     this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
     this.headerControls = {

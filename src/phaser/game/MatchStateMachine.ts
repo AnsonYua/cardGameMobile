@@ -47,6 +47,10 @@ export class MatchStateMachine {
     return this.session.getGameResource(gameId, playerId);
   }
 
+  getApiBaseUrl() {
+    return this.session.getApiBaseUrl();
+  }
+
   startMatch() {
     if (this.status !== GameStatus.Ready) return;
     this.transition(GameStatus.InMatch);

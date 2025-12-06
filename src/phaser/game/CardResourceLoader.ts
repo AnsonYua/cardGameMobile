@@ -38,17 +38,23 @@ export class CardResourceLoader {
 
   constructor(private scene: Phaser.Scene) {}
 
-  async loadFromGameStatus(gameStatus: GameStatusResponse) {
+  async loadFromGameStatus(gameStatus: GameStatusResponse, baseOverride?: string) {
     const decks = gameStatus?.decks as any;
     if (!decks) return { success: true, stats: this.stats, loadedCount: 0, failedCount: 0 };
 
     const cardPaths = this.collectCardPaths(decks);
     if (!cardPaths.length) return { success: true, stats: this.stats, loadedCount: 0, failedCount: 0 };
 
+    const baseUrl = baseOverride || this.resolveBaseUrl(gameStatus) || (typeof window !== "undefined" ? window.location.origin : "");
+    if (!baseUrl) {
+      console.warn("CardResourceLoader: missing base URL for card assets");
+      return { success: false, stats: this.stats, loadedCount: 0, failedCount: cardPaths.length };
+    }
+
     this.stats = initialStats();
     this.stats.loadStartTime = Date.now();
 
-    const queueResult = this.queueLoads(cardPaths);
+    const queueResult = this.queueLoads(cardPaths, baseUrl);
     if (queueResult.totalQueued === 0) {
       this.finishStats();
       return { success: true, stats: this.stats, loadedCount: this.stats.loadedResourcesCount, failedCount: this.stats.failedResourcesCount };
@@ -76,26 +82,43 @@ export class CardResourceLoader {
     return path.endsWith(".png") ? path : `${path}.png`;
   }
 
+  private resolveBaseUrl(payload: any): string | null {
+    const candidates = [
+      payload?.assetsBaseUrl,
+      payload?.assetBaseUrl,
+      payload?.baseImageUrl,
+      payload?.imageBaseUrl,
+      payload?.resourceBaseUrl,
+      payload?.cdnBaseUrl,
+      payload?.baseUrl,
+    ].filter(Boolean) as string[];
+    if (candidates.length > 0) return candidates[0];
+    return null;
+  }
+
   private getImageKey(path: string) {
     const parts = path.split("/");
     const filename = parts[parts.length - 1];
     return filename.replace(/\.png$/i, "");
   }
 
-  private getImageUrl(path: string) {
-    // Default to same-origin assets path; adjust as backend specifies.
-    const base = window.location.origin;
-    return `${base}/assets/cards/${path}`;
+  private getImageUrl(path: string, baseUrl: string) {
+    const trimmedBase = baseUrl.replace(/\/$/, "");
+    const trimmedPath = path.replace(/^\//, "");
+    // Images served by API under /api/game/image/<path>
+    return `${trimmedBase}/api/game/image/${trimmedPath}`;
   }
 
-  private queueLoads(paths: string[]) {
+  private queueLoads(paths: string[], baseUrl: string) {
     const load = this.scene.load;
     let totalQueued = 0;
     paths.forEach((path) => {
       const key = this.getImageKey(path);
       const previewKey = `${key}-preview`;
-      const url = `${this.getImageUrl(path)}?t=${Date.now()}`;
-      const previewUrl = `${this.getImageUrl(path)}?preview=1&t=${Date.now()}`;
+      const cacheBust = Date.now();
+      const url = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      const previewUrl = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      if (!url || !previewUrl) return;
 
       [
         { key, url, isPreview: false },

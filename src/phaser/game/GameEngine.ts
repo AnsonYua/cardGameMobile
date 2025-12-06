@@ -61,7 +61,7 @@ export class GameEngine {
   private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse) {
     try {
       const resources = await this.match.getGameResource(gameId, playerId);
-      const loadResult = await this.resourceLoader.loadFromGameStatus(resources);
+      const loadResult = await this.resourceLoader.loadFromGameStatus(resources, this.match.getApiBaseUrl());
       this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources, loadResult, statusPayload });
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);

@@ -56,6 +56,10 @@ export class GameSessionService {
     return resp;
   }
 
+  getApiBaseUrl() {
+    return this.api.getBaseUrl();
+  }
+
   markReady() {
     this.status = GameStatus.Ready;
   }

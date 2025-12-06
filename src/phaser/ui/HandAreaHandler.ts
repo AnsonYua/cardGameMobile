@@ -3,23 +3,10 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 
-type HandCard = { color: number; cost?: string };
+type HandCard = { color: number; cost?: string; textureKey?: string };
 
 export class HandAreaHandler {
-  private handCards: HandCard[] = [
-    { color: 0x9d512c, cost: "0" },
-    { color: 0x6db1ff, cost: "1" },
-    { color: 0xf2cf7d, cost: "2" },
-    { color: 0x3db77a, cost: "2" },
-    { color: 0xf28d6c, cost: "2" },
-    { color: 0x6e6f8a, cost: "0" },
-    { color: 0x9d512c, cost: "2" },
-    { color: 0xf2cf7d, cost: "0" },
-    { color: 0x6db1ff, cost: "2" },
-    { color: 0x3db77a, cost: "0" },
-    { color: 0xf28d6c, cost: "1" },
-    { color: 0x6e6f8a, cost: "3" },
-  ];
+  private handCards: HandCard[] = [];
   private lastOffset: Offset = { x: 0, y: 0 };
   private drawnObjects: Phaser.GameObjects.GameObject[] = [];
 
@@ -64,6 +51,11 @@ export class HandAreaHandler {
   setHand(cards: HandCard[]) {
     this.handCards = cards;
     this.draw(this.lastOffset);
+  }
+
+  clearHand() {
+    this.handCards = [];
+    this.clear();
   }
 
   setVisible(visible: boolean) {
@@ -123,6 +115,14 @@ export class HandAreaHandler {
       strokeWidth: 1,
     });
     this.drawnObjects.push(inner);
+
+    if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
+      const img = this.scene.add
+        .image(x, y, card.textureKey)
+        .setDisplaySize(w - 18, h - 26)
+        .setDepth((bg.depth || 0) + 1);
+      this.drawnObjects.push(img);
+    }
   }
 
   private clear() {

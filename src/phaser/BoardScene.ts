@@ -133,7 +133,21 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private showHandCards() {
-    console.log("show hand cards (placeholder)");
+    const snapshot = this.engine.getSnapshot();
+    const raw = snapshot.raw as any;
+    if (!raw) return;
+    const playerId = this.gameContext.playerId;
+    const hand = raw?.gameEnv?.players?.[playerId]?.deck?.hand || [];
+    const cards = hand.map((card: any) => {
+      const id = typeof card === "string" ? card : card?.cardId;
+      const key = typeof id === "string" ? id.replace(/\.png$/i, "") : null;
+      const textureKey = key ? `${key}-preview` : undefined;
+      return { color: 0x2a2d38, textureKey };
+    });
+    if (!cards.length) return;
+    this.handControls?.setHand(cards);
+    this.handControls?.setVisible(true);
+    this.handControls?.fadeIn();
   }
 
   // Centralize UI wiring/drawing to reduce call scattering in create().

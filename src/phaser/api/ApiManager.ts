@@ -11,6 +11,11 @@ export class ApiManager {
     this.baseUrl = this.resolveBaseUrl(baseUrl);
   }
 
+  getBaseUrl() {
+    if (this.baseUrl) return this.baseUrl;
+    return this.fallbackUrl;
+  }
+
   startGame(payload: StartGamePayload): Promise<any> {
     const url = this.buildUrl("/api/game/player/startGame");
     return this.requestWithFallback(url, payload);
