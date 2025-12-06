@@ -42,6 +42,10 @@ export class GameSessionService {
     return this.api.getGameStatus(gameId, playerId);
   }
 
+  async getGameResource(gameId: string, playerId: string) {
+    return this.api.getGameResource(gameId, playerId);
+  }
+
   async joinRoom(gameId: string, playerId: string, playerName: string) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;

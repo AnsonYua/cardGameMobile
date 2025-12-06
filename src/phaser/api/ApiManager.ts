@@ -21,6 +21,13 @@ export class ApiManager {
     return this.requestGetWithFallback(url);
   }
 
+  getGameResource(gameId: string, playerId: string): Promise<any> {
+    const url = this.buildUrl(
+      `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`,
+    );
+    return this.requestGetWithFallback(url);
+  }
+
   joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
     return this.requestWithFallback(url, { gameId, playerId, playerName });

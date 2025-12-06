@@ -158,6 +158,13 @@ export class BoardUI {
     return this.handControls;
   }
 
+  getActionControls() {
+    return {
+      setVisible: (visible: boolean) => this.actions.setVisible(visible),
+      fadeIn: (duration?: number) => this.actions.fadeIn(duration),
+    };
+  }
+
   getHeaderControls() {
     return this.headerControls;
   }

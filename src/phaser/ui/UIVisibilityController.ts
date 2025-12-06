@@ -8,12 +8,13 @@ export class UIVisibilityController {
     const energy = this.ui.getEnergyControls();
     const status = this.ui.getStatusControls();
     const hand = this.ui.getHandControls();
+    const actions = this.ui.getActionControls();
     base?.setBaseTowerVisible(true, false);
     base?.setBaseTowerVisible(false, false);
     energy?.setVisible(false);
     status?.setVisible(false);
     hand?.setVisible(false);
-    
+    actions?.setVisible(false);
   }
 
   show() {
@@ -21,6 +22,7 @@ export class UIVisibilityController {
     const energy = this.ui.getEnergyControls();
     const status = this.ui.getStatusControls();
     const hand = this.ui.getHandControls();
+    const actions = this.ui.getActionControls();
     base?.setBaseTowerVisible(true, true);
     base?.setBaseTowerVisible(false, true);
     energy?.setVisible(true);
@@ -29,5 +31,7 @@ export class UIVisibilityController {
     energy?.fadeIn();
     status?.fadeIn();
     hand?.fadeIn();
+    actions?.setVisible(true);
+    actions?.fadeIn?.();
   }
 }

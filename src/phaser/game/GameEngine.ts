@@ -28,13 +28,11 @@ export class GameEngine {
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
 
       if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
+        // Emit redraw so listeners (e.g., BoardScene) can start the match UI and optionally trigger a
+        // follow-up resource fetch through ApiManager if needed (e.g., /api/game/player/gameResource).
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
+        await this.fetchGameResources(gameId, playerId);
       }
-
-      /* if old game status !=REDRAW_PHASE and new gameEnv.phase = REDRAW_PHASE
-         call startGame in BoardScene.ts
-         save the new gamestatus in gamecontext
-      */
 
       return this.getSnapshot();
     } catch (err) {
@@ -50,5 +48,14 @@ export class GameEngine {
 
   getContext() {
     return this.contextStore.get();
+  }
+
+  private async fetchGameResources(gameId: string, playerId: string) {
+    try {
+      const resources = await this.match.getGameResource(gameId, playerId);
+      this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources });
+    } catch (err) {
+      this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
+    }
   }
 }

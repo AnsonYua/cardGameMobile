@@ -43,6 +43,10 @@ export class MatchStateMachine {
     return this.session.getGameStatus(gameId, playerId);
   }
 
+  async getGameResource(gameId: string, playerId: string) {
+    return this.session.getGameResource(gameId, playerId);
+  }
+
   startMatch() {
     if (this.status !== GameStatus.Ready) return;
     this.transition(GameStatus.InMatch);

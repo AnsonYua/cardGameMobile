@@ -37,6 +37,29 @@ export class ActionButtonBarHandler {
     this.onAction = handler;
   }
 
+  setVisible(visible: boolean) {
+    this.elements.forEach((e) => (e as any).setVisible?.(visible));
+    this.hitAreas.forEach((h) => {
+      h.setVisible(visible);
+      if (visible) {
+        h.setInteractive({ useHandCursor: true });
+      } else {
+        h.disableInteractive();
+      }
+    });
+    this.scrollArea?.setVisible(visible);
+    this.maskGraphics?.setVisible(visible);
+  }
+
+  fadeIn(duration = 200) {
+    this.setVisible(true);
+    const tweenTargets = this.elements.filter((e) => typeof (e as any).setAlpha === "function");
+    tweenTargets.forEach((t) => (t as any).setAlpha?.(0));
+    if (tweenTargets.length) {
+      this.scene.tweens.add({ targets: tweenTargets as any, alpha: 1, duration, ease: "Sine.easeOut" });
+    }
+  }
+
   draw(offset: { x: number; y: number }) {
     this.lastOffset = offset;
     this.elements.forEach((e) => e.destroy());

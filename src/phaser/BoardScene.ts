@@ -92,6 +92,9 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });
+    this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
+      console.log("Game resources fetched", payload?.resources);
+    });
     this.setupActions();
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
