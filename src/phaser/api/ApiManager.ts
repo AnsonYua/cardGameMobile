@@ -16,10 +16,9 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
-  joinRoom(gameId: string, playerId: string): Promise<any> {
-    // Placeholder join-room API; replace with real endpoint.
-    const url = this.buildUrl("/api/game/player/join");
-    return this.requestWithFallback(url, { gameId, playerId });
+  joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
+    const url = this.buildUrl("/api/game/player/joinRoom");
+    return this.requestWithFallback(url, { gameId, playerId, playerName });
   }
 
   private resolveBaseUrl(baseUrl?: string) {

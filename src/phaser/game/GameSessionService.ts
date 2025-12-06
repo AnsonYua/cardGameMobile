@@ -38,10 +38,10 @@ export class GameSessionService {
     return resp;
   }
 
-  async joinRoom(gameId: string, playerId: string) {
+  async joinRoom(gameId: string, playerId: string, playerName: string) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.joinRoom(gameId, playerId);
+    const resp = await this.api.joinRoom(gameId, playerId, playerName);
     this.gameId = gameId;
     this.status = GameStatus.Ready;
     return resp;

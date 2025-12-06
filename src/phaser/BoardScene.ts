@@ -48,6 +48,8 @@ export class BoardScene extends Phaser.Scene {
   private gameMode: GameMode = GameMode.Host;
   private gameId: string | null = null;
   private playerId = "playerId_1";
+  private playerName = "Demo Player";
+  private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
   private errorText?: Phaser.GameObjects.Text;
@@ -75,17 +77,11 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
+    this.headerControls = this.ui.getHeaderControls();
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.setupActions();
-    this.ui.setActionHandler((index) => this.actionDispatcher.dispatch(index));
-    this.ui.drawFrame(this.offset);
-    this.ui.drawHeader(this.offset);
-    this.ui.drawField(this.offset);
-    this.ui.drawActions(this.offset);
-    this.ui.drawHand(this.offset);
-
-    this.ui.setHeaderButtonHandler(() => this.startGame());
-    this.ui.setAvatarHandler(() => this.showPopup());
+    this.wireUiHandlers();
+    this.ui.drawAll(this.offset);
     this.hideDefaultUI();
     // Sync header with initial state before async work.
     this.onMatchStatus(this.match.getState());
@@ -113,6 +109,7 @@ export class BoardScene extends Phaser.Scene {
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
   private hideDefaultUI() {
+    // Aggregate hide so future changes stay centralized; avoid scattering visibility calls.
     this.baseControls?.setBaseTowerVisible(true, false);
     this.baseControls?.setBaseTowerVisible(false, false);
     this.energyControls?.setVisible(false);
@@ -137,8 +134,16 @@ export class BoardScene extends Phaser.Scene {
     console.log("show hand cards (placeholder)");
   }
 
+  // Centralize UI wiring/drawing to reduce call scattering in create().
+  private wireUiHandlers() {
+    this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
+    this.headerControls?.setButtonHandler(() => this.startGame());
+    this.headerControls?.setAvatarHandler(() => this.showPopup());
+  }
+
   private async initSession() {
     try {
+      this.offlineFallback = false;
       const params = new URLSearchParams(window.location.search);
       const rawMode = params.get("mode");
       if (!rawMode) {
@@ -149,16 +154,23 @@ export class BoardScene extends Phaser.Scene {
         throw new Error("Invalid mode");
       }
       const roomParam = params.get("gameId") || params.get("roomid");
+      const playerIdParam = params.get("playerId") || params.get("playerid");
+      const playerNameParam = params.get("playerName") || params.get("playername");
+      if (playerIdParam) this.playerId = playerIdParam;
       this.gameMode = mode;
       if (mode === GameMode.Join) {
         if (!roomParam) {
           throw new Error("Missing game id for join mode");
         }
+        const joinName = playerNameParam || "Demo Opponent";
+        this.playerName = joinName;
         this.gameStatus = GameStatus.CreatingRoom;
-        await this.match.joinRoom(roomParam, this.playerId);
+        await this.match.joinRoom(roomParam, this.playerId, joinName);
       } else {
+        const hostName = playerNameParam || this.playerName || "Demo Player";
+        this.playerName = hostName;
         this.gameStatus = GameStatus.CreatingRoom;
-        await this.match.startAsHost(this.playerId, { playerName: "Demo Player" });
+        await this.match.startAsHost(this.playerId, { playerName: hostName });
       }
     } catch (err) {
       console.error("Session init failed", err);
@@ -189,7 +201,9 @@ export class BoardScene extends Phaser.Scene {
     const baseControls = this.baseControls;
     this.actionDispatcher.register(0, () => {
       const promise = this.shuffleManager?.play();
-      promise?.then(() => console.log("Shuffle animation finished"));
+      promise?.then(() =>{
+        this.showDefaultUI();
+      });
     });
     this.actionDispatcher.register(1, () => {
       if (!baseControls) return;
@@ -233,10 +247,10 @@ export class BoardScene extends Phaser.Scene {
           : state.status === GameStatus.Ready
             ? "Ready"
             : state.status === GameStatus.InMatch
-            ? "In match"
+              ? "In match"
               : "Error";
     const suffix = this.offlineFallback ? " (offline)" : "";
-    this.ui?.setHeaderStatus(`Status: ${label}${suffix}`);
+    this.headerControls?.setStatus(`Status: ${label}${suffix}`);
   }
 
   private showErrorOverlay(message: string) {

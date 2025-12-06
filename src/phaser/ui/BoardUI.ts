@@ -9,6 +9,12 @@ import type { BaseControls } from "./BaseShieldHandler";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
 type HandControls = { setVisible: (visible: boolean) => void; fadeIn: (duration?: number) => void };
+type HeaderControls = {
+  setStatus: (text: string) => void;
+  setButtonVisible: (visible: boolean) => void;
+  setButtonHandler: (handler: () => void) => void;
+  setAvatarHandler: (handler: () => void) => void;
+};
 
 export class BoardUI {
   private framePadding = 12;
@@ -21,6 +27,7 @@ export class BoardUI {
   private energyControls: EnergyControls;
   private statusControls: StatusControls;
   private handControls: HandControls;
+  private headerControls: HeaderControls;
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {
     this.drawHelpers = new DrawHelpers(scene);
@@ -35,6 +42,12 @@ export class BoardUI {
       fadeIn: (duration?: number) => this.hand.fadeIn(duration),
     };
     this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
+    this.headerControls = {
+      setStatus: (text: string) => this.header.setStatusText(text),
+      setButtonVisible: (visible: boolean) => this.header.setCtaVisible(visible),
+      setButtonHandler: (handler: () => void) => this.header.setCtaHandler(handler),
+      setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
+    };
   }
 
   drawFrame(offset: Offset) {
@@ -63,6 +76,14 @@ export class BoardUI {
 
   drawHeader(offset: Offset) {
     this.header.draw(offset);
+  }
+
+  drawAll(offset: Offset) {
+    this.drawFrame(offset);
+    this.drawHeader(offset);
+    this.drawField(offset);
+    this.drawActions(offset);
+    this.drawHand(offset);
   }
 
   drawField(offset: Offset) {
@@ -135,5 +156,9 @@ export class BoardUI {
 
   getHandControls() {
     return this.handControls;
+  }
+
+  getHeaderControls() {
+    return this.headerControls;
   }
 }
