@@ -14,6 +14,7 @@
 - `GameContextStore` holds shared game identifiers/status for the current session.
 - `SessionParams` parses URL query params into structured session info.
 - `UIVisibilityController` centralizes show/hide/fade behaviour for core controls; `DebugControls` encapsulates test-only popup handlers.
+- `HandPresenter` maps `gameEnv` payloads to hand view models and shares preview key creation with `HandAreaHandler` via `HandTypes`.
 
 ## Game Modes
 - **Host**: `BoardScene` -> `match.startAsHost(playerId, { playerName })` -> `session.startAsHost` -> `api.startGame`. Status moves to `WaitingOpponent` then `Ready` when the match is set to start.
@@ -31,6 +32,8 @@
 - `src/phaser/game/EngineEvents.ts`: Constants for engine event names (`engine:status`, `engine:phase:redraw`, `engine:status-error`).
 - `src/phaser/ui/UIVisibilityController.ts`: Centralized show/hide for board UI controls.
 - `src/phaser/controllers/DebugControls.ts`: Debug/test popup wiring for manual join/poll actions.
+- `src/phaser/ui/HandPresenter.ts`: Translates `gameEnv.players[playerId].deck.hand` into view-friendly card data (preview texture keys).
+- `src/phaser/ui/HandTypes.ts`: Shared hand card view types and preview key helper.
 - UI helpers under `src/phaser/ui/*` plus animation controllers under `src/phaser/animations/*` drive the visible game components.
 
 ## API Endpoints (current usage)

@@ -2,11 +2,10 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-
-type HandCard = { color: number; cost?: string; textureKey?: string };
+import type { HandCardView } from "./HandTypes";
 
 export class HandAreaHandler {
-  private handCards: HandCard[] = [];
+  private handCards: HandCardView[] = [];
   private lastOffset: Offset = { x: 0, y: 0 };
   private drawnObjects: Phaser.GameObjects.GameObject[] = [];
 
@@ -48,7 +47,7 @@ export class HandAreaHandler {
     }
   }
 
-  setHand(cards: HandCard[]) {
+  setHand(cards: HandCardView[]) {
     this.handCards = cards;
     this.draw(this.lastOffset);
   }

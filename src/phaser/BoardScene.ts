@@ -14,6 +14,7 @@ import { parseSessionParams } from "./game/SessionParams";
 import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
 import { UIVisibilityController } from "./ui/UIVisibilityController";
+import { HandPresenter } from "./ui/HandPresenter";
 
 const colors = {
   bg: "#ffffff",
@@ -53,6 +54,7 @@ export class BoardScene extends Phaser.Scene {
   private contextStore = new GameContextStore();
   private engine = new GameEngine(this, this.match, this.contextStore);
   private gameContext = this.contextStore.get();
+  private handPresenter = new HandPresenter();
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -137,13 +139,7 @@ export class BoardScene extends Phaser.Scene {
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
-    const hand = raw?.gameEnv?.players?.[playerId]?.deck?.hand || [];
-    const cards = hand.map((card: any) => {
-      const id = typeof card === "string" ? card : card?.cardId;
-      const key = typeof id === "string" ? id.replace(/\.png$/i, "") : null;
-      const textureKey = key ? `${key}-preview` : undefined;
-      return { color: 0x2a2d38, textureKey };
-    });
+    const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;
     this.handControls?.setHand(cards);
     this.handControls?.setVisible(true);

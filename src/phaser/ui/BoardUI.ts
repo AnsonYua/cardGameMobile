@@ -6,12 +6,13 @@ import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { BaseControls } from "./BaseShieldHandler";
+import type { HandCardView } from "./HandTypes";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
 type HandControls = {
   setVisible: (visible: boolean) => void;
   fadeIn: (duration?: number) => void;
-  setHand: (cards: Array<{ color: number; cost?: string; textureKey?: string }>) => void;
+  setHand: (cards: HandCardView[]) => void;
   clearHand: () => void;
 };
 type HeaderControls = {
