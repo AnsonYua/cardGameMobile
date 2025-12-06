@@ -78,7 +78,7 @@ export class HandAreaHandler {
     });
   }
 
-  private drawHandCard(x: number, y: number, w: number, h: number, card: HandCard) {
+  private drawHandCard(x: number, y: number, w: number, h: number, card: HandCardView) {
     const bg = this.drawHelpers.drawRoundedRect({
       x,
       y,
