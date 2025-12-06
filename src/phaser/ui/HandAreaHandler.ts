@@ -15,13 +15,32 @@ export class HandAreaHandler {
     this.lastOffset = offset;
     this.clear();
 
-    const cardW = 60;
-    const cardH = 90;
-    const gap = 8;
-    const perRow = 6;
-    const rows = 2;
-    const bottomPadding = 24;
-    const startY = BASE_H - bottomPadding - cardH / 2 - (rows - 1) * (cardH + gap) + offset.y;
+    const maxPerRow = 6;
+    const totalCards = this.handCards.length;
+    const counts = [Math.min(maxPerRow, totalCards), Math.max(totalCards - maxPerRow, 0)].filter((c) => c > 0);
+    const gapX = 8;
+    const gapY = 10;
+    const paddingX = 5;
+    const targetCardW = 80;
+    const aspect = 90 / 60; // maintain ratio
+    const areaHeight = 240; // hand area height
+
+    if (counts.length === 0) return;
+
+    const maxCountPerRow = Math.max(...counts, 1);
+    const availableWidth = BASE_W - paddingX * 2 - gapX * (maxCountPerRow - 1);
+    const uniformCardW = Math.max(40, Math.min(targetCardW, availableWidth / maxCountPerRow));
+    const uniformCardH = uniformCardW * aspect;
+
+    const rowLayouts = counts.map((count) => {
+      const totalW = count * uniformCardW + gapX * (count - 1);
+      return { count, cardW: uniformCardW, cardH: uniformCardH, totalW };
+    });
+
+    const totalRowsHeight = rowLayouts.reduce((acc, row) => acc + row.cardH, 0) + gapY * (rowLayouts.length - 1);
+    const areaTop = BASE_H - areaHeight + offset.y;
+    const currentYStart = areaTop + (areaHeight - totalRowsHeight) / 2 + rowLayouts[0].cardH / 2;
+    let currentY = currentYStart;
     //const labelY = startY - 50;
     /*
     this.scene
@@ -36,14 +55,22 @@ export class HandAreaHandler {
       .setDepth(10);
     */
 
+    let rowIndex = 0;
+    let colIndex = 0;
     for (let i = 0; i < this.handCards.length; i++) {
-      const row = Math.floor(i / perRow);
-      const col = i % perRow;
-      const totalW = perRow * cardW + (perRow - 1) * gap;
-      const startX = (BASE_W - totalW) / 2 + cardW / 2 + offset.x;
-      const x = startX + col * (cardW + gap);
-      const y = startY + row * (cardH + gap);
-      this.drawHandCard(x, y, cardW, cardH, this.handCards[i]);
+      const layout = rowLayouts[rowIndex];
+      const startX = offset.x + (BASE_W - layout.totalW) / 2 + layout.cardW / 2;
+      const x = startX + colIndex * (layout.cardW + gapX);
+      const y = currentY;
+      this.drawHandCard(x, y, layout.cardW, layout.cardH, this.handCards[i]);
+
+      colIndex += 1;
+      if (colIndex >= layout.count && rowIndex < rowLayouts.length - 1) {
+        // move to next row
+        colIndex = 0;
+        rowIndex += 1;
+        currentY += layout.cardH + gapY;
+      }
     }
   }
 
@@ -104,8 +131,8 @@ export class HandAreaHandler {
     const inner = this.drawHelpers.drawRoundedRect({
       x,
       y,
-      width: w - 14,
-      height: h - 22,
+      width: w - 7,
+      height: h - 10,
       radius: 8,
       fillColor: 0x1a1d26,
       fillAlpha: 0.4,
@@ -118,7 +145,7 @@ export class HandAreaHandler {
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
       const img = this.scene.add
         .image(x, y, card.textureKey)
-        .setDisplaySize(w - 18, h - 26)
+        .setDisplaySize(w , h)
         .setDepth((bg.depth || 0) + 1);
       this.drawnObjects.push(img);
     }
