@@ -6,6 +6,7 @@ export enum GameStatus {
   WaitingOpponent = "waiting_opponent",
   Ready = "ready",
   InMatch = "in_match",
+  LoadingResources = "loading_resources",
   Error = "error",
 }
 

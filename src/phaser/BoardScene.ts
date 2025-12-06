@@ -51,7 +51,7 @@ export class BoardScene extends Phaser.Scene {
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
   private contextStore = new GameContextStore();
-  private engine = new GameEngine(this.match, this.contextStore);
+  private engine = new GameEngine(this, this.match, this.contextStore);
   private gameContext = this.contextStore.get();
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;

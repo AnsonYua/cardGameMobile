@@ -3,6 +3,8 @@ import { MatchStateMachine } from "./MatchStateMachine";
 import { GameContextStore } from "./GameContextStore";
 import { ENGINE_EVENTS } from "./EngineEvents";
 import { GamePhase, GameStatusResponse } from "./GameTypes";
+import { GameStatus } from "./GameSessionService";
+import { CardResourceLoader } from "./CardResourceLoader";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -12,8 +14,11 @@ export type GameStatusSnapshot = {
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private lastRaw: GameStatusResponse | null = null;
+  private resourceLoader: CardResourceLoader;
 
-  constructor(private match: MatchStateMachine, private contextStore: GameContextStore) {}
+  constructor(private scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
+    this.resourceLoader = new CardResourceLoader(scene);
+  }
 
   async updateGameStatus(gameId?: string, playerId?: string) {
     if (!gameId || !playerId) return this.getSnapshot();
@@ -28,10 +33,13 @@ export class GameEngine {
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
 
       if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
-        // Emit redraw so listeners (e.g., BoardScene) can start the match UI and optionally trigger a
-        // follow-up resource fetch through ApiManager if needed (e.g., /api/game/player/gameResource).
+        // Mark status as loading resources while fetching textures, then emit redraw after load.
+        this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
+        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+        await this.fetchGameResources(gameId, playerId, response);
+        this.contextStore.update({ lastStatus: derivedStatus });
+        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
-        await this.fetchGameResources(gameId, playerId);
       }
 
       return this.getSnapshot();
@@ -50,10 +58,11 @@ export class GameEngine {
     return this.contextStore.get();
   }
 
-  private async fetchGameResources(gameId: string, playerId: string) {
+  private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse) {
     try {
       const resources = await this.match.getGameResource(gameId, playerId);
-      this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources });
+      const loadResult = await this.resourceLoader.loadFromGameStatus(resources);
+      this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources, loadResult, statusPayload });
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
     }
