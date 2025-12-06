@@ -13,6 +13,7 @@ export class UIVisibilityController {
     energy?.setVisible(false);
     status?.setVisible(false);
     hand?.setVisible(false);
+    
   }
 
   show() {
