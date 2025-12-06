@@ -6,9 +6,9 @@
 - Lightweight API client wrapper (no state management framework)
 
 ## High-Level Flow
-- `BoardScene` boots Phaser UI, reads query params for `mode` and game identifiers, and delegates session orchestration to the match layer. It maintains a local `gameContext` object for player/game identifiers and status used by the UI, and listens to `GameEngine` status previews.
+- `BoardScene` boots Phaser UI, reads query params for `mode` and game identifiers, and delegates session orchestration to the match layer. It reads game context from `GameEngine` (player/game identifiers and status for the UI) and listens to status updates.
 - `MatchStateMachine` tracks match lifecycle (`Idle` → `CreatingRoom` → `Ready` → `InMatch`) and emits status updates for UI.
-- `GameEngine` wraps status polling (`getGameStatus`) and emits `status-preview` snapshots used by the UI.
+- `GameEngine` owns the shared game context (playerId, playerName, gameId, status, mode, lastStatus), wraps status polling (`getGameStatus`), emits `status` snapshots (derived plus raw payload), and surfaces phase transitions (e.g., `phase:redraw`).
 - `GameSessionService` is the boundary to the backend API: it calls `ApiManager`, caches game state, and exposes simple methods to the match layer.
 - `ApiManager` builds URLs, handles fallback host resolution, and performs fetch requests (POST/GET with a localhost fallback).
 
@@ -17,8 +17,8 @@
 - **Join**: `BoardScene` -> `match.joinRoom(gameId, playerId, playerName)`. Internally the match layer hardcodes `playerId_2` / `Demo Opponent` to align with backend expectations, performs `api.joinRoom`, and `BoardScene` triggers a follow-up `getGameStatus(gameId, playerId_2)` call (ready for future polling) while storing results in `gameContext`.
 
 ## Key Modules
-- `src/phaser/BoardScene.ts`: Sets up visuals/UI, wires button handlers, parses URL params, and invokes match operations. Maintains `gameContext` (playerId, playerName, gameId, status, mode, lastStatus, previewStatus) for UI use while keeping network calls delegated to match/session layers and `GameEngine`.
-- `src/phaser/game/GameEngine.ts`: Holds status snapshots, triggers `getGameStatus` via the match layer, and emits `status-preview` for consumers.
+- `src/phaser/BoardScene.ts`: Sets up visuals/UI, wires button handlers, parses URL params, and invokes match operations. Reads/writes shared `gameContext` from `GameEngine` while keeping network calls delegated to match/session layers and `GameEngine`.
+- `src/phaser/game/GameEngine.ts`: Owns shared game context, holds status snapshots, triggers `getGameStatus` via the match layer, and emits `status`/phase events for consumers.
 - `src/phaser/game/MatchStateMachine.ts`: Centralizes match state transitions and emits events (`status`) to listeners. Encapsulates the join/host orchestration.
 - `src/phaser/game/GameSessionService.ts`: Thin stateful service that calls `ApiManager` and tracks `status`, `gameId`, and `gameMode`.
 - `src/phaser/api/ApiManager.ts`: URL construction, fallback host logic, `startGame`, `joinRoom`, and `getGameStatus` (GET) wrappers.

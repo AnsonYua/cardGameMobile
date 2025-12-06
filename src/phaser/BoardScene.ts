@@ -22,16 +22,6 @@ const colors = {
   ink: "#0f1118",
 };
 
-type GameContext = {
-  playerId: string;
-  playerName: string;
-  gameId: string | null;
-  status: GameStatus;
-  mode: GameMode;
-  previewStatus: any;
-  lastStatus: any;
-};
-
 export class BoardScene extends Phaser.Scene {
   constructor() {
     super("BoardScene");
@@ -57,15 +47,7 @@ export class BoardScene extends Phaser.Scene {
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
   private engine = new GameEngine(this.match);
-  private gameContext: GameContext = {
-    playerId: "playerId_1",
-    playerName: "Demo Player",
-    gameId: null,
-    status: GameStatus.Idle,
-    mode: GameMode.Host,
-    previewStatus: null,
-    lastStatus: null,
-  };
+  private gameContext = this.engine.getContext();
 
   private joinTestId = "test_joiner";
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
@@ -98,9 +80,11 @@ export class BoardScene extends Phaser.Scene {
     this.handControls = this.ui.getHandControls();
     this.headerControls = this.ui.getHeaderControls();
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
-    this.engine.events.on("status-preview", (snapshot: GameStatusSnapshot) => {
-      this.gameContext.lastStatus = snapshot.lastStatus;
-      this.gameContext.previewStatus = snapshot.previewStatus;
+    this.engine.events.on("status", (snapshot: GameStatusSnapshot) => {
+      this.gameContext.lastStatus = snapshot.status;
+    });
+    this.engine.events.on("phase:redraw", () => {
+      this.startGame();
     });
     this.setupActions();
     this.wireUiHandlers();
@@ -283,11 +267,10 @@ export class BoardScene extends Phaser.Scene {
         this.gameContext.playerId,
       );
       if (snapshot) {
-        this.gameContext.lastStatus = snapshot.lastStatus ?? this.gameContext.lastStatus;
-        this.gameContext.previewStatus = snapshot.previewStatus ?? this.gameContext.previewStatus;
+        this.gameContext.lastStatus = snapshot.status ?? this.gameContext.lastStatus;
       }
       this.popup?.hide();
-      console.log("Polling status:", this.gameContext.previewStatus);
+      console.log("Polling status:", this.gameContext.lastStatus);
     } catch (err) {
       console.warn("Polling failed", err);
     }
