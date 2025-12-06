@@ -13,6 +13,10 @@ export class ApiManager {
 
   getBaseUrl() {
     if (this.baseUrl) return this.baseUrl;
+    if (typeof window !== "undefined" && window.location) {
+      const { protocol, hostname } = window.location;
+      return `${protocol}//${hostname}:8080`;
+    }
     return this.fallbackUrl;
   }
 

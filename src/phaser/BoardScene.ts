@@ -117,12 +117,17 @@ export class BoardScene extends Phaser.Scene {
     this.gameContext.status = GameStatus.InMatch;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
-    promise
-      ?.then(() => {
-        this.showDefaultUI();
-        this.showHandCards();
-      })
-      .then(() => console.log("Shuffle animation finished"));
+    if (promise && typeof promise.then === "function") {
+      promise
+        .then(() => {
+          this.showDefaultUI();
+          this.showHandCards();
+        })
+        .then(() => console.log("Shuffle animation finished"));
+    } else {
+      this.showDefaultUI();
+      this.showHandCards();
+    }
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
