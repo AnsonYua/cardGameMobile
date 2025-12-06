@@ -9,8 +9,11 @@ import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionServ
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot } from "./game/GameEngine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
-import { TestButtonPopup } from "./ui/TestButtonPopup";
-import type { TestButtonPopupConfig } from "./ui/TestButtonPopup";
+import { GameContextStore } from "./game/GameContextStore";
+import { parseSessionParams } from "./game/SessionParams";
+import { ENGINE_EVENTS } from "./game/EngineEvents";
+import { DebugControls } from "./controllers/DebugControls";
+import { UIVisibilityController } from "./ui/UIVisibilityController";
 
 const colors = {
   bg: "#ffffff",
@@ -43,18 +46,19 @@ export class BoardScene extends Phaser.Scene {
   private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
+  private uiVisibility?: UIVisibilityController;
   private api = new ApiManager();
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
-  private engine = new GameEngine(this.match);
-  private gameContext = this.engine.getContext();
+  private contextStore = new GameContextStore();
+  private engine = new GameEngine(this.match, this.contextStore);
+  private gameContext = this.contextStore.get();
 
-  private joinTestId = "test_joiner";
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
   private errorText?: Phaser.GameObjects.Text;
-  private popup?: TestButtonPopup;
+  private debugControls?: DebugControls;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -73,17 +77,19 @@ export class BoardScene extends Phaser.Scene {
       text: colors.text,
       bg: colors.bg,
     });
+    this.uiVisibility = new UIVisibilityController(this.ui);
     this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
     this.baseControls = this.ui.getBaseControls();
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
     this.headerControls = this.ui.getHeaderControls();
+    this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
-    this.engine.events.on("status", (snapshot: GameStatusSnapshot) => {
+    this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
       this.gameContext.lastStatus = snapshot.status;
     });
-    this.engine.events.on("phase:redraw", () => {
+    this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });
     this.setupActions();
@@ -116,25 +122,11 @@ export class BoardScene extends Phaser.Scene {
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
   private hideDefaultUI() {
-    // Aggregate hide so future changes stay centralized; avoid scattering visibility calls.
-    this.baseControls?.setBaseTowerVisible(true, false);
-    this.baseControls?.setBaseTowerVisible(false, false);
-    this.energyControls?.setVisible(false);
-    this.statusControls?.setVisible(false);
-    this.handControls?.setVisible(false);
-    console.log("hide default UI (placeholder)");
+    this.uiVisibility?.hide();
   }
 
   private showDefaultUI() {
-    this.baseControls?.setBaseTowerVisible(true, true);
-    this.baseControls?.setBaseTowerVisible(false, true);
-    this.energyControls?.setVisible(true);
-    this.statusControls?.setVisible(true);
-    this.handControls?.setVisible(true);
-    this.energyControls?.fadeIn();
-    this.statusControls?.fadeIn();
-    this.handControls?.fadeIn();
-    console.log("show default UI (placeholder)");
+    this.uiVisibility?.show();
   }
 
   private showHandCards() {
@@ -145,50 +137,42 @@ export class BoardScene extends Phaser.Scene {
   private wireUiHandlers() {
     this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
     this.headerControls?.setButtonHandler(() => this.startGame());
-    this.headerControls?.setAvatarHandler(() => this.showPopup());
+    this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }
 
   private async initSession() {
     try {
       this.offlineFallback = false;
-      const params = new URLSearchParams(window.location.search);
-      const rawMode = params.get("mode");
-      if (!rawMode) {
-        throw new Error("Missing mode");
-      }
-      const mode = rawMode === "join" ? GameMode.Join : rawMode === "host" ? GameMode.Host : undefined;
-      if (!mode) {
-        throw new Error("Invalid mode");
-      }
-      const gameId = params.get("gameId") || params.get("roomid");
-      const playerIdParam = params.get("playerId") || params.get("playerid");
-      const playerNameParam = params.get("playerName") || params.get("playername");
-      if (playerIdParam) this.gameContext.playerId = playerIdParam;
-      if (gameId) this.gameContext.gameId = gameId;
-      this.gameContext.mode = mode;
+      const parsed = parseSessionParams(window.location.search);
+      const mode = parsed.mode;
+      const gameId = parsed.gameId;
+      const playerIdParam = parsed.playerId;
+      const playerNameParam = parsed.playerName;
+
+      if (!mode) throw new Error("Invalid mode");
+
+      this.contextStore.update({ mode });
+      if (playerIdParam) this.contextStore.update({ playerId: playerIdParam });
+      if (gameId) this.contextStore.update({ gameId });
+
       if (mode === GameMode.Join) {
         if (!gameId) {
           throw new Error("Missing game id for join mode");
         }
         // Default join identity aligns with backend sample if none provided.
-        if (!playerIdParam) {
-          this.gameContext.playerId = "playerId_2";
-        }
+        const joinId = playerIdParam || "playerId_2";
         const joinName = playerNameParam || "Demo Opponent";
-        this.gameContext.playerName = joinName;
-        this.gameContext.status = GameStatus.CreatingRoom;
-        await this.match.joinRoom(gameId, this.gameContext.playerId, joinName);
-        await this.engine.updateGameStatus(gameId, this.gameContext.playerId);
-
+        this.contextStore.update({ playerId: joinId, playerName: joinName, status: GameStatus.CreatingRoom });
+        await this.match.joinRoom(gameId, joinId, joinName);
+        await this.engine.updateGameStatus(gameId, joinId);
       } else {
         const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
-        this.gameContext.playerName = hostName;
-        this.gameContext.status = GameStatus.CreatingRoom;
+        this.contextStore.update({ playerName: hostName, status: GameStatus.CreatingRoom });
         await this.match.startAsHost(this.gameContext.playerId, { playerName: hostName });
         // Capture gameId from the match state after hosting is created.
         const state = this.match.getState();
         if (state.gameId) {
-          this.gameContext.gameId = state.gameId;
+          this.contextStore.update({ gameId: state.gameId });
         }
       }
     } catch (err) {
@@ -242,49 +226,6 @@ export class BoardScene extends Phaser.Scene {
       baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
     });
     this.actionDispatcher.register(9, () => this.startGame());
-  }
-
-  private showPopup() {
-    if (!this.popup) {
-      this.popup = new TestButtonPopup(this);
-    }
-    const config: TestButtonPopupConfig = {
-      button1: { label: "Test JoinBtn", onClick: () => this.handleTestJoinButton() },
-      button2: { label: "Test PollingBtn", onClick: () =>this.handleTestPolling() },
-      button3: { label: "Test button3", onClick: () => console.log("Test button3 clicked") },
-      gameId: this.gameContext.gameId ?? "N/A",
-    };
-    this.popup.show(config);
-  }
-
-  /*
-  call updateGameStatus with current gameID, playerId
-  */
-  private async handleTestPolling() {
-    try {
-      const snapshot = await this.engine.updateGameStatus(
-        this.gameContext.gameId ?? undefined,
-        this.gameContext.playerId,
-      );
-      if (snapshot) {
-        this.gameContext.lastStatus = snapshot.status ?? this.gameContext.lastStatus;
-      }
-      this.popup?.hide();
-      console.log("Polling status:", this.gameContext.lastStatus);
-    } catch (err) {
-      console.warn("Polling failed", err);
-    }
-  }
-  // Test helper: closes popup and simulates joining the current gameId via joinRoom API.
-  private async handleTestJoinButton() {
-    this.popup?.hide();
-    const id = this.gameContext.gameId ?? `demo-${Date.now()}`;
-    try {
-      await this.match.joinRoom(id, "playerId_2", "Demo Opponent");
-    } catch (err) {
-      console.error("Test join failed", err);
-      this.showErrorOverlay(err instanceof Error ? err.message : "Test join failed");
-    }
   }
 
   private updateHeaderStatus(state: MatchState) {
