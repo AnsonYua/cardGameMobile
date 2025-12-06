@@ -31,9 +31,16 @@ export class MatchStateMachine {
   async joinRoom(gameId: string, playerId: string, playerName: string) {
     this.mode = GameMode.Join;
     this.transition(GameStatus.CreatingRoom);
-    await this.session.joinRoom(gameId, playerId, playerName);
+    // Use fixed join credentials to align with backend sample call.
+    const joinPlayerId = "playerId_2";
+    const joinPlayerName = "Demo Opponent";
+    await this.session.joinRoom(gameId, joinPlayerId, joinPlayerName);
     this.gameId = gameId;
     this.transition(GameStatus.Ready);
+  }
+
+  async getGameStatus(gameId: string, playerId: string) {
+    return this.session.getGameStatus(gameId, playerId);
   }
 
   startMatch() {

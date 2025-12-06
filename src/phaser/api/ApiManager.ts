@@ -16,6 +16,11 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
+  getGameStatus(gameId: string, playerId: string): Promise<any> {
+    const url = this.buildUrl(`/api/game/player/${playerId}?gameId=${encodeURIComponent(gameId)}`);
+    return this.requestGetWithFallback(url);
+  }
+
   joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
     return this.requestWithFallback(url, { gameId, playerId, playerName });
@@ -60,14 +65,31 @@ export class ApiManager {
     return `${this.baseUrl}${path}`;
   }
 
-  private async doFetch(url: string, body: Record<string, any>) {
+  private async requestGetWithFallback(url: string) {
+    try {
+      return await this.doFetch(url, undefined, "GET");
+    } catch (err) {
+      if (!this.baseUrl) throw err;
+      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
+        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
+        try {
+          return await this.doFetch(fallbackUrl, undefined, "GET");
+        } catch {
+          // fall through to rethrow original error
+        }
+      }
+      throw err;
+    }
+  }
+
+  private async doFetch(url: string, body?: Record<string, any>, method: "POST" | "GET" = "POST") {
     const res = await fetch(url, {
-      method: "POST",
+      method,
       headers: {
         Accept: "*/*",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: method === "POST" ? JSON.stringify(body) : undefined,
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {

@@ -7,8 +7,10 @@ import { BaseStatus } from "./ui/BaseShieldHandler";
 import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
+import { GameEngine, type GameStatusSnapshot } from "./game/GameEngine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { TestButtonPopup } from "./ui/TestButtonPopup";
+import type { TestButtonPopupConfig } from "./ui/TestButtonPopup";
 
 const colors = {
   bg: "#ffffff",
@@ -18,6 +20,16 @@ const colors = {
   pill: "#2f3342",
   text: "#f5f6fb",
   ink: "#0f1118",
+};
+
+type GameContext = {
+  playerId: string;
+  playerName: string;
+  gameId: string | null;
+  status: GameStatus;
+  mode: GameMode;
+  previewStatus: any;
+  lastStatus: any;
 };
 
 export class BoardScene extends Phaser.Scene {
@@ -44,11 +56,18 @@ export class BoardScene extends Phaser.Scene {
   private api = new ApiManager();
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
-  private gameStatus: GameStatus = GameStatus.Idle;
-  private gameMode: GameMode = GameMode.Host;
-  private gameId: string | null = null;
-  private playerId = "playerId_1";
-  private playerName = "Demo Player";
+  private engine = new GameEngine(this.match);
+  private gameContext: GameContext = {
+    playerId: "playerId_1",
+    playerName: "Demo Player",
+    gameId: null,
+    status: GameStatus.Idle,
+    mode: GameMode.Host,
+    previewStatus: null,
+    lastStatus: null,
+  };
+
+  private joinTestId = "test_joiner";
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
   private uiVisible = true;
@@ -79,6 +98,10 @@ export class BoardScene extends Phaser.Scene {
     this.handControls = this.ui.getHandControls();
     this.headerControls = this.ui.getHeaderControls();
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
+    this.engine.events.on("status-preview", (snapshot: GameStatusSnapshot) => {
+      this.gameContext.lastStatus = snapshot.lastStatus;
+      this.gameContext.previewStatus = snapshot.previewStatus;
+    });
     this.setupActions();
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
@@ -91,12 +114,12 @@ export class BoardScene extends Phaser.Scene {
   }
    
   public startGame(){
-    if (this.gameStatus !== GameStatus.Ready && this.gameStatus !== GameStatus.InMatch) {
+    if (this.gameContext.status !== GameStatus.Ready && this.gameContext.status !== GameStatus.InMatch) {
       console.log("Not ready to start match yet");
       return;
     }
     this.session.markInMatch();
-    this.gameStatus = GameStatus.InMatch;
+    this.gameContext.status = GameStatus.InMatch;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
     promise
@@ -153,45 +176,57 @@ export class BoardScene extends Phaser.Scene {
       if (!mode) {
         throw new Error("Invalid mode");
       }
-      const roomParam = params.get("gameId") || params.get("roomid");
+      const gameId = params.get("gameId") || params.get("roomid");
       const playerIdParam = params.get("playerId") || params.get("playerid");
       const playerNameParam = params.get("playerName") || params.get("playername");
-      if (playerIdParam) this.playerId = playerIdParam;
-      this.gameMode = mode;
+      if (playerIdParam) this.gameContext.playerId = playerIdParam;
+      if (gameId) this.gameContext.gameId = gameId;
+      this.gameContext.mode = mode;
       if (mode === GameMode.Join) {
-        if (!roomParam) {
+        if (!gameId) {
           throw new Error("Missing game id for join mode");
         }
+        // Default join identity aligns with backend sample if none provided.
+        if (!playerIdParam) {
+          this.gameContext.playerId = "playerId_2";
+        }
         const joinName = playerNameParam || "Demo Opponent";
-        this.playerName = joinName;
-        this.gameStatus = GameStatus.CreatingRoom;
-        await this.match.joinRoom(roomParam, this.playerId, joinName);
+        this.gameContext.playerName = joinName;
+        this.gameContext.status = GameStatus.CreatingRoom;
+        await this.match.joinRoom(gameId, this.gameContext.playerId, joinName);
+        await this.engine.updateGameStatus(gameId, this.gameContext.playerId);
+
       } else {
-        const hostName = playerNameParam || this.playerName || "Demo Player";
-        this.playerName = hostName;
-        this.gameStatus = GameStatus.CreatingRoom;
-        await this.match.startAsHost(this.playerId, { playerName: hostName });
+        const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
+        this.gameContext.playerName = hostName;
+        this.gameContext.status = GameStatus.CreatingRoom;
+        await this.match.startAsHost(this.gameContext.playerId, { playerName: hostName });
+        // Capture gameId from the match state after hosting is created.
+        const state = this.match.getState();
+        if (state.gameId) {
+          this.gameContext.gameId = state.gameId;
+        }
       }
     } catch (err) {
       console.error("Session init failed", err);
       const params = new URLSearchParams(window.location.search);
       const fallbackGameId =
-        this.gameMode === GameMode.Join
+        this.gameContext.mode === GameMode.Join
           ? params.get("gameId") || params.get("roomid") || "join-local"
           : `demo-${Date.now()}`;
       // Fallback to a local ready state so the UI remains usable even if API/host is unreachable.
       this.offlineFallback = true;
-      this.gameStatus = GameStatus.Ready;
-      this.onMatchStatus({ status: GameStatus.Ready, gameId: fallbackGameId, mode: this.gameMode });
+      this.gameContext.status = GameStatus.Ready;
+      this.onMatchStatus({ status: GameStatus.Ready, gameId: fallbackGameId, mode: this.gameContext.mode });
       // Keep UI clean; log error only.
       const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
       console.warn("Using offline fallback:", msg);
     }
   }
-
   private onMatchStatus(state: MatchState) {
-    this.gameStatus = state.status;
-    this.gameId = state.gameId;
+    this.gameContext.status = state.status;
+    this.gameContext.gameId = state.gameId;
+    this.gameContext.mode = state.mode;
     this.updateHeaderStatus(state);
     const showButton = state.status === GameStatus.Ready || state.status === GameStatus.InMatch;
     this.ui?.setHeaderButtonVisible(showButton);
@@ -229,13 +264,44 @@ export class BoardScene extends Phaser.Scene {
     if (!this.popup) {
       this.popup = new TestButtonPopup(this);
     }
-    this.popup.show(
-      Array.from({ length: 6 }, () => ({
-        label: "Test button1",
-        onClick: () => console.log("Test button clicked"),
-      })),
-      this.gameId ?? "N/A",
-    );
+    const config: TestButtonPopupConfig = {
+      button1: { label: "Test JoinBtn", onClick: () => this.handleTestJoinButton() },
+      button2: { label: "Test PollingBtn", onClick: () =>this.handleTestPolling() },
+      button3: { label: "Test button3", onClick: () => console.log("Test button3 clicked") },
+      gameId: this.gameContext.gameId ?? "N/A",
+    };
+    this.popup.show(config);
+  }
+
+  /*
+  call updateGameStatus with current gameID, playerId
+  */
+  private async handleTestPolling() {
+    try {
+      const snapshot = await this.engine.updateGameStatus(
+        this.gameContext.gameId ?? undefined,
+        this.gameContext.playerId,
+      );
+      if (snapshot) {
+        this.gameContext.lastStatus = snapshot.lastStatus ?? this.gameContext.lastStatus;
+        this.gameContext.previewStatus = snapshot.previewStatus ?? this.gameContext.previewStatus;
+      }
+      this.popup?.hide();
+      console.log("Polling status:", this.gameContext.previewStatus);
+    } catch (err) {
+      console.warn("Polling failed", err);
+    }
+  }
+  // Test helper: closes popup and simulates joining the current gameId via joinRoom API.
+  private async handleTestJoinButton() {
+    this.popup?.hide();
+    const id = this.gameContext.gameId ?? `demo-${Date.now()}`;
+    try {
+      await this.match.joinRoom(id, "playerId_2", "Demo Opponent");
+    } catch (err) {
+      console.error("Test join failed", err);
+      this.showErrorOverlay(err instanceof Error ? err.message : "Test join failed");
+    }
   }
 
   private updateHeaderStatus(state: MatchState) {

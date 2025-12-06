@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 
 type PopupButton = { label: string; onClick?: () => void };
+export type TestButtonPopupConfig = Partial<Record<"button1" | "button2" | "button3" | "button4" | "button5" | "button6", PopupButton>> & {
+  gameId?: string;
+};
 
 export class TestButtonPopup {
   private container?: Phaser.GameObjects.Container;
@@ -10,7 +13,7 @@ export class TestButtonPopup {
 
   constructor(private scene: Phaser.Scene) {}
 
-  show(buttons: PopupButton[], gameId?: string) {
+  show(config: TestButtonPopupConfig) {
     this.hide();
     const { width, height } = this.scene.scale;
     const popupW = 260;
@@ -31,6 +34,11 @@ export class TestButtonPopup {
     closeBtn.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
     closeLabel.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
 
+    const { gameId, ...btnConfig } = config;
+    const buttons = Object.keys(btnConfig)
+      .sort()
+      .map((key) => btnConfig[key as keyof typeof btnConfig])
+      .filter(Boolean) as PopupButton[];
     const btnGap = 14;
     const btnH = 44;
     const btnW = popupW - 40;
