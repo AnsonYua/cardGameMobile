@@ -13,6 +13,9 @@ export type SlotViewModel = {
   unit?: SlotCardView;
   pilot?: SlotCardView;
   isRested?: boolean;
+  ap?: number;
+  hp?: number;
+  fieldCardValue?: { totalAP?: number; totalHP?: number };
 };
 
 export type SlotPosition = {

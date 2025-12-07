@@ -82,6 +82,10 @@ export class SlotDisplayHandler {
       pilotObj?.setAlpha(0.95);
       this.drawUnitBorder(container, width, pilotHeight, pilotHeight *(1-pilotRatio) , pilotRatio);
     }
+
+    const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
+    const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
+    this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6);
   }
 
   private computeCardSize(slotW: number, slotH: number) {
@@ -190,7 +194,7 @@ export class SlotDisplayHandler {
       height: h + 12,
       radius: 15,
       fillColor: "#111926",
-      fillAlpha: 0.95,
+      fillAlpha: 1,
       strokeColor: "#0a0d14",
       strokeAlpha: 0.9,
       strokeWidth: 2.2,
@@ -232,5 +236,43 @@ export class SlotDisplayHandler {
     graphics.setDepth(5);
     graphics.setAlpha(0.75);
     container.add(graphics);
+  }
+
+  private drawStatsBadge(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    ap: number,
+    hp: number,
+    baseDepth: number,
+  ) {
+    const label = `${ap ?? 0}|${hp ?? 0}`;
+    const badgeW = w * 0.4;
+    const badgeH = h * 0.3;
+    const badgeX = x + w * 0.34 - 4;
+    const badgeY = y + h * 0.36;
+    const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
+    const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
+    const pill = this.drawHelpers.drawRoundedRect({
+      x: badgeX,
+      y: badgeY,
+      width: badgeW + 5,
+      height: badgeH,
+      radius: 6,
+      fillColor: 0x000000,
+      fillAlpha: 0.9,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    });
+    pill.setDepth(baseDepth + 3);
+
+    const statsText = this.scene.add
+      .text(badgeX, badgeY, label, textStyle)
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 4);
+    container.add(pill);
+    container.add(statsText);
   }
 }

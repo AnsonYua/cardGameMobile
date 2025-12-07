@@ -29,12 +29,16 @@ export class SlotPresenter {
       const unit = this.toCard(slot.unit);
       const pilot = this.toCard(slot.pilot);
       if (!unit && !pilot) return;
+      const fieldCardValue = slot.fieldCardValue || {};
       results.push({
         owner,
         slotId,
         unit,
         pilot,
         isRested: slot.unit?.isRested ?? slot.fieldCardValue?.isRested ?? false,
+        ap: fieldCardValue.totalAP ?? 0,
+        hp: fieldCardValue.totalHP ?? 0,
+        fieldCardValue,
       });
     });
     return results;
