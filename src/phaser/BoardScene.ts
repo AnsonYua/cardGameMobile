@@ -15,6 +15,7 @@ import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
 import { UIVisibilityController } from "./ui/UIVisibilityController";
 import { HandPresenter } from "./ui/HandPresenter";
+import { SlotPresenter } from "./ui/SlotPresenter";
 
 const colors = {
   bg: "#ffffff",
@@ -55,6 +56,7 @@ export class BoardScene extends Phaser.Scene {
   private engine = new GameEngine(this, this.match, this.contextStore);
   private gameContext = this.contextStore.get();
   private handPresenter = new HandPresenter();
+  private slotPresenter = new SlotPresenter();
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -62,6 +64,7 @@ export class BoardScene extends Phaser.Scene {
   private errorText?: Phaser.GameObjects.Text;
   private debugControls?: DebugControls;
   private loadingText?: Phaser.GameObjects.Text;
+  private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -86,6 +89,7 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
+    this.slotControls = this.ui.getSlotControls();
     this.headerControls = this.ui.getHeaderControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
@@ -128,17 +132,20 @@ export class BoardScene extends Phaser.Scene {
         .then(() => {
           this.showDefaultUI();
           this.showHandCards();
+          this.showSlots();
         })
         .then(() => console.log("Shuffle animation finished"));
     } else {
       this.showDefaultUI();
       this.showHandCards();
+      this.showSlots();
     }
   }
-
+ 
   public mainPhaseUpdate(){
     this.showDefaultUI();
     this.showHandCards();
+    this.showSlots();
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -160,6 +167,15 @@ export class BoardScene extends Phaser.Scene {
     this.handControls?.setHand(cards);
     this.handControls?.setVisible(true);
     this.handControls?.fadeIn();
+  }
+
+  private showSlots() {
+    const snapshot = this.engine.getSnapshot();
+    const raw = snapshot.raw as any;
+    if (!raw) return;
+    const playerId = this.gameContext.playerId;
+    const slots = this.slotPresenter.toSlots(raw, playerId);
+    this.slotControls?.setSlots(slots);
   }
 
   private showLoading() {

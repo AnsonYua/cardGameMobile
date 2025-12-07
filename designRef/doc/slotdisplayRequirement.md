@@ -115,13 +115,13 @@ this is the sample response.
           }
 
 -----------------------------------------
-if zone.slotX = empty no card should be display
+1.if zone.slotX = empty no card should be display
 if zone.slotX = {
   "unit":{,,,},
   "fieldCardValue":{...}
 }
 it will display unit card
-/Users/hello/Desktop/card/unity/cardGameFrontend unitpluspilot.png
+/Users/hello/Desktop/card/unity/cardGameFrontend/unitpluspilot.png
 
 
 if zone.slotX={
@@ -132,4 +132,7 @@ if zone.slotX={
 it will display unit & pilot card
 unit on the top pilot card in behind. 
 the pilot move a bit down
-/Users/hello/Desktop/card/unity/cardGameFrontend unit.png
+/Users/hello/Desktop/card/unity/cardGameFrontend/unit.png
+
+
+2.for slotOrder see /Users/hello/Desktop/card/unity/cardGameFrontend/slotOrder.png 

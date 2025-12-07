@@ -9,6 +9,7 @@ import type { BaseControls } from "./BaseShieldHandler";
 import type { HandCardView } from "./HandTypes";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
+type SlotControls = ReturnType<FieldHandler["getSlotControls"]>;
 type HandControls = {
   setVisible: (visible: boolean) => void;
   fadeIn: (duration?: number) => void;
@@ -32,6 +33,7 @@ export class BoardUI {
   private baseControls: BaseControls;
   private energyControls: EnergyControls;
   private statusControls: StatusControls;
+  private slotControls: SlotControls;
   private handControls: HandControls;
   private headerControls: HeaderControls;
 
@@ -42,6 +44,7 @@ export class BoardUI {
     this.baseControls = this.field.getBaseControls();
     this.energyControls = this.field.getEnergyControls();
     this.statusControls = this.field.getStatusControls();
+    this.slotControls = this.field.getSlotControls();
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
     this.handControls = {
       setVisible: (visible: boolean) => this.hand.setVisible(visible),
@@ -164,6 +167,10 @@ export class BoardUI {
 
   getHandControls() {
     return this.handControls;
+  }
+
+  getSlotControls() {
+    return this.slotControls;
   }
 
   getActionControls() {

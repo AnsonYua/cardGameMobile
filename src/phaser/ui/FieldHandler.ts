@@ -5,6 +5,8 @@ import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
 import { BaseControls, BaseShieldHandler } from "./BaseShieldHandler";
 import { EnergyBarHandler } from "./EnergyBarHandler";
+import { SlotDisplayHandler } from "./SlotDisplayHandler";
+import { SlotPositionMap, SlotViewModel } from "./SlotTypes";
 
 export type FieldConfig = {
   slot: number;
@@ -122,6 +124,9 @@ export class FieldHandler {
   private energyBarPlayer: EnergyBarHandler;
   private statusVisible = true;
   private energyVisible = true;
+  private slotDisplay: SlotDisplayHandler;
+  private slotPositions: SlotPositionMap = { player: {}, opponent: {} };
+  private slotOrder = ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"];
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
@@ -131,9 +136,11 @@ export class FieldHandler {
     this.baseControls = this.baseShield;
     this.energyBarOpponent = new EnergyBarHandler(scene, drawHelpers);
     this.energyBarPlayer = new EnergyBarHandler(scene, drawHelpers);
+    this.slotDisplay = new SlotDisplayHandler(scene, palette, drawHelpers);
   }
 
   draw(offset: Offset) {
+    this.slotPositions = { player: {}, opponent: {} };
     this.drawFieldSide(this.field.side.opponent, offset, true);
     this.drawFieldSide(this.field.side.player, offset, false);
   }
@@ -176,6 +183,13 @@ export class FieldHandler {
     };
   }
 
+  getSlotControls() {
+    return {
+      setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.slotPositions }),
+      clearSlots: () => this.slotDisplay.clear(),
+    };
+  }
+
   getBaseControls(): BaseControls {
     return this.baseControls;
   }
@@ -193,6 +207,10 @@ export class FieldHandler {
       for (let c = 0; c < cols; c++) {
         const x = gridStartX + c * (slot + gap) + slot / 2;
         const y = rowY(r);
+        const orderIndex = r * cols + c;
+        const slotId = this.slotOrder[orderIndex] || `slot${orderIndex + 1}`;
+        const bucket = isOpponent ? this.slotPositions.opponent : this.slotPositions.player;
+        bucket[slotId] = { id: slotId, x, y, w: slot, h: slot, isOpponent };
         this.drawHelpers.drawRoundedRect({
           x,
           y,

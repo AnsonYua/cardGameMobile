@@ -109,6 +109,13 @@ export class CardResourceLoader {
     return `${trimmedBase}/api/game/image/${trimmedPath}`;
   }
 
+  private getPeviewImageUrl(path: string, baseUrl: string) {
+    const trimmedBase = baseUrl.replace(/\/$/, "");
+    const trimmedPath = path.replace(/^\//, "");
+    // Images served by API under /api/game/image/<path>
+    return `${trimmedBase}/api/game/image/previews/${trimmedPath}`;
+  }
+
   private queueLoads(paths: string[], baseUrl: string) {
     const load = this.scene.load;
     let totalQueued = 0;
@@ -117,7 +124,8 @@ export class CardResourceLoader {
       const previewKey = `${key}-preview`;
       const cacheBust = Date.now();
       const url = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
-      const previewUrl = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      const previewUrl = `${this.getPeviewImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      console.log("preview url ", previewUrl)
       if (!url || !previewUrl) return;
 
       [

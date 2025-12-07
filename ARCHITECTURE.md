@@ -15,6 +15,7 @@
 - `SessionParams` parses URL query params into structured session info.
 - `UIVisibilityController` centralizes show/hide/fade behaviour for core controls; `DebugControls` encapsulates test-only popup handlers.
 - `HandPresenter` maps `gameEnv` payloads to hand view models and shares preview key creation with `HandAreaHandler` via `HandTypes`.
+- `SlotPresenter` + `SlotDisplayHandler` render board slots for both players using the same `FieldHandler` layout math; the presenter converts `gameEnv.players.{id}.zones.slotX` into view models and the display handler paints unit/pilot stacks without inflating `BoardScene`.
 
 ## Game Modes
 - **Host**: `BoardScene` -> `match.startAsHost(playerId, { playerName })` -> `session.startAsHost` -> `api.startGame`. Status moves to `WaitingOpponent` then `Ready` when the match is set to start.
