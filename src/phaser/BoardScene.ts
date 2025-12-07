@@ -146,6 +146,7 @@ export class BoardScene extends Phaser.Scene {
     this.showDefaultUI();
     this.showHandCards();
     this.showSlots();
+    this.showBaseAndShield();
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -176,6 +177,45 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     this.slotControls?.setSlots(slots);
+  }
+
+  private showBaseAndShield() {
+    const snapshot = this.engine.getSnapshot();
+    const raw: any = snapshot.raw;
+    const players = raw?.gameEnv?.players;
+    if (!players) return;
+
+    const allIds = Object.keys(players);
+    const selfId = this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : allIds[0];
+    const otherId = allIds.find((id) => id !== selfId);
+    console.log("selfId ", selfId , " ",otherId);
+    const applySide = (playerId: string | undefined, isOpponent: boolean) => {
+      if (!playerId || !players[playerId]) return;
+      const side = players[playerId];
+      const zones = side.zones || side.zone || {};
+      const shieldArea = zones.shieldArea || side.shieldArea;
+      const baseArr = zones.base || side.base;
+      const shieldCount = Array.isArray(shieldArea) ? shieldArea.length : 0;
+      const baseCard = Array.isArray(baseArr) ? baseArr[0] : null;
+      const hasBase = Boolean(baseCard);
+      const ap = baseCard?.fieldCardValue?.totalAP ?? 0;
+      const hp = baseCard?.fieldCardValue?.totalHP ?? 0;
+      const rested = baseCard?.fieldCardValue?.isRested ?? false;
+      this.baseControls?.setShieldCount(isOpponent, shieldCount);
+      if (hasBase) {
+        this.baseControls?.setBaseBadgeLabel(isOpponent, `${ap}|${hp}`);
+        this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
+        this.baseControls?.setBaseTowerVisible(isOpponent, true);
+        this.baseControls?.setBaseVisible(isOpponent, true);
+      } else {
+        // Hide only the base visuals; keep shields visible.
+        this.baseControls?.setBaseVisible(isOpponent, false);
+        this.baseControls?.setBaseTowerVisible(isOpponent, true);
+      }
+    };
+
+    applySide(selfId, false);
+    applySide(otherId, true);
   }
 
   private showLoading() {

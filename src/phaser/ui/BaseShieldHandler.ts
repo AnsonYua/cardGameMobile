@@ -35,7 +35,7 @@ type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.T
 
 export type BaseControls = Pick<
   BaseShieldHandler,
-  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount" | "setBaseTowerVisible"
+  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount" | "setBaseTowerVisible" | "setBaseVisible"
 >;
 
 export class BaseShieldHandler {
@@ -141,6 +141,21 @@ export class BaseShieldHandler {
         duration: 200,
         ease: "Quad.easeOut",
       });
+    });
+  }
+
+  // Show or hide only the base elements (card, overlay, badge) without affecting shields.
+  setBaseVisible(isOpponent: boolean, visible: boolean) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    const elements: Phaser.GameObjects.GameObject[] = [];
+    if (this.baseCards[key]) elements.push(this.baseCards[key] as any);
+    if (this.baseOverlays[key]) elements.push(this.baseOverlays[key] as any);
+    const badge = this.badges[key];
+    if (badge) elements.push(badge.box, badge.label);
+    elements.forEach((el: any) => {
+      if (!el) return;
+      el.setVisible(visible);
+      if (typeof el.setAlpha === "function") el.setAlpha(visible ? 1 : 0);
     });
   }
 
