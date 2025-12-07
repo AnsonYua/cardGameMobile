@@ -7,11 +7,6 @@ type RenderOptions = {
   positions: SlotPositionMap;
 };
 
-/**
- * Renders unit/pilot stacks inside field slots.
- * When both exist, the square is split vertically: unit takes top 3/4 (cropped from top), pilot bottom 1/4 (cropped from bottom),
- * with a thin divider and a beveled frame behind.
- */
 export class SlotDisplayHandler {
   private slotContainers = new Map<string, Phaser.GameObjects.Container>();
 
@@ -32,7 +27,6 @@ export class SlotDisplayHandler {
       if (slot.unit || slot.pilot) {
         this.drawFrame(container, pos.w, pos.h);
       }
-      console.log("slot width and height ", pos.w , " ",pos.h)
       this.drawSlot(container, pos.w, pos.h, slot);
       container.setAlpha(slot.isRested ? 0.75 : 1);
 
@@ -55,21 +49,21 @@ export class SlotDisplayHandler {
   private drawSlot(container: Phaser.GameObjects.Container, slotSize: number, slotHeight: number, slot: SlotViewModel) {
     const cardSize = this.computeCardSize(slotSize, slotHeight);
     const width = cardSize.w;
-    const unitHeight = slotSize*0.9;
-    const pilotHeight = slotSize*0.9;
-    const unitCenterY = 0; // top 
-    const pilotCenterY = 0; // bottom half
+    const unitHeight = slotSize * 0.9;
+    const pilotHeight = slotSize * 0.9;
+    const unitCenterY = 0;
+    const pilotCenterY = 0;
 
     let unitRatio = 1;
     let pilotRatio = 0;
     if (slot.pilot) {
-      unitRatio = 0.75
+      unitRatio = 0.75;
       pilotRatio = 1 - unitRatio;
     }
     if (slot.unit) {
       const unitLayer = this.scene.add.container(0, 0);
       this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
-      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY,unitRatio);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio);
       container.add(unitLayer);
     }
 
@@ -234,7 +228,7 @@ export class SlotDisplayHandler {
   private drawUnitBorder(container: Phaser.GameObjects.Container, w: number, h: number, offsetY: number, ratio :number) {
     const graphics = this.scene.add.graphics();
     graphics.lineStyle(3, 0x32a852, 1);
-    graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h *ratio, 0);
+    graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h * ratio, 0);
     graphics.setDepth(5);
     container.add(graphics);
   }
