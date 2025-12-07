@@ -48,21 +48,25 @@ export class DebugControls {
         throw new Error("Scenario response missing initialGameEnv");
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
+      if (gameEnv?.currentPlayer && gameEnv.currentPlayer !== this.context.playerId) {
+        this.context.playerId = gameEnv.currentPlayer;
+      }
       await this.api.injectGameState(gameId, gameEnv);
       await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
       console.log("Scenario injected", { scenarioPath, gameId });
       await this.engine.updateGameStatus(gameId, this.context.playerId, true);
-      await this.handleTestPolling();
+      //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
+      await this.handleTestPolling(true);
     } catch (err) {
       console.error("Set scenario failed", err);
     }
   }
-  private async handleTestPolling() {
+  private async handleTestPolling(isSetScenoria=false) {
     try {
       const snapshot = await this.engine.updateGameStatus(
         this.context.gameId ?? undefined,
         this.context.playerId,
-        true
+        isSetScenoria
       );
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;

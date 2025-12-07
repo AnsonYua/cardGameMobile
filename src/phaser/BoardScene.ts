@@ -61,6 +61,7 @@ export class BoardScene extends Phaser.Scene {
   private uiVisible = true;
   private errorText?: Phaser.GameObjects.Text;
   private debugControls?: DebugControls;
+  private loadingText?: Phaser.GameObjects.Text;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -100,6 +101,8 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
     });
+    this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
+    this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
     this.setupActions();
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
@@ -157,6 +160,28 @@ export class BoardScene extends Phaser.Scene {
     this.handControls?.setHand(cards);
     this.handControls?.setVisible(true);
     this.handControls?.fadeIn();
+  }
+
+  private showLoading() {
+    if (this.loadingText) {
+      this.loadingText.setVisible(true);
+      return;
+    }
+    const cam = this.cameras.main;
+    this.loadingText = this.add
+      .text(cam.centerX, cam.centerY, "Loading...", {
+        fontSize: "24px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+        backgroundColor: "rgba(0,0,0,0.7)",
+        padding: { x: 12, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setDepth(2000);
+  }
+
+  private hideLoading() {
+    this.loadingText?.setVisible(false);
   }
 
   // Centralize UI wiring/drawing to reduce call scattering in create().
