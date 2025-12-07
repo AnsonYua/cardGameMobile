@@ -94,6 +94,9 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE,()=>{
+      this.mainPhaseUpdate();
+    })
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
     });
@@ -128,6 +131,11 @@ export class BoardScene extends Phaser.Scene {
       this.showDefaultUI();
       this.showHandCards();
     }
+  }
+
+  public mainPhaseUpdate(){
+    this.showDefaultUI();
+    this.showHandCards();
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.

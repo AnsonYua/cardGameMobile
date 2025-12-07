@@ -30,6 +30,16 @@ export class ApiManager {
     return this.requestGetWithFallback(url);
   }
 
+  getTestScenario(scenarioPath: string): Promise<any> {
+    const url = this.buildUrl(`/api/game/test/getTestScenario?scenarioPath=${encodeURIComponent(scenarioPath)}`);
+    return this.requestGetWithFallback(url);
+  }
+
+  injectGameState(gameId: string, gameEnv: any): Promise<any> {
+    const url = this.buildUrl(`/api/game/test/injectGameState`);
+    return this.requestWithFallback(url, { gameId, gameEnv });
+  }
+
   getGameResource(gameId: string, playerId: string): Promise<any> {
     const url = this.buildUrl(
       `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`,

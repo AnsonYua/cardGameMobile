@@ -25,7 +25,7 @@ export class DebugControls {
     const config: TestButtonPopupConfig = {
       button1: { label: "Test JoinBtn", onClick: () => this.handleTestJoinButton() },
       button2: { label: "Test PollingBtn", onClick: () => this.handleTestPolling() },
-      button3: { label: "Test button3", onClick: () => this.handleSetScenario() },
+      button3: { label: "SetScenario", onClick: () => this.handleSetScenario() },
       gameId: this.context.gameId ?? "N/A",
     };
     this.popup.show(config);
@@ -33,20 +33,10 @@ export class DebugControls {
 
 
   private async handleSetScenario() {
+    this.popup?.hide();
     const scenarioPath = "BasicCase/basicMainBasest01_016_1";
-    const baseUrl = this.match.getApiBaseUrl?.() || this.api.getBaseUrl();
     try {
-      const scenarioResp = await fetch(
-        `${baseUrl}/api/game/test/getTestScenario?scenarioPath=${encodeURIComponent(scenarioPath)}`,
-        {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-        },
-      );
-      const scenarioJson = await scenarioResp.json();
+      const scenarioJson = await this.api.getTestScenario(scenarioPath);
       const gameEnv =
         scenarioJson?.initialGameEnv ??
         scenarioJson?.gameEnv ??
@@ -58,19 +48,10 @@ export class DebugControls {
         throw new Error("Scenario response missing initialGameEnv");
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
-
-      await fetch(`${baseUrl}/api/game/test/injectGameState`, {
-        method: "POST",
-        headers: {
-          Accept: "*/*",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-        },
-        body: JSON.stringify({ gameId, gameEnv }),
-      });
-
-      this.popup?.hide();
+      await this.api.injectGameState(gameId, gameEnv);
+      await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
       console.log("Scenario injected", { scenarioPath, gameId });
+      await this.engine.updateGameStatus(gameId, this.context.playerId, true);
       await this.handleTestPolling();
     } catch (err) {
       console.error("Set scenario failed", err);
@@ -81,6 +62,7 @@ export class DebugControls {
       const snapshot = await this.engine.updateGameStatus(
         this.context.gameId ?? undefined,
         this.context.playerId,
+        true
       );
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;

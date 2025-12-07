@@ -19,12 +19,14 @@ export class GameEngine {
   constructor(private scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
     this.resourceLoader = new CardResourceLoader(scene);
   }
-
-  async updateGameStatus(gameId?: string, playerId?: string) {
+  // Optional: call after scenario injection; when `fromScenario` is true we reuse any cached payload if present.
+  async updateGameStatus(gameId?: string, playerId?: string, fromScenario = false) {
     if (!gameId || !playerId) return this.getSnapshot();
     const previousPhase = this.lastRaw?.gameEnv?.phase ?? this.lastRaw?.phase ?? null;
     try {
-      const response: GameStatusResponse = await this.match.getGameStatus(gameId, playerId);
+      const response: GameStatusResponse = fromScenario && this.lastRaw
+        ? this.lastRaw
+        : await this.match.getGameStatus(gameId, playerId);
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       const derivedStatus = response?.status ?? response?.gameStatus ?? response;
       const nextPhase = response?.gameEnv?.phase ?? response?.phase ?? null;
@@ -32,7 +34,11 @@ export class GameEngine {
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
 
-      if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
+      if (fromScenario === true) {
+        this.contextStore.update({ lastStatus: derivedStatus });
+        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+      } else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
@@ -56,6 +62,10 @@ export class GameEngine {
 
   getContext() {
     return this.contextStore.get();
+  }
+
+  async loadGameResources(gameId: string, playerId: string, statusPayload?: GameStatusResponse) {
+    return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {});
   }
 
   private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse) {
