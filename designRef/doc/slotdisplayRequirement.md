@@ -136,3 +136,5 @@ the pilot move a bit down
 
 
 2.for slotOrder see /Users/hello/Desktop/card/unity/cardGameFrontend/slotOrder.png 
+
+3. where card show in slot the width should fill up 80% width of the slot, the height should be square and image is being tirmed. unit card is tirm from top to bottom , and pilot is tirm from bottom to top.
