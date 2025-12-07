@@ -6,8 +6,27 @@ export class HandPresenter {
     if (!Array.isArray(hand) || hand.length === 0) return [];
     return hand.map((card: any) => {
       const id = typeof card === "string" ? card : card?.cardId;
+      const data = typeof card === "string" ? null : card?.cardData;
+      const rules: any[] = Array.isArray(data?.effects?.rules) ? data.effects.rules : [];
+      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation");
+      const pilotParams = pilotRule?.parameters || {};
+      const pilotAp = pilotParams.AP ?? pilotParams.ap ?? null;
+      const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;
       const textureKey = toPreviewKey(id);
-      return { color: 0x2a2d38, textureKey };
+      const cardType = data?.cardType;
+      const isPilotCommand = cardType === "command" && pilotRule;
+      const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap;
+      const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp;
+      return {
+        id,
+        color: 0x2a2d38,
+        textureKey,
+        cost: data?.cost,
+        ap,
+        hp,
+        cardType,
+        fromPilotDesignation: isPilotCommand,
+      };
     });
   }
 }

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BASE_H, BASE_W } from "../../config/gameLayout";
+import { BASE_H ,INTERNAL_W} from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { HandCardView } from "./HandTypes";
@@ -28,7 +28,7 @@ export class HandAreaHandler {
     if (counts.length === 0) return;
 
     const maxCountPerRow = Math.max(...counts, 1);
-    const availableWidth = BASE_W - paddingX * 2 - gapX * (maxCountPerRow - 1);
+    const availableWidth = INTERNAL_W - paddingX * 2 - gapX * (maxCountPerRow - 1);
     const uniformCardW = Math.max(40, Math.min(targetCardW, availableWidth / maxCountPerRow));
     const uniformCardH = uniformCardW * aspect;
 
@@ -44,7 +44,7 @@ export class HandAreaHandler {
     //const labelY = startY - 50;
     /*
     this.scene
-      .add.text(BASE_W / 2 + offset.x, labelY, "Hand", {
+      .add.text(INTERNAL_W / 2 + offset.x, labelY, "Hand", {
         fontSize: "20px",
         fontFamily: "Arial",
         color: this.palette.text,
@@ -59,7 +59,7 @@ export class HandAreaHandler {
     let colIndex = 0;
     for (let i = 0; i < this.handCards.length; i++) {
       const layout = rowLayouts[rowIndex];
-      const startX = offset.x + (BASE_W - layout.totalW) / 2 + layout.cardW / 2;
+      const startX = offset.x + (INTERNAL_W - layout.totalW) / 2 + layout.cardW / 2;
       const x = startX + colIndex * (layout.cardW + gapX);
       const y = currentY;
       this.drawHandCard(x, y, layout.cardW, layout.cardH, this.handCards[i]);
@@ -124,7 +124,10 @@ export class HandAreaHandler {
       const cx = x - w / 2 + 10;
       const cy = y - h / 2 + 10;
       const badge = this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8);
-      const costText = this.scene.add.text(cx, cy, card.cost, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" }).setOrigin(0.5);
+      const costLabel = String(card.cost);
+      const costText = this.scene.add
+        .text(cx, cy, costLabel, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
+        .setOrigin(0.5);
       this.drawnObjects.push(badge, costText);
     }
 
@@ -148,6 +151,39 @@ export class HandAreaHandler {
         .setDisplaySize(w , h)
         .setDepth((bg.depth || 0) + 1);
       this.drawnObjects.push(img);
+    }
+
+    const type = (card.cardType || "").toLowerCase();
+    const shouldShowStats = type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation;
+    if (shouldShowStats) {
+      const ap = card.ap ?? 0;
+      const hp = card.hp ?? 0;
+      const label = `${ap}|${hp}`;
+      const badgeW = w * 0.5;
+      const badgeH = h * 0.3;
+      const badgeX = x + w * 0.34 - 4;
+      const badgeY = y + h * 0.36;
+
+      const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
+      const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
+      const pill = this.drawHelpers.drawRoundedRect({
+        x: badgeX,
+        y: badgeY,
+        width: badgeW + 5,
+        height: badgeH,
+        radius: 6,
+        fillColor: 0x000000,
+        fillAlpha: 0.9,
+        strokeAlpha: 0,
+        strokeWidth: 0,
+      });
+      pill.setDepth((bg.depth || 0) + 3);
+
+      const statsText = this.scene.add
+        .text(badgeX, badgeY, label, textStyle)
+        .setOrigin(0.5)
+        .setDepth((bg.depth || 0) + 4);
+      this.drawnObjects.push(pill, statsText);
     }
   }
 
