@@ -126,7 +126,10 @@ export class FieldHandler {
   private energyVisible = true;
   private slotDisplay: SlotDisplayHandler;
   private slotPositions: SlotPositionMap = { player: {}, opponent: {} };
-  private slotOrder = ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"];
+  private slotOrder = {
+    opponent: ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"],
+    player: ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"],
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
@@ -208,7 +211,8 @@ export class FieldHandler {
         const x = gridStartX + c * (slot + gap) + slot / 2;
         const y = rowY(r);
         const orderIndex = r * cols + c;
-        const slotId = this.slotOrder[orderIndex] || `slot${orderIndex + 1}`;
+        const orderList = isOpponent ? this.slotOrder.opponent : this.slotOrder.player;
+        const slotId = orderList[orderIndex] || `slot${orderIndex + 1}`;
         const bucket = isOpponent ? this.slotPositions.opponent : this.slotPositions.player;
         bucket[slotId] = { id: slotId, x, y, w: slot, h: slot, isOpponent };
         this.drawHelpers.drawRoundedRect({

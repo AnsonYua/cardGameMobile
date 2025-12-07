@@ -138,3 +138,11 @@ the pilot move a bit down
 2.for slotOrder see /Users/hello/Desktop/card/unity/cardGameFrontend/slotOrder.png 
 
 3. where card show in slot the width should fill up 80% width of the slot, the height should be square and image is being tirmed. unit card is tirm from top to bottom , and pilot is tirm from bottom to top.
+
+4. Current SlotDisplayHandler rendering logic (code-aligned)
+- Slot footprint: cards are rendered at ~80% of the slot size (square footprint). When a card is present, a frame is drawn behind the stack.
+- Unit-only: unit uses ~90% of the slot size, centered vertically; no pilot slice is drawn.
+- Unit + pilot: unit ratio 0.75, pilot ratio 0.25 (derived as 1 - unitRatio). Both use the same width; pilot and unit share the same height basis (slotSize * 0.9) but the pilot image is cropped to the bottom slice (pilotRatio) while the unit uses the top portion.
+- Cropping: unit is drawn with its top portion visible (no bottom crop). Pilot is cropped from the bottom slice using the pilotRatio (currently 0.25). This preserves the visible split while keeping the overall footprint square.
+- Borders: both unit and pilot layers draw an outline stroke sized to the visible slice (unit uses unitRatio, pilot uses pilotRatio). Stroke currently uses a 3px line and follows the visible height of each slice.
+- Slot order: positioned per `slotOrder.png` — top row `slot4/slot5/slot6`, second row `slot1/slot2/slot3` (opponent side), mirrored for player rows; the FieldHandler uses an explicit slotOrder array to map grid positions to slot ids.

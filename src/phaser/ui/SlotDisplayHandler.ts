@@ -227,9 +227,10 @@ export class SlotDisplayHandler {
 
   private drawUnitBorder(container: Phaser.GameObjects.Container, w: number, h: number, offsetY: number, ratio :number) {
     const graphics = this.scene.add.graphics();
-    graphics.lineStyle(3, 0x32a852, 1);
-    graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h * ratio, 0);
+    graphics.lineStyle(3, 0xffffff, 1);
+    graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h * ratio, 2);
     graphics.setDepth(5);
+    graphics.setAlpha(0.75);
     container.add(graphics);
   }
 }
