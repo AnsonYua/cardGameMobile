@@ -55,21 +55,39 @@ export class SlotDisplayHandler {
   private drawSlot(container: Phaser.GameObjects.Container, slotSize: number, slotHeight: number, slot: SlotViewModel) {
     const cardSize = this.computeCardSize(slotSize, slotHeight);
     const width = cardSize.w;
-    const unitHeight = slotSize;
-    const pilotHeight = slotSize;
+    const unitHeight = slotSize*0.9;
+    const pilotHeight = slotSize*0.9;
     const unitCenterY = 0; // top 
     const pilotCenterY = 0; // bottom half
-    const dividerY = 0;
 
+    let unitRatio = 1;
+    let pilotRatio = 0;
+    if (slot.pilot) {
+      unitRatio = 0.7
+      pilotRatio = 1 - unitRatio;
+    }
     if (slot.unit) {
       const unitLayer = this.scene.add.container(0, 0);
-      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY*0.6, true, false);
+      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY*unitRatio, true, false);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY,unitRatio);
       container.add(unitLayer);
+     
     }
 
     if (slot.pilot) {
-      const pilotObj = this.drawCard(container, slot.pilot.textureKey, slot.pilot.id, width, pilotHeight, pilotCenterY, false, true,true);
+      const pilotObj = this.drawCard(
+        container,
+        slot.pilot.textureKey,
+        slot.pilot.id,
+        width,
+        pilotHeight,
+        pilotCenterY,
+        false, // cropFromTop
+        true, // isPilot
+        pilotRatio, // pilotSliceRatio
+      );
       pilotObj?.setAlpha(0.95);
+      this.drawUnitBorder(container, width, pilotHeight, pilotCenterY, pilotRatio);
     }
   }
 
@@ -86,13 +104,13 @@ export class SlotDisplayHandler {
     h: number,
     offsetY: number,
     cropFromTop = false,
-    cropFromBottom = false,
-    isPilot = false
+    isPilot = false,
+    pilotSliceRatio = 0.4
   ) {
     const hasTexture = textureKey && this.scene.textures.exists(textureKey);
     if (hasTexture && textureKey) {
       const img = this.scene.add.image(0, offsetY, textureKey).setDisplaySize(w, h).setOrigin(0.5);
-      this.applySquareCrop(textureKey, img, cropFromTop, cropFromBottom, w, h,isPilot);
+      this.applySquareCrop(textureKey, img, cropFromTop, w, h, isPilot, pilotSliceRatio);
       container.add(img);
       return img;
     }
@@ -130,10 +148,10 @@ export class SlotDisplayHandler {
     textureKey: string,
     img: Phaser.GameObjects.Image,
     cropFromTop: boolean,
-    cropFromBottom: boolean,
     targetW: number,
     targetH: number,
-    isPilot:boolean
+    isPilot: boolean,
+    pilotSliceRatio: number
   ) {
     const tex = this.scene.textures.get(textureKey);
     const source = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
@@ -141,16 +159,19 @@ export class SlotDisplayHandler {
     const tw = (source as any).width ?? 0;
     const th = (source as any).height ?? 0;
     if (!tw || !th) return;
-    tw/targetW
-
-    const cropH = tw * targetH/targetW
+    // Keep your height formula but clamp to the source to avoid overrun.
+    const cropH = Math.min(th, (tw * targetH) / targetW);
     const cropW = tw;
-    //if (cropFromTop) cropY = 0;
-    //if (cropFromBottom) cropY = Math.max(0, th - cropH);
-    if(cropFromTop){  
-      img.setCrop(0, 0, tw, cropH);
-    }else if (isPilot){
-      img.setCrop(0, th - th*0.4, tw, th*0.4);
+    if (cropFromTop) {
+      img.setCrop(0, 0, cropW, cropH);
+    } else if (isPilot) {
+      // Pilot shows the lower slice (ratio of source), preserving your intent.
+      const pilotH = Math.min(th * pilotSliceRatio, cropH);
+      img.setCrop(0, th - pilotH, cropW, pilotH);
+    } else {
+      // Default: center crop using the computed height.
+      const cropY = Math.max(0, (th - cropH) / 2);
+      img.setCrop(0, cropY, cropW, cropH);
     }
   }
 
@@ -207,5 +228,13 @@ export class SlotDisplayHandler {
     container.add(outer);
     container.add(mid);
     container.add(inner);
+  }
+
+  private drawUnitBorder(container: Phaser.GameObjects.Container, w: number, h: number, offsetY: number, ratio :number) {
+    const graphics = this.scene.add.graphics();
+    graphics.lineStyle(3, 0x32a852, 1);
+    graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h *ratio, 10);
+    graphics.setDepth(5);
+    container.add(graphics);
   }
 }
