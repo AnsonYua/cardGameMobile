@@ -1,5 +1,15 @@
 import Phaser from "phaser";
-import { BASE_H ,INTERNAL_W} from "../../config/gameLayout";
+import {
+  BASE_H,
+  INTERNAL_W,
+  HAND_AREA_HEIGHT,
+  HAND_CARD_ASPECT,
+  HAND_GAP_X,
+  HAND_GAP_Y,
+  HAND_MAX_PER_ROW,
+  HAND_PADDING_X,
+  HAND_TARGET_CARD_W,
+} from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { HandCardView } from "./HandTypes";
@@ -15,15 +25,15 @@ export class HandAreaHandler {
     this.lastOffset = offset;
     this.clear();
 
-    const maxPerRow = 6;
+    const maxPerRow = HAND_MAX_PER_ROW;
     const totalCards = this.handCards.length;
     const counts = [Math.min(maxPerRow, totalCards), Math.max(totalCards - maxPerRow, 0)].filter((c) => c > 0);
-    const gapX = 8;
-    const gapY = 10;
-    const paddingX = 5;
-    const targetCardW = 80;
-    const aspect = 90 / 60; // maintain ratio
-    const areaHeight = 240; // hand area height
+    const gapX = HAND_GAP_X;
+    const gapY = HAND_GAP_Y;
+    const paddingX = HAND_PADDING_X;
+    const targetCardW = HAND_TARGET_CARD_W;
+    const aspect = HAND_CARD_ASPECT;
+    const areaHeight = HAND_AREA_HEIGHT;
 
     if (counts.length === 0) return;
 
@@ -156,35 +166,50 @@ export class HandAreaHandler {
     const type = (card.cardType || "").toLowerCase();
     const shouldShowStats = type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation;
     if (shouldShowStats) {
-      const ap = card.ap ?? 0;
-      const hp = card.hp ?? 0;
-      const label = `${ap}|${hp}`;
-      const badgeW = w * 0.5;
-      const badgeH = h * 0.3;
-      const badgeX = x + w * 0.34 - 4;
-      const badgeY = y + h * 0.36;
-
-      const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
-      const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
-      const pill = this.drawHelpers.drawRoundedRect({
-        x: badgeX,
-        y: badgeY,
-        width: badgeW + 5,
-        height: badgeH,
-        radius: 6,
-        fillColor: 0x000000,
-        fillAlpha: 0.9,
-        strokeAlpha: 0,
-        strokeWidth: 0,
-      });
-      pill.setDepth((bg.depth || 0) + 3);
-
-      const statsText = this.scene.add
-        .text(badgeX, badgeY, label, textStyle)
-        .setOrigin(0.5)
-        .setDepth((bg.depth || 0) + 4);
-      this.drawnObjects.push(pill, statsText);
+      this.drawStatsBadge(x, y, w, h, card, bg.depth || 0);
     }
+  }
+
+  private drawCostBadge(x: number, y: number, w: number, h: number, cost: number | string, baseDepth: number) {
+    const cx = x - w / 2 + 10;
+    const cy = y - h / 2 + 10;
+    const badge = this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8).setDepth(baseDepth + 1);
+    const costText = this.scene.add
+      .text(cx, cy, String(cost), { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 2);
+    this.drawnObjects.push(badge, costText);
+  }
+
+  private drawStatsBadge(x: number, y: number, w: number, h: number, card: HandCardView, baseDepth: number) {
+    const ap = card.ap ?? 0;
+    const hp = card.hp ?? 0;
+    const label = `${ap}|${hp}`;
+    const badgeW = w * 0.5;
+    const badgeH = h * 0.3;
+    const badgeX = x + w * 0.34 - 4;
+    const badgeY = y + h * 0.36;
+
+    const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
+    const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
+    const pill = this.drawHelpers.drawRoundedRect({
+      x: badgeX,
+      y: badgeY,
+      width: badgeW + 5,
+      height: badgeH,
+      radius: 6,
+      fillColor: 0x000000,
+      fillAlpha: 0.9,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    });
+    pill.setDepth(baseDepth + 3);
+
+    const statsText = this.scene.add
+      .text(badgeX, badgeY, label, textStyle)
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 4);
+    this.drawnObjects.push(pill, statsText);
   }
 
   private clear() {

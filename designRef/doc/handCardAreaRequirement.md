@@ -45,7 +45,7 @@ Hand card area requirements (aligned with `ARCHITECTURE.md`)
 
 4) Labels for combat stats
 - For `cardData.cardType` in (`unit`, `pilot`, `base`), render a black pill/label overlay using the mock at `designRef/refer.png` as visual guidance.
-- For `effects.rules.effectId` if the effectId = pilot_designation and `cardData.cardType` in (`command`), render a black pill/label overlay using the mock at `designRef/refer.png` as visual guidance. use `effects.rules.parameters.AP|effects.rules.parameters.HP` as label
+- For `effects.rules.effectId` = `pilot_designation` when `cardData.cardType` is `command`, render the same black pill using `effects.rules.parameters.AP|effects.rules.parameters.HP` as the label text.
 - Label text format: `AP|HP` (e.g., `3|4`). If AP or HP is missing, treat it as `0`.
 
 5) Interaction & refresh

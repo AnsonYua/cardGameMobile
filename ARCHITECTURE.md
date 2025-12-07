@@ -35,6 +35,8 @@
 - `src/phaser/ui/HandPresenter.ts`: Translates `gameEnv.players[playerId].deck.hand` into view-friendly card data (preview texture keys).
 - `src/phaser/ui/HandTypes.ts`: Shared hand card view types and preview key helper.
 - UI helpers under `src/phaser/ui/*` plus animation controllers under `src/phaser/animations/*` drive the visible game components.
+- Layout constants live in `src/config/gameLayout.ts` (hand area sizes, gaps, aspect ratio) to keep UI math consistent and out of renderers.
+- `HandAreaHandler` renders the hand using the shared constants and compact helpers (cost badge, AP|HP badge) to mirror base/shield styling without inflating `BoardScene`.
 
 ## API Endpoints (current usage)
 - `POST /api/game/player/startGame` with `{ playerId, gameConfig: { playerName } }`
