@@ -146,3 +146,9 @@ the pilot move a bit down
 - Cropping: unit is drawn with its top portion visible (no bottom crop). Pilot is cropped from the bottom slice using the pilotRatio (currently 0.25). This preserves the visible split while keeping the overall footprint square.
 - Borders: both unit and pilot layers draw an outline stroke sized to the visible slice (unit uses unitRatio, pilot uses pilotRatio). Stroke currently uses a 3px line and follows the visible height of each slice.
 - Slot order: positioned per `slotOrder.png` — top row `slot4/slot5/slot6`, second row `slot1/slot2/slot3` (opponent side), mirrored for player rows; the FieldHandler uses an explicit slotOrder array to map grid positions to slot ids.
+
+
+5.Labels for combat stats
+- there will be a label similar to that with hand card.
+- even there is unit and pilot in the slot , there will be only 1 label
+- we should look at fieldCardValue,totalAP and totalHP and display as  `AP|HP` (e.g., `3|4`). If AP or HP is missing, treat it as `0`.
