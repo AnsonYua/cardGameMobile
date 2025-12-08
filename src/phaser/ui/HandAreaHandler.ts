@@ -337,12 +337,17 @@ export class HandAreaHandler {
 
     const insideLabel = this.getBadgeLabel(card);
     if (insideLabel) {
-      const badgeW = this.config.preview.badgeSize.w;
+      const badgeW = this.config.preview.badgeSize.w+5;
       const badgeH = this.config.preview.badgeSize.h;
+
+      let extraSpace = 0
+      if(card.cardType == "pilot"){
+        extraSpace = -65
+      }
       this.drawPreviewBadge(
         container,
         x + w / 2 - badgeW / 2,
-        y + h / 2 - badgeH / 2,
+        y + h / 2 - badgeH / 2 + extraSpace,
         badgeW,
         badgeH,
         insideLabel,
@@ -368,7 +373,7 @@ export class HandAreaHandler {
       height: h,
       radius: 6,
       fillColor: 0x000000,
-      fillAlpha: 0.9,
+      fillAlpha: 1,
       strokeAlpha: 0,
       strokeWidth: 0,
     });
@@ -392,18 +397,17 @@ export class HandAreaHandler {
   }
 
   private getBadgeLabel(card: HandCardView) {
+    if (!card) return undefined;
     const type = (card.cardType || "").toLowerCase();
     if (type === "command") {
-      const rules: any[] = card.cardData?.effects?.rules || [];
-      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
-      if (!pilotRule) return undefined;
-      const ap = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
-      const hp = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
+      if (!card.fromPilotDesignation) return undefined;
+      const ap = Number(card.ap ?? 0);
+      const hp = Number(card.hp ?? 0);
       return `${ap}|${hp}`;
     }
     if (type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation) {
-      const ap = card.ap ?? card.cardData?.ap ?? 0;
-      const hp = card.hp ?? card.cardData?.hp ?? 0;
+      const ap = Number(card.ap ?? 0);
+      const hp = Number(card.hp ?? 0);
       return `${ap}|${hp}`;
     }
     return undefined;
