@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
+import { toPreviewKey } from "./HandTypes";
 
 type BaseSize = { w: number; h: number };
 
@@ -35,7 +36,13 @@ type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.T
 
 export type BaseControls = Pick<
   BaseShieldHandler,
-  "setBaseStatus" | "setBaseBadgeLabel" | "setShieldCount" | "getShieldCount" | "setBaseTowerVisible" | "setBaseVisible"
+  | "setBaseStatus"
+  | "setBaseBadgeLabel"
+  | "setShieldCount"
+  | "getShieldCount"
+  | "setBaseTowerVisible"
+  | "setBaseVisible"
+  | "setBasePreviewData"
 >;
 
 export class BaseShieldHandler {
@@ -55,6 +62,23 @@ export class BaseShieldHandler {
   private shieldCounts: Record<BaseSide, number>;
   private lastStackParams: Partial<Record<BaseSide, StackParams>> = {};
   private shieldCards: Record<BaseSide, Phaser.GameObjects.GameObject[]>;
+  private baseHits: Partial<Record<BaseSide, Phaser.GameObjects.Zone>> = {};
+  private basePreviewData: Partial<Record<BaseSide, any>> = {};
+  private previewContainer?: Phaser.GameObjects.Container;
+  private previewTimer?: any;
+  private previewActive = false;
+  private previewConfig = {
+    holdDelay: 400,
+    overlayAlpha: 0.65,
+    cardWidth: 300,
+    cardAspect: 88 / 64,
+    badgeSize: { w: 70, h: 45 },
+    badgeFontSize: 20,
+    totalBadgeColor: 0x284cfc,
+    totalBadgeGap: 10,
+    fadeIn: 180,
+    fadeOut: 150,
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.shieldCounts = { opponent: this.config.shieldCount, player: this.config.shieldCount };
@@ -111,6 +135,8 @@ export class BaseShieldHandler {
     const badge = this.badges[key];
     if (badge) elements.push(badge.box, badge.label);
     elements.push(...this.shieldCards[key]);
+    const hit = this.baseHits[key];
+    if (hit) elements.push(hit);
 
     // Toggle visibility immediately when hiding; when showing, fade in for a smoother reveal.
     if (!visible) {
@@ -152,11 +178,25 @@ export class BaseShieldHandler {
     if (this.baseOverlays[key]) elements.push(this.baseOverlays[key] as any);
     const badge = this.badges[key];
     if (badge) elements.push(badge.box, badge.label);
+    const hit = this.baseHits[key];
+    if (hit) elements.push(hit);
     elements.forEach((el: any) => {
       if (!el) return;
       el.setVisible(visible);
       if (typeof el.setAlpha === "function") el.setAlpha(visible ? 1 : 0);
     });
+  }
+
+  // Provide base payload (card + field values) for preview rendering.
+  setBasePreviewData(isOpponent: boolean, baseCard: any | null) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    this.basePreviewData[key] = baseCard || null;
+    const hit = this.baseHits[key];
+    if (hit) {
+      const enable = Boolean(baseCard);
+      hit.setVisible(enable);
+      enable ? hit.setInteractive({ useHandCursor: true }) : hit.disableInteractive();
+    }
   }
 
   private computeStackHeight(
@@ -243,9 +283,11 @@ export class BaseShieldHandler {
     this.badges[overlayKey]?.box.destroy();
     this.badges[overlayKey]?.label.destroy();
     this.badges[overlayKey] = undefined;
+    this.baseHits[overlayKey]?.destroy();
+    this.baseHits[overlayKey] = undefined;
 
     if (this.scene.textures.exists("baseCard")) {
-      const baseImg = this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle);
+      const baseImg = this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle).setDepth(490);
       // Rounded corner mask so the transparent PNG keeps its soft edges.
       const shape = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
       shape.fillStyle(0xffffff, 1);
@@ -257,11 +299,13 @@ export class BaseShieldHandler {
       this.baseCards[overlayKey] = baseImg;
     } else {
       const card = this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"), radius).setAngle(angle);
+      card.setDepth(490);
       this.baseCards[overlayKey] = card;
       this.scene
         .add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
         .setOrigin(0.5)
-        .setAngle(angle);
+        .setAngle(angle)
+        .setDepth(491);
     }
 
     // Grey transparent overlay as rested indicator; draw centered so rotation pivots correctly.
@@ -303,6 +347,15 @@ export class BaseShieldHandler {
       .setAngle(angle)
       .setDepth(501);
     this.badges[overlayKey] = { box: badge, label: badgeLabel };
+
+    // Interactive zone for long-press preview.
+    const hit = this.scene.add.zone(x, y, w * 1.2, h * 1.2).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    hit.setDepth(9999);
+    this.scene.children.bringToTop(hit);
+    hit.on("pointerdown", () => this.startPreviewTimer(overlayKey));
+    hit.on("pointerup", () => this.handlePointerUp());
+    hit.on("pointerout", () => this.handlePointerOut());
+    this.baseHits[overlayKey] = hit;
 
     // Apply any previously-set status now that visuals exist.
     this.applyBaseStatus(overlayKey);
@@ -355,5 +408,186 @@ export class BaseShieldHandler {
       strokeWidth: 2,
     });
     return outer;
+  }
+
+  // --- Preview handling for base card ---
+  private startPreviewTimer(side: BaseSide) {
+    console.log("Base preview: start timer", { side, holdDelay: this.previewConfig.holdDelay });
+    this.hidePreview(true);
+    this.previewTimer = setTimeout(() => {
+      this.previewTimer = undefined;
+      console.log("Base preview: trigger show", { side });
+      this.showPreview(side);
+    }, this.previewConfig.holdDelay);
+  }
+
+  private handlePointerUp() {
+    console.log("Base preview: pointerup", { previewActive: this.previewActive });
+    if (this.previewActive) return;
+    this.cancelPreviewTimer();
+  }
+
+  private handlePointerOut() {
+    console.log("Base preview: pointerout", { previewActive: this.previewActive });
+    if (this.previewActive) return;
+    this.cancelPreviewTimer();
+  }
+
+  private cancelPreviewTimer() {
+    console.log("Base preview: cancel timer", { hasTimer: !!this.previewTimer });
+    if (this.previewTimer) {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = undefined;
+    }
+  }
+
+  private showPreview(side: BaseSide) {
+    const payload = this.basePreviewData[side];
+    if (!payload) {
+      console.warn("Base preview: no payload for side", side);
+      return;
+    }
+    console.log("Base preview: render payload", { side, payloadCardId: payload?.cardId, field: payload?.fieldCardValue });
+    const cam = this.scene.cameras.main;
+    const cx = cam.centerX;
+    const cy = cam.centerY;
+    const cardW = this.previewConfig.cardWidth;
+    const cardH = cardW * this.previewConfig.cardAspect;
+    const container = this.scene.add.container(cx, cy).setDepth(5000).setAlpha(0);
+
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x000000, this.previewConfig.overlayAlpha);
+    bg.fillRect(-cam.width / 2, -cam.height / 2, cam.width, cam.height);
+    bg.setInteractive(new Phaser.Geom.Rectangle(-cam.width / 2, -cam.height / 2, cam.width, cam.height), Phaser.Geom.Rectangle.Contains);
+    bg.on("pointerdown", () => this.hidePreview());
+    container.add(bg);
+
+    this.drawPreviewCard(container, 0, 0, cardW, cardH, payload);
+
+    this.previewContainer = container;
+    this.previewActive = true;
+    this.scene.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: this.previewConfig.fadeIn,
+      ease: "Quad.easeOut",
+    });
+  }
+
+  private hidePreview(skipTween = false) {
+    this.cancelPreviewTimer();
+    if (this.previewContainer) {
+      const target = this.previewContainer;
+      this.previewContainer = undefined;
+      target.iterate((child: any) => {
+        if (child?.removeAllListeners) child.removeAllListeners();
+      });
+      if (skipTween) {
+        target.destroy();
+      } else {
+        this.scene.tweens.add({
+          targets: target,
+          alpha: 0,
+          duration: this.previewConfig.fadeOut,
+          ease: "Quad.easeIn",
+          onComplete: () => target.destroy(),
+        });
+      }
+    }
+    this.previewActive = false;
+  }
+
+  private drawPreviewCard(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    baseCard: any,
+  ) {
+    const cardId = baseCard?.cardId;
+    const field = baseCard?.fieldCardValue || {};
+    const texKey = cardId === "base_default" ? "baseCard" : toPreviewKey(cardId);
+    const hasTex = texKey && this.scene.textures.exists(texKey);
+    const img = hasTex
+      ? this.scene.add.image(x, y, texKey!).setDisplaySize(w, h).setOrigin(0.5)
+      : this.drawHelpers.drawRoundedRect({
+          x,
+          y,
+          width: w,
+          height: h,
+          radius: 12,
+          fillColor: "#cbd3df",
+          fillAlpha: 0.9,
+          strokeColor: "#0f1118",
+          strokeAlpha: 0.8,
+          strokeWidth: 2,
+        });
+    img.setDepth(1);
+    container.add(img);
+
+    const badgeW = this.previewConfig.badgeSize.w;
+    const badgeH = this.previewConfig.badgeSize.h;
+    // Black badge bottom-right: totalOriginalAP|totalOriginalHP
+    const origAp = Number(field.totalOriginalAP ?? 0);
+    const origHp = Number(field.totalOriginalHP ?? 0);
+    this.drawPreviewBadge(
+      container,
+      x + w / 2 - badgeW / 2,
+      y + h / 2 - badgeH / 2,
+      badgeW,
+      badgeH,
+      `${origAp}|${origHp}`,
+      2,
+      0x000000,
+    );
+    // Blue total badge below stack: totalAP|totalHP
+    const totAp = Number(field.totalAP ?? 0);
+    const totHp = Number(field.totalHP ?? 0);
+    this.drawPreviewBadge(
+      container,
+      x + w / 2 - badgeW / 2,
+      y + h / 2 - badgeH / 2 + this.previewConfig.badgeSize.h + this.previewConfig.totalBadgeGap,
+      badgeW,
+      badgeH,
+      `${totAp}|${totHp}`,
+      2,
+      this.previewConfig.totalBadgeColor,
+    );
+  }
+
+  private drawPreviewBadge(
+    container: Phaser.GameObjects.Container,
+    badgeX: number,
+    badgeY: number,
+    w: number,
+    h: number,
+    label: string,
+    baseDepth: number,
+    fillColor: number,
+  ) {
+    const pill = this.drawHelpers.drawRoundedRect({
+      x: badgeX,
+      y: badgeY,
+      width: w,
+      height: h,
+      radius: 6,
+      fillColor,
+      fillAlpha: 0.9,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    });
+    pill.setDepth(baseDepth + 1);
+    const statsText = this.scene.add
+      .text(badgeX, badgeY, label, {
+        fontSize: `${this.previewConfig.badgeFontSize}px`,
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 2);
+    container.add(pill);
+    container.add(statsText);
   }
 }

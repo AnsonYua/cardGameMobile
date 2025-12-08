@@ -87,4 +87,13 @@ for base look at gameEnv.players.{currentPlayer}.zone.base
           ],
 
 if "cardId" =  "base_default" , use ex-base from public/ex-base.png for image display, else retreive the image from cache using cardId, all the label value should use fieldCardValue.totalAP and fieldCardValue.totalHP as `AP|HP` format,
-if base = [] , hide the base area( just the base card , the shield card still show)
+if base = [] , hide the base area( just the base card , the shield card still show). When base is empty, disable the long-press preview/hit area; preview only works when base data exists.
+
+
+ if base=[] is a empty array, the base card should not show
+
+Long-press preview (mirrors slot preview style)
+- Hold ~400ms on a hand card to open a preview; tap anywhere to dismiss. Preview stays visible after you release the press.
+- Overlay dims the screen (alpha ~0.65) and draws the card at 300px width with an 88/64 aspect.
+- there are 2 badges. 1 badge color black with size 70x45 in bottom right corner. and it will use value fieldCardValue.totalOriginalAP|totalOriginalHP.
+- the other badges: size 70x45; font ~20px. Total badge color blue (0x284cfc) with a 10px gap below the stack.  base badge uses unit ap|hp, total badge uses fieldCardValue.totalAP|totalHP.

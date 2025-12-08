@@ -207,10 +207,12 @@ export class BoardScene extends Phaser.Scene {
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true);
         this.baseControls?.setBaseVisible(isOpponent, true);
+        this.baseControls?.setBasePreviewData?.(isOpponent, baseCard);
       } else {
-        // Hide only the base visuals; keep shields visible.
-        this.baseControls?.setBaseVisible(isOpponent, false);
+        // Hide only the base visuals; keep shields visible. Disable preview.
         this.baseControls?.setBaseTowerVisible(isOpponent, true);
+        this.baseControls?.setBaseVisible(isOpponent, false);
+        this.baseControls?.setBasePreviewData?.(isOpponent, null);
       }
     };
 
