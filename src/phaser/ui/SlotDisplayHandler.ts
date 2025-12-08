@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
-import { SlotPositionMap, SlotViewModel } from "./SlotTypes";
+import { SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -377,7 +377,8 @@ export class SlotDisplayHandler {
     isPilot = false,
     depthOffset = 0,
   ) {
-    const texKey = card.textureKey;
+    let texKey = card.textureKey;
+    texKey = texKey?.replaceAll("-preview","")
     const hasTex = texKey && this.scene.textures.exists(texKey);
     let img: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
     if (hasTex && texKey) {
