@@ -12,6 +12,7 @@ export class SlotDisplayHandler {
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
+  private previewBadgeSize = { w: 70, h: 45};
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -379,25 +380,28 @@ export class SlotDisplayHandler {
     slot: SlotViewModel,
     depthOffset = 0,
   ) {
-    const pad = w * 0.08;
-    const pilotOffsetY = h * 0.12;
-    const pilotScale = 0.85;
+    // Pilot sits slightly lower; unit sits slightly higher. Both share the same base size and are centered.
+    let pilotOffsetY = h * 0.2;
+    const pilotScale = 1;
 
     if (slot.pilot) {
+      if(slot.pilot.cardType == "command"){
+        pilotOffsetY = h * 0.1;
+      }
       const pW = w * pilotScale;
       const pH = h * pilotScale;
       const pilotTex = this.toTextureKey(slot.pilot);
       const pilotImg =
         pilotTex && this.scene.textures.exists(pilotTex)
-          ? this.scene.add.image(x - pad, y + pilotOffsetY, pilotTex).setDisplaySize(pW, pH).setOrigin(0.5)
+          ? this.scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(pW, pH).setOrigin(0.5)
           : this.drawHelpers.drawRoundedRect({
-              x: x - pad,
+              x: x,
               y: y + pilotOffsetY,
               width: pW,
               height: pH,
               radius: 12,
               fillColor: "#cbd3df",
-              fillAlpha: 0.9,
+              fillAlpha: 1,
               strokeColor: "#0f1118",
               strokeAlpha: 0.8,
               strokeWidth: 2,
@@ -406,24 +410,28 @@ export class SlotDisplayHandler {
       container.add(pilotImg);
 
       const pilotLabel = this.getPilotBadgeLabel(slot.pilot);
+
+      let positionofPilotLabel = (y  + pilotOffsetY) + h/2 - this.previewBadgeSize.h/2 
+      if(slot.pilot.cardType != "command"){
+        positionofPilotLabel = (y  + pilotOffsetY) + h/2 - this.previewBadgeSize.h/2 -65
+      }
       this.drawPreviewBadge(
         container,
-        x - pad + pW * 0.34 - 4,
-        y + pilotOffsetY + pH * 0.36,
-        pW,
-        pH,
+        x  + w/2 - this.previewBadgeSize.w/2 ,
+        positionofPilotLabel ,
+        this.previewBadgeSize.w,
+        this.previewBadgeSize.h,
         pilotLabel,
         depthOffset + 2,
       );
     }
-
     if (slot.unit) {
       const unitTex = this.toTextureKey(slot.unit);
       const unitImg =
         unitTex && this.scene.textures.exists(unitTex)
-          ? this.scene.add.image(x + pad, y - pilotOffsetY * 0.4, unitTex).setDisplaySize(w, h).setOrigin(0.5)
+          ? this.scene.add.image(x, y - pilotOffsetY * 0.4, unitTex).setDisplaySize(w, h).setOrigin(0.5)
           : this.drawHelpers.drawRoundedRect({
-              x: x + pad,
+              x: x,
               y: y - pilotOffsetY * 0.4,
               width: w,
               height: h,
@@ -440,28 +448,29 @@ export class SlotDisplayHandler {
       const unitLabel = this.getUnitBadgeLabel(slot.unit);
       this.drawPreviewBadge(
         container,
-        x + pad + w * 0.34 - 4,
-        y - pilotOffsetY * 0.4 + h * 0.36,
-        w,
-        h,
+        x + w / 2 - this.previewBadgeSize.w / 2,
+        y - pilotOffsetY * 0.4 + h / 2 - this.previewBadgeSize.h / 2,
+        this.previewBadgeSize.w,
+        this.previewBadgeSize.h,
         unitLabel,
         depthOffset + 3,
       );
 
       const field = slot.fieldCardValue;
+      /*
       if (field) {
         const outAp = field.totalAP ?? 0;
         const outHp = field.totalHP ?? 0;
         this.drawPreviewBadge(
           container,
-          x + pad + w * 0.34 - 4,
-          y - pilotOffsetY * 0.4 + h * 0.55,
-          w,
-          h,
+          x + w / 2 - this.previewBadgeSize.w / 2,
+          y - pilotOffsetY * 0.4 + h / 2 - this.previewBadgeSize.h / 2 ,
+          this.previewBadgeSize.w,
+          this.previewBadgeSize.h,
           `${outAp}|${outHp}`,
           depthOffset + 3,
         );
-      }
+      }*/
     }
   }
 
@@ -474,10 +483,9 @@ export class SlotDisplayHandler {
     label: string,
     baseDepth: number,
   ) {
-    const badgeW = w * 0.5;
-    const badgeH = h * 0.3;
-    const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
-    const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
+    const badgeW = w ;
+    const badgeH = h ;
+    const textStyle = { fontSize: `20px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
     const pill = this.drawHelpers.drawRoundedRect({
       x: badgeX,
       y: badgeY,
