@@ -272,7 +272,7 @@ export class SlotDisplayHandler {
       height: badgeH,
       radius: 6,
       fillColor: 0x000000,
-      fillAlpha: 0.9,
+      fillAlpha: 1,
       strokeAlpha: 0,
       strokeWidth: 0,
     });
@@ -505,7 +505,7 @@ export class SlotDisplayHandler {
       height: badgeH,
       radius: 6,
       fillColor,
-      fillAlpha: 0.9,
+      fillAlpha: 1,
       strokeAlpha: 0,
       strokeWidth: 0,
     });
