@@ -165,3 +165,13 @@ black label for pilot should use
   if cardType = pilot pilot.cardData.ap|pilot.cardData.hp
   if cardType = command , find the pilot.effects.rules = pilot_designation and use the value pilot.effects.rules.parameters.AP|pilot.effects.rules.parameters.AP.cardData.hp
 black label for the total set(just below the pilot card) ,show fieldCardValue.totalAP|fieldCardValue.totalHP
+
+-----------------------------------------
+7. Implementation constants (code-aligned; do not omit above rules)
+- Slot footprint: card scale ~80% of slot; frame scale ~86% with shadow offset 3px. Borders: 3px stroke per slice.
+- Unit/pilot sizing: unit height ratio 0.75, pilot 0.25 when both present; unit-only uses ~90% slot height.
+- Cropping: pilot cropped from bottom slice; unit uses upper slice (center crop). Pilot slice ratio 0.4 of source height.
+- Stat pill in-slot: positioned using hand-style factors (w*0.4, h*0.3, offsets x*0.34, y*0.36). Fallback to slot ap/hp if fieldCardValue missing.
+- Preview trigger: long-press ~400ms; overlay alpha ~0.65; fade in 180ms, fade out 150ms; tap anywhere to dismiss (not on release).
+- Preview layout: base width 300px, aspect 88/64. Pilot offset ~20% down (10% for command pilots); unit offset up by 40% of pilot offset.
+- Preview badges: size 70x45; font ~20px. Total badge color blue (0x284cfc) with a 10px gap below the stack. Pilot badge uses pilot ap|hp (or pilot_designation AP|HP for command), unit badge uses unit ap|hp, total badge uses fieldCardValue.totalAP|totalHP.
