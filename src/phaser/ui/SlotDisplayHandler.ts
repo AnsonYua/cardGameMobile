@@ -384,6 +384,8 @@ export class SlotDisplayHandler {
     let pilotOffsetY = h * 0.2;
     const pilotScale = 1;
 
+    let slotCardEnd = -1;
+
     if (slot.pilot) {
       if(slot.pilot.cardType == "command"){
         pilotOffsetY = h * 0.1;
@@ -424,7 +426,12 @@ export class SlotDisplayHandler {
         pilotLabel,
         depthOffset + 2,
       );
+      slotCardEnd = positionofPilotLabel;
+      if(slot.pilot.cardType != "command"){
+        slotCardEnd =  slotCardEnd+ 65
+      }
     }
+
     if (slot.unit) {
       const unitTex = this.toTextureKey(slot.unit);
       const unitImg =
@@ -455,22 +462,25 @@ export class SlotDisplayHandler {
         unitLabel,
         depthOffset + 3,
       );
+      if(slotCardEnd == -1){
+        slotCardEnd = y - pilotOffsetY * 0.4 + h / 2 - this.previewBadgeSize.h / 2;
+      }
 
       const field = slot.fieldCardValue;
-      /*
+      
       if (field) {
         const outAp = field.totalAP ?? 0;
         const outHp = field.totalHP ?? 0;
         this.drawPreviewBadge(
           container,
-          x + w / 2 - this.previewBadgeSize.w / 2,
-          y - pilotOffsetY * 0.4 + h / 2 - this.previewBadgeSize.h / 2 ,
+          x  + w/2 - this.previewBadgeSize.w/2,
+          slotCardEnd + this.previewBadgeSize.h +10 ,
           this.previewBadgeSize.w,
           this.previewBadgeSize.h,
           `${outAp}|${outHp}`,
           depthOffset + 3,
         );
-      }*/
+      }
     }
   }
 
