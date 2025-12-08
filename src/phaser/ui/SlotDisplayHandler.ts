@@ -479,6 +479,7 @@ export class SlotDisplayHandler {
           this.previewBadgeSize.h,
           `${outAp}|${outHp}`,
           depthOffset + 3,
+          0x284cfc,
         );
       }
     }
@@ -492,6 +493,7 @@ export class SlotDisplayHandler {
     h: number,
     label: string,
     baseDepth: number,
+    fillColor: number = 0x000000,
   ) {
     const badgeW = w ;
     const badgeH = h ;
@@ -502,7 +504,7 @@ export class SlotDisplayHandler {
       width: badgeW + 5,
       height: badgeH,
       radius: 6,
-      fillColor: 0x000000,
+      fillColor,
       fillAlpha: 0.9,
       strokeAlpha: 0,
       strokeWidth: 0,
