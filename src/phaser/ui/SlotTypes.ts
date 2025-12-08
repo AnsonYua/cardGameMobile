@@ -5,6 +5,7 @@ export type SlotCardView = {
   textureKey?: string;
   cardType?: string;
   isRested?: boolean;
+  cardData?: any;
 };
 
 export type SlotViewModel = {

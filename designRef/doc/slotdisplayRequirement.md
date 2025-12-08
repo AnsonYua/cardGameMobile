@@ -152,3 +152,16 @@ the pilot move a bit down
 - there will be a label similar to that with hand card.
 - even there is unit and pilot in the slot , there will be only 1 label
 - we should look at fieldCardValue,totalAP and totalHP and display as  `AP|HP` (e.g., `3|4`). If AP or HP is missing, treat it as `0`.
+
+6.when the card in slot is long press, it will show a preview of card in slot, after the preview show, when touch any place if the screen, the preview will disappear.
+ it has 2 types of display. 
+6.1 for unit alone, you can see the mock up in (/Users/hello/Desktop/card/unity/cardGameFrontend/preview_unit.png), there will be 2 black label . the label inside the card unit.cardData.ap|unit.cardData.hp, the label outside the card should show fieldCardValue.totalAP|fieldCardValue.totalHP
+6.2 for unit + pilot, you can see  the mock up in (/Users/hello/Desktop/card/unity/cardGameFrontend/preview_unit_pilot.png)
+the unit card in front (blue one)
+the pilot card in back layer , and move a bit down (green one)
+there will be 3 black label , black label for unit, black label for pilot and black label for the total set(just below the pilot card) 
+black label for unit should use unit.cardData.ap|unit.cardData.hp
+black label for pilot should use 
+  if cardType = pilot pilot.cardData.ap|pilot.cardData.hp
+  if cardType = command , find the pilot.effects.rules = pilot_designation and use the value pilot.effects.rules.parameters.AP|pilot.effects.rules.parameters.AP.cardData.hp
+black label for the total set(just below the pilot card) ,show fieldCardValue.totalAP|fieldCardValue.totalHP
