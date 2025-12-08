@@ -90,7 +90,7 @@ if "cardId" =  "base_default" , use ex-base from public/ex-base.png for image di
 if base = [] , hide the base area( just the base card , the shield card still show). When base is empty, disable the long-press preview/hit area; preview only works when base data exists.
 
 
- if base=[] is a empty array, the base card should not show
+if base=[] is a empty array, the base card should not show
 
 Long-press preview (mirrors slot preview style)
 - Hold ~400ms on a hand card to open a preview; tap anywhere to dismiss. Preview stays visible after you release the press.

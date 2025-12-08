@@ -13,6 +13,7 @@ import {
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { HandCardView } from "./HandTypes";
+import { drawPreviewBadge } from "./PreviewBadge";
 
 export class HandAreaHandler {
   private handCards: HandCardView[] = [];
@@ -366,29 +367,28 @@ export class HandAreaHandler {
     label: string,
     baseDepth: number,
   ) {
-    const pill = this.drawHelpers.drawRoundedRect({
+    drawPreviewBadge({
+      container,
+      drawHelpers: this.drawHelpers,
       x: badgeX,
       y: badgeY,
       width: w,
       height: h,
-      radius: 6,
+      label,
+      baseDepth,
       fillColor: 0x000000,
       fillAlpha: 1,
-      strokeAlpha: 0,
-      strokeWidth: 0,
-    });
-    pill.setDepth(baseDepth + 1);
-    const statsText = this.scene.add
-      .text(badgeX, badgeY, label, {
+      radius: 6,
+      widthPad: 0,
+      depthPillOffset: 1,
+      depthTextOffset: 2,
+      textStyle: {
         fontSize: `${this.config.preview.badgeFontSize}px`,
         fontFamily: "Arial",
         fontStyle: "bold",
         color: "#ffffff",
-      })
-      .setOrigin(0.5)
-      .setDepth(baseDepth + 2);
-    container.add(pill);
-    container.add(statsText);
+      },
+    });
   }
 
   private toTextureKey(textureKey?: string) {

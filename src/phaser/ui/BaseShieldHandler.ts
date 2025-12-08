@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { toPreviewKey } from "./HandTypes";
+import { drawPreviewBadge } from "./PreviewBadge";
 
 type BaseSize = { w: number; h: number };
 
@@ -566,28 +567,27 @@ export class BaseShieldHandler {
     baseDepth: number,
     fillColor: number,
   ) {
-    const pill = this.drawHelpers.drawRoundedRect({
+    drawPreviewBadge({
+      container,
+      drawHelpers: this.drawHelpers,
       x: badgeX,
       y: badgeY,
       width: w,
       height: h,
-      radius: 6,
+      label,
+      baseDepth,
       fillColor,
       fillAlpha: 0.9,
-      strokeAlpha: 0,
-      strokeWidth: 0,
-    });
-    pill.setDepth(baseDepth + 1);
-    const statsText = this.scene.add
-      .text(badgeX, badgeY, label, {
+      radius: 6,
+      widthPad: 0,
+      depthPillOffset: 1,
+      depthTextOffset: 2,
+      textStyle: {
         fontSize: `${this.previewConfig.badgeFontSize}px`,
         fontFamily: "Arial",
         fontStyle: "bold",
         color: "#ffffff",
-      })
-      .setOrigin(0.5)
-      .setDepth(baseDepth + 2);
-    container.add(pill);
-    container.add(statsText);
+      },
+    });
   }
 }

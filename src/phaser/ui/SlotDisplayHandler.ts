@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
+import { drawPreviewBadge } from "./PreviewBadge";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -535,32 +536,28 @@ export class SlotDisplayHandler {
     baseDepth: number,
     fillColor: number = 0x000000,
   ) {
-    const badgeW = w ;
-    const badgeH = h ;
-    const textStyle = {
-      fontSize: `${this.config.preview.badgeFontSize}px`,
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: "#ffffff",
-    };
-    const pill = this.drawHelpers.drawRoundedRect({
+    drawPreviewBadge({
+      container,
+      drawHelpers: this.drawHelpers,
       x: badgeX,
       y: badgeY,
-      width: badgeW + 5,
-      height: badgeH,
-      radius: 6,
+      width: w,
+      height: h,
+      label,
+      baseDepth,
       fillColor,
       fillAlpha: 1,
-      strokeAlpha: 0,
-      strokeWidth: 0,
+      radius: 6,
+      widthPad: 5,
+      depthPillOffset: 3,
+      depthTextOffset: 4,
+      textStyle: {
+        fontSize: `${this.config.preview.badgeFontSize}px`,
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#ffffff",
+      },
     });
-    pill.setDepth(baseDepth + 3);
-    const statsText = this.scene.add
-      .text(badgeX, badgeY, label, textStyle)
-      .setOrigin(0.5)
-      .setDepth(baseDepth + 4);
-    container.add(pill);
-    container.add(statsText);
   }
 
   private toTextureKey(card?: SlotCardView) {
