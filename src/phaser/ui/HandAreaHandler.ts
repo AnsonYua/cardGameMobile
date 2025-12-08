@@ -26,7 +26,7 @@ export class HandAreaHandler {
     preview: {
       holdDelay: 400,
       overlayAlpha: 0.65,
-      cardWidth: 300,
+      cardWidth: 350,
       cardAspect: 88 / 64,
       fadeIn: 180,
       fadeOut: 150,
@@ -338,12 +338,15 @@ export class HandAreaHandler {
 
     const insideLabel = this.getBadgeLabel(card);
     if (insideLabel) {
-      const badgeW = this.config.preview.badgeSize.w+5;
+      const badgeW = this.config.preview.badgeSize.w+15;
       const badgeH = this.config.preview.badgeSize.h;
 
       let extraSpace = 0
       if(card.cardType == "pilot"){
-        extraSpace = -65
+        extraSpace = -78
+      }
+      if(card.cardType == "command"){
+        extraSpace = -7
       }
       this.drawPreviewBadge(
         container,
