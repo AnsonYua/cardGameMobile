@@ -315,7 +315,6 @@ export class SlotDisplayHandler {
     const cam = this.scene.cameras.main;
     const cx = cam.centerX;
     const cy = cam.centerY;
-    const pad = 12;
     const cardW = 300;
     const cardH = cardW * 88/64;
     const depth = 1000;
@@ -327,14 +326,19 @@ export class SlotDisplayHandler {
     bg.setInteractive(new Phaser.Geom.Rectangle(-cam.width / 2, -cam.height / 2, cam.width, cam.height), Phaser.Geom.Rectangle.Contains);
     bg.on("pointerdown", () => this.hidePreview());
     container.add(bg);
-
-    if (slot.unit && !slot.pilot) {
-      this.drawPreviewCard(container, 0, 0, cardW, cardH, slot.unit, slot.fieldCardValue);
-    } else if (slot.unit && slot.pilot) {
-      const pilotOffsetY = cardH * 0.12;
-      this.drawPreviewCard(container, -pad, pilotOffsetY, cardW * 0.85, cardH * 0.85, slot.pilot, undefined, true, depth);
-      this.drawPreviewCard(container, pad, -pilotOffsetY * 0.4, cardW, cardH, slot.unit, slot.fieldCardValue, false, depth + 1);
-    }
+    /*
+    it should call drawPreviewCard
+     all slot data will put to it , 
+     it will have logic
+        if (ispliot){
+          draw pilot and draw black label 
+        }
+        if (istunit){
+          draw unit and draw black label 
+        }
+        draw black label for fieldValue
+    */
+    this.drawPreviewCard(container, 0, 0, cardW, cardH, slot, depth);
 
     this.previewContainer = container;
     this.previewActive = true;
@@ -372,47 +376,92 @@ export class SlotDisplayHandler {
     y: number,
     w: number,
     h: number,
-    card: SlotCardView,
-    field?: { totalAP?: number; totalHP?: number },
-    isPilot = false,
+    slot: SlotViewModel,
     depthOffset = 0,
   ) {
-    let texKey = card.textureKey;
-    texKey = texKey?.replaceAll("-preview","")
-    const hasTex = texKey && this.scene.textures.exists(texKey);
-    let img: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
-    if (hasTex && texKey) {
-      img = this.scene.add.image(x, y, texKey).setDisplaySize(w, h).setOrigin(0.5);
-    } else {
-      img = this.drawHelpers.drawRoundedRect({
-        x,
-        y,
-        width: w,
-        height: h,
-        radius: 12,
-        fillColor: "#cbd3df",
-        fillAlpha: 0.9,
-        strokeColor: "#0f1118",
-        strokeAlpha: 0.8,
-        strokeWidth: 2,
-      });
+    const pad = w * 0.08;
+    const pilotOffsetY = h * 0.12;
+    const pilotScale = 0.85;
+
+    if (slot.pilot) {
+      const pW = w * pilotScale;
+      const pH = h * pilotScale;
+      const pilotTex = this.toTextureKey(slot.pilot);
+      const pilotImg =
+        pilotTex && this.scene.textures.exists(pilotTex)
+          ? this.scene.add.image(x - pad, y + pilotOffsetY, pilotTex).setDisplaySize(pW, pH).setOrigin(0.5)
+          : this.drawHelpers.drawRoundedRect({
+              x: x - pad,
+              y: y + pilotOffsetY,
+              width: pW,
+              height: pH,
+              radius: 12,
+              fillColor: "#cbd3df",
+              fillAlpha: 0.9,
+              strokeColor: "#0f1118",
+              strokeAlpha: 0.8,
+              strokeWidth: 2,
+            });
+      pilotImg.setDepth(depthOffset + 1);
+      container.add(pilotImg);
+
+      const pilotLabel = this.getPilotBadgeLabel(slot.pilot);
+      this.drawPreviewBadge(
+        container,
+        x - pad + pW * 0.34 - 4,
+        y + pilotOffsetY + pH * 0.36,
+        pW,
+        pH,
+        pilotLabel,
+        depthOffset + 2,
+      );
     }
-    img.setDepth(depthOffset + 1);
-    container.add(img);
 
-    const inAp = card.cardData?.ap ?? 0;
-    const inHp = card.cardData?.hp ?? 0;
-    const insideLabel = `${inAp}|${inHp}`;
-    this.drawPreviewBadge(container, x + w * 0.34 - 4, y + h * 0.36, w, h, insideLabel, depthOffset + 2);
+    if (slot.unit) {
+      const unitTex = this.toTextureKey(slot.unit);
+      const unitImg =
+        unitTex && this.scene.textures.exists(unitTex)
+          ? this.scene.add.image(x + pad, y - pilotOffsetY * 0.4, unitTex).setDisplaySize(w, h).setOrigin(0.5)
+          : this.drawHelpers.drawRoundedRect({
+              x: x + pad,
+              y: y - pilotOffsetY * 0.4,
+              width: w,
+              height: h,
+              radius: 12,
+              fillColor: "#cbd3df",
+              fillAlpha: 0.9,
+              strokeColor: "#0f1118",
+              strokeAlpha: 0.8,
+              strokeWidth: 2,
+            });
+      unitImg.setDepth(depthOffset + 2);
+      container.add(unitImg);
 
-    if (field) {
-      const outAp = field.totalAP ?? 0;
-      const outHp = field.totalHP ?? 0;
-      this.drawPreviewBadge(container, x + w * 0.34 - 4, y + h * 0.55, w, h, `${outAp}|${outHp}`, depthOffset + 2);
-    }
+      const unitLabel = this.getUnitBadgeLabel(slot.unit);
+      this.drawPreviewBadge(
+        container,
+        x + pad + w * 0.34 - 4,
+        y - pilotOffsetY * 0.4 + h * 0.36,
+        w,
+        h,
+        unitLabel,
+        depthOffset + 3,
+      );
 
-    if (isPilot) {
-      // Pilot badge already drawn; total badge handled by the unit layer.
+      const field = slot.fieldCardValue;
+      if (field) {
+        const outAp = field.totalAP ?? 0;
+        const outHp = field.totalHP ?? 0;
+        this.drawPreviewBadge(
+          container,
+          x + pad + w * 0.34 - 4,
+          y - pilotOffsetY * 0.4 + h * 0.55,
+          w,
+          h,
+          `${outAp}|${outHp}`,
+          depthOffset + 3,
+        );
+      }
     }
   }
 
@@ -447,5 +496,30 @@ export class SlotDisplayHandler {
       .setDepth(baseDepth + 4);
     container.add(pill);
     container.add(statsText);
+  }
+
+  private toTextureKey(card?: SlotCardView) {
+    if (!card?.textureKey) return undefined;
+    return card.textureKey.replaceAll("-preview", "");
+  }
+
+  private getUnitBadgeLabel(card: SlotCardView) {
+    const ap = card.cardData?.ap ?? 0;
+    const hp = card.cardData?.hp ?? 0;
+    return `${ap}|${hp}`;
+  }
+
+  private getPilotBadgeLabel(card: SlotCardView) {
+    const type = (card.cardType || card.cardData?.cardType || "").toLowerCase();
+    if (type === "command") {
+      const rules: any[] = card.cardData?.effects?.rules || [];
+      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
+      const ap = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
+      const hp = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
+      return `${ap}|${hp}`;
+    }
+    const ap = card.cardData?.ap ?? 0;
+    const hp = card.cardData?.hp ?? 0;
+    return `${ap}|${hp}`;
   }
 }
