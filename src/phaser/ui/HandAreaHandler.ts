@@ -18,6 +18,21 @@ export class HandAreaHandler {
   private handCards: HandCardView[] = [];
   private lastOffset: Offset = { x: 0, y: 0 };
   private drawnObjects: Phaser.GameObjects.GameObject[] = [];
+  private previewContainer?: Phaser.GameObjects.Container;
+  private previewTimer?: any;
+  private previewActive = false;
+  private config = {
+    preview: {
+      holdDelay: 400,
+      overlayAlpha: 0.65,
+      cardWidth: 300,
+      cardAspect: 88 / 64,
+      fadeIn: 180,
+      fadeOut: 150,
+      badgeSize: { w: 70, h: 45 },
+      badgeFontSize: 20,
+    },
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -168,6 +183,13 @@ export class HandAreaHandler {
     if (shouldShowStats) {
       this.drawStatsBadge(x, y, w, h, card, bg.depth || 0);
     }
+
+    // Interaction zone for long-press preview.
+    const hit = this.scene.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: false });
+    hit.on("pointerdown", () => this.startPreviewTimer(card));
+    hit.on("pointerup", () => this.handlePointerUp());
+    hit.on("pointerout", () => this.handlePointerOut());
+    this.drawnObjects.push(hit);
   }
 
   private drawCostBadge(x: number, y: number, w: number, h: number, cost: number | string, baseDepth: number) {
@@ -212,8 +234,184 @@ export class HandAreaHandler {
     this.drawnObjects.push(pill, statsText);
   }
 
+  // --- Preview handling (mirrors slot preview styling) ---
+  private startPreviewTimer(card: HandCardView) {
+    this.hidePreview();
+    this.previewTimer = setTimeout(() => {
+      this.previewTimer = undefined;
+      this.showPreview(card);
+    }, this.config.preview.holdDelay);
+  }
+
+  private handlePointerUp() {
+    if (this.previewActive) return;
+    this.cancelPreviewTimer();
+  }
+
+  private handlePointerOut() {
+    if (this.previewActive) return;
+    this.cancelPreviewTimer();
+  }
+
+  private cancelPreviewTimer() {
+    if (this.previewTimer) {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = undefined;
+    }
+  }
+
+  private showPreview(card: HandCardView) {
+    this.hidePreview(true);
+    const cam = this.scene.cameras.main;
+    const cx = cam.centerX;
+    const cy = cam.centerY;
+    const cardW = this.config.preview.cardWidth;
+    const cardH = cardW * this.config.preview.cardAspect;
+    const container = this.scene.add.container(cx, cy).setDepth(2000).setAlpha(0);
+
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x000000, this.config.preview.overlayAlpha);
+    bg.fillRect(-cam.width / 2, -cam.height / 2, cam.width, cam.height);
+    bg.setInteractive(new Phaser.Geom.Rectangle(-cam.width / 2, -cam.height / 2, cam.width, cam.height), Phaser.Geom.Rectangle.Contains);
+    bg.on("pointerdown", () => this.hidePreview());
+    container.add(bg);
+
+    this.drawPreviewCard(container, 0, 0, cardW, cardH, card);
+
+    this.previewContainer = container;
+    this.previewActive = true;
+    this.scene.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: this.config.preview.fadeIn,
+      ease: "Quad.easeOut",
+    });
+  }
+
+  private hidePreview(skipTween = false) {
+    this.cancelPreviewTimer();
+    if (this.previewContainer) {
+      const target = this.previewContainer;
+      this.previewContainer = undefined;
+      if (skipTween) {
+        target.destroy();
+      } else {
+        this.scene.tweens.add({
+          targets: target,
+          alpha: 0,
+          duration: this.config.preview.fadeOut,
+          ease: "Quad.easeIn",
+          onComplete: () => target.destroy(),
+        });
+      }
+    }
+    this.previewActive = false;
+  }
+
+  private drawPreviewCard(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    card: HandCardView,
+  ) {
+    const texKey = this.toTextureKey(card.textureKey);
+    const hasTex = texKey && this.scene.textures.exists(texKey);
+    const img = hasTex
+      ? this.scene.add.image(x, y, texKey!).setDisplaySize(w, h).setOrigin(0.5)
+      : this.drawHelpers.drawRoundedRect({
+          x,
+          y,
+          width: w,
+          height: h,
+          radius: 12,
+          fillColor: "#cbd3df",
+          fillAlpha: 0.9,
+          strokeColor: "#0f1118",
+          strokeAlpha: 0.8,
+          strokeWidth: 2,
+        });
+    img.setDepth(1);
+    container.add(img);
+
+    const insideLabel = this.getBadgeLabel(card);
+    if (insideLabel) {
+      const badgeW = this.config.preview.badgeSize.w;
+      const badgeH = this.config.preview.badgeSize.h;
+      this.drawPreviewBadge(
+        container,
+        x + w / 2 - badgeW / 2,
+        y + h / 2 - badgeH / 2,
+        badgeW,
+        badgeH,
+        insideLabel,
+        2,
+      );
+    }
+    // Hand cards have no field totals; skip total badge.
+  }
+
+  private drawPreviewBadge(
+    container: Phaser.GameObjects.Container,
+    badgeX: number,
+    badgeY: number,
+    w: number,
+    h: number,
+    label: string,
+    baseDepth: number,
+  ) {
+    const pill = this.drawHelpers.drawRoundedRect({
+      x: badgeX,
+      y: badgeY,
+      width: w,
+      height: h,
+      radius: 6,
+      fillColor: 0x000000,
+      fillAlpha: 0.9,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    });
+    pill.setDepth(baseDepth + 1);
+    const statsText = this.scene.add
+      .text(badgeX, badgeY, label, {
+        fontSize: `${this.config.preview.badgeFontSize}px`,
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(baseDepth + 2);
+    container.add(pill);
+    container.add(statsText);
+  }
+
+  private toTextureKey(textureKey?: string) {
+    if (!textureKey) return undefined;
+    return textureKey.replace(/-preview$/, "");
+  }
+
+  private getBadgeLabel(card: HandCardView) {
+    const type = (card.cardType || "").toLowerCase();
+    if (type === "command") {
+      const rules: any[] = card.cardData?.effects?.rules || [];
+      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
+      if (!pilotRule) return undefined;
+      const ap = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
+      const hp = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
+      return `${ap}|${hp}`;
+    }
+    if (type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation) {
+      const ap = card.ap ?? card.cardData?.ap ?? 0;
+      const hp = card.hp ?? card.cardData?.hp ?? 0;
+      return `${ap}|${hp}`;
+    }
+    return undefined;
+  }
+
   private clear() {
     this.drawnObjects.forEach((obj) => obj.destroy());
     this.drawnObjects = [];
+    this.hidePreview(true);
   }
 }
