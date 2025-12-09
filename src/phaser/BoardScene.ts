@@ -48,6 +48,7 @@ export class BoardScene extends Phaser.Scene {
   private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
+  private actionControls: ReturnType<BoardUI["getActionControls"]> | null = null;
   private uiVisibility?: UIVisibilityController;
   private api = new ApiManager();
   private session = new GameSessionService(this.api);
@@ -65,6 +66,7 @@ export class BoardScene extends Phaser.Scene {
   private debugControls?: DebugControls;
   private loadingText?: Phaser.GameObjects.Text;
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
+  private lastPhase?: string;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -91,6 +93,7 @@ export class BoardScene extends Phaser.Scene {
     this.handControls = this.ui.getHandControls();
     this.slotControls = this.ui.getSlotControls();
     this.headerControls = this.ui.getHeaderControls();
+    this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
@@ -147,6 +150,7 @@ export class BoardScene extends Phaser.Scene {
     this.showHandCards();
     this.showSlots();
     this.showBaseAndShield();
+    this.updateActionBarForPhase();
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -179,7 +183,52 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls?.setSlots(slots);
   }
 
+  private updateActionBarForPhase() {
+    this.applyMainPhaseDefaults(false);
+  }
+
+  private handleEndTurn() {
+    console.log("End Turn clicked");
+  }
+
+  private onHandCardSelected(_card: any) {
+    const actions = this.actionControls;
+    if (!actions) return;
+    // Highlight selection; clear End Turn; show Play/Cancel.
+    actions.setPinnedButtons?.([
+      { label: "Play Card", enabled: true, onClick: () => console.log("Play Card") },
+      { label: "Cancel", enabled: true, onClick: () => this.applyMainPhaseDefaults(true) },
+    ]);
+    actions.setButtons?.([]);
+    actions.setEndTurnButton?.({ label: "", enabled: false, onClick: undefined });
+  }
+
+  private applyMainPhaseDefaults(force = false) {
+    const raw = this.engine.getSnapshot().raw as any;
+    const actions = this.actionControls;
+    if (!raw || !actions) return;
+    const phase = raw?.gameEnv?.phase;
+    const currentPlayer = raw?.gameEnv?.currentPlayer;
+    const self = this.gameContext.playerId;
+    const inMainPhase = phase === "MAIN_PHASE" && currentPlayer === self;
+    if (!inMainPhase) {
+      this.lastPhase = phase;
+      return;
+    }
+    if (force || this.lastPhase !== "MAIN_PHASE") {
+      actions.setPinnedButtons?.([
+        { label: "", enabled: false },
+        { label: "", enabled: false },
+      ]);
+      actions.setButtons?.([]);
+      actions.setEndTurnButton?.({ label: "End Turn", enabled: true, onClick: () => this.handleEndTurn() });
+      this.handControls?.setHand?.(this.handPresenter.toHandCards(raw, this.gameContext.playerId)); // redraw clears highlights
+    }
+    this.lastPhase = phase;
+  }
+
   private showBaseAndShield() {
+    console.log("show base")
     const snapshot = this.engine.getSnapshot();
     const raw: any = snapshot.raw;
     const players = raw?.gameEnv?.players;
@@ -245,6 +294,7 @@ export class BoardScene extends Phaser.Scene {
   // Centralize UI wiring/drawing to reduce call scattering in create().
   private wireUiHandlers() {
     this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
+    this.handControls?.setCardClickHandler?.((card) => this.onHandCardSelected(card));
     this.headerControls?.setButtonHandler(() => this.startGame());
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }

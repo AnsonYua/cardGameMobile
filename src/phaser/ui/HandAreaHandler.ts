@@ -34,6 +34,8 @@ export class HandAreaHandler {
       badgeFontSize: 20,
     },
   };
+  private onCardClick?: (card: HandCardView) => void;
+  private selectedCardUid?: string;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -116,6 +118,10 @@ export class HandAreaHandler {
     this.drawnObjects.forEach((obj: any) => obj?.setVisible?.(visible));
   }
 
+  setCardClickHandler(handler: (card: HandCardView) => void) {
+    this.onCardClick = handler;
+  }
+
   fadeIn(duration = 200) {
     this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
     this.drawnObjects.forEach((obj: any) => {
@@ -132,6 +138,7 @@ export class HandAreaHandler {
   }
 
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCardView) {
+    const isSelected = card.id && card.id === this.selectedCardUid;
     const bg = this.drawHelpers.drawRoundedRect({
       x,
       y,
@@ -140,9 +147,9 @@ export class HandAreaHandler {
       radius: 10,
       fillColor: card.color,
       fillAlpha: 1,
-      strokeColor: this.palette.accent,
-      strokeAlpha: 0.5,
-      strokeWidth: 2,
+      strokeColor: isSelected ? 0x00ff00 : this.palette.accent,
+      strokeAlpha: isSelected ? 0.9 : 0.5,
+      strokeWidth: isSelected ? 3 : 2,
     });
     this.drawnObjects.push(bg);
 
@@ -188,7 +195,7 @@ export class HandAreaHandler {
     // Interaction zone for long-press preview.
     const hit = this.scene.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: false });
     hit.on("pointerdown", () => this.startPreviewTimer(card));
-    hit.on("pointerup", () => this.handlePointerUp());
+    hit.on("pointerup", () => this.handlePointerUp(card));
     hit.on("pointerout", () => this.handlePointerOut());
     this.drawnObjects.push(hit);
   }
@@ -244,8 +251,12 @@ export class HandAreaHandler {
     }, this.config.preview.holdDelay);
   }
 
-  private handlePointerUp() {
+  private handlePointerUp(card?: HandCardView) {
     if (this.previewActive) return;
+    if (card && this.onCardClick) {
+      this.selectedCardUid = card.id || undefined;
+      this.onCardClick(card);
+    }
     this.cancelPreviewTimer();
   }
 
@@ -420,5 +431,6 @@ export class HandAreaHandler {
     this.drawnObjects.forEach((obj) => obj.destroy());
     this.drawnObjects = [];
     this.hidePreview(true);
+    this.selectedCardUid = undefined;
   }
 }

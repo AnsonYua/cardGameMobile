@@ -444,8 +444,9 @@ export class BaseShieldHandler {
 
   private showPreview(side: BaseSide) {
     const payload = this.basePreviewData[side];
+      console.log("payload ",JSON.stringify(this.basePreviewData))
     if (!payload) {
-      console.warn("Base preview: no payload for side", side);
+      console.log("Base preview: no payload for side", side);
       return;
     }
     console.log("Base preview: render payload", { side, payloadCardId: payload?.cardId, field: payload?.fieldCardValue });

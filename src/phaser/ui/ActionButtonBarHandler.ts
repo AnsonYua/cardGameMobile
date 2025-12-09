@@ -104,7 +104,7 @@ export class ActionButtonBarHandler {
     const barY = handTop - this.barHeight / 2 - 12;
     const barX = INTERNAL_W / 2;
     const btnGap = 12;
-    const btnWidth = 120;
+    const btnWidth = 120; // fixed size to keep buttons consistent
     const btnHeight = this.barHeight;
 
     this.barBounds = {
@@ -131,44 +131,29 @@ export class ActionButtonBarHandler {
       .setDepth(0);
     this.elements.push(bg);
 
-    // Layout exactly three buttons spanning the internal width: pinned[0], pinned[1], end turn.
-    const slots = 3;
-    const btnSpan = (this.barWidth - btnGap * (slots - 1)) / slots;
-    const leftStart = barX - this.barWidth / 2 + btnSpan / 2;
+    // Build buttons to render (hide pinned if blank/disabled).
+    const renderButtons: Array<{ config: ActionButtonConfig; color: number; actionIndex: number | null }> = [];
+    const pin1 = this.pinnedButtons[0];
+    const pin2 = this.pinnedButtons[1];
+    if (pin1 && pin1.label && pin1.label.trim() && pin1.enabled !== false) {
+      renderButtons.push({ config: pin1, color: 0x5e48f0, actionIndex: null });
+    }
+    if (pin2 && pin2.label && pin2.label.trim() && pin2.enabled !== false) {
+      renderButtons.push({ config: pin2, color: 0x5e48f0, actionIndex: null });
+    }
+    // End turn only if it has a label and is enabled.
+    if (this.endTurnButton && this.endTurnButton.label && this.endTurnButton.label.trim() && this.endTurnButton.enabled !== false) {
+      renderButtons.push({ config: this.endTurnButton, color: this.buttonStyle.endOuterColor, actionIndex: null });
+    }
 
-    // Left pinned
-    this.drawButton(
-      leftStart,
-      barY,
-      btnSpan,
-      btnHeight,
-      this.pinnedButtons[0] || { label: "Action 1" },
-      900,
-      0x5e48f0,
-      null,
-    );
-    // Middle pinned
-    this.drawButton(
-      leftStart + (btnSpan + btnGap),
-      barY,
-      btnSpan,
-      btnHeight,
-      this.pinnedButtons[1] || { label: "Action 2" },
-      900,
-      0x5e48f0,
-      null,
-    );
-    // End turn on the right
-    this.drawButton(
-      leftStart + 2 * (btnSpan + btnGap),
-      barY,
-      btnSpan,
-      btnHeight,
-      this.endTurnButton,
-      900,
-      this.buttonStyle.endOuterColor,
-      null,
-    );
+    const count = renderButtons.length;
+    const totalWidth = count * btnWidth + (count - 1) * btnGap;
+    const leftStart = barX - totalWidth / 2 + btnWidth / 2;
+
+    renderButtons.forEach((btn, idx) => {
+      const x = leftStart + idx * (btnWidth + btnGap);
+      this.drawButton(x, barY, btnWidth, btnHeight, btn.config, 900, btn.color, btn.actionIndex);
+    });
   }
 
   private drawButton(

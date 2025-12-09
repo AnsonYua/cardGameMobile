@@ -15,6 +15,7 @@ type HandControls = {
   fadeIn: (duration?: number) => void;
   setHand: (cards: HandCardView[]) => void;
   clearHand: () => void;
+  setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
 };
 type HeaderControls = {
   setStatus: (text: string) => void;
@@ -51,6 +52,7 @@ export class BoardUI {
       fadeIn: (duration?: number) => this.hand.fadeIn(duration),
       setHand: (cards) => this.hand.setHand(cards),
       clearHand: () => this.hand.clearHand(),
+      setCardClickHandler: (handler) => this.hand.setCardClickHandler?.(handler),
     };
     this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
     this.headerControls = {
