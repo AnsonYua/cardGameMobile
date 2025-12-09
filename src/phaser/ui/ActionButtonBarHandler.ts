@@ -3,33 +3,38 @@ import { BASE_H, INTERNAL_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 
+type ActionButtonConfig = {
+  label: string;
+  onClick?: () => void;
+  enabled?: boolean;
+};
+
 export class ActionButtonBarHandler {
   private barHeight = 40;
   private barPadding = 16;
   private barWidth = INTERNAL_W - this.barPadding * 2;
-  private buttons: string[] = Array.from({ length: 10 }, (_, i) => `Action ${i + 1}`);
+  private buttons: string[] = [];
+  private pinnedButtons: ActionButtonConfig[] = [
+    { label: "Play Card", onClick: () => {} },
+    { label: "Trigger Effect", onClick: () => {} },
+  ];
+  private endTurnButton: ActionButtonConfig = { label: "End Turn", onClick: () => {} };
   private hitAreas: Phaser.GameObjects.Rectangle[] = [];
   private elements: Phaser.GameObjects.GameObject[] = [];
   private onAction: (index: number) => void = () => {};
-  private scrollOffset = 0;
-  private maxScroll = 0;
-  private scrollArea?: Phaser.GameObjects.Rectangle;
-  private wheelListener?: (pointer: Phaser.Input.Pointer, dx: number, dy: number, dz: number) => void;
   private lastOffset: { x: number; y: number } = { x: 0, y: 0 };
-  private maskGraphics?: Phaser.GameObjects.Graphics;
-  private mask?: Phaser.Display.Masks.GeometryMask;
-  private isDragging = false;
-  private dragStartX = 0;
-  private dragStartOffset = 0;
-  private dragPointerId: number | null = null;
-  private dragMoved = false;
   private barBounds = { left: 0, right: 0, top: 0, bottom: 0 };
-  private pointerDownListener?: (pointer: Phaser.Input.Pointer) => void;
-  private pointerMoveListener?: (pointer: Phaser.Input.Pointer) => void;
-  private pointerUpListener?: (pointer: Phaser.Input.Pointer) => void;
 
-  // These mirror HandAreaHandler layout so the bar can sit just above the hand.
+  // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
+  private buttonStyle = {
+    outerColor: 0x2f6ad9,
+    outerStroke: 0x1f4f9c,
+    innerColor: 0xf2f5ff,
+    innerStroke: 0xffffff,
+    textColor: "#1f3f9c",
+    endOuterColor: 0x1e7bff,
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -39,7 +44,28 @@ export class ActionButtonBarHandler {
 
   setButtons(labels: string[]) {
     this.buttons = [...labels];
-    this.scrollOffset = 0;
+    this.draw(this.lastOffset);
+  }
+
+  setPinnedButtons(buttons: ActionButtonConfig[]) {
+    const next: ActionButtonConfig[] = [
+      buttons[0] ?? this.pinnedButtons[0],
+      buttons[1] ?? this.pinnedButtons[1],
+    ];
+    this.pinnedButtons = next.map((b, idx) => ({
+      label: b?.label ?? `Action ${idx + 1}`,
+      onClick: b?.onClick ?? (() => {}),
+      enabled: b?.enabled ?? true,
+    }));
+    this.draw(this.lastOffset);
+  }
+
+  setEndTurnButton(button: ActionButtonConfig) {
+    this.endTurnButton = {
+      label: button?.label ?? this.endTurnButton.label,
+      onClick: button?.onClick ?? this.endTurnButton.onClick,
+      enabled: button?.enabled ?? true,
+    };
     this.draw(this.lastOffset);
   }
 
@@ -53,8 +79,6 @@ export class ActionButtonBarHandler {
         h.disableInteractive();
       }
     });
-    this.scrollArea?.setVisible(visible);
-    this.maskGraphics?.setVisible(visible);
   }
 
   fadeIn(duration = 200) {
@@ -72,31 +96,16 @@ export class ActionButtonBarHandler {
     this.elements = [];
     this.hitAreas.forEach((h) => h.destroy());
     this.hitAreas = [];
-    this.scrollArea?.destroy();
-    this.scrollArea = undefined;
-    this.maskGraphics?.destroy();
-    this.maskGraphics = undefined;
-    this.mask?.destroy?.();
-    this.mask = undefined;
 
-    const barWidth = this.barWidth;
-
-    // Compute hand top using HandAreaHandler's layout to avoid overlap.
+    // Geometry and positioning.
     const { cardH, gap, rows, bottomPadding } = this.handLayout;
     const totalHandHeight = rows * cardH + (rows - 1) * gap;
     const handTop = BASE_H - bottomPadding - totalHandHeight + offset.y;
-
-    const barY = handTop - this.barHeight / 2 - 12; // small gap above hand
-    // Center bar against the full board width while using internal width for sizing.
-    const barX = INTERNAL_W / 2 ;
-
-    const btnCount = this.buttons.length;
+    const barY = handTop - this.barHeight / 2 - 12;
+    const barX = INTERNAL_W / 2;
     const btnGap = 12;
-    const btnWidth = Math.min(120, (barWidth - (btnCount - 1) * btnGap) / Math.min(btnCount, 5));
-    const btnHeight = this.barHeight ;
-    const contentWidth = btnCount * btnWidth + (btnCount - 1) * btnGap;
-    this.maxScroll = Math.max(0, contentWidth - barWidth);
-    this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset, 0, this.maxScroll);
+    const btnWidth = 120;
+    const btnHeight = this.barHeight;
 
     this.barBounds = {
       left: 0,
@@ -105,7 +114,7 @@ export class ActionButtonBarHandler {
       bottom: barY + btnHeight / 2,
     };
 
-    // Always draw the bar background so the area remains visible even with no buttons.
+    // Always draw the background bar.
     const bg = this.drawHelpers
       .drawRoundedRectOrigin({
         x: 0,
@@ -122,125 +131,114 @@ export class ActionButtonBarHandler {
       .setDepth(0);
     this.elements.push(bg);
 
-    if (btnCount === 0) {
-      // Update bounds so drag detection won't misbehave.
-      this.barBounds = {
-        left: 0,
-        right: INTERNAL_W,
-        top: barY - btnHeight / 2,
-        bottom: barY + btnHeight / 2,
-      };
-      return;
-    }
+    // Layout exactly three buttons spanning the internal width: pinned[0], pinned[1], end turn.
+    const slots = 3;
+    const btnSpan = (this.barWidth - btnGap * (slots - 1)) / slots;
+    const leftStart = barX - this.barWidth / 2 + btnSpan / 2;
 
-    // Mask to clip horizontal scroll content.
-    this.maskGraphics = this.scene.add.graphics();
-    this.maskGraphics.fillStyle(0xffffff, 0.0001); // nearly transparent; only needed for mask
-    this.maskGraphics.fillRect(barX - barWidth / 2, barY - btnHeight / 2, barWidth, btnHeight);
-    this.mask = this.maskGraphics.createGeometryMask();
+    // Left pinned
+    this.drawButton(
+      leftStart,
+      barY,
+      btnSpan,
+      btnHeight,
+      this.pinnedButtons[0] || { label: "Action 1" },
+      900,
+      0x5e48f0,
+      null,
+    );
+    // Middle pinned
+    this.drawButton(
+      leftStart + (btnSpan + btnGap),
+      barY,
+      btnSpan,
+      btnHeight,
+      this.pinnedButtons[1] || { label: "Action 2" },
+      900,
+      0x5e48f0,
+      null,
+    );
+    // End turn on the right
+    this.drawButton(
+      leftStart + 2 * (btnSpan + btnGap),
+      barY,
+      btnSpan,
+      btnHeight,
+      this.endTurnButton,
+      900,
+      this.buttonStyle.endOuterColor,
+      null,
+    );
+  }
 
-
-    const startX = barX - barWidth / 2 + btnWidth / 2 - this.scrollOffset;
-
-    for (let i = 0; i < btnCount; i++) {
-      const x = startX + i * (btnWidth + btnGap);
-      const y = barY;
-      const rect = this.drawHelpers.drawRoundedRect({
+  private drawButton(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    config: ActionButtonConfig,
+    depth: number,
+    fillColor: number,
+    actionIndex: number | null,
+  ) {
+    const enabled = config.enabled !== false;
+    // Outer pill
+    const outer = this.drawHelpers
+      .drawRoundedRect({
         x,
         y,
-        width: btnWidth,
-        height: btnHeight,
-        radius: 6,
-        fillColor: "#5e48f0",
-        fillAlpha: 1,
-        strokeColor: 0x5e48f0,
-        strokeAlpha: 0,
-        strokeWidth: 0,
-      }).setDepth(900);
-      rect.setMask(this.mask || null);
-      this.elements.push(rect);
+        width: w,
+        height: h,
+        radius: h / 2,
+        fillColor,
+        fillAlpha: enabled ? 1 : 0.4,
+        strokeColor: this.buttonStyle.outerStroke,
+        strokeAlpha: 0.8,
+        strokeWidth: 2,
+      })
+      .setDepth(depth);
+    this.elements.push(outer);
 
-      const label = this.scene.add
-        .text(x, y, this.buttons[i], {
-          fontSize: "14px",
-          fontFamily: "Arial",
-          color: "#ffffff",
-        })
-        .setOrigin(0.5)
-        .setDepth(901);
-      label.setMask(this.mask || null);
-      this.elements.push(label);
+    // Inner pill inset
+    const inner = this.drawHelpers
+      .drawRoundedRect({
+        x,
+        y,
+        width: w - 10,
+        height: h - 12,
+        radius: (h - 12) / 2,
+        fillColor: this.buttonStyle.innerColor,
+        fillAlpha: enabled ? 1 : 0.6,
+        strokeColor: this.buttonStyle.innerStroke,
+        strokeAlpha: 0.6,
+        strokeWidth: 1,
+      })
+      .setDepth(depth + 1);
+    this.elements.push(inner);
 
-      const hit = this.scene.add
-        .rectangle(x, y, btnWidth, btnHeight, 0x000000, 0)
-        .setInteractive({ useHandCursor: true })
-        .setDepth(902);
-      hit.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-        const isDragPointer = this.dragPointerId === pointer.id;
-        if (isDragPointer && this.dragMoved) return;
-        this.onAction(i);
-      });
-      this.hitAreas.push(hit);
-      hit.setMask(this.mask || null);
-      this.elements.push(hit);
-    }
+    const text = this.scene.add
+      .text(x, y, config.label || "", {
+        fontSize: "15px",
+        fontFamily: "Arial",
+        color: enabled ? this.buttonStyle.textColor : "#8a9abf",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 2);
+    this.elements.push(text);
 
-    // Transparent area to capture wheel scrolling for horizontal scroll.
-    this.scrollArea = this.scene.add
-      .rectangle(barX, barY, barWidth, btnHeight, 0x000000, 0)
-      .setInteractive({ useHandCursor: false })
-      .setDepth(850);
-
-    if (!this.wheelListener) {
-      this.wheelListener = (pointer, _dx, dy) => {
-        if (!this.scrollArea) return;
-        const bounds = this.scrollArea.getBounds();
-        if (pointer.x < bounds.left || pointer.x > bounds.right || pointer.y < bounds.top || pointer.y > bounds.bottom) {
-          return;
-        }
-        // Positive dy scrolls down; treat as moving right.
-        this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset + dy * 0.5, 0, this.maxScroll);
-        this.draw(this.lastOffset);
-      };
-      this.scene.input.on("wheel", this.wheelListener);
-    }
-
-    // Global pointer listeners for drag scrolling (touch friendly).
-    if (!this.pointerDownListener) {
-      this.pointerDownListener = (pointer) => {
-        const { x, y } = pointer;
-        if (x >= this.barBounds.left && x <= this.barBounds.right && y >= this.barBounds.top && y <= this.barBounds.bottom) {
-          this.isDragging = true;
-          this.dragMoved = false;
-          this.dragPointerId = pointer.id;
-          this.dragStartX = x;
-          this.dragStartOffset = this.scrollOffset;
-        }
-      };
-      this.scene.input.on("pointerdown", this.pointerDownListener);
-    }
-
-    if (!this.pointerMoveListener) {
-      this.pointerMoveListener = (pointer) => {
-        if (!this.isDragging || this.dragPointerId !== pointer.id) return;
-        const delta = pointer.x - this.dragStartX;
-        if (Math.abs(delta) > 3) this.dragMoved = true;
-        this.scrollOffset = Phaser.Math.Clamp(this.dragStartOffset - delta, 0, this.maxScroll);
-        this.draw(this.lastOffset);
-      };
-      this.scene.input.on("pointermove", this.pointerMoveListener);
-    }
-
-    if (!this.pointerUpListener) {
-      this.pointerUpListener = (pointer) => {
-        if (this.dragPointerId !== null && pointer.id !== this.dragPointerId) return;
-        this.isDragging = false;
-        this.dragPointerId = null;
-        this.dragMoved = false;
-      };
-      this.scene.input.on("pointerup", this.pointerUpListener);
-      this.scene.input.on("pointerupoutside", this.pointerUpListener);
-      this.scene.input.on("pointerout", this.pointerUpListener);
-    }
+    const hit = this.scene.add
+      .rectangle(x, y, w, h, 0x000000, 0)
+      .setInteractive({ useHandCursor: enabled })
+      .setDepth(depth + 3);
+    hit.on("pointerup", () => {
+      if (!enabled) return;
+      if (actionIndex !== null) {
+        this.onAction(actionIndex);
+      }
+      config.onClick?.();
+    });
+    this.hitAreas.push(hit);
+    this.elements.push(hit);
   }
 }
