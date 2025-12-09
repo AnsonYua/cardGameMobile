@@ -157,6 +157,15 @@ export class BoardScene extends Phaser.Scene {
     this.updateActionBarForPhase();
   }
 
+  public mainPhaseUpdateWithoutFadeIn() {
+    // Mirror mainPhaseUpdate but omit any fade-in effects by avoiding fadeIn calls inside helpers.
+    this.uiVisibility?.show();
+    this.showHandCards({ skipFade: true });
+    this.showSlots();
+    this.showBaseAndShield();
+    this.updateActionBarForPhase();
+  }
+
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
   private hideDefaultUI() {
     this.uiVisibility?.hide();
@@ -166,7 +175,7 @@ export class BoardScene extends Phaser.Scene {
     this.uiVisibility?.show();
   }
 
-  private showHandCards() {
+  private showHandCards(opts: { skipFade?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -175,7 +184,9 @@ export class BoardScene extends Phaser.Scene {
     if (!cards.length) return;
     this.handControls?.setHand(cards);
     this.handControls?.setVisible(true);
-    this.handControls?.fadeIn();
+    if (!opts.skipFade) {
+      this.handControls?.fadeIn();
+    }
   }
 
   private showSlots() {
@@ -292,7 +303,7 @@ export class BoardScene extends Phaser.Scene {
       primary: d.primary,
       onClick: async () => {
         await this.engine.runAction(d.id);
-        this.mainPhaseUpdate();
+        this.mainPhaseUpdateWithoutFadeIn();
         this.refreshActions();
       },
     }));

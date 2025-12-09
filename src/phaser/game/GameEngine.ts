@@ -41,6 +41,7 @@ export class GameEngine {
       this.lastRaw = response;
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+      console.log("adsfasdfsd ", fromScenario)
       if(fromScenario == true){
         this.contextStore.update({ lastStatus: derivedStatus });
         this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
@@ -144,12 +145,17 @@ export class GameEngine {
       playerId: ctx.playerId,
       runPlayCard: (payload) => this.api.playCard(payload as any),
       refreshStatus: () => this.updateGameStatus(ctx.gameId ?? undefined, ctx.playerId ?? undefined),
+      //refreshStatus: () => this.test(),
     };
   }
 
+  async test(){
+
+  }
   private registerDefaultActions() {
     // Play base from hand
     this.actions.register("playBaseFromHand", async (ctx: ActionContext) => {
+      
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "base") return;
       if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
@@ -160,6 +166,7 @@ export class GameEngine {
       });
       await ctx.refreshStatus?.();
       this.clearSelection();
+      
     });
 
     // Cancel
