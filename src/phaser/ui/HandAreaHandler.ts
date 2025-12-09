@@ -104,11 +104,14 @@ export class HandAreaHandler {
 
   setHand(cards: HandCardView[]) {
     this.handCards = cards;
+    // Reset selection on re-render (e.g., cancel actions).
+    this.selectedCardUid = undefined;
     this.draw(this.lastOffset);
   }
 
   clearHand() {
     this.handCards = [];
+    this.selectedCardUid = undefined;
     this.clear();
   }
 
@@ -139,7 +142,6 @@ export class HandAreaHandler {
 
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCardView) {
     const isSelected = card.uid && card.uid === this.selectedCardUid;
-    console.log("is selected ",isSelected , ' ',card.uid , ' ',this.selectedCardUid)
     const bg = this.drawHelpers.drawRoundedRect({
       x,
       y,
@@ -264,9 +266,10 @@ export class HandAreaHandler {
   private handlePointerUp(card?: HandCardView) {
     if (this.previewActive) return;
     if (card && this.onCardClick) {
-      console.log("dsafdsdf ",card.uid)
       this.selectedCardUid = card.uid || undefined;
       this.onCardClick(card);
+      // Redraw to apply highlight state.
+      this.draw(this.lastOffset);
     }
     this.cancelPreviewTimer();
   }
@@ -442,6 +445,5 @@ export class HandAreaHandler {
     this.drawnObjects.forEach((obj) => obj.destroy());
     this.drawnObjects = [];
     this.hidePreview(true);
-    this.selectedCardUid = undefined;
   }
 }
