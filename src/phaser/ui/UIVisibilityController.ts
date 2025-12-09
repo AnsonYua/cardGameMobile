@@ -28,6 +28,8 @@ export class UIVisibilityController {
     energy?.setVisible(true);
     status?.setVisible(true);
     hand?.setVisible(true);
+    // Reset actions to an empty list when showing UI to avoid stale labels.
+    actions?.setButtons?.([]);
     energy?.fadeIn();
     status?.fadeIn();
     hand?.fadeIn();

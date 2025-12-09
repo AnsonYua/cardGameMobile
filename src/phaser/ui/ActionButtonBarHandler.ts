@@ -7,7 +7,7 @@ export class ActionButtonBarHandler {
   private barHeight = 40;
   private barPadding = 16;
   private barWidth = INTERNAL_W - this.barPadding * 2;
-  private buttons = Array.from({ length: 10 }, (_, i) => `Action ${i + 1}`);
+  private buttons: string[] = Array.from({ length: 10 }, (_, i) => `Action ${i + 1}`);
   private hitAreas: Phaser.GameObjects.Rectangle[] = [];
   private elements: Phaser.GameObjects.GameObject[] = [];
   private onAction: (index: number) => void = () => {};
@@ -35,6 +35,12 @@ export class ActionButtonBarHandler {
 
   setActionHandler(handler: (index: number) => void) {
     this.onAction = handler;
+  }
+
+  setButtons(labels: string[]) {
+    this.buttons = [...labels];
+    this.scrollOffset = 0;
+    this.draw(this.lastOffset);
   }
 
   setVisible(visible: boolean) {
@@ -99,15 +105,11 @@ export class ActionButtonBarHandler {
       bottom: barY + btnHeight / 2,
     };
 
-    // Mask to clip horizontal scroll content.
-    this.maskGraphics = this.scene.add.graphics();
-    this.maskGraphics.fillStyle(0xffffff, 0.0001); // nearly transparent; only needed for mask
-    this.maskGraphics.fillRect(barX - barWidth / 2, barY - btnHeight / 2, barWidth, btnHeight);
-    this.mask = this.maskGraphics.createGeometryMask();
-
-    const rect = this.drawHelpers.drawRoundedRectOrigin({
-        x:0,
-        y:barY-23,
+    // Always draw the bar background so the area remains visible even with no buttons.
+    const bg = this.drawHelpers
+      .drawRoundedRectOrigin({
+        x: 0,
+        y: barY - 23,
         width: INTERNAL_W,
         height: 300,
         radius: 0,
@@ -116,12 +118,30 @@ export class ActionButtonBarHandler {
         strokeColor: 0x5e48f0,
         strokeAlpha: 0,
         strokeWidth: 0,
-      }).setDepth(0);
-    this.elements.push(rect);
+      })
+      .setDepth(0);
+    this.elements.push(bg);
+
+    if (btnCount === 0) {
+      // Update bounds so drag detection won't misbehave.
+      this.barBounds = {
+        left: 0,
+        right: INTERNAL_W,
+        top: barY - btnHeight / 2,
+        bottom: barY + btnHeight / 2,
+      };
+      return;
+    }
+
+    // Mask to clip horizontal scroll content.
+    this.maskGraphics = this.scene.add.graphics();
+    this.maskGraphics.fillStyle(0xffffff, 0.0001); // nearly transparent; only needed for mask
+    this.maskGraphics.fillRect(barX - barWidth / 2, barY - btnHeight / 2, barWidth, btnHeight);
+    this.mask = this.maskGraphics.createGeometryMask();
+
 
     const startX = barX - barWidth / 2 + btnWidth / 2 - this.scrollOffset;
 
-    /*
     for (let i = 0; i < btnCount; i++) {
       const x = startX + i * (btnWidth + btnGap);
       const y = barY;
@@ -164,7 +184,7 @@ export class ActionButtonBarHandler {
       hit.setMask(this.mask || null);
       this.elements.push(hit);
     }
-      */
+
     // Transparent area to capture wheel scrolling for horizontal scroll.
     this.scrollArea = this.scene.add
       .rectangle(barX, barY, barWidth, btnHeight, 0x000000, 0)

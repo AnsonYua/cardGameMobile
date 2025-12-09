@@ -177,6 +177,8 @@ export class BoardUI {
     return {
       setVisible: (visible: boolean) => this.actions.setVisible(visible),
       fadeIn: (duration?: number) => this.actions.fadeIn(duration),
+      setButtons: (labels: string[]) => this.actions.setButtons(labels),
+      setActionHandler: (handler: (index: number) => void) => this.actions.setActionHandler(handler),
     };
   }
 
