@@ -20,13 +20,14 @@ export class HandLayoutRenderer {
       y,
       width: w,
       height: h,
-      radius: 10,
+      radius: 0,
       fillColor: card.color,
       fillAlpha: 1,
       strokeColor: isSelected ? 0x00ff00 : this.palette.accent,
-      strokeAlpha: isSelected ? 0.9 : 0.5,
-      strokeWidth: isSelected ? 3 : 2,
+      strokeAlpha: isSelected ? 0.9 : 0,
+      strokeWidth: isSelected ? 5 : 2,
     });
+    bg.setDepth(200)
     drawn.push(bg);
 
     if (card.cost !== undefined) {
