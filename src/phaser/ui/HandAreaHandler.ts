@@ -138,7 +138,8 @@ export class HandAreaHandler {
   }
 
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCardView) {
-    const isSelected = card.id && card.id === this.selectedCardUid;
+    const isSelected = card.uid && card.uid === this.selectedCardUid;
+    console.log("is selected ",isSelected , ' ',card.uid , ' ',this.selectedCardUid)
     const bg = this.drawHelpers.drawRoundedRect({
       x,
       y,
@@ -178,6 +179,15 @@ export class HandAreaHandler {
     });
     this.drawnObjects.push(inner);
 
+    // Selected highlight frame on top of everything else.
+    /*
+    if (isSelected) {
+      const highlight = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
+      highlight.lineStyle(3, 0x00ff00, 10);
+      highlight.strokeRoundedRect(0, 0, w, h, 10);
+      highlight.setDepth((bg.depth || 0) + 6);
+      this.drawnObjects.push(highlight);
+    }*/
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
       const img = this.scene.add
         .image(x, y, card.textureKey)
@@ -254,7 +264,8 @@ export class HandAreaHandler {
   private handlePointerUp(card?: HandCardView) {
     if (this.previewActive) return;
     if (card && this.onCardClick) {
-      this.selectedCardUid = card.id || undefined;
+      console.log("dsafdsdf ",card.uid)
+      this.selectedCardUid = card.uid || undefined;
       this.onCardClick(card);
     }
     this.cancelPreviewTimer();

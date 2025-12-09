@@ -5,8 +5,9 @@ export type HandCardView = {
   ap?: number;
   hp?: number;
   cardType?: string;
-  id?: string;
+  uid?: string;
   fromPilotDesignation?: boolean;
 };
 
-export const toPreviewKey = (id?: string | null) => (id ? id.replace(/\.png$/i, "") + "-preview" : undefined);
+export const toPreviewKey = (cardId?: string | null) =>
+  cardId ? cardId.replace(/\.png$/i, "") + "-preview" : undefined;
