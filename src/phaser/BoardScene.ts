@@ -16,6 +16,7 @@ import { DebugControls } from "./controllers/DebugControls";
 import { UIVisibilityController } from "./ui/UIVisibilityController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
+import type { SlotViewModel } from "./ui/SlotTypes";
 
 const colors = {
   bg: "#ffffff",
@@ -192,15 +193,29 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private onHandCardSelected(_card: any) {
+    this.showPlayCancelActions();
+  }
+
+  private onSlotCardSelected(_slot: SlotViewModel) {
+    this.showPlayCancelActions();
+  }
+
+  private onBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
+    if (!payload?.card) return;
+    this.showPlayCancelActions();
+  }
+
+  private showPlayCancelActions() {
     const actions = this.actionControls;
     if (!actions) return;
     // Highlight selection; clear End Turn; show Play/Cancel.
-    actions.setPinnedButtons?.([
-      { label: "Play Card", enabled: true, onClick: () => console.log("Play Card") },
-      { label: "Cancel", enabled: true, onClick: () => this.applyMainPhaseDefaults(true) },
-    ]);
-    actions.setButtons?.([]);
-    actions.setEndTurnButton?.({ label: "", enabled: false, onClick: undefined });
+    actions.setState?.({
+      pinned: [
+        { label: "Play Card", enabled: true, onClick: () => console.log("Play Card") },
+        { label: "Cancel", enabled: true, onClick: () => this.applyMainPhaseDefaults(true) },
+      ],
+      endTurn: { label: "", enabled: false },
+    });
   }
 
   private applyMainPhaseDefaults(force = false) {
@@ -216,12 +231,13 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
     if (force || this.lastPhase !== "MAIN_PHASE") {
-      actions.setPinnedButtons?.([
-        { label: "", enabled: false },
-        { label: "", enabled: false },
-      ]);
-      actions.setButtons?.([]);
-      actions.setEndTurnButton?.({ label: "End Turn", enabled: true, onClick: () => this.handleEndTurn() });
+      actions.setState?.({
+        pinned: [
+          { label: "", enabled: false },
+          { label: "", enabled: false },
+        ],
+        endTurn: { label: "End Turn", enabled: true, onClick: () => this.handleEndTurn() },
+      });
       this.handControls?.setHand?.(this.handPresenter.toHandCards(raw, this.gameContext.playerId)); // redraw clears highlights
     }
     this.lastPhase = phase;
@@ -295,6 +311,8 @@ export class BoardScene extends Phaser.Scene {
   private wireUiHandlers() {
     this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
     this.handControls?.setCardClickHandler?.((card) => this.onHandCardSelected(card));
+    this.slotControls?.setSlotClickHandler?.((slot) => this.onSlotCardSelected(slot));
+    this.baseControls?.setBaseClickHandler?.((payload) => this.onBaseCardSelected(payload));
     this.headerControls?.setButtonHandler(() => this.startGame());
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }

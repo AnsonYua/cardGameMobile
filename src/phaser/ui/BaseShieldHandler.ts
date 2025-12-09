@@ -44,6 +44,7 @@ export type BaseControls = Pick<
   | "setBaseTowerVisible"
   | "setBaseVisible"
   | "setBasePreviewData"
+  | "setBaseClickHandler"
 >;
 
 export class BaseShieldHandler {
@@ -68,6 +69,7 @@ export class BaseShieldHandler {
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
+  private baseClickHandler?: (payload: { side: BaseSide; card?: any }) => void;
   private previewConfig = {
     holdDelay: 400,
     overlayAlpha: 0.65,
@@ -91,6 +93,10 @@ export class BaseShieldHandler {
     if (cfg.shieldCount !== undefined) {
       this.shieldCounts = { opponent: cfg.shieldCount, player: cfg.shieldCount };
     }
+  }
+
+  setBaseClickHandler(handler?: (payload: { side: BaseSide; card?: any }) => void) {
+    this.baseClickHandler = handler;
   }
 
   getShieldCount(isOpponent?: boolean) {
@@ -354,7 +360,7 @@ export class BaseShieldHandler {
     hit.setDepth(9999);
     this.scene.children.bringToTop(hit);
     hit.on("pointerdown", () => this.startPreviewTimer(overlayKey));
-    hit.on("pointerup", () => this.handlePointerUp());
+    hit.on("pointerup", () => this.handlePointerUp(overlayKey));
     hit.on("pointerout", () => this.handlePointerOut());
     this.baseHits[overlayKey] = hit;
 
@@ -422,10 +428,11 @@ export class BaseShieldHandler {
     }, this.previewConfig.holdDelay);
   }
 
-  private handlePointerUp() {
+  private handlePointerUp(side: BaseSide) {
     console.log("Base preview: pointerup", { previewActive: this.previewActive });
     if (this.previewActive) return;
     this.cancelPreviewTimer();
+    this.baseClickHandler?.({ side, card: this.basePreviewData[side] });
   }
 
   private handlePointerOut() {

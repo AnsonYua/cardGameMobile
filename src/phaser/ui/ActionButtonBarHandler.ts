@@ -8,17 +8,23 @@ type ActionButtonConfig = {
   onClick?: () => void;
   enabled?: boolean;
 };
+type ActionBarState = {
+  pinned: [ActionButtonConfig, ActionButtonConfig];
+  endTurn: ActionButtonConfig;
+};
 
 export class ActionButtonBarHandler {
   private barHeight = 40;
   private barPadding = 16;
   private barWidth = INTERNAL_W - this.barPadding * 2;
   private buttons: string[] = [];
-  private pinnedButtons: ActionButtonConfig[] = [
-    { label: "Play Card", onClick: () => {} },
-    { label: "Trigger Effect", onClick: () => {} },
-  ];
-  private endTurnButton: ActionButtonConfig = { label: "End Turn", onClick: () => {} };
+  private state: ActionBarState = {
+    pinned: [
+      { label: "Play Card", onClick: () => {} },
+      { label: "Trigger Effect", onClick: () => {} },
+    ],
+    endTurn: { label: "End Turn", onClick: () => {} },
+  };
   private hitAreas: Phaser.GameObjects.Rectangle[] = [];
   private elements: Phaser.GameObjects.GameObject[] = [];
   private onAction: (index: number) => void = () => {};
@@ -49,21 +55,34 @@ export class ActionButtonBarHandler {
 
   setPinnedButtons(buttons: ActionButtonConfig[]) {
     const next: ActionButtonConfig[] = [
-      buttons[0] ?? this.pinnedButtons[0],
-      buttons[1] ?? this.pinnedButtons[1],
+      buttons[0] ?? this.state.pinned[0],
+      buttons[1] ?? this.state.pinned[1],
     ];
-    this.pinnedButtons = next.map((b, idx) => ({
+    const normalized = next.map((b, idx) => ({
       label: b?.label ?? `Action ${idx + 1}`,
       onClick: b?.onClick ?? (() => {}),
       enabled: b?.enabled ?? true,
-    }));
+    })) as [ActionButtonConfig, ActionButtonConfig];
+    this.setState({ pinned: normalized });
+  }
+
+  setState(next: Partial<ActionBarState>) {
+    this.state = {
+      pinned: next.pinned ?? this.state.pinned,
+      endTurn: next.endTurn ?? this.state.endTurn,
+    };
+    // Ensure pinned slots are always present.
+    this.state.pinned = [
+      this.state.pinned[0] ?? { label: "", enabled: false },
+      this.state.pinned[1] ?? { label: "", enabled: false },
+    ];
     this.draw(this.lastOffset);
   }
 
   setEndTurnButton(button: ActionButtonConfig) {
-    this.endTurnButton = {
-      label: button?.label ?? this.endTurnButton.label,
-      onClick: button?.onClick ?? this.endTurnButton.onClick,
+    this.state.endTurn = {
+      label: button?.label ?? this.state.endTurn.label,
+      onClick: button?.onClick ?? this.state.endTurn.onClick,
       enabled: button?.enabled ?? true,
     };
     this.draw(this.lastOffset);
@@ -133,8 +152,8 @@ export class ActionButtonBarHandler {
 
     // Build buttons to render (hide pinned if blank/disabled).
     const renderButtons: Array<{ config: ActionButtonConfig; color: number; actionIndex: number | null }> = [];
-    const pin1 = this.pinnedButtons[0];
-    const pin2 = this.pinnedButtons[1];
+    const pin1 = this.state.pinned[0];
+    const pin2 = this.state.pinned[1];
     if (pin1 && pin1.label && pin1.label.trim() && pin1.enabled !== false) {
       renderButtons.push({ config: pin1, color: 0x5e48f0, actionIndex: null });
     }
@@ -142,8 +161,13 @@ export class ActionButtonBarHandler {
       renderButtons.push({ config: pin2, color: 0x5e48f0, actionIndex: null });
     }
     // End turn only if it has a label and is enabled.
-    if (this.endTurnButton && this.endTurnButton.label && this.endTurnButton.label.trim() && this.endTurnButton.enabled !== false) {
-      renderButtons.push({ config: this.endTurnButton, color: this.buttonStyle.endOuterColor, actionIndex: null });
+    if (
+      this.state.endTurn &&
+      this.state.endTurn.label &&
+      this.state.endTurn.label.trim() &&
+      this.state.endTurn.enabled !== false
+    ) {
+      renderButtons.push({ config: this.state.endTurn, color: this.buttonStyle.endOuterColor, actionIndex: null });
     }
 
     const count = renderButtons.length;

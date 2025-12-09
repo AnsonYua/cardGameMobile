@@ -190,6 +190,7 @@ export class FieldHandler {
     return {
       setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.slotPositions }),
       clearSlots: () => this.slotDisplay.clear(),
+      setSlotClickHandler: (handler?: (slot: SlotViewModel) => void) => this.slotDisplay.setSlotClickHandler(handler),
     };
   }
 

@@ -13,7 +13,7 @@ import {
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import type { HandCardView } from "./HandTypes";
-import { drawPreviewBadge } from "./PreviewBadge";
+import { HandLayoutRenderer } from "./HandLayoutRenderer";
 
 export class HandAreaHandler {
   private handCards: HandCardView[] = [];
@@ -22,6 +22,7 @@ export class HandAreaHandler {
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
+  private layout: HandLayoutRenderer;
   private config = {
     preview: {
       holdDelay: 400,
@@ -37,7 +38,9 @@ export class HandAreaHandler {
   private onCardClick?: (card: HandCardView) => void;
   private selectedCardUid?: string;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
+    this.layout = new HandLayoutRenderer(scene, palette, drawHelpers);
+  }
 
   draw(offset: Offset) {
     this.lastOffset = offset;
@@ -142,67 +145,8 @@ export class HandAreaHandler {
 
   private drawHandCard(x: number, y: number, w: number, h: number, card: HandCardView) {
     const isSelected = card.uid && card.uid === this.selectedCardUid;
-    const bg = this.drawHelpers.drawRoundedRect({
-      x,
-      y,
-      width: w,
-      height: h,
-      radius: 10,
-      fillColor: card.color,
-      fillAlpha: 1,
-      strokeColor: isSelected ? 0x00ff00 : this.palette.accent,
-      strokeAlpha: isSelected ? 0.9 : 0.5,
-      strokeWidth: isSelected ? 3 : 2,
-    });
-    this.drawnObjects.push(bg);
-
-    if (card.cost !== undefined) {
-      const cx = x - w / 2 + 10;
-      const cy = y - h / 2 + 10;
-      const badge = this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8);
-      const costLabel = String(card.cost);
-      const costText = this.scene.add
-        .text(cx, cy, costLabel, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
-        .setOrigin(0.5);
-      this.drawnObjects.push(badge, costText);
-    }
-
-    const inner = this.drawHelpers.drawRoundedRect({
-      x,
-      y,
-      width: w - 7,
-      height: h - 10,
-      radius: 8,
-      fillColor: 0x1a1d26,
-      fillAlpha: 0.4,
-      strokeColor: 0x000000,
-      strokeAlpha: 0.3,
-      strokeWidth: 1,
-    });
-    this.drawnObjects.push(inner);
-
-    // Selected highlight frame on top of everything else.
-    /*
-    if (isSelected) {
-      const highlight = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
-      highlight.lineStyle(3, 0x00ff00, 10);
-      highlight.strokeRoundedRect(0, 0, w, h, 10);
-      highlight.setDepth((bg.depth || 0) + 6);
-      this.drawnObjects.push(highlight);
-    }*/
-    if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
-      const img = this.scene.add
-        .image(x, y, card.textureKey)
-        .setDisplaySize(w , h)
-        .setDepth((bg.depth || 0) + 1);
-      this.drawnObjects.push(img);
-    }
-
-    const type = (card.cardType || "").toLowerCase();
-    const shouldShowStats = type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation;
-    if (shouldShowStats) {
-      this.drawStatsBadge(x, y, w, h, card, bg.depth || 0);
-    }
+    const drawn = this.layout.renderCard(x, y, w, h, card, !!isSelected);
+    this.drawnObjects.push(...drawn);
 
     // Interaction zone for long-press preview.
     const hit = this.scene.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: false });
@@ -210,48 +154,6 @@ export class HandAreaHandler {
     hit.on("pointerup", () => this.handlePointerUp(card));
     hit.on("pointerout", () => this.handlePointerOut());
     this.drawnObjects.push(hit);
-  }
-
-  private drawCostBadge(x: number, y: number, w: number, h: number, cost: number | string, baseDepth: number) {
-    const cx = x - w / 2 + 10;
-    const cy = y - h / 2 + 10;
-    const badge = this.scene.add.circle(cx, cy, 10, 0x2a2d38).setStrokeStyle(1, 0xffffff, 0.8).setDepth(baseDepth + 1);
-    const costText = this.scene.add
-      .text(cx, cy, String(cost), { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
-      .setOrigin(0.5)
-      .setDepth(baseDepth + 2);
-    this.drawnObjects.push(badge, costText);
-  }
-
-  private drawStatsBadge(x: number, y: number, w: number, h: number, card: HandCardView, baseDepth: number) {
-    const ap = card.ap ?? 0;
-    const hp = card.hp ?? 0;
-    const label = `${ap}|${hp}`;
-    const badgeW = w * 0.5;
-    const badgeH = h * 0.3;
-    const badgeX = x + w * 0.34 - 4;
-    const badgeY = y + h * 0.36;
-
-    const fontSize = Math.min(16, Math.max(12, Math.floor(h * 0.18)));
-    const textStyle = { fontSize: `${fontSize}px`, fontFamily: "Arial", fontStyle: "bold", color: "#ffffff" };
-    const pill = this.drawHelpers.drawRoundedRect({
-      x: badgeX,
-      y: badgeY,
-      width: badgeW + 5,
-      height: badgeH,
-      radius: 6,
-      fillColor: 0x000000,
-      fillAlpha: 0.9,
-      strokeAlpha: 0,
-      strokeWidth: 0,
-    });
-    pill.setDepth(baseDepth + 3);
-
-    const statsText = this.scene.add
-      .text(badgeX, badgeY, label, textStyle)
-      .setOrigin(0.5)
-      .setDepth(baseDepth + 4);
-    this.drawnObjects.push(pill, statsText);
   }
 
   // --- Preview handling (mirrors slot preview styling) ---
@@ -343,82 +245,13 @@ export class HandAreaHandler {
     card: HandCardView,
   ) {
     const texKey = this.toTextureKey(card.textureKey);
-    const hasTex = texKey && this.scene.textures.exists(texKey);
-    const img = hasTex
-      ? this.scene.add.image(x, y, texKey!).setDisplaySize(w, h).setOrigin(0.5)
-      : this.drawHelpers.drawRoundedRect({
-          x,
-          y,
-          width: w,
-          height: h,
-          radius: 12,
-          fillColor: "#cbd3df",
-          fillAlpha: 0.9,
-          strokeColor: "#0f1118",
-          strokeAlpha: 0.8,
-          strokeWidth: 2,
-        });
-    img.setDepth(1);
-    container.add(img);
-
     const insideLabel = this.getBadgeLabel(card);
-    if (insideLabel) {
-      const badgeW = this.config.preview.badgeSize.w+15;
-      const badgeH = this.config.preview.badgeSize.h;
-
-      let extraSpace = 0
-      if(card.cardType == "pilot"){
-        extraSpace = -78
-      }
-      if(card.cardType == "command"){
-        extraSpace = -7
-      }
-      this.drawPreviewBadge(
-        container,
-        x + w / 2 - badgeW / 2,
-        y + h / 2 - badgeH / 2 + extraSpace,
-        badgeW,
-        badgeH,
-        insideLabel,
-        2,
-      );
-    }
+    this.layout.renderPreview(container, x, y, w, h, texKey, insideLabel, card, {
+      badgeSize: this.config.preview.badgeSize,
+      badgeFontSize: this.config.preview.badgeFontSize,
+    });
     // Hand cards have no field totals; skip total badge.
   }
-
-  private drawPreviewBadge(
-    container: Phaser.GameObjects.Container,
-    badgeX: number,
-    badgeY: number,
-    w: number,
-    h: number,
-    label: string,
-    baseDepth: number,
-  ) {
-    drawPreviewBadge({
-      container,
-      drawHelpers: this.drawHelpers,
-      x: badgeX,
-      y: badgeY,
-      width: w,
-      height: h,
-      label,
-      baseDepth,
-      fillColor: 0x000000,
-      fillAlpha: 1,
-      radius: 6,
-      widthPad: 0,
-      depthPillOffset: 1,
-      depthTextOffset: 2,
-      textStyle: {
-        fontSize: `${this.config.preview.badgeFontSize}px`,
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#ffffff",
-      },
-    });
-  }
-
   private toTextureKey(textureKey?: string) {
     if (!textureKey) return undefined;
     return textureKey.replace(/-preview$/, "");

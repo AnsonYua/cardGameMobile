@@ -52,6 +52,11 @@ export class SlotDisplayHandler {
   private previewBadgeSize = this.config.preview.badgeSize;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  private onSlotClick?: (slot: SlotViewModel) => void;
+
+  setSlotClickHandler(handler?: (slot: SlotViewModel) => void) {
+    this.onSlotClick = handler;
+  }
 
   render(slots: SlotViewModel[], { positions }: RenderOptions) {
     const nextKeys = new Set<string>();
@@ -67,7 +72,7 @@ export class SlotDisplayHandler {
       container.setSize(pos.w, pos.h);
       container.setInteractive({ useHandCursor: false });
       container.on("pointerdown", () => this.startPreviewTimer(slot));
-      container.on("pointerup", () => this.handlePointerUp());
+      container.on("pointerup", () => this.handlePointerUp(slot));
       container.on("pointerout", () => this.handlePointerOut());
 
       if (slot.unit || slot.pilot) {
@@ -334,9 +339,12 @@ export class SlotDisplayHandler {
     }, this.config.preview.holdDelay);
   }
 
-  private handlePointerUp() {
+  private handlePointerUp(slot?: SlotViewModel) {
     if (this.previewActive) return;
     this.cancelPreviewTimer();
+    if (slot) {
+      this.onSlotClick?.(slot);
+    }
   }
 
   private handlePointerOut() {
