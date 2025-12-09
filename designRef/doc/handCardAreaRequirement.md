@@ -56,3 +56,4 @@ Hand card area requirements (aligned with `ARCHITECTURE.md`)
 - Hold ~400ms on a hand card to open a preview; tap anywhere to dismiss. Preview stays visible after you release the press.
 - Overlay dims the screen (alpha ~0.65) and draws the card at 300px width with an 88/64 aspect.
 - Badge: a single 70x45 pill, centered on the card. For command cards and one of `effects.rules.effectId` = `pilot_designation`, use `effects.rules.parameters.AP|effects.rules.parameters.HP`; for pilot/base/unit (or `fromPilotDesignation`), use the same AP|HP logic from #4; otherwise hide the black label. Badge text is bold white on black.
+
