@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BASE_H, BASE_W, INTERNAL_W } from "../../config/gameLayout";
+import { BASE_H, INTERNAL_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 
@@ -29,7 +29,7 @@ export class ActionButtonBarHandler {
   private pointerUpListener?: (pointer: Phaser.Input.Pointer) => void;
 
   // These mirror HandAreaHandler layout so the bar can sit just above the hand.
-  private handLayout = { cardH: 90, gap: 8, rows: 2, bottomPadding: 24 };
+  private handLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -82,19 +82,19 @@ export class ActionButtonBarHandler {
 
     const barY = handTop - this.barHeight / 2 - 12; // small gap above hand
     // Center bar against the full board width while using internal width for sizing.
-    const barX = BASE_W / 2 + offset.x;
+    const barX = INTERNAL_W / 2 ;
 
     const btnCount = this.buttons.length;
     const btnGap = 12;
     const btnWidth = Math.min(120, (barWidth - (btnCount - 1) * btnGap) / Math.min(btnCount, 5));
-    const btnHeight = this.barHeight - 12;
+    const btnHeight = this.barHeight ;
     const contentWidth = btnCount * btnWidth + (btnCount - 1) * btnGap;
     this.maxScroll = Math.max(0, contentWidth - barWidth);
     this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset, 0, this.maxScroll);
 
     this.barBounds = {
-      left: barX - barWidth / 2,
-      right: barX + barWidth / 2,
+      left: 0,
+      right: INTERNAL_W,
       top: barY - btnHeight / 2,
       bottom: barY + btnHeight / 2,
     };
@@ -105,7 +105,23 @@ export class ActionButtonBarHandler {
     this.maskGraphics.fillRect(barX - barWidth / 2, barY - btnHeight / 2, barWidth, btnHeight);
     this.mask = this.maskGraphics.createGeometryMask();
 
+    const rect = this.drawHelpers.drawRoundedRectOrigin({
+        x:0,
+        y:barY-23,
+        width: INTERNAL_W,
+        height: 300,
+        radius: 0,
+        fillColor: "#414242",
+        fillAlpha: 1,
+        strokeColor: 0x5e48f0,
+        strokeAlpha: 0,
+        strokeWidth: 0,
+      }).setDepth(0);
+    this.elements.push(rect);
+
     const startX = barX - barWidth / 2 + btnWidth / 2 - this.scrollOffset;
+
+    /*
     for (let i = 0; i < btnCount; i++) {
       const x = startX + i * (btnWidth + btnGap);
       const y = barY;
@@ -148,7 +164,7 @@ export class ActionButtonBarHandler {
       hit.setMask(this.mask || null);
       this.elements.push(hit);
     }
-
+      */
     // Transparent area to capture wheel scrolling for horizontal scroll.
     this.scrollArea = this.scene.add
       .rectangle(barX, barY, barWidth, btnHeight, 0x000000, 0)

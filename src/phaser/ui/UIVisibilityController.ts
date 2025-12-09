@@ -31,7 +31,7 @@ export class UIVisibilityController {
     energy?.fadeIn();
     status?.fadeIn();
     hand?.fadeIn();
-    actions?.setVisible(false);
+    actions?.setVisible(true);
     //actions?.fadeIn?.();
   }
 }
