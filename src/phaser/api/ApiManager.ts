@@ -47,6 +47,11 @@ export class ApiManager {
     return this.requestGetWithFallback(url);
   }
 
+  playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
+    const url = this.buildUrl("/api/game/player/playCard");
+    return this.requestWithFallback(url, payload);
+  }
+
   joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
     return this.requestWithFallback(url, { gameId, playerId, playerName });

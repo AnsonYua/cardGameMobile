@@ -17,6 +17,8 @@ import { UIVisibilityController } from "./ui/UIVisibilityController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel } from "./ui/SlotTypes";
+import type { HandCardView } from "./ui/HandTypes";
+import type { ActionDescriptor } from "./game/ActionRegistry";
 
 const colors = {
   bg: "#ffffff",
@@ -68,6 +70,7 @@ export class BoardScene extends Phaser.Scene {
   private loadingText?: Phaser.GameObjects.Text;
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
   private lastPhase?: string;
+  private selectedHandCard?: HandCardView;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -192,33 +195,28 @@ export class BoardScene extends Phaser.Scene {
     console.log("End Turn clicked");
   }
 
-  private onHandCardSelected(_card: any) {
-    this.showPlayCancelActions();
+  private onHandCardSelected(card: HandCardView) {
+    this.selectedHandCard = card;
+    this.engine.select({ kind: "hand", uid: card.uid || "", cardType: card.cardType });
+    this.refreshActions();
   }
 
   private onSlotCardSelected(_slot: SlotViewModel) {
-    this.showPlayCancelActions();
+    this.selectedHandCard = undefined;
+    this.engine.select({ kind: "slot", slotId: _slot.slotId, owner: _slot.owner });
+    this.refreshActions();
   }
 
   private onBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
+    this.selectedHandCard = undefined;
     if (!payload?.card) return;
-    this.showPlayCancelActions();
-  }
-
-  private showPlayCancelActions() {
-    const actions = this.actionControls;
-    if (!actions) return;
-    // Highlight selection; clear End Turn; show Play/Cancel.
-    actions.setState?.({
-      pinned: [
-        { label: "Play Card", enabled: true, onClick: () => console.log("Play Card") },
-        { label: "Cancel", enabled: true, onClick: () => this.applyMainPhaseDefaults(true) },
-      ],
-      endTurn: { label: "", enabled: false },
-    });
+    this.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
+    this.refreshActions();
   }
 
   private applyMainPhaseDefaults(force = false) {
+    this.selectedHandCard = undefined;
+    this.engine.clearSelection();
     const raw = this.engine.getSnapshot().raw as any;
     const actions = this.actionControls;
     if (!raw || !actions) return;
@@ -232,11 +230,7 @@ export class BoardScene extends Phaser.Scene {
     }
     if (force || this.lastPhase !== "MAIN_PHASE") {
       actions.setState?.({
-        pinned: [
-          { label: "", enabled: false },
-          { label: "", enabled: false },
-        ],
-        endTurn: { label: "End Turn", enabled: true, onClick: () => this.handleEndTurn() },
+        descriptors: this.buildActionDescriptors([]),
       });
       this.handControls?.setHand?.(this.handPresenter.toHandCards(raw, this.gameContext.playerId)); // redraw clears highlights
     }
@@ -283,6 +277,25 @@ export class BoardScene extends Phaser.Scene {
 
     applySide(selfId, false);
     applySide(otherId, true);
+  }
+
+  private refreshActions() {
+    const descriptors = this.engine.getAvailableActions();
+    const mapped = this.buildActionDescriptors(descriptors);
+    this.actionControls?.setState?.({ descriptors: mapped });
+  }
+
+  private buildActionDescriptors(descriptors: ActionDescriptor[]) {
+    return descriptors.map((d) => ({
+      label: d.label,
+      enabled: d.enabled,
+      primary: d.primary,
+      onClick: async () => {
+        await this.engine.runAction(d.id);
+        this.mainPhaseUpdate();
+        this.refreshActions();
+      },
+    }));
   }
 
   private showLoading() {

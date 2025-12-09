@@ -180,12 +180,10 @@ export class BoardUI {
       setVisible: (visible: boolean) => this.actions.setVisible(visible),
       fadeIn: (duration?: number) => this.actions.fadeIn(duration),
       setButtons: (labels: string[]) => this.actions.setButtons(labels),
-      setState: (state: any) => this.actions.setState(state),
-      setPinnedButtons: (buttons: { label: string; onClick?: () => void; enabled?: boolean }[]) =>
-        this.actions.setPinnedButtons(buttons),
-      setEndTurnButton: (button: { label: string; onClick?: () => void; enabled?: boolean }) =>
-        this.actions.setEndTurnButton(button),
       setActionHandler: (handler: (index: number) => void) => this.actions.setActionHandler(handler),
+      setDescriptors: (buttons: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
+        this.actions.setDescriptors(buttons),
+      setState: (state: { descriptors: any[] }) => this.actions.setState(state),
     };
   }
 
