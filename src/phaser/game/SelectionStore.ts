@@ -1,7 +1,7 @@
 export type SelectionKind = "hand" | "slot" | "base";
 
 export type SelectionTarget =
-  | { kind: "hand"; uid: string; cardType?: string }
+  | { kind: "hand"; uid: string; cardType?: string; fromPilotDesignation?: boolean; cardId?: string }
   | { kind: "slot"; slotId: string; owner: string }
   | { kind: "base"; side: "player" | "opponent"; cardId?: string };
 

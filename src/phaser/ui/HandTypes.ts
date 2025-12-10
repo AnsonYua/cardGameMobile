@@ -7,6 +7,7 @@ export type HandCardView = {
   cardType?: string;
   uid?: string;
   fromPilotDesignation?: boolean;
+  cardId?: string;
 };
 
 export const toPreviewKey = (cardId?: string | null) =>

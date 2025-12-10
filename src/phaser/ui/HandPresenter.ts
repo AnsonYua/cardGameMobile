@@ -20,6 +20,7 @@ export class HandPresenter {
       const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp;
       return {
         uid,
+        cardId,
         color: 0x2a2d38,
         textureKey,
         cost: data?.cost,

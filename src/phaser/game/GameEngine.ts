@@ -258,8 +258,38 @@ export class GameEngine {
     this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
-      // Placeholder: hook into command play flow once available.
+      if (sel.fromPilotDesignation) {
+        this.events.emit(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, { selection: sel });
+        return;
+      }
+      // Placeholder: hook into non-pilot command play flow once available.
       console.log("Play Command (placeholder) for", sel.uid);
+    });
+
+    this.actions.register("playPilotDesignationAsPilot", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || sel.kind !== "hand" || !sel.fromPilotDesignation) return;
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
+      await ctx.runPlayCard({
+        playerId: ctx.playerId,
+        gameId: ctx.gameId,
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "pilot" },
+      });
+      await ctx.refreshStatus?.();
+      this.clearSelection();
+    });
+
+    this.actions.register("playPilotDesignationAsCommand", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || sel.kind !== "hand" || !sel.fromPilotDesignation) return;
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
+      await ctx.runPlayCard({
+        playerId: ctx.playerId,
+        gameId: ctx.gameId,
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "command" },
+      });
+      await ctx.refreshStatus?.();
+      this.clearSelection();
     });
 
     // End turn placeholder

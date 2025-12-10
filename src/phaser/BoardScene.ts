@@ -69,6 +69,7 @@ export class BoardScene extends Phaser.Scene {
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
   private lastPhase?: string;
   private selectedHandCard?: HandCardView;
+  private pilotDialog?: Phaser.GameObjects.Container;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -108,6 +109,9 @@ export class BoardScene extends Phaser.Scene {
     })
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
       this.refreshActions("neutral");
+    });
+    this.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
+      this.showPilotDesignationDialog();
     });
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
@@ -239,7 +243,13 @@ export class BoardScene extends Phaser.Scene {
 
   private onHandCardSelected(card: HandCardView) {
     this.selectedHandCard = card;
-    this.engine.select({ kind: "hand", uid: card.uid || "", cardType: card.cardType });
+    this.engine.select({
+      kind: "hand",
+      uid: card.uid || "",
+      cardType: card.cardType,
+      fromPilotDesignation: card.fromPilotDesignation,
+      cardId: card.cardId,
+    });
     this.refreshActions("hand");
   }
 
@@ -492,5 +502,103 @@ export class BoardScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(1300);
+  }
+
+  private showPilotDesignationDialog() {
+    if (this.pilotDialog) {
+      this.pilotDialog.setVisible(true);
+      return;
+    }
+    const cam = this.cameras.main;
+    const overlay = this.add
+      .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, 0.45)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(2499);
+    overlay.on("pointerup", () => this.hidePilotDesignationDialog());
+
+    const dialogWidth = Math.max(320, cam.width * 0.7);
+    const dialogHeight = 280;
+    const dialog = this.add.container(cam.centerX, cam.centerY);
+
+    const panel = this.add.graphics({ x: 0, y: 0 });
+    panel.fillStyle(0x1f6bff, 1);
+    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, 18);
+    panel.lineStyle(3, 0x0e3f9c, 1);
+    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, 18);
+
+    const closeSize = 24;
+    const closeButton = this.add.rectangle(dialogWidth / 2 - closeSize - 12, -dialogHeight / 2 + closeSize + 12, closeSize, closeSize, 0xffffff, 0.14);
+    closeButton.setStrokeStyle(2, 0xffffff, 0.6);
+    closeButton.setInteractive({ useHandCursor: true });
+    closeButton.on("pointerup", () => this.hidePilotDesignationDialog());
+    const closeLabel = this.add.text(closeButton.x, closeButton.y, "✕", {
+      fontSize: "16px",
+      fontFamily: "Arial",
+      color: "#f6f8ff",
+      align: "center",
+    }).setOrigin(0.5);
+
+    const header = this.add.text(0, -dialogHeight / 2 + 30, "Play Card As", {
+      fontSize: "22px",
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      color: "#f6f8ff",
+      align: "center",
+      wordWrap: { width: dialogWidth - 80 },
+    });
+    header.setOrigin(0.5);
+
+    const body = this.add.text(0, -20, "Choose how to play this pilot-designation command.", {
+      fontSize: "16px",
+      fontFamily: "Arial",
+      color: "#e8efff",
+      align: "center",
+      wordWrap: { width: dialogWidth - 80 },
+      lineSpacing: 4,
+    });
+    body.setOrigin(0.5);
+
+    const dialogMargin = 32;
+    const buttonGap = 24;
+    const availableForButtons = Math.max(160, dialogWidth - dialogMargin * 2);
+    const buttonWidth = Math.min(220, (availableForButtons - buttonGap) / 2);
+    const buttonHeight = 46;
+    const btnY = dialogHeight / 2 - 60;
+
+    const makeButton = (x: number, label: string, actionId: string) => {
+      const rect = this.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0xf2f5ff, 1);
+      rect.setStrokeStyle(2, 0xffffff, 0.9);
+      rect.setInteractive({ useHandCursor: true });
+      rect.on("pointerup", async () => {
+        await this.engine.runAction(actionId);
+        this.mainPhaseUpdate();
+        this.refreshActions("neutral");
+        this.hidePilotDesignationDialog();
+      });
+
+      const txt = this.add.text(x, btnY, label, {
+        fontSize: "15px",
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#1f3f9c",
+        align: "center",
+        wordWrap: { width: buttonWidth - 18 },
+      });
+      txt.setOrigin(0.5);
+      return [rect, txt];
+    };
+
+    const offset = buttonWidth / 2 + buttonGap / 2;
+    const [pilotBtn, pilotTxt] = makeButton(-offset, "Pilot", "playPilotDesignationAsPilot");
+    const [commandBtn, commandTxt] = makeButton(offset, "Command", "playPilotDesignationAsCommand");
+
+    dialog.add([panel, closeButton, closeLabel, header, body, pilotBtn, pilotTxt, commandBtn, commandTxt]);
+    dialog.setDepth(2500);
+
+    this.pilotDialog = this.add.container(0, 0, [overlay, dialog]).setDepth(2498);
+  }
+
+  private hidePilotDesignationDialog() {
+    this.pilotDialog?.setVisible(false);
   }
 }
