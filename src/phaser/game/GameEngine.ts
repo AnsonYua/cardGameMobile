@@ -98,24 +98,47 @@ export class GameEngine {
     const descriptors: ActionDescriptor[] = [];
 
     if (source === "hand" && selection?.kind === "hand") {
-      const canPlayBase =
-        (selection.cardType || "").toLowerCase() === "base" &&
-        !!ctx.gameId &&
-        !!ctx.playerId &&
-        !!selection.uid;
-      descriptors.push({
-        id: "playBaseFromHand",
-        label: "Play Card",
-        enabled: !!canPlayBase,
-        primary: true,
-      });
+      const cardType = (selection.cardType || "").toLowerCase();
+      const canRun = !!ctx.gameId && !!ctx.playerId && !!selection.uid;
+      if (cardType === "base") {
+        descriptors.push({
+          id: "playBaseFromHand",
+          label: "Play Card",
+          enabled: canRun,
+          primary: true,
+        });
+      } else if (cardType === "unit") {
+        descriptors.push({
+          id: "playUnitFromHand",
+          label: "Play Card",
+          enabled: canRun,
+          primary: true,
+        });
+      } else if (cardType === "pilot") {
+        descriptors.push({
+          id: "playPilotFromHand",
+          label: "Play Card",
+          enabled: canRun,
+          primary: true,
+        });
+      } else if (cardType === "command") {
+        descriptors.push({
+          id: "playCommandFromHand",
+          label: "Play Card",
+          enabled: canRun,
+          primary: true,
+        });
+      }
 
+
+      // Cancel/clear selection is available when anything is selected.
       descriptors.push({
         id: "cancelSelection",
         label: "Cancel",
         enabled: !!selection,
       });
-       return descriptors;
+
+      return descriptors
     }
 
     if (source === "slot" && selection?.kind === "slot") {
@@ -210,6 +233,27 @@ export class GameEngine {
 
     this.actions.register("inspectBase", async (ctx: ActionContext) => {
       console.log("Base action triggered", ctx.selection);
+    });
+
+    this.actions.register("playUnitFromHand", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "unit") return;
+      // Placeholder: hook into unit play flow once available.
+      console.log("Play Unit (placeholder) for", sel.uid);
+    });
+
+    this.actions.register("playPilotFromHand", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "pilot") return;
+      // Placeholder: hook into pilot play flow once available.
+      console.log("Play Pilot (placeholder) for", sel.uid);
+    });
+
+    this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
+      // Placeholder: hook into command play flow once available.
+      console.log("Play Command (placeholder) for", sel.uid);
     });
 
     // End turn placeholder
