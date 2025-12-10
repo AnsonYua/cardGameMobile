@@ -41,12 +41,9 @@ export class GameEngine {
       this.lastRaw = response;
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-      console.log("adsfasdfsd ", fromScenario)
-      if(fromScenario == true){
-        this.contextStore.update({ lastStatus: derivedStatus });
-        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE,this.getSnapshot())
-      }else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
+      if (fromScenario === true) {
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+      } else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());

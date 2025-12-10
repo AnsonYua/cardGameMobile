@@ -167,7 +167,7 @@ export class BaseShieldHandler {
         return;
       }
       el.setVisible(true);
-      
+      console.log("fade error ", fade);
       if (fade && typeof el.setAlpha === "function") {
         el.setAlpha(0);
         this.scene.tweens.add({

@@ -161,7 +161,7 @@ export class BoardScene extends Phaser.Scene {
     }
     this.showHandCards({ skipFade });
     this.showSlots();
-    this.showBaseAndShield();
+    this.showBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
   }
 
@@ -247,7 +247,8 @@ export class BoardScene extends Phaser.Scene {
     this.lastPhase = phase;
   }
 
-  private showBaseAndShield() {
+  private showBaseAndShield(opts: { fade?: boolean } = {}) {
+    const fade = opts.fade ?? true;
     console.log("show base")
     const snapshot = this.engine.getSnapshot();
     const raw: any = snapshot.raw;
@@ -274,12 +275,12 @@ export class BoardScene extends Phaser.Scene {
       if (hasBase) {
         this.baseControls?.setBaseBadgeLabel(isOpponent, `${ap}|${hp}`);
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
-        this.baseControls?.setBaseTowerVisible(isOpponent, true);
+        this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, true);
         this.baseControls?.setBasePreviewData?.(isOpponent, baseCard);
       } else {
         // Hide only the base visuals; keep shields visible. Disable preview.
-        this.baseControls?.setBaseTowerVisible(isOpponent, true);
+        this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, false);
         this.baseControls?.setBasePreviewData?.(isOpponent, null);
       }
