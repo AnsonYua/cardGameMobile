@@ -238,8 +238,14 @@ export class GameEngine {
     this.actions.register("playUnitFromHand", async (ctx: ActionContext) => {
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "unit") return;
-      // Placeholder: hook into unit play flow once available.
-      console.log("Play Unit (placeholder) for", sel.uid);
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
+      await ctx.runPlayCard({
+        playerId: ctx.playerId,
+        gameId: ctx.gameId,
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "unit" },
+      });
+      await ctx.refreshStatus?.();
+      this.clearSelection();
     });
 
     this.actions.register("playPilotFromHand", async (ctx: ActionContext) => {
