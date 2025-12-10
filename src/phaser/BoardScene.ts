@@ -517,7 +517,7 @@ export class BoardScene extends Phaser.Scene {
     overlay.on("pointerup", () => this.hidePilotDesignationDialog());
 
     const dialogWidth = Math.max(320, cam.width * 0.7);
-    const dialogHeight = 280;
+    const dialogHeight = 190;
     const dialog = this.add.container(cam.centerX, cam.centerY);
 
     const panel = this.add.graphics({ x: 0, y: 0 });
@@ -527,7 +527,7 @@ export class BoardScene extends Phaser.Scene {
     panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, 18);
 
     const closeSize = 24;
-    const closeButton = this.add.rectangle(dialogWidth / 2 - closeSize - 12, -dialogHeight / 2 + closeSize + 12, closeSize, closeSize, 0xffffff, 0.14);
+    const closeButton = this.add.rectangle(dialogWidth / 2 - closeSize , -dialogHeight / 2 + closeSize, closeSize, closeSize, 0xffffff, 0.14);
     closeButton.setStrokeStyle(2, 0xffffff, 0.6);
     closeButton.setInteractive({ useHandCursor: true });
     closeButton.on("pointerup", () => this.hidePilotDesignationDialog());
@@ -538,7 +538,7 @@ export class BoardScene extends Phaser.Scene {
       align: "center",
     }).setOrigin(0.5);
 
-    const header = this.add.text(0, -dialogHeight / 2 + 30, "Play Card As", {
+    const header = this.add.text(0, -dialogHeight / 2 + 60, "Play Card As", {
       fontSize: "22px",
       fontFamily: "Arial",
       fontStyle: "bold",
@@ -548,15 +548,6 @@ export class BoardScene extends Phaser.Scene {
     });
     header.setOrigin(0.5);
 
-    const body = this.add.text(0, -20, "Choose how to play this pilot-designation command.", {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      color: "#e8efff",
-      align: "center",
-      wordWrap: { width: dialogWidth - 80 },
-      lineSpacing: 4,
-    });
-    body.setOrigin(0.5);
 
     const dialogMargin = 32;
     const buttonGap = 24;
@@ -592,7 +583,7 @@ export class BoardScene extends Phaser.Scene {
     const [pilotBtn, pilotTxt] = makeButton(-offset, "Pilot", "playPilotDesignationAsPilot");
     const [commandBtn, commandTxt] = makeButton(offset, "Command", "playPilotDesignationAsCommand");
 
-    dialog.add([panel, closeButton, closeLabel, header, body, pilotBtn, pilotTxt, commandBtn, commandTxt]);
+    dialog.add([panel, closeButton, closeLabel, header, pilotBtn, pilotTxt, commandBtn, commandTxt]);
     dialog.setDepth(2500);
 
     this.pilotDialog = this.add.container(0, 0, [overlay, dialog]).setDepth(2498);
