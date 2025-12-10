@@ -39,3 +39,7 @@ curl 'http://localhost:8080/api/game/player/playCard' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","action":{"type":"PlayCard","carduid":"ST01-004_f02a0c50-214e-41f4-af02-10cdaa460876","playAs":"unit"}}'
+
+
+
+  5. if a command card with (`effects.rules.effectId` = `pilot_designation`)is clicked and the play button is clicked, it will show a dialog, the mockup is designRef/playandialog.png
