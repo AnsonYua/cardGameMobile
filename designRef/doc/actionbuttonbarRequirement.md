@@ -42,4 +42,4 @@ curl 'http://localhost:8080/api/game/player/playCard' \
 
 
 
-  5. if a command card with (`effects.rules.effectId` = `pilot_designation`)is clicked and the play button is clicked, it will show a dialog, the mockup is designRef/playandialog.png
+  5. if a command card with (`effects.rules.effectId` = `pilot_designation`)is clicked and the play button is clicked, it will show a dialog with 2 option play as pilot and play as command, the mockup is designRef/playandialog.png.  When click as play as pilot, the dialog will disappear and show a dialog with mock up like designRef/dialogGrey.png. it will get all unit and disappear in the dialog. it will has 3 x 2 display.
