@@ -13,7 +13,6 @@ import { GameContextStore } from "./game/GameContextStore";
 import { parseSessionParams } from "./game/SessionParams";
 import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
-import { UIVisibilityController } from "./ui/UIVisibilityController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel } from "./ui/SlotTypes";
@@ -52,7 +51,6 @@ export class BoardScene extends Phaser.Scene {
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
   private actionControls: ReturnType<BoardUI["getActionControls"]> | null = null;
-  private uiVisibility?: UIVisibilityController;
   private api = new ApiManager();
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
@@ -89,7 +87,6 @@ export class BoardScene extends Phaser.Scene {
       text: colors.text,
       bg: colors.bg,
     });
-    this.uiVisibility = new UIVisibilityController(this.ui);
     this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
     this.baseControls = this.ui.getBaseControls();
     this.energyControls = this.ui.getEnergyControls();
@@ -140,12 +137,14 @@ export class BoardScene extends Phaser.Scene {
           this.showDefaultUI();
           this.showHandCards();
           this.showSlots();
+          this.showBaseAndShield({ fade: false });
         })
         .then(() => console.log("Shuffle animation finished"));
     } else {
       this.showDefaultUI();
       this.showHandCards();
       this.showSlots();
+      this.showBaseAndShield({ fade: false });
     }
   }
  
@@ -154,11 +153,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshPhase(skipFade: boolean) {
-    if (skipFade) {
-      this.uiVisibility?.showWithoutFade();
-    } else {
-      this.showDefaultUI();
-    }
+    this.showUI(!skipFade);
     this.showHandCards({ skipFade });
     this.showSlots();
     this.showBaseAndShield({ fade: !skipFade });
@@ -167,11 +162,45 @@ export class BoardScene extends Phaser.Scene {
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
   private hideDefaultUI() {
-    this.uiVisibility?.hide();
+    this.hideUI();
   }
 
   private showDefaultUI() {
-    this.uiVisibility?.show();
+    this.showUI(true);
+  }
+
+  // Directly control UI chrome visibility; base/shield rendering is handled separately.
+  private showUI(fade: boolean) {
+    const energy = this.energyControls;
+    const status = this.statusControls;
+    const hand = this.handControls;
+    const actions = this.actionControls;
+
+    energy?.setVisible(true);
+    status?.setVisible(true);
+    hand?.setVisible(true);
+    actions?.setVisible(true);
+
+    if (fade) {
+      energy?.fadeIn();
+      status?.fadeIn();
+      hand?.fadeIn();
+      //actions?.fadeIn?.();
+    }
+  }
+
+  private hideUI() {
+    const base = this.baseControls;
+    const energy = this.energyControls;
+    const status = this.statusControls;
+    const hand = this.handControls;
+    const actions = this.actionControls;
+    base?.setBaseTowerVisible(true, false, false);
+    base?.setBaseTowerVisible(false, false, false);
+    energy?.setVisible(false);
+    status?.setVisible(false);
+    hand?.setVisible(false);
+    actions?.setVisible(false);
   }
 
   private showHandCards(opts: { skipFade?: boolean } = {}) {
