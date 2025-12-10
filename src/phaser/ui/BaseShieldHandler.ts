@@ -41,6 +41,7 @@ export type BaseControls = Pick<
   | "setBaseBadgeLabel"
   | "setShieldCount"
   | "getShieldCount"
+  | "setBaseTexture"
   | "setBaseTowerVisible"
   | "setBaseVisible"
   | "setBasePreviewData"
@@ -111,6 +112,22 @@ export class BaseShieldHandler {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     this.baseStatus[key] = status;
     this.applyBaseStatus(key);
+  }
+
+  // Swap the rendered base texture to match the current base card (default fallback if not loaded).
+  setBaseTexture(isOpponent: boolean, cardId?: string) {
+    const key: BaseSide = isOpponent ? "opponent" : "player";
+    const card = this.baseCards[key];
+    if (!card) return;
+    const targetKey = cardId === "base_default" ? "baseCard" : cardId ? toPreviewKey(cardId) : "baseCard";
+    if (!(card instanceof Phaser.GameObjects.Image)) return;
+    if (targetKey && this.scene.textures.exists(targetKey)) {
+      card.setTexture(targetKey);
+    } else if (this.scene.textures.exists("baseCard")) {
+      card.setTexture("baseCard");
+    }
+    // Normalize display size so swapped textures keep the expected footprint.
+    card.setDisplaySize(this.config.baseSize.w, this.config.baseSize.h);
   }
 
   // Update the base badge text per side (e.g., "3|6"); pass `true` for opponent (top) and `false` for player (bottom).
@@ -521,7 +538,7 @@ export class BaseShieldHandler {
   ) {
     const cardId = baseCard?.cardId;
     const field = baseCard?.fieldCardValue || {};
-    const texKey = cardId === "base_default" ? "baseCard" : toPreviewKey(cardId);
+    const texKey = cardId === "base_default" ? "baseCard" : cardId;
     const hasTex = texKey && this.scene.textures.exists(texKey);
     const img = hasTex
       ? this.scene.add.image(x, y, texKey!).setDisplaySize(w, h).setOrigin(0.5)

@@ -135,16 +135,16 @@ export class BoardScene extends Phaser.Scene {
       promise
         .then(() => {
           this.showDefaultUI();
-          this.showHandCards();
-          this.showSlots();
-          this.showBaseAndShield({ fade: false });
+          this.updateHandArea();
+          this.updateSlots();
+          this.updateBaseAndShield({ fade: false });
         })
         .then(() => console.log("Shuffle animation finished"));
     } else {
       this.showDefaultUI();
-      this.showHandCards();
-      this.showSlots();
-      this.showBaseAndShield({ fade: false });
+      this.updateHandArea();
+      this.updateSlots();
+      this.updateBaseAndShield({ fade: false });
     }
   }
  
@@ -154,9 +154,9 @@ export class BoardScene extends Phaser.Scene {
 
   private refreshPhase(skipFade: boolean) {
     this.showUI(!skipFade);
-    this.showHandCards({ skipFade });
-    this.showSlots();
-    this.showBaseAndShield({ fade: !skipFade });
+    this.updateHandArea({ skipFade });
+    this.updateSlots();
+    this.updateBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
   }
 
@@ -203,7 +203,7 @@ export class BoardScene extends Phaser.Scene {
     actions?.setVisible(false);
   }
 
-  private showHandCards(opts: { skipFade?: boolean } = {}) {
+  private updateHandArea(opts: { skipFade?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -217,7 +217,7 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private showSlots() {
+  private updateSlots() {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -276,7 +276,7 @@ export class BoardScene extends Phaser.Scene {
     this.lastPhase = phase;
   }
 
-  private showBaseAndShield(opts: { fade?: boolean } = {}) {
+  private updateBaseAndShield(opts: { fade?: boolean } = {}) {
     const fade = opts.fade ?? true;
     console.log("show base")
     const snapshot = this.engine.getSnapshot();
@@ -302,6 +302,7 @@ export class BoardScene extends Phaser.Scene {
       const rested = baseCard?.fieldCardValue?.isRested ?? false;
       this.baseControls?.setShieldCount(isOpponent, shieldCount);
       if (hasBase) {
+        this.baseControls?.setBaseTexture?.(isOpponent, baseCard?.cardId);
         this.baseControls?.setBaseBadgeLabel(isOpponent, `${ap}|${hp}`);
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
