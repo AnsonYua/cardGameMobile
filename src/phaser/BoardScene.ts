@@ -7,7 +7,7 @@ import { BaseStatus } from "./ui/BaseShieldHandler";
 import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
-import { GameEngine, type GameStatusSnapshot } from "./game/GameEngine";
+import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
 import { parseSessionParams } from "./game/SessionParams";
@@ -106,6 +106,9 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE,()=>{
       this.mainPhaseUpdate();
     })
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
+      this.refreshActions("neutral");
+    });
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
     });
@@ -237,20 +240,20 @@ export class BoardScene extends Phaser.Scene {
   private onHandCardSelected(card: HandCardView) {
     this.selectedHandCard = card;
     this.engine.select({ kind: "hand", uid: card.uid || "", cardType: card.cardType });
-    this.refreshActions();
+    this.refreshActions("hand");
   }
 
   private onSlotCardSelected(_slot: SlotViewModel) {
     this.selectedHandCard = undefined;
     this.engine.select({ kind: "slot", slotId: _slot.slotId, owner: _slot.owner });
-    this.refreshActions();
+    this.refreshActions("slot");
   }
 
   private onBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
     this.selectedHandCard = undefined;
     if (!payload?.card) return;
     this.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
-    this.refreshActions();
+    this.refreshActions("base");
   }
 
   private applyMainPhaseDefaults(force = false) {
@@ -320,8 +323,8 @@ export class BoardScene extends Phaser.Scene {
     applySide(otherId, true);
   }
 
-  private refreshActions() {
-    const descriptors = this.engine.getAvailableActions();
+  private refreshActions(source: ActionSource = "neutral") {
+    const descriptors = this.engine.getAvailableActions(source);
     const mapped = this.buildActionDescriptors(descriptors);
     this.actionControls?.setState?.({ descriptors: mapped });
   }
@@ -334,7 +337,7 @@ export class BoardScene extends Phaser.Scene {
       onClick: async () => {
         await this.engine.runAction(d.id);
         this.mainPhaseUpdate();
-        this.refreshActions();
+        this.refreshActions("neutral");
       },
     }));
   }

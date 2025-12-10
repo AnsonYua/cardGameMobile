@@ -14,6 +14,8 @@ export type GameStatusSnapshot = {
   raw: GameStatusResponse | null;
 };
 
+export type ActionSource = "hand" | "slot" | "base" | "neutral";
+
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private lastRaw: GameStatusResponse | null = null;
@@ -53,6 +55,15 @@ export class GameEngine {
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
       }
 
+      /*
+      if lastStatus is not mainPhase and new status is mainPhase 
+       trigger this.refreshActions("neutral"); in BoardScene
+      */
+      const enteredMainPhase = !this.isMainPhase(previousPhase) && this.isMainPhase(nextPhase);
+      if (enteredMainPhase) {
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_ENTER, this.getSnapshot());
+      }
+
       return this.getSnapshot();
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
@@ -81,34 +92,56 @@ export class GameEngine {
     return this.selection.get();
   }
 
-  getAvailableActions(): ActionDescriptor[] {
+  getAvailableActions(source: ActionSource = "neutral"): ActionDescriptor[] {
     const ctx = this.buildActionContext();
     const selection = ctx.selection;
     const descriptors: ActionDescriptor[] = [];
-    // Play base from hand
-    const canPlayBase =
-      selection?.kind === "hand" &&
-      (selection.cardType || "").toLowerCase() === "base" &&
-      !!ctx.gameId &&
-      !!ctx.playerId &&
-      !!selection.uid;
-    descriptors.push({
-      id: "playBaseFromHand",
-      label: "Play Card",
-      enabled: !!canPlayBase,
-    });
-    // Cancel/clear selection
-    descriptors.push({
-      id: "cancelSelection",
-      label: "Cancel",
-      enabled: !!selection,
-    });
+
+    if (source === "hand" && selection?.kind === "hand") {
+      const canPlayBase =
+        (selection.cardType || "").toLowerCase() === "base" &&
+        !!ctx.gameId &&
+        !!ctx.playerId &&
+        !!selection.uid;
+      descriptors.push({
+        id: "playBaseFromHand",
+        label: "Play Card",
+        enabled: !!canPlayBase,
+        primary: true,
+      });
+
+      descriptors.push({
+        id: "cancelSelection",
+        label: "Cancel",
+        enabled: !!selection,
+      });
+       return descriptors;
+    }
+
+    if (source === "slot" && selection?.kind === "slot") {
+      descriptors.push({
+        id: "slotAction",
+        label: "Use Slot",
+        enabled: true,
+        primary: true,
+      });
+    }
+
+    if (source === "base" && selection?.kind === "base") {
+      descriptors.push({
+        id: "inspectBase",
+        label: "Inspect Base",
+        enabled: true,
+        primary: true,
+      });
+    }
+
     // End turn as default primary
     descriptors.push({
       id: "endTurn",
       label: "End Turn",
       enabled: true,
-      primary: true,
+      primary: !descriptors.some((d) => d.primary),
     });
     return descriptors;
   }
@@ -171,9 +204,21 @@ export class GameEngine {
       this.clearSelection();
     });
 
+    this.actions.register("slotAction", async (ctx: ActionContext) => {
+      console.log("Slot action triggered", ctx.selection);
+    });
+
+    this.actions.register("inspectBase", async (ctx: ActionContext) => {
+      console.log("Base action triggered", ctx.selection);
+    });
+
     // End turn placeholder
     this.actions.register("endTurn", async () => {
       console.log("End Turn triggered (stub)");
     });
+  }
+
+  private isMainPhase(phase: GamePhase | string | null | undefined) {
+    return (phase ?? "").toString().toUpperCase() === "MAIN_PHASE";
   }
 }
