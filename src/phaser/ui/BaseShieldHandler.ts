@@ -51,7 +51,7 @@ export class BaseShieldHandler {
   private config: BaseShieldConfig = {
     baseSize: { w: 60, h: 80 },
     shieldSize: { w: 60, h: 80 },
-    shieldCount: 6,
+    shieldCount: 0,
     shieldGap: -65,
     towerGap: -5,
     cornerRadius: 5,
@@ -133,7 +133,7 @@ export class BaseShieldHandler {
   }
 
   // Show or hide the full base + shield tower for a side.
-  setBaseTowerVisible(isOpponent: boolean, visible: boolean) {
+  setBaseTowerVisible(isOpponent: boolean, visible: boolean, fade = true) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const status = this.baseStatus[key];
     const elements: Phaser.GameObjects.GameObject[] = [];
@@ -167,13 +167,18 @@ export class BaseShieldHandler {
         return;
       }
       el.setVisible(true);
-      if (typeof el.setAlpha === "function") el.setAlpha(0);
-      this.scene.tweens.add({
-        targets: el,
-        alpha: 1,
-        duration: 200,
-        ease: "Quad.easeOut",
-      });
+      
+      if (fade && typeof el.setAlpha === "function") {
+        el.setAlpha(0);
+        this.scene.tweens.add({
+          targets: el,
+          alpha: 1,
+          duration: 200,
+          ease: "Quad.easeOut",
+        });
+      } else if (typeof el.setAlpha === "function") {
+        el.setAlpha(1);
+      }
     });
   }
 
@@ -243,7 +248,7 @@ export class BaseShieldHandler {
       ? barsTop + totalBarsHeight + towerGap - baseOverlap + baseSize.h / 2
       : stackTop + baseSize.h / 2 - baseOverlap / 2;
     const baseYWithOffset = baseY + baseYOffset;
-
+    console.log("asdfsasddf ",JSON.stringify(this.shieldCards) , " ",isOpponent)
     this.clearShieldsForSide(side);
     if (isOpponent) {
       for (let i = 0; i < shieldCount; i++) {

@@ -150,17 +150,16 @@ export class BoardScene extends Phaser.Scene {
   }
  
   public mainPhaseUpdate(){
-    this.showDefaultUI();
-    this.showHandCards();
-    this.showSlots();
-    this.showBaseAndShield();
-    this.updateActionBarForPhase();
+    this.refreshPhase(true);
   }
 
-  public mainPhaseUpdateWithoutFadeIn() {
-    // Mirror mainPhaseUpdate but omit any fade-in effects by avoiding fadeIn calls inside helpers.
-    this.uiVisibility?.show();
-    this.showHandCards({ skipFade: true });
+  private refreshPhase(skipFade: boolean) {
+    if (skipFade) {
+      this.uiVisibility?.showWithoutFade();
+    } else {
+      this.showDefaultUI();
+    }
+    this.showHandCards({ skipFade });
     this.showSlots();
     this.showBaseAndShield();
     this.updateActionBarForPhase();
@@ -303,7 +302,7 @@ export class BoardScene extends Phaser.Scene {
       primary: d.primary,
       onClick: async () => {
         await this.engine.runAction(d.id);
-        this.mainPhaseUpdateWithoutFadeIn();
+        this.mainPhaseUpdate();
         this.refreshActions();
       },
     }));

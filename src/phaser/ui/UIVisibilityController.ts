@@ -18,22 +18,34 @@ export class UIVisibilityController {
   }
 
   show() {
+    this.showInternal({ fade: true, toggleBase: true });
+  }
+
+  showWithoutFade() {
+    this.showInternal({ fade: false, toggleBase: false });
+  }
+
+  private showInternal(opts: { fade: boolean; toggleBase: boolean }) {
     const base = this.ui.getBaseControls();
     const energy = this.ui.getEnergyControls();
     const status = this.ui.getStatusControls();
     const hand = this.ui.getHandControls();
     const actions = this.ui.getActionControls();
-    base?.setBaseTowerVisible(true, true);
-    base?.setBaseTowerVisible(false, true);
+    if (opts.toggleBase) {
+      base?.setBaseTowerVisible(true, true, opts.fade);
+      base?.setBaseTowerVisible(false, true, opts.fade);
+    }
     energy?.setVisible(true);
     status?.setVisible(true);
     hand?.setVisible(true);
     // Reset actions to an empty list when showing UI to avoid stale labels.
     actions?.setButtons?.([]);
-    energy?.fadeIn();
-    status?.fadeIn();
-    hand?.fadeIn();
+    if (opts.fade) {
+      energy?.fadeIn();
+      status?.fadeIn();
+      hand?.fadeIn();
+      //actions?.fadeIn?.();
+    }
     actions?.setVisible(true);
-    //actions?.fadeIn?.();
   }
 }
