@@ -56,7 +56,6 @@ export class DebugControls {
       console.log("Scenario injected", { scenarioPath, gameId });
       await this.engine.updateGameStatus(gameId, this.context.playerId, true);
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
-      await this.handleTestPolling(true);
     } catch (err) {
       console.error("Set scenario failed", err);
     }
