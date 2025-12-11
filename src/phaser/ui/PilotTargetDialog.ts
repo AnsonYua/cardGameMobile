@@ -60,15 +60,18 @@ export class PilotTargetDialog {
   show(opts: ShowOpts) {
     this.hide();
     const cam = this.scene.cameras.main;
-    const targets = opts.targets.slice(0, 6);
+    // Only show slots that have a unit and no pilot.
+    const filtered = opts.targets.filter((t) => t.unit && !t.pilot);
+    const targets = filtered.slice(0, 6);
     const { cols, rows, margin, gap, widthFactor, minWidth, minHeight, extraHeight, panelRadius, headerOffset, closeSize, closeOffset, headerWrapPad } =
       this.cfg.dialog;
+    const rowCount = targets.length <= cols ? 1 : rows;
     const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight } = this.cfg.card;
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
     const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
     const cardHeight = cellWidth * aspect;
     const cellHeight = cardHeight + extraCellHeight;
-    const gridHeight = rows * cellHeight + (rows - 1) * gap;
+    const gridHeight = rowCount * cellHeight + (rowCount - 1) * gap;
     const dialogHeight = Math.max(minHeight, gridHeight + extraHeight);
 
     this.overlay = this.scene.add
@@ -114,7 +117,7 @@ export class PilotTargetDialog {
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = -dialogHeight / 2 + 70 + cellHeight / 2;
 
-    const maxCells = cols * rows;
+    const maxCells = cols * rowCount;
     for (let i = 0; i < maxCells; i++) {
       const slot = targets[i];
       const col = i % cols;
