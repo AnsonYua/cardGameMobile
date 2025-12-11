@@ -72,7 +72,6 @@ export class BoardScene extends Phaser.Scene {
   private lastPhase?: string;
   private selectedHandCard?: HandCardView;
   private pilotDialog?: Phaser.GameObjects.Container;
-  private pilotTargetDialog?: Phaser.GameObjects.Container;
   private pilotTargetDialogUi?: PilotTargetDialog;
 
   create() {
@@ -603,8 +602,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private hidePilotTargetDialog() {
-    this.pilotTargetDialog?.destroy();
-    this.pilotTargetDialog = undefined;
+    this.pilotTargetDialogUi?.hide();
   }
 
   private collectPilotTargetUnits(): SlotViewModel[] {
@@ -613,15 +611,18 @@ export class BoardScene extends Phaser.Scene {
     if (!raw) return [];
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
-    // Only show self slots; first 6 max.
-    return slots.filter((s) => s.owner === "player").slice(0, 6);
+    // Only show self slots with a unit and no pilot; first 6 max.
+    return slots.filter((s) => s.owner === "player" && s.unit && !s.pilot).slice(0, 6);
   }
 
   private showPilotTargetDialog() {
+    this.engine.setPilotTarget(undefined);
     const targets = this.collectPilotTargetUnits();
     this.pilotTargetDialogUi?.show({
       targets,
-      onSelect: async () => {
+      onSelect: async (slot) => {
+        const targetUid = slot?.unit?.cardUid || slot?.unit?.id;
+        this.engine.setPilotTarget(targetUid);
         await this.engine.runAction("playPilotDesignationAsPilot");
         this.mainPhaseUpdate();
         this.refreshActions("neutral");

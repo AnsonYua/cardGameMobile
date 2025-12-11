@@ -6,6 +6,7 @@ export type SlotCardView = {
   cardType?: string;
   isRested?: boolean;
   cardData?: any;
+  cardUid?: string;
 };
 
 export type SlotViewModel = {

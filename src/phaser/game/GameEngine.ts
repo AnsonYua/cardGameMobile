@@ -23,6 +23,7 @@ export class GameEngine {
   private selection = new SelectionStore();
   private actions = new ActionRegistry();
   private api: ApiManager;
+  private pilotTargetUid?: string;
 
   constructor(private scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
     this.resourceLoader = new CardResourceLoader(scene);
@@ -86,6 +87,10 @@ export class GameEngine {
 
   clearSelection() {
     this.selection.clear();
+  }
+
+  setPilotTarget(uid?: string) {
+    this.pilotTargetUid = uid || undefined;
   }
 
   getSelection() {
@@ -198,6 +203,7 @@ export class GameEngine {
       playerId: ctx.playerId,
       runPlayCard: (payload) => this.api.playCard(payload as any),
       refreshStatus: () => this.updateGameStatus(ctx.gameId ?? undefined, ctx.playerId ?? undefined),
+      pilotTargetUid: this.pilotTargetUid,
       //refreshStatus: () => this.test(),
     };
   }
@@ -273,10 +279,11 @@ export class GameEngine {
       await ctx.runPlayCard({
         playerId: ctx.playerId,
         gameId: ctx.gameId,
-        action: { type: "PlayCard", carduid: sel.uid, playAs: "pilot" },
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "pilot", targetUnit: ctx.pilotTargetUid },
       });
       await ctx.refreshStatus?.();
       this.clearSelection();
+      this.pilotTargetUid = undefined;
     });
 
     this.actions.register("playPilotDesignationAsCommand", async (ctx: ActionContext) => {
