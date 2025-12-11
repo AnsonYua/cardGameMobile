@@ -271,8 +271,6 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private applyMainPhaseDefaults(force = false) {
-    this.selectedHandCard = undefined;
-    this.engine.clearSelection();
     const raw = this.engine.getSnapshot().raw as any;
     const actions = this.actionControls;
     if (!raw || !actions) return;
