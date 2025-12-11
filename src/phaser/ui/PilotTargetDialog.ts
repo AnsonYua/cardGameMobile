@@ -15,7 +15,7 @@ export class PilotTargetDialog {
       cols: 3,
       rows: 2,
       margin: 30,
-      gap: 30,
+      gap: 60,
       widthFactor: 0.75,
       minWidth: 360,
       minHeight: 260,
@@ -30,11 +30,17 @@ export class PilotTargetDialog {
       aspect: 88 / 64,
       widthFactor: 0.9,
       framePadding: 12,
+      frameExtra: { w: 12, h: 55 },
+      frameStroke: 0,
+      frameColor: 0xffffff,
       extraCellHeight: 20,
     },
     badges: {
       size: { w: 30, h: 15 },
       totalGap: 2,
+      fontSize: 12,
+      pilotFontSize: 12,
+      pilotSpacing: 2,
       pilotOffsetRatio: 0.2,
       pilotCommandOffsetRatio: 0.1,
       pilotCommandLift: 65,
@@ -83,7 +89,7 @@ export class PilotTargetDialog {
 
     const closeButton = this.scene.add.rectangle(
       dialogWidth / 2 - closeSize - closeOffset,
-      -dialogHeight / 2 + closeSize + closeOffset,
+      -dialogHeight / 2 + closeSize + closeOffset-10,
       closeSize,
       closeSize,
       0xffffff,
@@ -96,7 +102,7 @@ export class PilotTargetDialog {
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
 
-    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset, "Choose a Unit", {
+    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset-10, "Choose a Unit", {
       fontSize: "20px",
       fontFamily: "Arial",
       fontStyle: "bold",
@@ -118,8 +124,15 @@ export class PilotTargetDialog {
       const cardW = cellWidth * cardWidthFactor;
       const cardH = cardW * aspect;
 
-      const frame = this.scene.add.rectangle(x, y, cardW + framePadding, cardH + framePadding, 0x1b1e24, 0.75);
-      frame.setStrokeStyle(3, 0x4caf50, 0.9);
+      const frame = this.scene.add.rectangle(
+        x,
+        y,
+        cardW + framePadding + this.cfg.card.frameExtra.w,
+        cardH + framePadding + this.cfg.card.frameExtra.h,
+        0x1b1e24,
+        0.75,
+      );
+      frame.setStrokeStyle(this.cfg.card.frameStroke, this.cfg.card.frameColor, 0.95);
       frame.setInteractive({ useHandCursor: !!slot?.unit });
       frame.on("pointerup", async () => {
         if (!slot?.unit) return;
@@ -147,7 +160,8 @@ export class PilotTargetDialog {
   }
 
   private toTex(tex?: string) {
-    return tex ? tex.replace(/-preview$/, "") : undefined;
+    //return tex ? tex.replace(/-preview$/, "") : undefined;
+    return tex
   }
 
   private getPilotBadge(card?: SlotCardView) {
@@ -210,7 +224,7 @@ export class PilotTargetDialog {
       }
       const pilotBadgeRect = this.scene.add.rectangle(x + cardW / 2 - badgeW / 2, badgeY, badgeW, badgeH, 0x000000, 0.9);
       const pilotBadgeText = this.scene.add.text(pilotBadgeRect.x, pilotBadgeRect.y, this.getPilotBadge(slot.pilot), {
-        fontSize: "16px",
+        fontSize: `${this.cfg.badges.pilotFontSize}px`,
         fontFamily: "Arial",
         color: "#ffffff",
         fontStyle: "bold",
@@ -241,7 +255,7 @@ export class PilotTargetDialog {
         0.9,
       );
       const unitBadgeText = this.scene.add.text(unitBadgeRect.x, unitBadgeRect.y, this.getUnitBadge(slot.unit), {
-        fontSize: "16px",
+        fontSize: `${this.cfg.badges.fontSize}px`,
         fontFamily: "Arial",
         color: "#ffffff",
         fontStyle: "bold",
@@ -262,12 +276,12 @@ export class PilotTargetDialog {
           0x284cfc,
           0.95,
         );
-        const totalText = this.scene.add.text(totalRect.x, totalRect.y, `${slot.fieldCardValue.totalAP ?? 0}|${slot.fieldCardValue.totalHP ?? 0}`, {
-          fontSize: "16px",
-          fontFamily: "Arial",
-          color: "#ffffff",
-          fontStyle: "bold",
-        }).setOrigin(0.5);
+          const totalText = this.scene.add.text(totalRect.x, totalRect.y, `${slot.fieldCardValue.totalAP ?? 0}|${slot.fieldCardValue.totalHP ?? 0}`, {
+            fontSize: `${this.cfg.badges.fontSize}px`,
+            fontFamily: "Arial",
+            color: "#ffffff",
+            fontStyle: "bold",
+          }).setOrigin(0.5);
         dialog.add(totalRect);
         dialog.add(totalText);
       }
