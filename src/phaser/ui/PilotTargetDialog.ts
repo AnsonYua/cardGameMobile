@@ -9,6 +9,38 @@ type ShowOpts = {
 export class PilotTargetDialog {
   private overlay?: Phaser.GameObjects.Rectangle;
   private dialog?: Phaser.GameObjects.Container;
+  private cfg = {
+    overlayAlpha: 0.45,
+    dialog: {
+      cols: 3,
+      rows: 2,
+      margin: 30,
+      gap: 30,
+      widthFactor: 0.75,
+      minWidth: 360,
+      minHeight: 260,
+      panelRadius: 18,
+      extraHeight: 120,
+      headerOffset: 38,
+      closeSize: 22,
+      closeOffset: 12,
+      headerWrapPad: 80,
+    },
+    card: {
+      aspect: 88 / 64,
+      widthFactor: 0.9,
+      framePadding: 12,
+      extraCellHeight: 20,
+    },
+    badges: {
+      size: { w: 30, h: 15 },
+      totalGap: 2,
+      pilotOffsetRatio: 0.2,
+      pilotCommandOffsetRatio: 0.1,
+      pilotCommandLift: 65,
+      unitYOffsetFactor: -0.4,
+    },
+  };
 
   constructor(private scene: Phaser.Scene) {}
 
@@ -23,20 +55,18 @@ export class PilotTargetDialog {
     this.hide();
     const cam = this.scene.cameras.main;
     const targets = opts.targets.slice(0, 6);
-    const cols = 3;
-    const rows = 2;
-    const margin = 28;
-    const gap = 16;
-    const dialogWidth = Math.max(360, cam.width * 0.75);
+    const { cols, rows, margin, gap, widthFactor, minWidth, minHeight, extraHeight, panelRadius, headerOffset, closeSize, closeOffset, headerWrapPad } =
+      this.cfg.dialog;
+    const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight } = this.cfg.card;
+    const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
     const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
-    const cardAspect = 88 / 64;
-    const cardHeight = cellWidth * cardAspect;
-    const cellHeight = cardHeight + 20;
+    const cardHeight = cellWidth * aspect;
+    const cellHeight = cardHeight + extraCellHeight;
     const gridHeight = rows * cellHeight + (rows - 1) * gap;
-    const dialogHeight = Math.max(260, gridHeight + 120);
+    const dialogHeight = Math.max(minHeight, gridHeight + extraHeight);
 
     this.overlay = this.scene.add
-      .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, 0.45)
+      .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
       .setInteractive({ useHandCursor: true })
       .setDepth(2599);
     this.overlay.on("pointerup", () => this.hide());
@@ -46,15 +76,14 @@ export class PilotTargetDialog {
 
     const panel = this.scene.add.graphics({ x: 0, y: 0 });
     panel.fillStyle(0x3a3d42, 0.95);
-    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, 18);
+    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
     panel.lineStyle(2, 0x5b6068, 1);
-    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, 18);
+    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
     dialog.add(panel);
 
-    const closeSize = 22;
     const closeButton = this.scene.add.rectangle(
-      dialogWidth / 2 - closeSize - 12,
-      -dialogHeight / 2 + closeSize + 12,
+      dialogWidth / 2 - closeSize - closeOffset,
+      -dialogHeight / 2 + closeSize + closeOffset,
       closeSize,
       closeSize,
       0xffffff,
@@ -67,13 +96,13 @@ export class PilotTargetDialog {
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
 
-    const header = this.scene.add.text(0, -dialogHeight / 2 + 38, "Choose a Unit", {
+    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset, "Choose a Unit", {
       fontSize: "20px",
       fontFamily: "Arial",
       fontStyle: "bold",
       color: "#f5f6f7",
       align: "center",
-      wordWrap: { width: dialogWidth - 80 },
+      wordWrap: { width: dialogWidth - headerWrapPad },
     }).setOrigin(0.5);
 
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
@@ -86,10 +115,10 @@ export class PilotTargetDialog {
       const row = Math.floor(i / cols);
       const x = startX + col * (cellWidth + gap);
       const y = startY + row * (cellHeight + gap);
-      const cardW = cellWidth * 0.9;
-      const cardH = cardW * cardAspect;
+      const cardW = cellWidth * cardWidthFactor;
+      const cardH = cardW * aspect;
 
-      const frame = this.scene.add.rectangle(x, y, cardW + 12, cardH + 12, 0x1b1e24, 0.75);
+      const frame = this.scene.add.rectangle(x, y, cardW + framePadding, cardH + framePadding, 0x1b1e24, 0.75);
       frame.setStrokeStyle(3, 0x4caf50, 0.9);
       frame.setInteractive({ useHandCursor: !!slot?.unit });
       frame.on("pointerup", async () => {
@@ -151,13 +180,13 @@ export class PilotTargetDialog {
     cardH: number,
   ) {
     if (!slot) return;
-    const badgeW = 70;
-    const badgeH = 45;
-    const totalGap = 10;
-    const pilotOffsetRatio = 0.2;
-    const pilotCommandOffsetRatio = 0.1;
-    const pilotCommandLift = 65;
-    const unitYOffsetFactor = -0.4;
+    const badgeW = this.cfg.badges.size.w;
+    const badgeH = this.cfg.badges.size.h;
+    const totalGap = this.cfg.badges.totalGap;
+    const pilotOffsetRatio = this.cfg.badges.pilotOffsetRatio;
+    const pilotCommandOffsetRatio = this.cfg.badges.pilotCommandOffsetRatio;
+    const pilotCommandLift = this.cfg.badges.pilotCommandLift;
+    const unitYOffsetFactor = this.cfg.badges.unitYOffsetFactor;
 
     let pilotOffsetY = cardH * pilotOffsetRatio;
     if ((slot.pilot?.cardType || "").toLowerCase() === "command") {
