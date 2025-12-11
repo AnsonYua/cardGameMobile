@@ -10,6 +10,7 @@ export class PilotTargetDialog {
   private overlay?: Phaser.GameObjects.Rectangle;
   private dialog?: Phaser.GameObjects.Container;
   private cfg = {
+    z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
     dialog: {
       cols: 3,
@@ -77,10 +78,11 @@ export class PilotTargetDialog {
     this.overlay = this.scene.add
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
       .setInteractive({ useHandCursor: true })
-      .setDepth(2599);
+      .setDepth(this.cfg.z.overlay);
     this.overlay.on("pointerup", () => this.hide());
 
     const dialog = this.scene.add.container(cam.centerX, cam.centerY);
+    dialog.setDepth(this.cfg.z.dialog);
     this.dialog = dialog;
 
     const panel = this.scene.add.graphics({ x: 0, y: 0 });

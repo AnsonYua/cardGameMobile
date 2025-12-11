@@ -274,8 +274,14 @@ export class GameEngine {
 
     this.actions.register("playPilotDesignationAsPilot", async (ctx: ActionContext) => {
       const sel = ctx.selection;
-      if (!sel || sel.kind !== "hand" || !sel.fromPilotDesignation) return;
-      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
+      if (!sel || sel.kind !== "hand" || !sel.fromPilotDesignation) {
+        console.log("no selecteds")
+        return;
+      }
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard){
+        console.log("no gameId , playerId , runPlayCard")
+        return;
+      }
       await ctx.runPlayCard({
         playerId: ctx.playerId,
         gameId: ctx.gameId,

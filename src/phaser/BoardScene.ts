@@ -622,6 +622,10 @@ export class BoardScene extends Phaser.Scene {
       targets,
       onSelect: async (slot) => {
         const targetUid = slot?.unit?.cardUid || slot?.unit?.id;
+        if (!targetUid) {
+          console.warn("No target unit uid found for pilot designation");
+          return;
+        }
         this.engine.setPilotTarget(targetUid);
         await this.engine.runAction("playPilotDesignationAsPilot");
         this.mainPhaseUpdate();
