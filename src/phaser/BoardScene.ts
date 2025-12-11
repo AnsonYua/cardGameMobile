@@ -630,8 +630,8 @@ export class BoardScene extends Phaser.Scene {
     const gap = 16;
     const dialogWidth = Math.max(360, cam.width * 0.75);
     const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
-    const cardRatio = 286 / 162;
-    const cardHeight = cellWidth * cardRatio;
+    const cardAspect = 88 / 64;
+    const cardHeight = cellWidth * cardAspect;
     const cellHeight = cardHeight + 20;
     const gridHeight = rows * cellHeight + (rows - 1) * gap;
     const dialogHeight = Math.max(260, gridHeight + 120);
@@ -665,12 +665,12 @@ export class BoardScene extends Phaser.Scene {
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = -dialogHeight / 2 + 70 + cellHeight / 2;
 
-    const toTex = (tex?: string) => (tex ? tex.replace(/-preview$/, "") : undefined);
+    const toTex = (tex?: string) => (tex );
     const pilotBadge = (card?: SlotCardView) => {
-      const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-      if (type === "command") {
+      const type = (card?.cardType || card?.cardData?.cardType || '').toLowerCase();
+      if (type === 'command') {
         const rules: any[] = card?.cardData?.effects?.rules || [];
-        const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
+        const pilotRule = rules.find((r) => r?.effectId === 'pilot_designation' || r?.effectId === 'pilotDesignation');
         const apVal = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
         const hpVal = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
         return `${apVal}|${hpVal}`;
@@ -685,121 +685,126 @@ export class BoardScene extends Phaser.Scene {
       return `${apVal}|${hpVal}`;
     };
 
-    const renderTarget = (idx: number, slot?: SlotViewModel) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const x = startX + col * (cellWidth + gap);
-      const y = startY + row * (cellHeight + gap);
+    const drawPreviewLike = (slot: SlotViewModel | undefined, x: number, y: number, cardW: number, cardH: number) => {
+      if (!slot) return;
+      const badgeW = 25;
+      const badgeH = 15;
+      const totalGap = 2;
+      const pilotOffsetRatio = 0.2;
+      const pilotCommandOffsetRatio = 0.1;
+      const pilotCommandLift = 65;
+      const unitYOffsetFactor = -0.4;
 
-      const cardW = cellWidth * 0.9;
-      const cardH = cardW * cardRatio;
-      const frame = this.add.rectangle(x, y, cardW + 14, cardH + 14, 0x1b1e24, 0.7);
-      frame.setStrokeStyle(3, 0x4caf50, 0.9);
-      frame.setInteractive({ useHandCursor: !!slot?.unit });
-      frame.on("pointerup", async () => {
-        if (!slot?.unit) return;
-        await this.engine.runAction("playPilotDesignationAsPilot");
-        this.mainPhaseUpdate();
-        this.refreshActions("neutral");
-        this.hidePilotTargetDialog();
-      });
-      dialog.add(frame);
-
-      const unitTex = toTex(slot?.unit?.textureKey);
-      if (unitTex && this.textures.exists(unitTex)) {
-        const img = this.add.image(x, y - cardH * 0.05, unitTex).setOrigin(0.5);
-        img.setDisplaySize(cardW, cardH);
-        dialog.add(img);
-      } else if (slot?.unit) {
-        const placeholder = this.add.text(x, y - cardH * 0.05, slot.unit.cardData?.name || "Unit", {
-          fontSize: "13px",
-          fontFamily: "Arial",
-          color: "#e8ebf0",
-          align: "center",
-          wordWrap: { width: cardW - 16 },
-        }).setOrigin(0.5);
-        dialog.add(placeholder);
+      let pilotOffsetY = cardH * pilotOffsetRatio;
+      if ((slot.pilot?.cardType || '').toLowerCase() === 'command') {
+        pilotOffsetY = cardH * pilotCommandOffsetRatio;
       }
 
-      const bandH = cardH * 0.28;
-      const bandY = y + cardH / 2 - bandH / 2 - 6;
-      const band = this.add.rectangle(x, bandY, cardW, bandH, 0x000000, 0.82);
-      band.setStrokeStyle(1, 0xffffff, 0.35);
-      dialog.add(band);
+      let slotCardEnd = -1;
 
-      if (slot?.pilot) {
+      // Pilot layer
+      if (slot.pilot) {
         const pilotTex = toTex(slot.pilot.textureKey);
-        if (pilotTex && this.textures.exists(pilotTex)) {
-          const pImg = this.add.image(x, bandY - 4, pilotTex).setOrigin(0.5);
-          const maxW = cardW - 30;
-          const maxH = bandH - 16;
-          const scale = Math.min(maxW / pImg.width, maxH / pImg.height, 1);
-          pImg.setScale(scale);
-          dialog.add(pImg);
-        } else {
-          const pilotText = this.add.text(x, bandY - 4, slot.pilot.cardData?.name || "Pilot", {
-            fontSize: "12px",
-            fontFamily: "Arial",
-            color: "#f0f2f5",
-            align: "center",
-            wordWrap: { width: cardW - 24 },
-          }).setOrigin(0.5);
-          dialog.add(pilotText);
+        const pilotImg =
+          pilotTex && this.textures.exists(pilotTex)
+            ? this.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
+            : this.add.rectangle(x, y + pilotOffsetY, cardW, cardH, 0xcbd3df, 1).setOrigin(0.5);
+        dialog.add(pilotImg);
+
+        let badgeY = y + pilotOffsetY + cardH / 2 - badgeH / 2;
+        if ((slot.pilot.cardType || '').toLowerCase() !== 'command') {
+          badgeY -= pilotCommandLift;
+        }
+        const pilotBadgeRect = this.add.rectangle(x + cardW / 2 - badgeW / 2, badgeY, badgeW, badgeH, 0x000000, 0.9);
+        const pilotBadgeText = this.add.text(pilotBadgeRect.x, pilotBadgeRect.y, pilotBadge(slot.pilot), {
+          fontSize: '14px',
+          fontFamily: 'Arial',
+          color: '#ffffff',
+          fontStyle: 'bold',
+        }).setOrigin(0.5);
+        dialog.add(pilotBadgeRect);
+        dialog.add(pilotBadgeText);
+        slotCardEnd = badgeY;
+        if ((slot.pilot.cardType || '').toLowerCase() !== 'command') {
+          slotCardEnd += pilotCommandLift;
         }
       }
 
-      const badgeW = 44;
-      const badgeH = 22;
-      const baseBadgeY = y + cardH / 2 - badgeH / 2 - 12;
+      // Unit layer
+      if (slot.unit) {
+        const unitTex = toTex(slot.unit.textureKey);
+        const unitImg =
+          unitTex && this.textures.exists(unitTex)
+            ? this.add.image(x, y + pilotOffsetY * unitYOffsetFactor, unitTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
+            : this.add.rectangle(x, y + pilotOffsetY * unitYOffsetFactor, cardW, cardH, 0xcbd3df, 0.9).setOrigin(0.5);
+        dialog.add(unitImg);
 
-      const unitBadgeLabel = slot?.unit ? unitBadge(slot.unit) : "0|0";
-      const unitBadgeRect = this.add.rectangle(x + cardW / 2 - badgeW / 2 - 8, baseBadgeY, badgeW, badgeH, 0x000000, 0.9);
-      const unitBadgeText = this.add.text(unitBadgeRect.x, unitBadgeRect.y, unitBadgeLabel, {
-        fontSize: "13px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      dialog.add(unitBadgeRect);
-      dialog.add(unitBadgeText);
-
-      const pilotBadgeLabelText = slot?.pilot ? pilotBadge(slot.pilot) : "0|0";
-      const pilotBadgeRect = this.add.rectangle(unitBadgeRect.x - badgeW - 6, baseBadgeY, badgeW, badgeH, 0x000000, 0.9);
-      const pilotBadgeText = this.add.text(pilotBadgeRect.x, pilotBadgeRect.y, pilotBadgeLabelText, {
-        fontSize: "13px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      dialog.add(pilotBadgeRect);
-      dialog.add(pilotBadgeText);
-
-      const total = slot?.fieldCardValue;
-      if (total) {
-        const totalRect = this.add.rectangle(unitBadgeRect.x, baseBadgeY - badgeH - 6, badgeW, badgeH, 0x1f6bff, 0.95);
-        const totalText = this.add.text(totalRect.x, totalRect.y, `${total.totalAP ?? 0}|${total.totalHP ?? 0}`, {
-          fontSize: "13px",
-          fontFamily: "Arial",
-          color: "#ffffff",
-          fontStyle: "bold",
+        const unitBadgeRect = this.add.rectangle(
+          x + cardW / 2 - badgeW / 2,
+          y - pilotOffsetY * 0.4 + cardH / 2 - badgeH / 2,
+          badgeW,
+          badgeH,
+          0x000000,
+          0.9,
+        );
+        const unitBadgeText = this.add.text(unitBadgeRect.x, unitBadgeRect.y, unitBadge(slot.unit), {
+          fontSize: '14px',
+          fontFamily: 'Arial',
+          color: '#ffffff',
+          fontStyle: 'bold',
         }).setOrigin(0.5);
-        dialog.add(totalRect);
-        dialog.add(totalText);
+        dialog.add(unitBadgeRect);
+        dialog.add(unitBadgeText);
+
+        if (slotCardEnd === -1) {
+          slotCardEnd = y + pilotOffsetY * unitYOffsetFactor + cardH / 2 - badgeH / 2;
+        }
+
+        if (slot.fieldCardValue) {
+          const totalRect = this.add.rectangle(x + cardW / 2 - badgeW / 2, slotCardEnd + badgeH + totalGap, badgeW, badgeH, 0x284cfc, 0.95);
+          const totalText = this.add.text(totalRect.x, totalRect.y, `${slot.fieldCardValue.totalAP ?? 0}|${slot.fieldCardValue.totalHP ?? 0}`, {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            fontStyle: 'bold',
+          }).setOrigin(0.5);
+          dialog.add(totalRect);
+          dialog.add(totalText);
+        }
       }
     };
 
     const maxCells = cols * rows;
     const items = targets.slice(0, maxCells);
     for (let i = 0; i < maxCells; i++) {
-      renderTarget(i, items[i]);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (cellWidth + gap);
+      const y = startY + row * (cellHeight + gap);
+      const cardWidth = cellWidth * 0.9;
+      const cardHeightLocal = cardWidth * cardAspect;
+      // draw frame beneath card
+      const frame = this.add.rectangle(x, y, cardWidth + 12, cardHeightLocal + 12, 0x1b1e24, 0.75);
+      frame.setStrokeStyle(3, 0x4caf50, 0.9);
+      frame.setInteractive({ useHandCursor: !!items[i]?.unit });
+      frame.on('pointerup', async () => {
+        if (!items[i]?.unit) return;
+        await this.engine.runAction('playPilotDesignationAsPilot');
+        this.mainPhaseUpdate();
+        this.refreshActions('neutral');
+        this.hidePilotTargetDialog();
+      });
+      dialog.add(frame);
+
+      drawPreviewLike(items[i], x, y, cardWidth, cardHeightLocal);
     }
 
     if (!items.length) {
-      const empty = this.add.text(0, startY, "No units available", {
-        fontSize: "15px",
-        fontFamily: "Arial",
-        color: "#d7d9dd",
-        align: "center",
+      const empty = this.add.text(0, startY, 'No units available', {
+        fontSize: '15px',
+        fontFamily: 'Arial',
+        color: '#d7d9dd',
+        align: 'center',
       }).setOrigin(0.5);
       dialog.add(empty);
     }
@@ -808,5 +813,6 @@ export class BoardScene extends Phaser.Scene {
     dialog.setDepth(2600);
     this.pilotTargetDialog = this.add.container(0, 0, [overlay, dialog]).setDepth(2598);
   }
+
 
 }
