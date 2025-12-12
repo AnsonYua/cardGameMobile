@@ -348,15 +348,23 @@ export class BoardScene extends Phaser.Scene {
     this.actionControls?.setState?.({ descriptors: mapped });
   }
 
+  private refreshAfterStateChange(actionSource: ActionSource = "neutral") {
+    this.refreshPhase(true);
+    this.refreshActions(actionSource);
+  }
+
+  private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
+    await this.engine.runAction(actionId);
+    this.refreshAfterStateChange(actionSource);
+  }
+
   private buildActionDescriptors(descriptors: ActionDescriptor[]) {
     return descriptors.map((d) => ({
       label: d.label,
       enabled: d.enabled,
       primary: d.primary,
       onClick: async () => {
-        await this.engine.runAction(d.id);
-        this.mainPhaseUpdate();
-        this.refreshActions("neutral");
+        await this.runActionThenRefresh(d.id, "neutral");
       },
     }));
   }
@@ -575,9 +583,7 @@ export class BoardScene extends Phaser.Scene {
         this.showPilotTargetDialog();
       },
       onCommand: async () => {
-        await this.engine.runAction("playPilotDesignationAsCommand");
-        this.mainPhaseUpdate();
-        this.refreshActions("neutral");
+        await this.runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
       },
     });
   }
@@ -608,9 +614,7 @@ export class BoardScene extends Phaser.Scene {
           return;
         }
         this.engine.setPilotTarget(targetUid);
-        await this.engine.runAction("playPilotDesignationAsPilot");
-        this.mainPhaseUpdate();
-        this.refreshActions("neutral");
+        await this.runActionThenRefresh("playPilotDesignationAsPilot", "neutral");
       },
     });
   }
