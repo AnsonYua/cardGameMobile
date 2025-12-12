@@ -55,6 +55,7 @@ export class PilotTargetDialog {
   constructor(private scene: Phaser.Scene) {}
 
   hide() {
+    console.log("hide PilotTargetDialog.ts")
     this.overlay?.destroy();
     this.dialog?.destroy();
     this.overlay = undefined;

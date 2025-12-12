@@ -33,7 +33,7 @@ export class DebugControls {
 
 
   private async handleSetScenario() {
-    this.popup?.hide();
+    await this.popup?.hide();
     const scenarioPath = "BasicCase/basicMainBasest01_016_1";
     try {
       const scenarioJson = await this.api.getTestScenario(scenarioPath);
@@ -62,6 +62,7 @@ export class DebugControls {
   }
   private async handleTestPolling(isSetScenoria=false) {
     try {
+      await this.popup?.hide();
       const snapshot = await this.engine.updateGameStatus(
         this.context.gameId ?? undefined,
         this.context.playerId,
@@ -70,7 +71,6 @@ export class DebugControls {
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;
       }
-      this.popup?.hide();
       console.log("Polling status:", this.context.lastStatus);
     } catch (err) {
       console.warn("Polling failed", err);
@@ -78,7 +78,7 @@ export class DebugControls {
   }
 
   private async handleTestJoinButton() {
-    this.popup?.hide();
+    await this.popup?.hide();
     const id = this.context.gameId ?? `demo-${Date.now()}`;
     try {
       await this.match.joinRoom(id, "playerId_2", "Demo Opponent");

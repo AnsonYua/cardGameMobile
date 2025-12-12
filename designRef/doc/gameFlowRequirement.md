@@ -7,7 +7,7 @@ during main_phase and if it is my turn , player is expected to do some interacti
 
 hand cards have different type. No matter which hand card click, it will show play card button. When play card button is clicked. different card will have trigger different option. the option will ask user to select through popup dialog. after the dialog show and confirm, it will call api. when api return, may show another popup asking user to select sometime depend on the effect. 
 
-with this ,help me design the function call and screen refreshing flow
+with this ,help me design the function call and screen refreshing flow.
 
 below is a sample response for test polling
 {

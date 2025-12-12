@@ -84,19 +84,22 @@ export class TestButtonPopup {
     });
   }
 
-  hide() {
+  async hide(): Promise<void> {
     if (!this.container && !this.backdrop) return;
-    this.scene.tweens.add({
-      targets: [this.backdrop, this.container].filter(Boolean) as any[],
-      alpha: 0,
-      duration: this.tweenDuration,
-      ease: "Quad.easeIn",
-      onComplete: () => {
-        this.container?.destroy();
-        this.backdrop?.destroy();
-        this.container = undefined;
-        this.backdrop = undefined;
-      },
+    await new Promise<void>((resolve) => {
+      this.scene.tweens.add({
+        targets: [this.backdrop, this.container].filter(Boolean) as any[],
+        alpha: 0,
+        duration: this.tweenDuration,
+        ease: "Quad.easeIn",
+        onComplete: () => {
+          this.container?.destroy();
+          this.backdrop?.destroy();
+          this.container = undefined;
+          this.backdrop = undefined;
+          resolve();
+        },
+      });
     });
   }
 
