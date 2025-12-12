@@ -553,7 +553,7 @@ export class BoardScene extends Phaser.Scene {
     console.log("maybeShowEffectTargetDialog 0 ", selfId, " ",JSON.stringify(processing) )
     if (!pending) {
       this.activeEffectChoiceId = undefined;
-      this.effectTargetDialogUi?.hide();
+      void this.effectTargetDialogUi?.hide();
       return;
     }
 
@@ -572,7 +572,7 @@ export class BoardScene extends Phaser.Scene {
       onSelect: async (slot) => {
         console.log("Selected effect target", pending.id, slot);
         this.activeEffectChoiceId = undefined;
-        this.effectTargetDialogUi?.hide();
+        await this.effectTargetDialogUi?.hide();
       },
     });
   }
@@ -589,7 +589,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private hidePilotTargetDialog() {
-    this.pilotTargetDialogUi?.hide();
+    void this.pilotTargetDialogUi?.hide();
   }
 
   private collectPilotTargetUnits(): SlotViewModel[] {

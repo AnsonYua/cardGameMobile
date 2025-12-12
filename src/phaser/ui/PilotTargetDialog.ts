@@ -54,8 +54,8 @@ export class PilotTargetDialog {
 
   constructor(private scene: Phaser.Scene) {}
 
-  hide() {
-    console.log("hide PilotTargetDialog.ts")
+  async hide(): Promise<void> {
+    console.log("hide PilotTargetDialog.ts");
     this.overlay?.destroy();
     this.dialog?.destroy();
     this.overlay = undefined;
@@ -95,7 +95,9 @@ export class PilotTargetDialog {
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
       .setInteractive({ useHandCursor: true })
       .setDepth(this.cfg.z.overlay);
-    this.overlay.on("pointerup", () => this.hide());
+    this.overlay.on("pointerup", () => {
+      void this.hide();
+    });
 
     const dialog = this.scene.add.container(cam.centerX, cam.centerY);
     dialog.setDepth(this.cfg.z.dialog);
@@ -118,7 +120,9 @@ export class PilotTargetDialog {
     );
     closeButton.setStrokeStyle(2, 0xffffff, 0.5);
     closeButton.setInteractive({ useHandCursor: true });
-    closeButton.on("pointerup", () => this.hide());
+    closeButton.on("pointerup", () => {
+      void this.hide();
+    });
     const closeLabel = this.scene.add
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
@@ -159,7 +163,7 @@ export class PilotTargetDialog {
       frame.on("pointerup", async () => {
         if (!slot?.unit) return;
         await opts.onSelect(slot);
-        this.hide();
+        await this.hide();
       });
       dialog.add(frame);
 

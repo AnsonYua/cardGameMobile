@@ -29,7 +29,9 @@ export class PilotDesignationDialog {
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, 0.45)
       .setInteractive({ useHandCursor: true })
       .setDepth(2499);
-    overlay.on("pointerup", () => this.hide(opts.onClose));
+    overlay.on("pointerup", () => {
+      void this.hide(opts.onClose);
+    });
 
     const dialogWidth = Math.max(320, cam.width * 0.7);
     const dialogHeight = 190;
@@ -46,7 +48,9 @@ export class PilotDesignationDialog {
       .rectangle(dialogWidth / 2 - closeSize - 12, -dialogHeight / 2 + closeSize + 12, closeSize, closeSize, 0xffffff, 0.14)
       .setStrokeStyle(2, 0xffffff, 0.6)
       .setInteractive({ useHandCursor: true });
-    closeButton.on("pointerup", () => this.hide(opts.onClose));
+    closeButton.on("pointerup", () => {
+      void this.hide(opts.onClose);
+    });
     const closeLabel = this.scene.add
       .text(closeButton.x, closeButton.y, "✕", {
         fontSize: "16px",
@@ -96,12 +100,12 @@ export class PilotDesignationDialog {
 
     const offset = buttonWidth / 2 + buttonGap / 2;
     const [pilotBtn, pilotTxt] = makeButton(-offset, "Pilot", async () => {
-      this.hide(opts.onClose);
+      await this.hide(opts.onClose);
       await opts.onPilot();
     });
     const [commandBtn, commandTxt] = makeButton(offset, "Command", async () => {
       await opts.onCommand();
-      this.hide(opts.onClose);
+      await this.hide(opts.onClose);
     });
 
     dialog.add([panel, closeButton, closeLabel, header, pilotBtn, pilotTxt, commandBtn, commandTxt]);
@@ -111,7 +115,7 @@ export class PilotDesignationDialog {
     this.container = this.scene.add.container(0, 0, [overlay, dialog]).setDepth(2498);
   }
 
-  hide(onClose?: () => void) {
+  async hide(onClose?: () => void): Promise<void> {
     this.overlay?.setVisible(false).disableInteractive();
     this.container?.setVisible(false);
     onClose?.();
