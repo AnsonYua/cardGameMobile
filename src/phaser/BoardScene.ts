@@ -542,7 +542,7 @@ export class BoardScene extends Phaser.Scene {
     const selfId = this.gameContext.playerId;
     const processing: any[] = raw?.gameEnv?.processingQueue || [];
     const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
-
+    console.log("maybeShowEffectTargetDialog 0 ", selfId, " ",JSON.stringify(processing) )
     if (!pending) {
       this.activeEffectChoiceId = undefined;
       this.effectTargetDialogUi?.hide();
@@ -552,9 +552,10 @@ export class BoardScene extends Phaser.Scene {
     if (this.activeEffectChoiceId === pending.id) {
       return;
     }
-
+    console.log("maybeShowEffectTargetDialog 1")
     const targets = this.mapAvailableTargetsToSlots(raw, pending.data?.availableTargets || []);
     if (!targets.length) return;
+    console.log("maybeShowEffectTargetDialog 2")
 
     this.activeEffectChoiceId = pending.id;
     this.effectTargetDialogUi?.show({

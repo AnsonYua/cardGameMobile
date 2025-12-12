@@ -54,6 +54,8 @@ export class GameEngine {
         this.contextStore.update({ lastStatus: derivedStatus });
         this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
+      }else{
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
       }
 
       /*
