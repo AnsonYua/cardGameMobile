@@ -1,9 +1,11 @@
 import Phaser from "phaser";
 import type { SlotViewModel, SlotCardView } from "./SlotTypes";
 
-type ShowOpts = {
+export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
+  header?: string;
+  allowPiloted?: boolean;
 };
 
 export class PilotTargetDialog {
@@ -58,11 +60,18 @@ export class PilotTargetDialog {
     this.dialog = undefined;
   }
 
-  show(opts: ShowOpts) {
+  show(opts: PilotTargetDialogShowOpts) {
     this.hide();
     const cam = this.scene.cameras.main;
-    // Only show slots that have a unit and no pilot.
-    const filtered = opts.targets.filter((t) => t.unit && !t.pilot);
+    // Only show slots that have something to display; original dialog hides piloted slots unless allowed.
+    const filtered = opts.targets.filter((t) => {
+      const hasUnit = !!t.unit;
+      const hasPilot = !!t.pilot;
+      if (opts.allowPiloted) {
+        return hasUnit || hasPilot;
+      }
+      return hasUnit && !hasPilot;
+    });
     const targets = filtered.slice(0, 6);
     const { cols, rows, margin, gap, widthFactor, minWidth, minHeight, extraHeight, panelRadius, headerOffset, closeSize, closeOffset, headerWrapPad } =
       this.cfg.dialog;
@@ -107,7 +116,8 @@ export class PilotTargetDialog {
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
 
-    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset-10, "Choose a Unit", {
+    const headerText = opts.header || "Choose a Unit";
+    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset-10, headerText, {
       fontSize: "20px",
       fontFamily: "Arial",
       fontStyle: "bold",

@@ -21,6 +21,8 @@ import { toPreviewKey } from "./ui/HandTypes";
 import type { ActionDescriptor } from "./game/ActionRegistry";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
+import { EffectTargetDialog } from "./ui/EffectTargetDialog";
+import type { SlotCardView } from "./ui/SlotTypes";
 
 const colors = {
   bg: "#ffffff",
@@ -74,6 +76,8 @@ export class BoardScene extends Phaser.Scene {
   private selectedHandCard?: HandCardView;
   private pilotTargetDialogUi?: PilotTargetDialog;
   private pilotDesignationDialogUi?: PilotDesignationDialog;
+  private effectTargetDialogUi?: EffectTargetDialog;
+  private activeEffectChoiceId?: string;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -130,6 +134,7 @@ export class BoardScene extends Phaser.Scene {
     this.onMatchStatus(this.match.getState());
     this.pilotTargetDialogUi = new PilotTargetDialog(this);
     this.pilotDesignationDialogUi = new PilotDesignationDialog(this);
+    this.effectTargetDialogUi = new EffectTargetDialog(this);
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
@@ -171,6 +176,7 @@ export class BoardScene extends Phaser.Scene {
     this.updateSlots();
     this.updateBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
+    this.maybeShowEffectTargetDialog();
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -492,6 +498,76 @@ export class BoardScene extends Phaser.Scene {
   }
 
 
+
+  private mapAvailableTargetsToSlots(raw: any, availableTargets: any[]): SlotViewModel[] {
+    if (!raw) return [];
+    const selfId = this.gameContext.playerId;
+    const allSlots = this.slotPresenter.toSlots(raw, selfId);
+    const mapped: SlotViewModel[] = [];
+
+    availableTargets.forEach((t: any) => {
+      const owner: "player" | "opponent" = t.playerId === selfId ? "player" : "opponent";
+      const existing = allSlots.find((s) => s.slotId === t.zone && s.owner === owner);
+      if (existing) {
+        mapped.push(existing);
+        return;
+      }
+
+      const cardType = (t.cardData?.cardType || "").toLowerCase();
+      const cardView: SlotCardView = {
+        id: t.cardData?.id,
+        cardType: t.cardData?.cardType,
+        textureKey: toPreviewKey(t.cardData?.id),
+        cardUid: t.carduid ?? t.cardUid,
+        cardData: t.cardData,
+      };
+      const slot: SlotViewModel = {
+        owner,
+        slotId: t.zone || "unknown",
+        fieldCardValue: { totalAP: t.cardData?.ap ?? 0, totalHP: t.cardData?.hp ?? 0 },
+      };
+      if (cardType === "pilot" || cardType === "command") {
+        slot.pilot = cardView;
+      } else {
+        slot.unit = cardView;
+      }
+      mapped.push(slot);
+    });
+
+    return mapped;
+  }
+
+  private maybeShowEffectTargetDialog() {
+    const snapshot = this.engine.getSnapshot();
+    const raw: any = snapshot.raw;
+    const selfId = this.gameContext.playerId;
+    const processing: any[] = raw?.gameEnv?.processingQueue || [];
+    const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
+
+    if (!pending) {
+      this.activeEffectChoiceId = undefined;
+      this.effectTargetDialogUi?.hide();
+      return;
+    }
+
+    if (this.activeEffectChoiceId === pending.id) {
+      return;
+    }
+
+    const targets = this.mapAvailableTargetsToSlots(raw, pending.data?.availableTargets || []);
+    if (!targets.length) return;
+
+    this.activeEffectChoiceId = pending.id;
+    this.effectTargetDialogUi?.show({
+      targets,
+      header: "Choose a Target",
+      onSelect: async (slot) => {
+        console.log("Selected effect target", pending.id, slot);
+        this.activeEffectChoiceId = undefined;
+        this.effectTargetDialogUi?.hide();
+      },
+    });
+  }
 
   private showPilotDesignationDialog() {
     this.pilotDesignationDialogUi?.show({

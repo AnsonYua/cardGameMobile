@@ -64,7 +64,7 @@ curl 'http://localhost:8080/api/game/player/playCard' \
 
 
 
-after calling the api, it will return a response as below. this is the new game Status, please look at processingQueue, the first object that data.userDecisionMade = false . frontend will use these data to display a dialog for user to choice. it will look at the availableTargets.zone and availableTargets.playerId. and get the slot data (unit,pilot , label) and display for user to choice, the dialog layout should look like PilotTargetDialog.ts
+after calling the api, it will return a response as below. this is the new game Status, please look at processingQueue, the first object that data.userDecisionMade = false . frontend will use these data to display a dialog for user to choice. it will look at the availableTargets.zone and availableTargets.playerId. and get the slot data (unit,pilot , label) and display for user to choice, the dialog layout should look like PilotTargetDialog.ts. override / extend PilotTargetDialog.ts and make a new class EffectTargetDialog.ts and reuse the ui logic in PilotTargetDialog.ts
   {
   "success": true,
   "gameId": "e47b84c4-2214-4c8a-b469-5b2ed98862e2",
