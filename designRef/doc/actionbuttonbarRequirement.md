@@ -61,3 +61,298 @@ curl 'http://localhost:8080/api/game/player/playCard' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"{}","gameId":"{}","action":{"type":"PlayCard","carduid":"{selected card to play}","playAs":"pilot","targetUnit":"{selected be unit in pilotTargetDialog}"}}'
+
+
+
+after calling the api, it will return a response as below. this is the new game Status, please look at processingQueue, the first object that data.userDecisionMade = false . frontend will use these data to display a dialog for user to choice. it will look at the availableTargets.zone and availableTargets.playerId. and get the slot data (unit,pilot , label) and display for user to choice, the dialog layout should look like PilotTargetDialog.ts
+  {
+  "success": true,
+  "gameId": "e47b84c4-2214-4c8a-b469-5b2ed98862e2",
+  "gameEnv": {
+    "phase": "MAIN_PHASE",
+    "players": {
+    },
+    "processingQueue": [
+      {
+        "id": "target_choice_129_1765472418831",
+        "type": "TARGET_CHOICE",
+        "status": "DECLARED",
+        "priority": 1,
+        "playerId": "playerId_2",
+        "timestamp": 1765472418831,
+        "data": {
+          "choiceId": "target_choice_main_heal_friendly_1765472418831",
+          "userDecisionMade": false,
+          "sourceCarduid": "ST01-013_51703d0a-9541-49b5-8b82-998293564235",
+          "effect": {
+            "effectId": "main_heal_friendly",
+            "type": "activated",
+            "trigger": "PAIRING_COMPLETE",
+            "target": {
+              "scope": "self",
+              "type": "unit",
+              "count": 1
+            },
+            "action": "heal",
+            "parameters": {
+              "value": 3
+            },
+            "timing": {
+              "windows": [
+                "MAIN_PHASE"
+              ]
+            },
+            "pairedSlot": "slot5",
+            "sourceCarduid": "ST01-013_51703d0a-9541-49b5-8b82-998293564235"
+          },
+          "availableTargets": [
+            {
+              "carduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+              "zone": "slot1",
+              "playerId": "playerId_2",
+              "cardData": {
+                "id": "ST01-005",
+                "name": "GM",
+                "cardType": "unit",
+                "color": "Blue",
+                "level": 2,
+                "cost": 1,
+                "zone": [
+                  "Space",
+                  "Earth"
+                ],
+                "traits": [
+                  "Earth Federation"
+                ],
+                "link": [],
+                "ap": 2,
+                "hp": 2,
+                "effects": {
+                  "description": [],
+                  "rules": []
+                }
+              }
+            },
+            {
+              "carduid": "ST01-007_9b9840b9-2ef1-4f03-953a-c89d8d9cb833",
+              "zone": "slot2",
+              "playerId": "playerId_2",
+              "cardData": {
+                "id": "ST01-007",
+                "name": "Gundam Aerial (Bit on Form)",
+                "cardType": "unit",
+                "color": "White",
+                "level": 4,
+                "cost": 2,
+                "zone": [
+                  "Space",
+                  "Earth"
+                ],
+                "traits": [
+                  "Academy"
+                ],
+                "link": [
+                  "Suletta Mercury"
+                ],
+                "ap": 3,
+                "hp": 4,
+                "effects": {
+                  "description": [],
+                  "rules": []
+                }
+              }
+            },
+            {
+              "carduid": "ST01-001_a5fcfa44-d212-4400-8c12-9a58fdbcac84",
+              "zone": "slot3",
+              "playerId": "playerId_2",
+              "cardData": {
+                "id": "ST01-001",
+                "name": "Gundam",
+                "cardType": "unit",
+                "color": "Blue",
+                "level": 4,
+                "cost": 3,
+                "zone": [
+                  "Space",
+                  "Earth"
+                ],
+                "traits": [
+                  "Earth Federation",
+                  "White Base Team"
+                ],
+                "link": [
+                  "Amuro Ray"
+                ],
+                "ap": 3,
+                "hp": 4,
+                "effects": {
+                  "description": [
+                    "<Repair 2> (At the end of your turn, this Unit recovers the specified number of HP.)",
+                    "【During Pair】During your turn, all your Units get AP+1."
+                  ],
+                  "rules": [
+                    {
+                      "effectId": "repair_2",
+                      "type": "keyword",
+                      "trigger": "END_OF_TURN",
+                      "action": "heal",
+                      "parameters": {
+                        "value": 2
+                      },
+                      "timing": {
+                        "duration": "instant"
+                      },
+                      "target": {
+                        "type": "unit",
+                        "scope": "self",
+                        "count": 1
+                      }
+                    },
+                    {
+                      "effectId": "pair_ap_boost_all",
+                      "type": "static",
+                      "trigger": "continuous",
+                      "sourceConditions": [
+                        {
+                          "type": "paired"
+                        }
+                      ],
+                      "action": "modifyAP",
+                      "parameters": {
+                        "value": 1
+                      },
+                      "timing": {
+                        "duration": "continuous",
+                        "actionTurn": "YOUR_TURN"
+                      },
+                      "target": {
+                        "type": "unit",
+                        "scope": "self_all_unit",
+                        "count": 1,
+                        "filters": {
+                          "controller": "self"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "carduid": "ST01-001_99bf72e0-45e9-42d1-b279-2aa8875edbbd",
+              "zone": "slot4",
+              "playerId": "playerId_2",
+              "cardData": {
+                "id": "ST01-001",
+                "name": "Gundam",
+                "cardType": "unit",
+                "color": "Blue",
+                "level": 4,
+                "cost": 3,
+                "zone": [
+                  "Space",
+                  "Earth"
+                ],
+                "traits": [
+                  "Earth Federation",
+                  "White Base Team"
+                ],
+                "link": [
+                  "Amuro Ray"
+                ],
+                "ap": 3,
+                "hp": 4,
+                "effects": {
+                  "description": [
+                    "<Repair 2> (At the end of your turn, this Unit recovers the specified number of HP.)",
+                    "【During Pair】During your turn, all your Units get AP+1."
+                  ],
+                  "rules": [
+                    {
+                      "effectId": "repair_2",
+                      "type": "keyword",
+                      "trigger": "END_OF_TURN",
+                      "action": "heal",
+                      "parameters": {
+                        "value": 2
+                      },
+                      "timing": {
+                        "duration": "instant"
+                      },
+                      "target": {
+                        "type": "unit",
+                        "scope": "self",
+                        "count": 1
+                      }
+                    },
+                    {
+                      "effectId": "pair_ap_boost_all",
+                      "type": "static",
+                      "trigger": "continuous",
+                      "sourceConditions": [
+                        {
+                          "type": "paired"
+                        }
+                      ],
+                      "action": "modifyAP",
+                      "parameters": {
+                        "value": 1
+                      },
+                      "timing": {
+                        "duration": "continuous",
+                        "actionTurn": "YOUR_TURN"
+                      },
+                      "target": {
+                        "type": "unit",
+                        "scope": "self_all_unit",
+                        "count": 1,
+                        "filters": {
+                          "controller": "self"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "carduid": "ST01-003_7cbc533a-96d0-428e-8eab-b07c7d5943e5",
+              "zone": "slot5",
+              "playerId": "playerId_2",
+              "cardData": {
+                "id": "ST01-003",
+                "name": "Guncannon",
+                "cardType": "unit",
+                "color": "Blue",
+                "level": 3,
+                "cost": 2,
+                "zone": [
+                  "Space",
+                  "Earth"
+                ],
+                "traits": [
+                  "Earth Federation",
+                  "White Base Team"
+                ],
+                "link": [
+                  "Kai Shiden"
+                ],
+                "ap": 2,
+                "hp": 4,
+                "effects": {
+                  "description": [],
+                  "rules": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "processingEnabled": true,
+    "maxEventsPerCycle": 50,
+    
+    "lastEventId": 0
+  }
+}
