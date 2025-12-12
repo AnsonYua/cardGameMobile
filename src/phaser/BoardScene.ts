@@ -549,7 +549,7 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
 
-    if (this.activeEffectChoiceId === pending.id) {
+    if (this.activeEffectChoiceId === pending.id && this.effectTargetDialogUi?.isOpen()) {
       return;
     }
     console.log("maybeShowEffectTargetDialog 1")

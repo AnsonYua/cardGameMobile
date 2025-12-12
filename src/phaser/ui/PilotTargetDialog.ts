@@ -11,6 +11,7 @@ export type PilotTargetDialogShowOpts = {
 export class PilotTargetDialog {
   private overlay?: Phaser.GameObjects.Rectangle;
   private dialog?: Phaser.GameObjects.Container;
+  private open = false;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -58,6 +59,11 @@ export class PilotTargetDialog {
     this.dialog?.destroy();
     this.overlay = undefined;
     this.dialog = undefined;
+    this.open = false;
+  }
+
+  isOpen() {
+    return this.open;
   }
 
   show(opts: PilotTargetDialogShowOpts) {
@@ -172,6 +178,7 @@ export class PilotTargetDialog {
     dialog.add([closeButton, closeLabel, header]);
     dialog.setDepth(2600);
     this.scene.add.existing(dialog);
+    this.open = true;
   }
 
   private toTex(tex?: string) {
