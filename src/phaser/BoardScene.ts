@@ -22,7 +22,6 @@ import type { ActionDescriptor } from "./game/ActionRegistry";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
-import type { SlotCardView } from "./ui/SlotTypes";
 
 const colors = {
   bg: "#ffffff",
