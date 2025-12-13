@@ -52,6 +52,16 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
+  confirmTargetChoice(payload: {
+    gameId: string;
+    playerId: string;
+    eventId: string;
+    selectedTargets: Array<{ carduid: string; zone: string; playerId: string }>;
+  }) {
+    const url = this.buildUrl("/api/game/player/confirmTargetChoice");
+    return this.requestWithFallback(url, payload);
+  }
+
   joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
     return this.requestWithFallback(url, { gameId, playerId, playerName });

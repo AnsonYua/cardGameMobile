@@ -356,3 +356,18 @@ after calling the api, it will return a response as below. this is the new game 
     "lastEventId": 0
   }
 }
+
+
+
+
+6.after EffectTargetDialog is show and user select a card it should be api call like below,eventId is processingQueue.id , selectedTargets.carduid is that unit 
+  curl -X POST http://localhost:8080/api/game/player/confirmTargetChoice \
+    -H "Content-Type: application/json" \
+    -d '{
+      "gameId": "GAME123",
+      "playerId": "player_1",
+      "eventId": "target_choice_5_1738955555555",
+      "selectedTargets": [
+        { "carduid": "ST01-007_abcd", "zone": "slot3", "playerId": "player_2" }
+      ]
+    }'

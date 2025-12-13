@@ -565,14 +565,49 @@ export class BoardScene extends Phaser.Scene {
     if (!targets.length) return;
     console.log("maybeShowEffectTargetDialog 2")
 
+    const players = raw?.gameEnv?.players || {};
+    const allIds = Object.keys(players);
+    const otherId = allIds.find((id) => id !== selfId);
+    const availableTargets: any[] = pending.data?.availableTargets || [];
+
     this.activeEffectChoiceId = pending.id;
     this.effectTargetDialogUi?.show({
       targets,
       header: "Choose a Target",
       onSelect: async (slot) => {
         console.log("Selected effect target", pending.id, slot);
-        this.activeEffectChoiceId = undefined;
-        await this.effectTargetDialogUi?.hide();
+        const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
+        const zone = slot?.slotId || "";
+        const ownerPlayerId = slot?.owner === "player" ? selfId : otherId || "";
+        const matched = availableTargets.find(
+          (t) =>
+            (t.carduid && t.carduid === targetUid) ||
+            (t.cardUid && t.cardUid === targetUid) ||
+            (t.zone && t.zone === zone && t.playerId === ownerPlayerId),
+        );
+        const carduid = matched?.carduid || matched?.cardUid || targetUid;
+        const payload = {
+          gameId: this.gameContext.gameId || "",
+          playerId: selfId || "",
+          eventId: pending.id,
+          selectedTargets: [
+            {
+              carduid: carduid || "",
+              zone: matched?.zone || zone,
+              playerId: matched?.playerId || ownerPlayerId || "",
+            },
+          ],
+        };
+
+        try {
+          await this.api.confirmTargetChoice(payload);
+          await this.engine.updateGameStatus(this.gameContext.gameId ?? undefined, selfId ?? undefined);
+        } catch (err) {
+          console.warn("confirmTargetChoice failed", err);
+        } finally {
+          this.activeEffectChoiceId = undefined;
+          await this.effectTargetDialogUi?.hide();
+        }
       },
     });
   }

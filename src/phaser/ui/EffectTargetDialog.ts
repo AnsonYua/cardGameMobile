@@ -20,6 +20,8 @@ export class EffectTargetDialog extends PilotTargetDialog {
       onSelect: opts.onSelect,
       header: opts.header ?? "Choose a Target",
       allowPiloted: true,
+      closeOnBackdrop: false,
+      showCloseButton: false,
     };
     super.show(baseOpts);
   }

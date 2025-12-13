@@ -51,6 +51,8 @@ export class DebugControls {
       if (gameEnv?.currentPlayer && gameEnv.currentPlayer !== this.context.playerId) {
         this.context.playerId = gameEnv.currentPlayer;
       }
+
+      //alert(gameId)
       await this.api.injectGameState(gameId, gameEnv);
       await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
       console.log("Scenario injected", { scenarioPath, gameId });

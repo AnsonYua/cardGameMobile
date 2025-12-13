@@ -6,6 +6,8 @@ export type PilotTargetDialogShowOpts = {
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
   header?: string;
   allowPiloted?: boolean;
+  closeOnBackdrop?: boolean;
+  showCloseButton?: boolean;
 };
 
 export class PilotTargetDialog {
@@ -70,6 +72,8 @@ export class PilotTargetDialog {
   show(opts: PilotTargetDialogShowOpts) {
     this.hide();
     const cam = this.scene.cameras.main;
+    const closeOnBackdrop = opts.closeOnBackdrop ?? true;
+    const showCloseButton = opts.showCloseButton ?? true;
     // Only show slots that have something to display; original dialog hides piloted slots unless allowed.
     const filtered = opts.targets.filter((t) => {
       const hasUnit = !!t.unit;
@@ -93,11 +97,13 @@ export class PilotTargetDialog {
 
     this.overlay = this.scene.add
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
-      .setInteractive({ useHandCursor: true })
+      .setInteractive({ useHandCursor: closeOnBackdrop })
       .setDepth(this.cfg.z.overlay);
-    this.overlay.on("pointerup", () => {
-      void this.hide();
-    });
+    if (closeOnBackdrop) {
+      this.overlay.on("pointerup", () => {
+        void this.hide();
+      });
+    }
 
     const dialog = this.scene.add.container(cam.centerX, cam.centerY);
     dialog.setDepth(this.cfg.z.dialog);
@@ -110,22 +116,26 @@ export class PilotTargetDialog {
     panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
     dialog.add(panel);
 
-    const closeButton = this.scene.add.rectangle(
-      dialogWidth / 2 - closeSize - closeOffset,
-      -dialogHeight / 2 + closeSize + closeOffset-10,
-      closeSize,
-      closeSize,
-      0xffffff,
-      0.12,
-    );
-    closeButton.setStrokeStyle(2, 0xffffff, 0.5);
-    closeButton.setInteractive({ useHandCursor: true });
-    closeButton.on("pointerup", () => {
-      void this.hide();
-    });
-    const closeLabel = this.scene.add
-      .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
-      .setOrigin(0.5);
+    let closeButton: Phaser.GameObjects.Rectangle | undefined;
+    let closeLabel: Phaser.GameObjects.Text | undefined;
+    if (showCloseButton) {
+      closeButton = this.scene.add.rectangle(
+        dialogWidth / 2 - closeSize - closeOffset,
+        -dialogHeight / 2 + closeSize + closeOffset-10,
+        closeSize,
+        closeSize,
+        0xffffff,
+        0.12,
+      );
+      closeButton.setStrokeStyle(2, 0xffffff, 0.5);
+      closeButton.setInteractive({ useHandCursor: true });
+      closeButton.on("pointerup", () => {
+        void this.hide();
+      });
+      closeLabel = this.scene.add
+        .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
+        .setOrigin(0.5);
+    }
 
     const headerText = opts.header || "Choose a Unit";
     const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset-10, headerText, {
@@ -180,7 +190,10 @@ export class PilotTargetDialog {
       dialog.add(empty);
     }
 
-    dialog.add([closeButton, closeLabel, header]);
+    dialog.add([header]);
+    if (showCloseButton && closeButton && closeLabel) {
+      dialog.add([closeButton, closeLabel]);
+    }
     dialog.setDepth(2600);
     this.scene.add.existing(dialog);
     this.open = true;
