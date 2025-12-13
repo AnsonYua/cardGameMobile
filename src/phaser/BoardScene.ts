@@ -22,6 +22,9 @@ import type { ActionDescriptor } from "./game/ActionRegistry";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
+import { PilotFlowController } from "./controllers/PilotFlowController";
+import { CommandFlowController } from "./controllers/CommandFlowController";
+import { UnitFlowController } from "./controllers/UnitFlowController";
 
 const colors = {
   bg: "#ffffff",
@@ -77,6 +80,9 @@ export class BoardScene extends Phaser.Scene {
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
   private activeEffectChoiceId?: string;
+  private pilotFlow?: PilotFlowController;
+  private commandFlow?: CommandFlowController;
+  private unitFlow?: UnitFlowController;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -118,10 +124,10 @@ export class BoardScene extends Phaser.Scene {
       this.refreshActions("neutral");
     });
     this.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
-      this.showPilotDesignationDialog();
+      this.pilotFlow?.showPilotDesignationDialog();
     });
     this.engine.events.on(ENGINE_EVENTS.PILOT_TARGET_DIALOG, () => {
-      this.showPilotTargetDialog("playPilotFromHand");
+      this.pilotFlow?.showPilotTargetDialog("playPilotFromHand");
     });
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
@@ -137,6 +143,18 @@ export class BoardScene extends Phaser.Scene {
     this.pilotTargetDialogUi = new PilotTargetDialog(this);
     this.pilotDesignationDialogUi = new PilotDesignationDialog(this);
     this.effectTargetDialogUi = new EffectTargetDialog(this);
+    this.pilotFlow = new PilotFlowController({
+      scene: this,
+      engine: this.engine,
+      slotPresenter: this.slotPresenter,
+      gameContext: this.gameContext,
+      pilotTargetDialog: this.pilotTargetDialogUi,
+      pilotDesignationDialog: this.pilotDesignationDialogUi,
+      runActionThenRefresh: this.runActionThenRefresh.bind(this),
+    });
+    this.commandFlow = new CommandFlowController(this.engine);
+    this.unitFlow = new UnitFlowController();
+    this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
@@ -615,48 +633,5 @@ export class BoardScene extends Phaser.Scene {
       },
     });
   }
-
-  private showPilotDesignationDialog() {
-    this.pilotDesignationDialogUi?.show({
-      onPilot: async () => {
-        this.showPilotTargetDialog("playPilotDesignationAsPilot");
-      },
-      onCommand: async () => {
-        await this.runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
-      },
-    });
-  }
-
-  private hidePilotTargetDialog() {
-    void this.pilotTargetDialogUi?.hide();
-  }
-
-  private collectPilotTargetUnits(): SlotViewModel[] {
-    const snapshot = this.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    if (!raw) return [];
-    const playerId = this.gameContext.playerId;
-    const slots = this.slotPresenter.toSlots(raw, playerId);
-    // Only show self slots with a unit and no pilot; first 6 max.
-    return slots.filter((s) => s.owner === "player" && s.unit && !s.pilot).slice(0, 6);
-  }
-
-  private showPilotTargetDialog(actionId: string = "playPilotDesignationAsPilot") {
-    this.engine.setPilotTarget(undefined);
-    const targets = this.collectPilotTargetUnits();
-    this.pilotTargetDialogUi?.show({
-      targets,
-      onSelect: async (slot) => {
-        const targetUid = slot?.unit?.cardUid || slot?.unit?.id;
-        if (!targetUid) {
-          console.warn("No target unit uid found for pilot target selection");
-          return;
-        }
-        this.engine.setPilotTarget(targetUid);
-        await this.runActionThenRefresh(actionId, "neutral");
-      },
-    });
-  }
-
 
 }

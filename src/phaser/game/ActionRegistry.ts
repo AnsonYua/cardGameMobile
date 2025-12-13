@@ -7,6 +7,8 @@ export type ActionContext = {
   runPlayCard?: (payload: { playerId: string; gameId: string; action: any }) => Promise<any>;
   refreshStatus?: () => Promise<any>;
   pilotTargetUid?: string;
+  clearSelection?: () => void;
+  setPilotTarget?: (uid?: string) => void;
 };
 
 export type ActionDescriptor = {

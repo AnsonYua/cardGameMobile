@@ -8,6 +8,9 @@ import { CardResourceLoader } from "./CardResourceLoader";
 import { SelectionStore, SelectionTarget } from "./SelectionStore";
 import { ActionRegistry, ActionContext, ActionDescriptor } from "./ActionRegistry";
 import { ApiManager } from "../api/ApiManager";
+import type { CommandFlowController } from "../controllers/CommandFlowController";
+import type { UnitFlowController } from "../controllers/UnitFlowController";
+import type { PilotFlowController } from "../controllers/PilotFlowController";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -24,6 +27,9 @@ export class GameEngine {
   private actions = new ActionRegistry();
   private api: ApiManager;
   private pilotTargetUid?: string;
+  private commandFlow?: CommandFlowController;
+  private unitFlow?: UnitFlowController;
+  private pilotFlow?: PilotFlowController;
 
   constructor(private scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
     this.resourceLoader = new CardResourceLoader(scene);
@@ -97,6 +103,12 @@ export class GameEngine {
 
   getSelection() {
     return this.selection.get();
+  }
+
+  setFlowControllers(flows: { commandFlow?: CommandFlowController; unitFlow?: UnitFlowController; pilotFlow?: PilotFlowController }) {
+    this.commandFlow = flows.commandFlow;
+    this.unitFlow = flows.unitFlow;
+    this.pilotFlow = flows.pilotFlow;
   }
 
   getAvailableActions(source: ActionSource = "neutral"): ActionDescriptor[] {
@@ -206,6 +218,8 @@ export class GameEngine {
       runPlayCard: (payload) => this.api.playCard(payload as any),
       refreshStatus: () => this.updateGameStatus(ctx.gameId ?? undefined, ctx.playerId ?? undefined),
       pilotTargetUid: this.pilotTargetUid,
+      clearSelection: () => this.clearSelection(),
+      setPilotTarget: (uid?: string) => this.setPilotTarget(uid),
       //refreshStatus: () => this.test(),
     };
   }
@@ -244,6 +258,7 @@ export class GameEngine {
     });
 
     this.actions.register("playUnitFromHand", async (ctx: ActionContext) => {
+      if (this.unitFlow) return this.unitFlow.handlePlayUnit(ctx);
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "unit") return;
       if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
@@ -279,6 +294,7 @@ export class GameEngine {
     this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
+      if (this.commandFlow) return this.commandFlow.handlePlayCommand(ctx);
       if (sel.fromPilotDesignation) {
         this.events.emit(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, { selection: sel });
         return;
