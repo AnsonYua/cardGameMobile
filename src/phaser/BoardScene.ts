@@ -155,9 +155,23 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
+    this.exposeTestHooks();
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
+  }
+
+  private exposeTestHooks() {
+    if (typeof window === "undefined") return;
+    const globalKey = "__cardTest";
+    const hooks = {
+      setScenario: (path?: string) => this.debugControls?.setScenario(path),
+      pollOnce: () => this.debugControls?.pollOnce(),
+      startAutoPolling: () => this.debugControls?.startAutoPolling(),
+      stopAutoPolling: () => this.debugControls?.stopAutoPolling(),
+    };
+    (window as any)[globalKey] = hooks;
+    console.log("Test hooks registered on window.__cardTest");
   }
    
   public startGame(){

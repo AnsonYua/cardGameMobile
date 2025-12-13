@@ -34,12 +34,30 @@ export class DebugControls {
     this.popup.show(config);
   }
 
+  // Public helpers for external triggers (unitTestSpec): allow triggering scenarios/polling without clicking UI.
+  async setScenario(scenarioPath?: string) {
+    await this.handleSetScenario(scenarioPath, { hidePopup: false });
+  }
 
-  private async handleSetScenario() {
-    await this.popup?.hide();
-    const scenarioPath = "BasicCase/basicMainBasest01_016_1";
+  async pollOnce() {
+    await this.handleTestPolling(false, { skipPopupHide: true, source: "PollOnce (external)" });
+  }
+
+  async startAutoPolling() {
+    await this.beginAutoPolling({ hidePopup: false });
+  }
+
+  async stopAutoPolling() {
+    await this.endAutoPolling({ hidePopup: false });
+  }
+
+  private async handleSetScenario(scenarioPath?: string, opts?: { hidePopup?: boolean }) {
+    if (opts?.hidePopup !== false) {
+      await this.popup?.hide();
+    }
+    const targetScenario = scenarioPath || "BasicCase/basicMainBasest01_016_1";
     try {
-      const scenarioJson = await this.api.getTestScenario(scenarioPath);
+      const scenarioJson = await this.api.getTestScenario(targetScenario);
       const gameEnv =
         scenarioJson?.initialGameEnv ??
         scenarioJson?.gameEnv ??
@@ -58,7 +76,7 @@ export class DebugControls {
       //alert(gameId)
       await this.api.injectGameState(gameId, gameEnv);
       await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
-      console.log("Scenario injected", { scenarioPath, gameId });
+      console.log("Scenario injected", { scenarioPath: targetScenario, gameId });
       await this.engine.updateGameStatus(gameId, this.context.playerId, true);
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
     } catch (err) {
@@ -87,13 +105,14 @@ export class DebugControls {
   private async toggleAutoPolling() {
     const isActive = !!this.pollEvent;
     if (isActive) {
-      this.pollEvent?.remove();
-      this.pollEvent = undefined;
-      await this.popup?.hide();
-      console.log("Stopped auto polling");
+      await this.endAutoPolling({ hidePopup: true });
       return;
     }
 
+    await this.beginAutoPolling({ hidePopup: true });
+  }
+
+  private async beginAutoPolling(opts?: { hidePopup?: boolean }) {
     // Kick off an immediate poll, then schedule every 5 seconds.
     await this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling (initial)" });
     this.pollEvent = this.scene.time.addEvent({
@@ -103,8 +122,21 @@ export class DebugControls {
         void this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling" });
       },
     });
-    await this.popup?.hide();
+    if (opts?.hidePopup !== false) {
+      await this.popup?.hide();
+    }
     console.log(`Started auto polling every ${this.pollDelayMs / 1000}s`);
+  }
+
+  private async endAutoPolling(opts?: { hidePopup?: boolean }) {
+    const isActive = !!this.pollEvent;
+    if (!isActive) return;
+    this.pollEvent?.remove();
+    this.pollEvent = undefined;
+    if (opts?.hidePopup !== false) {
+      await this.popup?.hide();
+    }
+    console.log("Stopped auto polling");
   }
 
   private async handleTestJoinButton() {
