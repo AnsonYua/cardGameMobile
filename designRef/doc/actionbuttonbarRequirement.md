@@ -371,3 +371,26 @@ after calling the api, it will return a response as below. this is the new game 
         { "carduid": "ST01-007_abcd", "zone": "slot3", "playerId": "player_2" }
       ]
     }'
+
+
+
+
+7.when the card type is command and there is no `effects.rules.effectId` = `pilot_designation`, it will directly make the api call .
+
+curl 'http://localhost:8080/api/game/player/playCard' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: http://localhost:5173' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://localhost:5173/' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-site' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  --data-raw '{"playerId":"playerId_2","gameId":"6a0d780a-45be-4583-b7b9-d265f43e84e5","action":{"type":"PlayCard","carduid":"ST01-013_51703d0a-9541-49b5-8b82-998293564235","playAs":"command"}}'

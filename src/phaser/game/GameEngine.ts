@@ -270,8 +270,14 @@ export class GameEngine {
         this.events.emit(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, { selection: sel });
         return;
       }
-      // Placeholder: hook into non-pilot command play flow once available.
-      console.log("Play Command (placeholder) for", sel.uid);
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return;
+      await ctx.runPlayCard({
+        playerId: ctx.playerId,
+        gameId: ctx.gameId,
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "command" },
+      });
+      await ctx.refreshStatus?.();
+      this.clearSelection();
     });
 
     this.actions.register("playPilotDesignationAsPilot", async (ctx: ActionContext) => {
