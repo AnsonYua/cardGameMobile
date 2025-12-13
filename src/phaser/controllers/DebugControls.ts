@@ -9,6 +9,8 @@ import { ApiManager } from "../api/ApiManager";
 export class DebugControls {
   private popup?: TestButtonPopup;
   private api = new ApiManager();
+  private pollEvent?: Phaser.Time.TimerEvent;
+  private readonly pollDelayMs = 1000;
 
   constructor(
     private scene: Phaser.Scene,
@@ -26,6 +28,7 @@ export class DebugControls {
       button1: { label: "Test JoinBtn", onClick: () => this.handleTestJoinButton() },
       button2: { label: "Test PollingBtn", onClick: () => this.handleTestPolling() },
       button3: { label: "SetScenario", onClick: () => this.handleSetScenario() },
+      button4: { label: this.pollEvent ? "Stop Auto Polling" : "Start Auto Polling", onClick: () => this.toggleAutoPolling() },
       gameId: this.context.gameId ?? "N/A",
     };
     this.popup.show(config);
@@ -62,9 +65,11 @@ export class DebugControls {
       console.error("Set scenario failed", err);
     }
   }
-  private async handleTestPolling(isSetScenoria=false) {
+  private async handleTestPolling(isSetScenoria=false, opts?: { skipPopupHide?: boolean; source?: string }) {
     try {
-      await this.popup?.hide();
+      if (!opts?.skipPopupHide) {
+        await this.popup?.hide();
+      }
       const snapshot = await this.engine.updateGameStatus(
         this.context.gameId ?? undefined,
         this.context.playerId,
@@ -73,10 +78,33 @@ export class DebugControls {
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;
       }
-      console.log("Polling status:", this.context.lastStatus);
+      console.log(`${opts?.source ?? "Polling"} status:`, this.context.lastStatus);
     } catch (err) {
-      console.warn("Polling failed", err);
+      console.warn(`${opts?.source ?? "Polling"} failed`, err);
     }
+  }
+
+  private async toggleAutoPolling() {
+    const isActive = !!this.pollEvent;
+    if (isActive) {
+      this.pollEvent?.remove();
+      this.pollEvent = undefined;
+      await this.popup?.hide();
+      console.log("Stopped auto polling");
+      return;
+    }
+
+    // Kick off an immediate poll, then schedule every 5 seconds.
+    await this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling (initial)" });
+    this.pollEvent = this.scene.time.addEvent({
+      delay: this.pollDelayMs,
+      loop: true,
+      callback: () => {
+        void this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling" });
+      },
+    });
+    await this.popup?.hide();
+    console.log(`Started auto polling every ${this.pollDelayMs / 1000}s`);
   }
 
   private async handleTestJoinButton() {
