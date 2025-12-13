@@ -17,7 +17,7 @@ export type ActionDescriptor = {
   reason?: string;
 };
 
-export type ActionHandler = (ctx: ActionContext) => Promise<void>;
+export type ActionHandler = (ctx: ActionContext) => Promise<void | boolean>;
 
 export class ActionRegistry {
   private registry = new Map<string, ActionHandler>();

@@ -180,7 +180,7 @@ export class GameEngine {
     const handler = this.actions.get(id);
     if (!handler) return;
     const ctx = this.buildActionContext();
-    await handler(ctx);
+    return handler(ctx);
   }
 
   async loadGameResources(gameId: string, playerId: string, statusPayload?: GameStatusResponse) {
@@ -258,9 +258,22 @@ export class GameEngine {
 
     this.actions.register("playPilotFromHand", async (ctx: ActionContext) => {
       const sel = ctx.selection;
-      if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "pilot") return;
-      // Placeholder: hook into pilot play flow once available.
-      console.log("Play Pilot (placeholder) for", sel.uid);
+      if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "pilot") return false;
+      if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard) return false;
+      if (!ctx.pilotTargetUid) {
+        // Ask UI to show pilot target dialog; skip refresh for now.
+        this.events.emit(ENGINE_EVENTS.PILOT_TARGET_DIALOG, { selection: sel });
+        return false;
+      }
+      await ctx.runPlayCard({
+        playerId: ctx.playerId,
+        gameId: ctx.gameId,
+        action: { type: "PlayCard", carduid: sel.uid, playAs: "pilot", targetUnit: ctx.pilotTargetUid },
+      });
+      await ctx.refreshStatus?.();
+      this.clearSelection();
+      this.pilotTargetUid = undefined;
+      return true;
     });
 
     this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {

@@ -8,6 +8,7 @@ export const ENGINE_EVENTS = {
   LOADING_START: "engine:loading-start",
   LOADING_END: "engine:loading-end",
   PILOT_DESIGNATION_DIALOG: "engine:dialog:pilot-designation",
+  PILOT_TARGET_DIALOG: "engine:dialog:pilot-target",
 } as const;
 
 export type EngineEventKey = (typeof ENGINE_EVENTS)[keyof typeof ENGINE_EVENTS];

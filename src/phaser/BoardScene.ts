@@ -120,6 +120,9 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
       this.showPilotDesignationDialog();
     });
+    this.engine.events.on(ENGINE_EVENTS.PILOT_TARGET_DIALOG, () => {
+      this.showPilotTargetDialog("playPilotFromHand");
+    });
     this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
       console.log("Game resources fetched", payload?.resources);
     });
@@ -354,7 +357,8 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
-    await this.engine.runAction(actionId);
+    const result = await this.engine.runAction(actionId);
+    if (result === false) return;
     this.refreshAfterStateChange(actionSource);
   }
 
@@ -615,7 +619,7 @@ export class BoardScene extends Phaser.Scene {
   private showPilotDesignationDialog() {
     this.pilotDesignationDialogUi?.show({
       onPilot: async () => {
-        this.showPilotTargetDialog();
+        this.showPilotTargetDialog("playPilotDesignationAsPilot");
       },
       onCommand: async () => {
         await this.runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
@@ -637,7 +641,7 @@ export class BoardScene extends Phaser.Scene {
     return slots.filter((s) => s.owner === "player" && s.unit && !s.pilot).slice(0, 6);
   }
 
-  private showPilotTargetDialog() {
+  private showPilotTargetDialog(actionId: string = "playPilotDesignationAsPilot") {
     this.engine.setPilotTarget(undefined);
     const targets = this.collectPilotTargetUnits();
     this.pilotTargetDialogUi?.show({
@@ -645,11 +649,11 @@ export class BoardScene extends Phaser.Scene {
       onSelect: async (slot) => {
         const targetUid = slot?.unit?.cardUid || slot?.unit?.id;
         if (!targetUid) {
-          console.warn("No target unit uid found for pilot designation");
+          console.warn("No target unit uid found for pilot target selection");
           return;
         }
         this.engine.setPilotTarget(targetUid);
-        await this.runActionThenRefresh("playPilotDesignationAsPilot", "neutral");
+        await this.runActionThenRefresh(actionId, "neutral");
       },
     });
   }

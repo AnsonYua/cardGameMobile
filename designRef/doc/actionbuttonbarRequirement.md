@@ -394,3 +394,7 @@ curl 'http://localhost:8080/api/game/player/playCard' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"playerId_2","gameId":"6a0d780a-45be-4583-b7b9-d265f43e84e5","action":{"type":"PlayCard","carduid":"ST01-013_51703d0a-9541-49b5-8b82-998293564235","playAs":"command"}}'
+
+
+
+  8.if cardtype = "pilot" ,show a dialog PilotTargetDialog. it will get all unit without pilot in slot and appear in the dialog. it will has 3 x 2 display. Then when a unit card is selected in the pilottargetDialog , it will call this api. same flow of #5 if the command card place as pilot
