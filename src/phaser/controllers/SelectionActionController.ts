@@ -5,6 +5,8 @@ import type { HandCardView } from "../ui/HandTypes";
 import { HandPresenter } from "../ui/HandPresenter";
 import type { SlotViewModel, SlotOwner } from "../ui/SlotTypes";
 import { SlotPresenter } from "../ui/SlotPresenter";
+import { ApiManager } from "../api/ApiManager";
+import type { EffectTargetController } from "./EffectTargetController";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -22,15 +24,18 @@ type ActionControls = {
 export class SelectionActionController {
   private selectedHandCard?: HandCardView;
   private lastPhase?: string;
+  private selectedSlot?: SlotViewModel;
 
   constructor(
     private deps: {
       engine: GameEngine;
       slotPresenter: SlotPresenter;
       handPresenter: HandPresenter;
+      api: ApiManager;
       handControls?: HandControls | null;
       slotControls?: SlotControls | null;
       actionControls?: ActionControls | null;
+      effectTargetController?: EffectTargetController | null;
       gameContext: GameContext;
       refreshPhase: (skipFade: boolean) => void;
     },
@@ -59,6 +64,7 @@ export class SelectionActionController {
       this.refreshActions("neutral");
       return;
     }
+    this.selectedSlot = slot;
     this.selectedHandCard = undefined;
     this.deps.handControls?.clearSelection?.();
     this.deps.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
@@ -68,6 +74,7 @@ export class SelectionActionController {
 
   handleBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
     this.selectedHandCard = undefined;
+    this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
     if (!payload?.card) return;
     this.deps.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
@@ -98,7 +105,24 @@ export class SelectionActionController {
         label: "Cancel",
         enabled: true,
       });
-      const mapped = this.buildActionDescriptors(slotDescriptors);
+      const mapped = slotDescriptors.map((d) => ({
+        label: d.label,
+        enabled: d.enabled,
+        primary: d.primary,
+        onClick: async () => {
+          if (d.id === "attackUnit") {
+            await this.handleAttackUnit();
+            return;
+          }
+          if (d.id === "attackShield") {
+            await this.handleAttackShield();
+            return;
+          }
+          if (d.id === "cancelSelection") {
+            this.handleCancelSelection();
+          }
+        },
+      }));
       this.deps.actionControls?.setState?.({ descriptors: mapped });
       return;
     }
@@ -113,10 +137,20 @@ export class SelectionActionController {
   }
 
   async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
-    const result = await this.deps.engine.runAction(actionId);
-    if (actionId === "cancelSelection") {
-      this.clearSelectionUI();
+    // Slot-specific actions are handled directly to avoid engine placeholders.
+    if (actionId === "attackUnit") {
+      await this.handleAttackUnit();
+      return;
     }
+    if (actionId === "attackShield") {
+      await this.handleAttackShield();
+      return;
+    }
+    if (actionId === "cancelSelection") {
+      this.handleCancelSelection();
+      return;
+    }
+    const result = await this.deps.engine.runAction(actionId);
     if (result === false) return;
     this.refreshAfterStateChange(actionSource);
   }
@@ -127,6 +161,7 @@ export class SelectionActionController {
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
     this.selectedHandCard = undefined;
+    this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
     this.deps.handControls?.clearSelection?.();
     if (opts.clearEngine) {
@@ -153,6 +188,30 @@ export class SelectionActionController {
     const raw: any = this.deps.engine.getSnapshot().raw;
     const currentPlayer = raw?.gameEnv?.currentPlayer;
     return currentPlayer === this.deps.gameContext.playerId;
+  }
+
+  private async handleAttackUnit() {
+    const targets = this.getOpponentUnitSlots();
+    if (!targets.length) {
+      console.warn("No opponent units to target");
+      return;
+    }
+    await this.deps.effectTargetController?.showManualTargets({
+      targets,
+      header: "Choose a target to attack",
+      onSelect: async (slot) => {
+        await this.performAttackUnit(slot);
+      },
+    });
+  }
+
+  private async handleAttackShield() {
+    console.log("Attack Shield clicked (placeholder)");
+  }
+
+  private handleCancelSelection() {
+    this.clearSelectionUI({ clearEngine: true });
+    this.refreshActions("neutral");
   }
 
   private applyMainPhaseDefaults(force = false) {
@@ -183,5 +242,55 @@ export class SelectionActionController {
     const playerId = this.deps.gameContext.playerId;
     const slots = this.deps.slotPresenter.toSlots(raw, playerId);
     return slots.some((s) => s.owner === "opponent" && !!s.unit);
+  }
+
+  private getOpponentUnitSlots(): SlotViewModel[] {
+    const snapshot = this.deps.engine.getSnapshot();
+    const raw: any = snapshot.raw;
+    if (!raw) return [];
+    const playerId = this.deps.gameContext.playerId;
+    const slots = this.deps.slotPresenter.toSlots(raw, playerId);
+    return slots.filter((s) => s.owner === "opponent" && !!s.unit);
+  }
+
+  private getOpponentPlayerId() {
+    const raw: any = this.deps.engine.getSnapshot().raw;
+    const players = raw?.gameEnv?.players || {};
+    const allIds = Object.keys(players);
+    const selfId = this.deps.gameContext.playerId;
+    return allIds.find((id) => id !== selfId);
+  }
+
+  private async performAttackUnit(target: SlotViewModel) {
+    if (!this.selectedSlot?.unit?.cardUid) {
+      console.warn("No attacker selected");
+      return;
+    }
+    const attackerCarduid = this.selectedSlot.unit.cardUid;
+    const targetUnitUid = target.unit?.cardUid;
+    const targetPlayerId = this.getOpponentPlayerId();
+    const gameId = this.deps.gameContext.gameId;
+    const playerId = this.deps.gameContext.playerId;
+    if (!gameId || !playerId || !targetUnitUid || !targetPlayerId) {
+      console.warn("Missing data for attackUnit", { gameId, playerId, targetUnitUid, targetPlayerId });
+      return;
+    }
+    const payload = {
+      playerId,
+      gameId,
+      actionType: "attackUnit",
+      attackerCarduid,
+      targetType: "unit",
+      targetUnitUid,
+      targetPlayerId,
+      targetPilotUid: null,
+    };
+    try {
+      await this.deps.api.playerAction(payload);
+      await this.deps.engine.updateGameStatus(gameId, playerId);
+      this.handleCancelSelection();
+    } catch (err) {
+      console.warn("attackUnit request failed", err);
+    }
   }
 }

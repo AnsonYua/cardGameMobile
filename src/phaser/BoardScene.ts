@@ -24,6 +24,7 @@ import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
+import { EffectTargetController } from "./controllers/EffectTargetController";
 
 const colors = {
   bg: "#ffffff",
@@ -74,10 +75,10 @@ export class BoardScene extends Phaser.Scene {
   private loadingText?: Phaser.GameObjects.Text;
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
   private selectionAction?: SelectionActionController;
+  private effectTargetController?: EffectTargetController;
   private pilotTargetDialogUi?: PilotTargetDialog;
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
-  private activeEffectChoiceId?: string;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -107,16 +108,6 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls = this.ui.getSlotControls();
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
-    this.selectionAction = new SelectionActionController({
-      engine: this.engine,
-      slotPresenter: this.slotPresenter,
-      handPresenter: this.handPresenter,
-      handControls: this.handControls,
-      slotControls: this.slotControls,
-      actionControls: this.actionControls,
-      gameContext: this.gameContext,
-      refreshPhase: (skipFade) => this.refreshPhase(skipFade),
-    });
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
@@ -142,15 +133,28 @@ export class BoardScene extends Phaser.Scene {
     });
     this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
     this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
-    this.setupActions();
-    this.wireUiHandlers();
-    this.ui.drawAll(this.offset);
-    this.hideDefaultUI();
-    // Sync header with initial state before async work.
-    this.onMatchStatus(this.match.getState());
     this.pilotTargetDialogUi = new PilotTargetDialog(this);
     this.pilotDesignationDialogUi = new PilotDesignationDialog(this);
     this.effectTargetDialogUi = new EffectTargetDialog(this);
+    this.effectTargetController = new EffectTargetController({
+      dialog: this.effectTargetDialogUi,
+      slotPresenter: this.slotPresenter,
+      gameContext: this.gameContext,
+      engine: this.engine,
+      api: this.api,
+    });
+    this.selectionAction = new SelectionActionController({
+      engine: this.engine,
+      api: this.api,
+      slotPresenter: this.slotPresenter,
+      handPresenter: this.handPresenter,
+      handControls: this.handControls,
+      slotControls: this.slotControls,
+      actionControls: this.actionControls,
+      effectTargetController: this.effectTargetController,
+      gameContext: this.gameContext,
+      refreshPhase: (skipFade) => this.refreshPhase(skipFade),
+    });
     this.pilotFlow = new PilotFlowController({
       scene: this,
       engine: this.engine,
@@ -164,6 +168,13 @@ export class BoardScene extends Phaser.Scene {
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
     this.debugControls.exposeTestHooks(this.buildTestHooks());
+
+    this.setupActions();
+    this.wireUiHandlers();
+    this.ui.drawAll(this.offset);
+    this.hideDefaultUI();
+    // Sync header with initial state before async work.
+    this.onMatchStatus(this.match.getState());
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
@@ -267,7 +278,10 @@ export class BoardScene extends Phaser.Scene {
     this.updateSlots();
     this.updateBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
-    this.maybeShowEffectTargetDialog();
+    const raw = this.engine.getSnapshot().raw as any;
+    if (raw) {
+      void this.effectTargetController?.syncFromSnapshot(raw);
+    }
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -424,7 +438,6 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls?.setButtonHandler(() => this.startGame());
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }
-
   private async initSession() {
     try {
       this.offlineFallback = false;
@@ -529,111 +542,5 @@ export class BoardScene extends Phaser.Scene {
   }
 
 
-
-  private mapAvailableTargetsToSlots(raw: any, availableTargets: any[]): SlotViewModel[] {
-    if (!raw) return [];
-    const selfId = this.gameContext.playerId;
-    const allSlots = this.slotPresenter.toSlots(raw, selfId);
-    const mapped: SlotViewModel[] = [];
-
-    availableTargets.forEach((t: any) => {
-      const owner: "player" | "opponent" = t.playerId === selfId ? "player" : "opponent";
-      const existing = allSlots.find((s) => s.slotId === t.zone && s.owner === owner);
-      if (existing) {
-        mapped.push(existing);
-        return;
-      }
-
-      const cardType = (t.cardData?.cardType || "").toLowerCase();
-      const cardView: SlotCardView = {
-        id: t.cardData?.id,
-        cardType: t.cardData?.cardType,
-        textureKey: toPreviewKey(t.cardData?.id),
-        cardUid: t.carduid ?? t.cardUid,
-        cardData: t.cardData,
-      };
-      const slot: SlotViewModel = {
-        owner,
-        slotId: t.zone || "unknown",
-        fieldCardValue: { totalAP: t.cardData?.ap ?? 0, totalHP: t.cardData?.hp ?? 0 },
-      };
-      if (cardType === "pilot" || cardType === "command") {
-        slot.pilot = cardView;
-      } else {
-        slot.unit = cardView;
-      }
-      mapped.push(slot);
-    });
-
-    return mapped;
-  }
-
-  private maybeShowEffectTargetDialog() {
-    const snapshot = this.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    const selfId = this.gameContext.playerId;
-    const processing: any[] = raw?.gameEnv?.processingQueue || [];
-    const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
-    console.log("maybeShowEffectTargetDialog 0 ", selfId, " ",JSON.stringify(processing) )
-    if (!pending) {
-      this.activeEffectChoiceId = undefined;
-      void this.effectTargetDialogUi?.hide();
-      return;
-    }
-
-    if (this.activeEffectChoiceId === pending.id && this.effectTargetDialogUi?.isOpen()) {
-      return;
-    }
-    console.log("maybeShowEffectTargetDialog 1")
-    const targets = this.mapAvailableTargetsToSlots(raw, pending.data?.availableTargets || []);
-    if (!targets.length) return;
-    console.log("maybeShowEffectTargetDialog 2")
-
-    const players = raw?.gameEnv?.players || {};
-    const allIds = Object.keys(players);
-    const otherId = allIds.find((id) => id !== selfId);
-    const availableTargets: any[] = pending.data?.availableTargets || [];
-
-    this.activeEffectChoiceId = pending.id;
-    this.effectTargetDialogUi?.show({
-      targets,
-      header: "Choose a Target",
-      onSelect: async (slot) => {
-        console.log("Selected effect target", pending.id, slot);
-        const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
-        const zone = slot?.slotId || "";
-        const ownerPlayerId = slot?.owner === "player" ? selfId : otherId || "";
-        const matched = availableTargets.find(
-          (t) =>
-            (t.carduid && t.carduid === targetUid) ||
-            (t.cardUid && t.cardUid === targetUid) ||
-            (t.zone && t.zone === zone && t.playerId === ownerPlayerId),
-        );
-        const carduid = matched?.carduid || matched?.cardUid || targetUid;
-        const payload = {
-          gameId: this.gameContext.gameId || "",
-          playerId: selfId || "",
-          eventId: pending.id,
-          selectedTargets: [
-            {
-              carduid: carduid || "",
-              zone: matched?.zone || zone,
-              playerId: matched?.playerId || ownerPlayerId || "",
-            },
-          ],
-        };
-
-        try {
-          await this.api.confirmTargetChoice(payload);
-          await this.engine.updateGameStatus(this.gameContext.gameId ?? undefined, selfId ?? undefined);
-        } catch (err) {
-          console.warn("confirmTargetChoice failed", err);
-        } finally {
-          this.activeEffectChoiceId = undefined;
-          await this.effectTargetDialogUi?.hide();
-        }
-      },
-    });
-  }
 
 }

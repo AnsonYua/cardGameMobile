@@ -62,6 +62,20 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
+  playerAction(payload: {
+    playerId: string;
+    gameId: string;
+    actionType: string;
+    attackerCarduid?: string;
+    targetType?: string;
+    targetUnitUid?: string;
+    targetPlayerId?: string;
+    targetPilotUid?: string | null;
+  }) {
+    const url = this.buildUrl("/api/game/player/playerAction");
+    return this.requestWithFallback(url, payload);
+  }
+
   joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
     return this.requestWithFallback(url, { gameId, playerId, playerName });
