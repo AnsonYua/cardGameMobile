@@ -427,6 +427,33 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshActions(source: ActionSource = "neutral") {
+    const selection = this.engine.getSelection();
+    if (source === "slot" && selection?.kind === "slot" && selection.owner === "player") {
+      const opponentHasUnit = this.checkOpponentHasUnit();
+      const slotDescriptors: ActionDescriptor[] = [];
+      if (opponentHasUnit) {
+        slotDescriptors.push({
+          id: "attackUnit",
+          label: "Attack Unit",
+          enabled: true,
+          primary: true,
+        });
+      }
+      slotDescriptors.push({
+        id: "attackShield",
+        label: "Attack Shield",
+        enabled: true,
+        primary: !slotDescriptors.some((d) => d.primary),
+      });
+      slotDescriptors.push({
+        id: "cancelSelection",
+        label: "Cancel",
+        enabled: true,
+      });
+      const mapped = this.buildActionDescriptors(slotDescriptors);
+      this.actionControls?.setState?.({ descriptors: mapped });
+      return;
+    }
     const descriptors = this.engine.getAvailableActions(source);
     const mapped = this.buildActionDescriptors(descriptors);
     this.actionControls?.setState?.({ descriptors: mapped });
@@ -474,6 +501,15 @@ export class BoardScene extends Phaser.Scene {
 
   private hideLoading() {
     this.loadingText?.setVisible(false);
+  }
+
+  private checkOpponentHasUnit() {
+    const snapshot = this.engine.getSnapshot();
+    const raw: any = snapshot.raw;
+    if (!raw) return false;
+    const playerId = this.gameContext.playerId;
+    const slots = this.slotPresenter.toSlots(raw, playerId);
+    return slots.some((s) => s.owner === "opponent" && !!s.unit);
   }
 
   // Centralize UI wiring/drawing to reduce call scattering in create().

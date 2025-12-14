@@ -175,3 +175,7 @@ black label for the total set(just below the pilot card) ,show fieldCardValue.to
 - Preview trigger: long-press ~400ms; overlay alpha ~0.65; fade in 180ms, fade out 150ms; tap anywhere to dismiss (not on release).
 - Preview layout: base width 300px, aspect 88/64. Pilot offset ~20% down (10% for command pilots); unit offset up by 40% of pilot offset.
 - Preview badges: size 70x45; font ~20px. Total badge color blue (0x284cfc) with a 10px gap below the stack. Pilot badge uses pilot ap|hp (or pilot_designation AP|HP for command), unit badge uses unit ap|hp, total badge uses fieldCardValue.totalAP|totalHP.
+
+
+
+6.when slot card is clicked (my slot card , not opponent slot card).it will check if opponent slot have unit. if have unit it will show attack Unit,attack Shield and Cancel Button(no end turn button). if dont have unit , it will only show attach Shield and Cancel Button(no end turn button). when click cancel it will deselect the card and show back the End Turn Button. when me placeholder for attack unit and attack shield.

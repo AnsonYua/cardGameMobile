@@ -249,6 +249,14 @@ export class GameEngine {
       this.clearSelection();
     });
 
+    // Placeholder attack actions
+    this.actions.register("attackUnit", async () => {
+      console.log("Attack Unit (placeholder)");
+    });
+    this.actions.register("attackShield", async () => {
+      console.log("Attack Shield (placeholder)");
+    });
+
     this.actions.register("slotAction", async (ctx: ActionContext) => {
       console.log("Slot action triggered", ctx.selection);
     });
