@@ -16,15 +16,14 @@ import { DebugControls } from "./controllers/DebugControls";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotCardView } from "./ui/SlotTypes";
-import type { HandCardView } from "./ui/HandTypes";
 import { toPreviewKey } from "./ui/HandTypes";
-import type { ActionDescriptor } from "./game/ActionRegistry";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
+import { SelectionActionController } from "./controllers/SelectionActionController";
 
 const colors = {
   bg: "#ffffff",
@@ -74,8 +73,7 @@ export class BoardScene extends Phaser.Scene {
   private debugControls?: DebugControls;
   private loadingText?: Phaser.GameObjects.Text;
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
-  private lastPhase?: string;
-  private selectedHandCard?: HandCardView;
+  private selectionAction?: SelectionActionController;
   private pilotTargetDialogUi?: PilotTargetDialog;
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
@@ -109,6 +107,16 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls = this.ui.getSlotControls();
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
+    this.selectionAction = new SelectionActionController({
+      engine: this.engine,
+      slotPresenter: this.slotPresenter,
+      handPresenter: this.handPresenter,
+      handControls: this.handControls,
+      slotControls: this.slotControls,
+      actionControls: this.actionControls,
+      gameContext: this.gameContext,
+      refreshPhase: (skipFade) => this.refreshPhase(skipFade),
+    });
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
@@ -117,11 +125,11 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE,()=>{
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, () => {
       this.mainPhaseUpdate();
-    })
+    });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
-      this.refreshActions("neutral");
+      this.selectionAction?.refreshActions("neutral");
     });
     this.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
       this.pilotFlow?.showPilotDesignationDialog();
@@ -170,7 +178,7 @@ export class BoardScene extends Phaser.Scene {
       const cards = this.handPresenter.toHandCards(raw, this.gameContext.playerId);
       const target = cards.find((c) => c.uid === uid);
       if (!target) return false;
-      this.onHandCardSelected(target);
+      this.selectionAction?.handleHandCardSelected(target);
       return true;
     };
     const clickPrimaryAction = async (source: ActionSource = "hand") => {
@@ -312,7 +320,8 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;
-    this.handControls?.setHand(cards, { preserveSelectionUid: this.selectedHandCard?.uid });
+    const selectedUid = this.selectionAction?.getSelectedHandCard()?.uid;
+    this.handControls?.setHand(cards, { preserveSelectionUid: selectedUid });
     this.handControls?.setVisible(true);
     if (!opts.skipFade) {
       this.handControls?.fadeIn();
@@ -329,72 +338,15 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateActionBarForPhase() {
-    this.applyMainPhaseDefaults(false);
+    this.selectionAction?.updateActionBarForPhase();
+  }
+
+  private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
+    await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
   }
 
   private handleEndTurn() {
     console.log("End Turn clicked");
-  }
-
-  private onHandCardSelected(card: HandCardView) {
-    this.selectedHandCard = card;
-    this.slotControls?.setSelectedSlot?.();
-    this.engine.select({
-      kind: "hand",
-      uid: card.uid || "",
-      cardType: card.cardType,
-      fromPilotDesignation: card.fromPilotDesignation,
-      cardId: card.cardId,
-    });
-    this.refreshActions("hand");
-  }
-
-  private onSlotCardSelected(_slot: SlotViewModel) {
-    if (this.isPlayersTurn() && _slot.owner === "opponent") {
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    this.selectedHandCard = undefined;
-    this.handControls?.clearSelection?.();
-    this.slotControls?.setSelectedSlot?.(_slot.owner, _slot.slotId);
-    this.engine.select({ kind: "slot", slotId: _slot.slotId, owner: _slot.owner });
-    this.refreshActions("slot");
-  }
-
-  private onBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
-    this.selectedHandCard = undefined;
-    this.slotControls?.setSelectedSlot?.();
-    if (!payload?.card) return;
-    this.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
-    this.refreshActions("base");
-  }
-
-  private isPlayersTurn() {
-    const raw: any = this.engine.getSnapshot().raw;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.gameContext.playerId;
-  }
-
-  private applyMainPhaseDefaults(force = false) {
-    const raw = this.engine.getSnapshot().raw as any;
-    const actions = this.actionControls;
-    if (!raw || !actions) return;
-    const phase = raw?.gameEnv?.phase;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const self = this.gameContext.playerId;
-    const inMainPhase = phase === "MAIN_PHASE" && currentPlayer === self;
-    if (!inMainPhase) {
-      this.lastPhase = phase;
-      return;
-    }
-    if (force || this.lastPhase !== "MAIN_PHASE") {
-      actions.setState?.({
-        descriptors: this.buildActionDescriptors([]),
-      });
-      this.handControls?.setHand?.(this.handPresenter.toHandCards(raw, this.gameContext.playerId)); // redraw clears highlights
-    }
-    this.lastPhase = phase;
   }
 
   private updateBaseAndShield(opts: { fade?: boolean } = {}) {
@@ -441,64 +393,6 @@ export class BoardScene extends Phaser.Scene {
     applySide(otherId, true);
   }
 
-  private refreshActions(source: ActionSource = "neutral") {
-    const selection = this.engine.getSelection();
-    if (source === "slot" && selection?.kind === "slot" && selection.owner === "player") {
-      const opponentHasUnit = this.checkOpponentHasUnit();
-      const slotDescriptors: ActionDescriptor[] = [];
-      if (opponentHasUnit) {
-        slotDescriptors.push({
-          id: "attackUnit",
-          label: "Attack Unit",
-          enabled: true,
-          primary: true,
-        });
-      }
-      slotDescriptors.push({
-        id: "attackShield",
-        label: "Attack Shield",
-        enabled: true,
-        primary: !slotDescriptors.some((d) => d.primary),
-      });
-      slotDescriptors.push({
-        id: "cancelSelection",
-        label: "Cancel",
-        enabled: true,
-      });
-      const mapped = this.buildActionDescriptors(slotDescriptors);
-      this.actionControls?.setState?.({ descriptors: mapped });
-      return;
-    }
-    const descriptors = this.engine.getAvailableActions(source);
-    const mapped = this.buildActionDescriptors(descriptors);
-    this.actionControls?.setState?.({ descriptors: mapped });
-  }
-
-  private refreshAfterStateChange(actionSource: ActionSource = "neutral") {
-    this.refreshPhase(true);
-    this.refreshActions(actionSource);
-  }
-
-  private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
-    const result = await this.engine.runAction(actionId);
-    if (actionId === "cancelSelection") {
-      this.clearSelectionUI();
-    }
-    if (result === false) return;
-    this.refreshAfterStateChange(actionSource);
-  }
-
-  private buildActionDescriptors(descriptors: ActionDescriptor[]) {
-    return descriptors.map((d) => ({
-      label: d.label,
-      enabled: d.enabled,
-      primary: d.primary,
-      onClick: async () => {
-        await this.runActionThenRefresh(d.id, "neutral");
-      },
-    }));
-  }
-
   private showLoading() {
     if (this.loadingText) {
       this.loadingText.setVisible(true);
@@ -521,21 +415,12 @@ export class BoardScene extends Phaser.Scene {
     this.loadingText?.setVisible(false);
   }
 
-  private checkOpponentHasUnit() {
-    const snapshot = this.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    if (!raw) return false;
-    const playerId = this.gameContext.playerId;
-    const slots = this.slotPresenter.toSlots(raw, playerId);
-    return slots.some((s) => s.owner === "opponent" && !!s.unit);
-  }
-
   // Centralize UI wiring/drawing to reduce call scattering in create().
   private wireUiHandlers() {
     this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
-    this.handControls?.setCardClickHandler?.((card) => this.onHandCardSelected(card));
-    this.slotControls?.setSlotClickHandler?.((slot) => this.onSlotCardSelected(slot));
-    this.baseControls?.setBaseClickHandler?.((payload) => this.onBaseCardSelected(payload));
+    this.handControls?.setCardClickHandler?.((card) => this.selectionAction?.handleHandCardSelected(card));
+    this.slotControls?.setSlotClickHandler?.((slot) => this.selectionAction?.handleSlotCardSelected(slot));
+    this.baseControls?.setBaseClickHandler?.((payload) => this.selectionAction?.handleBaseCardSelected(payload));
     this.headerControls?.setButtonHandler(() => this.startGame());
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }
@@ -751,11 +636,4 @@ export class BoardScene extends Phaser.Scene {
     });
   }
 
-  private clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
-    this.selectedHandCard = undefined;
-    this.slotControls?.setSelectedSlot?.();
-    if (opts.clearEngine) {
-      this.engine.clearSelection();
-    }
-  }
 }
