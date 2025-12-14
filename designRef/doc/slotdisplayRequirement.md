@@ -196,7 +196,82 @@ curl 'http://localhost:8080/api/game/player/playerAction' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","actionType":"attackUnit","attackerCarduid":"ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd","targetType":"unit","targetUnitUid":"ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578","targetPlayerId":"playerId_1","targetPilotUid":null}'
+  after play card , sometime the gameEnv.currentbattle will become non-empty. you can see if gameEnv.currentbattle.status = "ACTION_STEP" and  gameEnv.currentbattle.confirmations.{currentplayer}=false, in actionbuttonbar, it will hide the endturn button and become "skips action" button. if gameEnv.currentbattle.confirmations.{currentplayer}=true no button will show in actionbutton bar. User is able to click slot card / hand card or base card on the screen only if the card have effect = time = actionstep
+effects.rules.timing.windows.ACTION_STEP . below is an example. otherwise card cannot be click (but still can long press) when card is click , it will show activate effect and cancel button. when click cancel button it will deselect the card and show "skips action"
 
+        "ST01-014": {
+            "id": "ST01-014",
+            "name": "Unforeseen Incident",
+            "cardType": "command",
+            "color": "White",
+            "level": 3,
+            "cost": 1,
+            "zone": [],
+            "traits": [],
+            "link": [],
+            "ap": 0,
+            "hp": 0,
+            "effects": {
+                "description": [
+                    "【Burst】Activate this card's 【Main】.",
+                    "【Main】/【Action】Choose 1 enemy Unit. It gets AP-3 during this turn."
+                ],
+                "rules": [
+                    {
+                        "effectId": "burst_activate_main",
+                        "type": "triggered",
+                        "trigger": "BURST_CONDITION",
+                        "target": {
+                            "type": "card",
+                            "scope": "self"
+                        },
+                        "action": "activate_ability",
+                        "parameters": {
+                            "abilityType": "main"
+                        }
+                    },
+                    {
+                        "effectId": "main_action_ap_reduction",
+                        "type": "activated",
+                        "timing": {
+                            "windows": [
+                                "MAIN_PHASE",
+                                "ACTION_STEP"
+                            ],
+                            "duration": "UNTIL_END_OF_TURN"
+                        },
+                        "target": {
+                            "type": "unit",
+                            "scope": "opponent",
+                            "count": 1
+                        },
+                        "action": "modifyAP",
+                        "parameters": {
+                            "value": -3
+                        }
+                    }
+                ]
+            }
+        }
+if it is hand card and selected, and click activate action , it will equalvnace to trigger play card as command .
 
+when player check skip action it will call this api,  curl 'http://localhost:8080/api/game/player/playerAction' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://localhost:3000/' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-site' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","actionType":"confirmBattle"}'
+currentbattle.confirmations.{currentplayer}=true no button will show in actionbutton bar
 
 7.when click a slot card, the white frame will become green as an highlight for selected

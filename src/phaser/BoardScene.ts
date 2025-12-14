@@ -273,12 +273,14 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshPhase(skipFade: boolean) {
+    const raw = this.engine.getSnapshot().raw as any;
+    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+    console.log("[refreshPhase] skipFade", skipFade, "battle?", battle);
     this.showUI(!skipFade);
     this.updateHandArea({ skipFade });
     this.updateSlots();
     this.updateBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
-    const raw = this.engine.getSnapshot().raw as any;
     if (raw) {
       void this.effectTargetController?.syncFromSnapshot(raw);
     }
