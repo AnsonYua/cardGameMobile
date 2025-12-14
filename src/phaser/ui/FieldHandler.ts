@@ -6,7 +6,7 @@ import { GameStatusHandler } from "./GameStatusHandler";
 import { BaseControls, BaseShieldHandler } from "./BaseShieldHandler";
 import { EnergyBarHandler } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
-import { SlotPositionMap, SlotViewModel } from "./SlotTypes";
+import { SlotOwner, SlotPositionMap, SlotViewModel } from "./SlotTypes";
 
 export type FieldConfig = {
   slot: number;
@@ -191,6 +191,8 @@ export class FieldHandler {
       setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.slotPositions }),
       clearSlots: () => this.slotDisplay.clear(),
       setSlotClickHandler: (handler?: (slot: SlotViewModel) => void) => this.slotDisplay.setSlotClickHandler(handler),
+      setSelectedSlot: (owner?: SlotOwner, slotId?: string) =>
+        this.slotDisplay.setSelectedSlot(owner && slotId ? `${owner}-${slotId}` : undefined),
     };
   }
 

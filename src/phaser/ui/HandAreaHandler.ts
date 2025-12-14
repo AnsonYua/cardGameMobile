@@ -105,10 +105,15 @@ export class HandAreaHandler {
     }
   }
 
-  setHand(cards: HandCardView[]) {
+  setHand(cards: HandCardView[], opts?: { preserveSelectionUid?: string }) {
     this.handCards = cards;
-    // Reset selection on re-render (e.g., cancel actions).
-    this.selectedCardUid = undefined;
+    // Preserve selection if requested and the card still exists; otherwise clear it.
+    const maybeKeep = opts?.preserveSelectionUid;
+    if (maybeKeep && cards.some((c) => c.uid === maybeKeep)) {
+      this.selectedCardUid = maybeKeep;
+    } else {
+      this.selectedCardUid = undefined;
+    }
     this.draw(this.lastOffset);
   }
 

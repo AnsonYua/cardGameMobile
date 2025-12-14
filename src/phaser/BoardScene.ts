@@ -312,7 +312,7 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;
-    this.handControls?.setHand(cards);
+    this.handControls?.setHand(cards, { preserveSelectionUid: this.selectedHandCard?.uid });
     this.handControls?.setVisible(true);
     if (!opts.skipFade) {
       this.handControls?.fadeIn();
@@ -338,6 +338,7 @@ export class BoardScene extends Phaser.Scene {
 
   private onHandCardSelected(card: HandCardView) {
     this.selectedHandCard = card;
+    this.slotControls?.setSelectedSlot?.();
     this.engine.select({
       kind: "hand",
       uid: card.uid || "",
@@ -349,16 +350,29 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private onSlotCardSelected(_slot: SlotViewModel) {
+    if (this.isPlayersTurn() && _slot.owner === "opponent") {
+      this.clearSelectionUI({ clearEngine: true });
+      this.refreshActions("neutral");
+      return;
+    }
     this.selectedHandCard = undefined;
+    this.slotControls?.setSelectedSlot?.(_slot.owner, _slot.slotId);
     this.engine.select({ kind: "slot", slotId: _slot.slotId, owner: _slot.owner });
     this.refreshActions("slot");
   }
 
   private onBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
     this.selectedHandCard = undefined;
+    this.slotControls?.setSelectedSlot?.();
     if (!payload?.card) return;
     this.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
     this.refreshActions("base");
+  }
+
+  private isPlayersTurn() {
+    const raw: any = this.engine.getSnapshot().raw;
+    const currentPlayer = raw?.gameEnv?.currentPlayer;
+    return currentPlayer === this.gameContext.playerId;
   }
 
   private applyMainPhaseDefaults(force = false) {
@@ -466,6 +480,9 @@ export class BoardScene extends Phaser.Scene {
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     const result = await this.engine.runAction(actionId);
+    if (actionId === "cancelSelection") {
+      this.clearSelectionUI();
+    }
     if (result === false) return;
     this.refreshAfterStateChange(actionSource);
   }
@@ -733,4 +750,11 @@ export class BoardScene extends Phaser.Scene {
     });
   }
 
+  private clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
+    this.selectedHandCard = undefined;
+    this.slotControls?.setSelectedSlot?.();
+    if (opts.clearEngine) {
+      this.engine.clearSelection();
+    }
+  }
 }

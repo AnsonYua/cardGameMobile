@@ -179,3 +179,6 @@ black label for the total set(just below the pilot card) ,show fieldCardValue.to
 
 
 6.when slot card is clicked (my slot card , not opponent slot card).it will check if opponent slot have unit. if have unit it will show attack Unit,attack Shield and Cancel Button(no end turn button). if dont have unit , it will only show attach Shield and Cancel Button(no end turn button). when click cancel it will deselect the card and show back the End Turn Button. when me placeholder for attack unit and attack shield.
+
+
+7.when click a slot card, the white frame will become green as an highlight for selected

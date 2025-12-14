@@ -13,6 +13,9 @@ export class SlotDisplayHandler {
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
+  private selectedKey?: string;
+  private lastSlots: SlotViewModel[] = [];
+  private lastPositions?: SlotPositionMap;
   // Centralized tuning knobs so visuals stay consistent without hunting magic numbers.
   private config = {
     slot: {
@@ -20,6 +23,10 @@ export class SlotDisplayHandler {
       frameScale: 0.86,
       frameShadowOffset: 3,
       borderStroke: 3,
+      defaultBorderColor: 0xffffff,
+      selectedBorderColor: 0x18c56c,
+      defaultBorderAlpha: 0.75,
+      selectedBorderAlpha: 1,
       pilotSliceRatio: 0.4,
       unitRatio: 0.75,
       pilotAlpha: 0.95,
@@ -58,7 +65,14 @@ export class SlotDisplayHandler {
     this.onSlotClick = handler;
   }
 
+  setSelectedSlot(slotKey?: string) {
+    this.selectedKey = slotKey;
+    this.rerenderLast();
+  }
+
   render(slots: SlotViewModel[], { positions }: RenderOptions) {
+    this.lastSlots = slots.map((s) => ({ ...s }));
+    this.lastPositions = positions;
     const nextKeys = new Set<string>();
     slots.forEach((slot) => {
       const pos = positions[slot.owner]?.[slot.slotId];
@@ -67,6 +81,7 @@ export class SlotDisplayHandler {
       nextKeys.add(key);
       this.slotContainers.get(key)?.destroy();
 
+      const isSelected = this.selectedKey === key;
       const container = this.scene.add.container(pos.x, pos.y);
       container.setDepth(pos.isOpponent ? 30 : 40);
       container.setSize(pos.w, pos.h);
@@ -78,7 +93,7 @@ export class SlotDisplayHandler {
       if (slot.unit || slot.pilot) {
         this.drawFrame(container, pos.w, pos.h);
       }
-      this.drawSlot(container, pos.w, pos.h, slot);
+      this.drawSlot(container, pos.w, pos.h, slot, isSelected);
       container.setAlpha(slot.isRested ? 0.75 : 1);
 
       this.slotContainers.set(key, container);
@@ -98,7 +113,13 @@ export class SlotDisplayHandler {
     this.hidePreview();
   }
 
-  private drawSlot(container: Phaser.GameObjects.Container, slotSize: number, slotHeight: number, slot: SlotViewModel) {
+  private drawSlot(
+    container: Phaser.GameObjects.Container,
+    slotSize: number,
+    slotHeight: number,
+    slot: SlotViewModel,
+    isSelected: boolean,
+  ) {
     const cardSize = this.computeCardSize(slotSize, slotHeight);
     const width = cardSize.w;
     const unitHeight = slotSize * 0.9;
@@ -115,7 +136,7 @@ export class SlotDisplayHandler {
     if (slot.unit) {
       const unitLayer = this.scene.add.container(0, 0);
       this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
-      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, isSelected);
       container.add(unitLayer);
     }
 
@@ -132,7 +153,7 @@ export class SlotDisplayHandler {
         pilotRatio, // pilotSliceRatio
       );
       pilotObj?.setAlpha(0.95);
-      this.drawUnitBorder(container, width, pilotHeight, pilotHeight *(1-pilotRatio) , pilotRatio);
+      this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, isSelected);
     }
 
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
@@ -281,12 +302,21 @@ export class SlotDisplayHandler {
     container.add(inner);
   }
 
-  private drawUnitBorder(container: Phaser.GameObjects.Container, w: number, h: number, offsetY: number, ratio :number) {
+  private drawUnitBorder(
+    container: Phaser.GameObjects.Container,
+    w: number,
+    h: number,
+    offsetY: number,
+    ratio: number,
+    isSelected: boolean,
+  ) {
     const graphics = this.scene.add.graphics();
-    graphics.lineStyle(this.config.slot.borderStroke, 0xffffff, 1);
+    const color = isSelected ? this.config.slot.selectedBorderColor : this.config.slot.defaultBorderColor;
+    const alpha = isSelected ? this.config.slot.selectedBorderAlpha : this.config.slot.defaultBorderAlpha;
+    graphics.lineStyle(this.config.slot.borderStroke, color, 1);
     graphics.strokeRoundedRect(-w / 2, offsetY - h / 2, w, h * ratio, 2);
     graphics.setDepth(5);
-    graphics.setAlpha(0.75);
+    graphics.setAlpha(alpha);
     container.add(graphics);
   }
 
@@ -357,6 +387,11 @@ export class SlotDisplayHandler {
       clearTimeout(this.previewTimer);
       this.previewTimer = undefined;
     }
+  }
+
+  private rerenderLast() {
+    if (!this.lastPositions || !this.lastSlots.length) return;
+    this.render(this.lastSlots, { positions: this.lastPositions });
   }
 
   private showPreview(slot: SlotViewModel) {

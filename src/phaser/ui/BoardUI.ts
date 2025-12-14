@@ -13,7 +13,7 @@ type SlotControls = ReturnType<FieldHandler["getSlotControls"]>;
 type HandControls = {
   setVisible: (visible: boolean) => void;
   fadeIn: (duration?: number) => void;
-  setHand: (cards: HandCardView[]) => void;
+  setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearHand: () => void;
   setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
 };
@@ -50,7 +50,7 @@ export class BoardUI {
     this.handControls = {
       setVisible: (visible: boolean) => this.hand.setVisible(visible),
       fadeIn: (duration?: number) => this.hand.fadeIn(duration),
-      setHand: (cards) => this.hand.setHand(cards),
+      setHand: (cards, opts) => this.hand.setHand(cards, opts),
       clearHand: () => this.hand.clearHand(),
       setCardClickHandler: (handler) => this.hand.setCardClickHandler?.(handler),
     };
@@ -115,8 +115,8 @@ export class BoardUI {
     this.header.updateState(state);
   }
 
-  setHand(cards: Array<{ color: number; cost?: string }>) {
-    this.hand.setHand(cards);
+  setHand(cards: Array<{ color: number; cost?: string }>, opts?: { preserveSelectionUid?: string }) {
+    this.hand.setHand(cards, opts);
   }
 
   setHandVisible(visible: boolean) {
