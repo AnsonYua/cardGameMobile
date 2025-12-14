@@ -14,6 +14,8 @@ export class PilotTargetDialog {
   private overlay?: Phaser.GameObjects.Rectangle;
   private dialog?: Phaser.GameObjects.Container;
   private open = false;
+  private lastTargets: SlotViewModel[] = [];
+  private lastOnSelect?: (slot: SlotViewModel) => Promise<void> | void;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -62,6 +64,8 @@ export class PilotTargetDialog {
     this.dialog?.destroy();
     this.overlay = undefined;
     this.dialog = undefined;
+    this.lastTargets = [];
+    this.lastOnSelect = undefined;
     this.open = false;
   }
 
@@ -84,6 +88,8 @@ export class PilotTargetDialog {
       return hasUnit && !hasPilot;
     });
     const targets = filtered.slice(0, 6);
+    this.lastTargets = targets;
+    this.lastOnSelect = opts.onSelect;
     const { cols, rows, margin, gap, widthFactor, minWidth, minHeight, extraHeight, panelRadius, headerOffset, closeSize, closeOffset, headerWrapPad } =
       this.cfg.dialog;
     const rowCount = targets.length <= cols ? 1 : rows;
@@ -197,6 +203,13 @@ export class PilotTargetDialog {
     dialog.setDepth(2600);
     this.scene.add.existing(dialog);
     this.open = true;
+  }
+
+  async selectTarget(index = 0): Promise<boolean> {
+    const target = this.lastTargets[index];
+    if (!this.open || !target || !this.lastOnSelect) return false;
+    await this.lastOnSelect(target);
+    return true;
   }
 
   private toTex(tex?: string) {

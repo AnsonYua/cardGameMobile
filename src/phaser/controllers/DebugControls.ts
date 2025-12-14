@@ -5,6 +5,7 @@ import type { TestButtonPopupConfig } from "../ui/TestButtonPopup";
 import { TestButtonPopup } from "../ui/TestButtonPopup";
 import type { GameContext } from "../game/GameContextStore";
 import { ApiManager } from "../api/ApiManager";
+import type { ActionSource } from "../game/GameEngine";
 
 export class DebugControls {
   private popup?: TestButtonPopup;
@@ -49,6 +50,28 @@ export class DebugControls {
 
   async stopAutoPolling() {
     await this.endAutoPolling({ hidePopup: false });
+  }
+
+  // Expose testing hooks on window.__cardTest using provided helpers from the scene.
+  exposeTestHooks(hooks: {
+    selectHandCard: (uid?: string) => boolean;
+    clickPrimaryAction: (source?: ActionSource) => Promise<boolean>;
+    runAction: (id: string, source?: ActionSource) => Promise<boolean>;
+    selectEffectTarget: (targetIndex?: number) => Promise<boolean>;
+    selectPilotTarget: (targetIndex?: number, actionId?: string) => Promise<boolean>;
+    choosePilotDesignationPilot: () => Promise<boolean>;
+    choosePilotDesignationCommand: () => Promise<boolean>;
+  }) {
+    if (typeof window === "undefined") return;
+    const globalKey = "__cardTest";
+    const baseHooks = {
+      setScenario: (path?: string) => this.setScenario(path),
+      pollOnce: () => this.pollOnce(),
+      startAutoPolling: () => this.startAutoPolling(),
+      stopAutoPolling: () => this.stopAutoPolling(),
+    };
+    (window as any)[globalKey] = { ...baseHooks, ...hooks };
+    console.log("Test hooks registered on window.__cardTest");
   }
 
   private async handleSetScenario(scenarioPath?: string, opts?: { hidePopup?: boolean }) {

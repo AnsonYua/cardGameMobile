@@ -155,23 +155,72 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
-    this.exposeTestHooks();
+    this.debugControls.exposeTestHooks(this.buildTestHooks());
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
   }
 
-  private exposeTestHooks() {
-    if (typeof window === "undefined") return;
-    const globalKey = "__cardTest";
-    const hooks = {
-      setScenario: (path?: string) => this.debugControls?.setScenario(path),
-      pollOnce: () => this.debugControls?.pollOnce(),
-      startAutoPolling: () => this.debugControls?.startAutoPolling(),
-      stopAutoPolling: () => this.debugControls?.stopAutoPolling(),
+  private buildTestHooks() {
+    const selectHandCard = (uid?: string) => {
+      if (!uid) return false;
+      const snapshot = this.engine.getSnapshot();
+      const raw = snapshot.raw as any;
+      if (!raw) return false;
+      const cards = this.handPresenter.toHandCards(raw, this.gameContext.playerId);
+      const target = cards.find((c) => c.uid === uid);
+      if (!target) return false;
+      this.onHandCardSelected(target);
+      return true;
     };
-    (window as any)[globalKey] = hooks;
-    console.log("Test hooks registered on window.__cardTest");
+    const clickPrimaryAction = async (source: ActionSource = "hand") => {
+      const actions = this.engine.getAvailableActions(source);
+      const primary = actions.find((a) => a.primary) || actions[0];
+      if (!primary) return false;
+      await this.runActionThenRefresh(primary.id, source);
+      return true;
+    };
+    const runAction = async (id: string, source: ActionSource = "neutral") => {
+      await this.runActionThenRefresh(id, source);
+      return true;
+    };
+    const selectEffectTarget = async (targetIndex = 0) => {
+      const selected = await this.effectTargetDialogUi?.selectTarget(targetIndex);
+      if (selected) {
+        await this.effectTargetDialogUi?.hide();
+        return true;
+      }
+      console.warn("Effect target dialog is not open; cannot select target");
+      return false;
+    };
+    const selectPilotTarget = async (targetIndex = 0, actionId = "playPilotDesignationAsPilot") => {
+      // Drive the real dialog callback; avoid snapshot/fallback logic to mirror UI flow.
+      const selectedInDialog = await this.pilotTargetDialogUi?.selectTarget(targetIndex);
+      if (selectedInDialog) {
+        await this.pilotTargetDialogUi?.hide();
+        return true;
+      }
+      console.warn("Pilot target dialog is not open; cannot select target");
+      return false;
+    };
+    const choosePilotDesignationPilot = async () => {
+      this.pilotFlow?.showPilotTargetDialog("playPilotDesignationAsPilot");
+      return true;
+    };
+    const choosePilotDesignationCommand = async () => {
+      await this.runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
+      return true;
+    };
+    const hooks = {
+      selectHandCard,
+      clickPrimaryAction,
+      runAction,
+      selectEffectTarget,
+      selectPilotTarget,
+      choosePilotDesignationPilot,
+      choosePilotDesignationCommand,
+    };
+    return hooks;
   }
    
   public startGame(){
