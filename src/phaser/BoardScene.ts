@@ -356,6 +356,7 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
     this.selectedHandCard = undefined;
+    this.handControls?.clearSelection?.();
     this.slotControls?.setSelectedSlot?.(_slot.owner, _slot.slotId);
     this.engine.select({ kind: "slot", slotId: _slot.slotId, owner: _slot.owner });
     this.refreshActions("slot");

@@ -129,6 +129,12 @@ export class HandAreaHandler {
     this.drawnObjects.forEach((obj: any) => obj?.setVisible?.(visible));
   }
 
+  clearSelection() {
+    if (!this.selectedCardUid) return;
+    this.selectedCardUid = undefined;
+    this.draw(this.lastOffset);
+  }
+
   setCardClickHandler(handler: (card: HandCardView) => void) {
     this.onCardClick = handler;
   }
