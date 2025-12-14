@@ -30,6 +30,8 @@ export class DebugControls {
       button2: { label: "Test PollingBtn", onClick: () => this.handleTestPolling() },
       button3: { label: "SetScenario", onClick: () => this.handleSetScenario() },
       button4: { label: this.pollEvent ? "Stop Auto Polling" : "Start Auto Polling", onClick: () => this.toggleAutoPolling() },
+      button5: { label: "Test ConfirmBattle (opp)", onClick: () => this.handleConfirmBattleOpponent() },
+      button6: { label: "Test ResolveBattle", onClick: () => this.handleResolveBattle() },
       gameId: this.context.gameId ?? "N/A",
     };
     this.popup.show(config);
@@ -169,6 +171,45 @@ export class DebugControls {
       await this.match.joinRoom(id, "playerId_2", "Demo Opponent");
     } catch (err) {
       console.error("Test join failed", err);
+    }
+  }
+
+  private async handleConfirmBattleOpponent() {
+    await this.popup?.hide();
+    await this.popup?.hide();
+    const raw: any = this.engine.getSnapshot().raw;
+    const players = raw?.gameEnv?.players || {};
+    const ids = Object.keys(players);
+    const selfId = this.context.playerId;
+    const opponentId = ids.find((id) => id !== selfId) || selfId;
+    const gameId = this.context.gameId || raw?.gameEnv?.gameId || "sample_play_card";
+    try {
+      await this.api.playerAction({
+        playerId: opponentId,
+        gameId,
+        actionType: "confirmBattle",
+      });
+      await this.engine.updateGameStatus(gameId, selfId);
+      console.log("Sent confirmBattle as opponent", { opponentId, gameId });
+    } catch (err) {
+      console.warn("ConfirmBattle (opponent) failed", err);
+    }
+  }
+
+  private async handleResolveBattle() {
+    const raw: any = this.engine.getSnapshot().raw;
+    const gameId = this.context.gameId || raw?.gameEnv?.gameId || "sample_play_card";
+    const playerId = this.context.playerId || "playerId_1";
+    try {
+      await this.api.playerAction({
+        playerId,
+        gameId,
+        actionType: "resolveBattle",
+      });
+      await this.engine.updateGameStatus(gameId, this.context.playerId);
+      console.log("Sent resolveBattle", { playerId, gameId });
+    } catch (err) {
+      console.warn("resolveBattle failed", err);
     }
   }
 }
