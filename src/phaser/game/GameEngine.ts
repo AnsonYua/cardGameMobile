@@ -41,12 +41,16 @@ export class GameEngine {
     if (!gameId || !playerId) return this.getSnapshot();
     const previousPhase = this.lastRaw?.gameEnv?.phase ?? this.lastRaw?.phase ?? null;
     const previousBattle = this.getBattle(this.lastRaw);
+    const previousStatus = this.contextStore.get().lastStatus;
     try {
       const response: GameStatusResponse = fromScenario && this.lastRaw
         ? this.lastRaw
         : await this.match.getGameStatus(gameId, playerId);
       // Prefer explicit status fields, otherwise fall back to the entire payload.
-      const derivedStatus = response?.status ?? response?.gameStatus ?? response;
+      // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
+      // Only fall back to the full response if it's a string; otherwise use the previous status.
+      const fallback = typeof response === "string" ? response : previousStatus;
+      const derivedStatus = response?.status ?? response?.gameStatus ?? fallback;
       const nextPhase = response?.gameEnv?.phase ?? response?.phase ?? null;
       this.lastRaw = response;
       this.contextStore.update({ lastStatus: derivedStatus });
@@ -65,22 +69,8 @@ export class GameEngine {
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
       }
 
-      /*
-      comparing the previous gamestatus , if gameEnv.currentBattle change from empty to something
-      look at the currentBattle if status=Action_Step ,ENGINE_EVENTS.STATUS show Action Step label
-      if gameEnv.currentBattle change from something to empty, actionbutton should reset to end turn button
-      */
-      const nextBattle = this.getBattle(this.lastRaw);
-      const prevActive = !!previousBattle;
-      const nextActive = !!nextBattle;
-      const nextStatus = (nextBattle?.status || "").toString().toUpperCase();
-      if (!prevActive && nextActive && nextStatus === "ACTION_STEP") {
-        this.contextStore.update({ lastStatus: "Action Step" });
-        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-      }
-      if (prevActive && !nextActive) {
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
-      }
+      // Battle transitions: enter/exit currentBattle to drive UI labels/buttons.
+      this.handleBattleTransition(previousBattle, this.getBattle(this.lastRaw));
 
       /*
       if lastStatus is not mainPhase and new status is mainPhase 
@@ -247,6 +237,21 @@ export class GameEngine {
   }
   private getBattle(payload: any) {
     return payload?.gameEnv?.currentBattle ?? payload?.gameEnv?.currentbattle ?? null;
+  }
+
+  private handleBattleTransition(prevBattle: any, nextBattle: any) {
+    const prevActive = !!prevBattle;
+    const nextActive = !!nextBattle;
+    const nextStatus = (nextBattle?.status || "").toString().toUpperCase();
+    if (!prevActive && nextActive && nextStatus === "ACTION_STEP") {
+      // Surface a clear status change so UI can label the action step state.
+      this.contextStore.update({ lastStatus: "Action Step" });
+      this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+    }
+    if (prevActive && !nextActive) {
+      // When battle ends, ask UI to recompute buttons (e.g., restore End Turn).
+      this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+    }
   }
   private registerDefaultActions() {
     // Play base from hand

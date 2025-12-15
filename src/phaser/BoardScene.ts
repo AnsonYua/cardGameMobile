@@ -112,6 +112,7 @@ export class BoardScene extends Phaser.Scene {
     this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
       this.gameContext.lastStatus = snapshot.status;
+      this.setHeaderStatusFromEngine(snapshot.status);
     });
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
@@ -540,6 +541,31 @@ export class BoardScene extends Phaser.Scene {
               ? "In match"
               : "Error";
     const suffix = this.offlineFallback ? " (offline)" : "";
+    this.headerControls?.setStatus(`Status: ${label}${suffix}`);
+  }
+
+  // Keep header in sync with live game status emitted by the engine (updateGameStatus).
+  private setHeaderStatusFromEngine(status: any) {
+    // Ignore empty updates to avoid overwriting a meaningful label (e.g., Action Step) with a blank "Status".
+    if (status === null || status === undefined) return;
+    // Ignore non-primitive statuses (e.g., full payload objects) that would otherwise reset the label.
+    if (typeof status === "object") return;
+    const suffix = this.offlineFallback ? " (offline)" : "";
+    let label: string;
+    if (status === GameStatus.LoadingResources) {
+      label = "Loading...";
+    } else if (status === GameStatus.InMatch) {
+      label = "In match";
+    } else if (status === GameStatus.Ready) {
+      label = "Ready";
+    } else if (status === "Action Step" || status === "ACTION_STEP" || status === "action_step") {
+      label = "Action Step";
+    } else if (typeof status === "string") {
+      const normalized = status.replace(/_/g, " ");
+      label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    } else {
+      label = "Status";
+    }
     this.headerControls?.setStatus(`Status: ${label}${suffix}`);
   }
 
