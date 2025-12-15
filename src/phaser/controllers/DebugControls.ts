@@ -39,7 +39,11 @@ export class DebugControls {
 
   // Public helpers for external triggers (unitTestSpec): allow triggering scenarios/polling without clicking UI.
   async setScenario(scenarioPath?: string) {
+    // Disable play-in animations for scenario loads to avoid noisy replays.
+    this.scene.slotControls?.setPlayAnimations?.(false);
     await this.handleSetScenario(scenarioPath, { hidePopup: false });
+    // Re-enable afterward for normal play.
+    this.scene.slotControls?.setPlayAnimations?.(true);
   }
 
   async pollOnce() {

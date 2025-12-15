@@ -3,6 +3,7 @@ import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
 import { drawPreviewBadge } from "./PreviewBadge";
+import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -15,6 +16,8 @@ export class SlotDisplayHandler {
   private previewActive = false;
   private selectedKey?: string;
   private lastSlots: SlotViewModel[] = [];
+  private playAnimator: PlayCardAnimationManager;
+  private playAnimations = true;
   private lastPositions?: SlotPositionMap;
   // Centralized tuning knobs so visuals stay consistent without hunting magic numbers.
   private config = {
@@ -58,19 +61,25 @@ export class SlotDisplayHandler {
   };
   private previewBadgeSize = this.config.preview.badgeSize;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
+    this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
+  }
   private onSlotClick?: (slot: SlotViewModel) => void;
 
   setSlotClickHandler(handler?: (slot: SlotViewModel) => void) {
     this.onSlotClick = handler;
   }
 
+  setPlayAnimations(enabled: boolean) {
+    this.playAnimations = enabled;
+  }
   setSelectedSlot(slotKey?: string) {
     this.selectedKey = slotKey;
     this.rerenderLast();
   }
 
   render(slots: SlotViewModel[], { positions }: RenderOptions) {
+    const prevSlots = this.lastSlots;
     this.lastSlots = slots.map((s) => ({ ...s }));
     this.lastPositions = positions;
     const nextKeys = new Set<string>();
@@ -79,6 +88,9 @@ export class SlotDisplayHandler {
       if (!pos) return;
       const key = `${slot.owner}-${slot.slotId}`;
       nextKeys.add(key);
+      const prev = prevSlots.find((s) => s.owner === slot.owner && s.slotId === slot.slotId);
+      const hadCard = !!(prev && (prev.unit || prev.pilot));
+      const hasCard = !!(slot.unit || slot.pilot);
       this.slotContainers.get(key)?.destroy();
 
       const isSelected = this.selectedKey === key;
@@ -97,6 +109,11 @@ export class SlotDisplayHandler {
       container.setAlpha(slot.isRested ? 0.75 : 1);
 
       this.slotContainers.set(key, container);
+
+      // Trigger entry animation only when a card just appeared in an empty slot.
+      if (!hadCard && hasCard && this.playAnimations) {
+        this.animateCardEntry(slot, pos);
+      }
     });
 
     Array.from(this.slotContainers.entries()).forEach(([key, container]) => {
@@ -627,4 +644,30 @@ export class SlotDisplayHandler {
     const hp = card.cardData?.hp ?? 0;
     return `${ap}|${hp}`;
   }
+
+  private animateCardEntry(slot: SlotViewModel, pos: { x: number; y: number; isOpponent: boolean }) {
+    const isOpponent = slot.owner === "opponent";
+    const cam = this.scene.cameras.main;
+    const start = {
+      x: cam.centerX,
+      y: isOpponent ? cam.height * 0.12 : cam.height - 60,
+    };
+    const card = slot.unit || slot.pilot;
+    const cardName = (card as any)?.cardData?.name || card?.id;
+    const stats = {
+      ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
+      hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
+    };
+    
+    this.playAnimator.play({
+      textureKey: card?.textureKey,
+      fallbackLabel: card?.id,
+      start,
+      end: { x: pos.x, y: pos.y },
+      isOpponent,
+      cardName,
+      stats,
+    });
+  }
+
 }

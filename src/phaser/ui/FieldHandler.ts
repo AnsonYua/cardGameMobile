@@ -196,6 +196,7 @@ export class FieldHandler {
       setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.slotPositions }),
       clearSlots: () => this.slotDisplay.clear(),
       setSlotClickHandler: (handler?: (slot: SlotViewModel) => void) => this.slotDisplay.setSlotClickHandler(handler),
+      setPlayAnimations: (enabled: boolean) => this.slotDisplay.setPlayAnimations(enabled),
       setSelectedSlot: (owner?: SlotOwner, slotId?: string) =>
         this.slotDisplay.setSelectedSlot(owner && slotId ? `${owner}-${slotId}` : undefined),
     };

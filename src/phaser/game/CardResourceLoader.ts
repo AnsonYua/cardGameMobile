@@ -168,10 +168,12 @@ export class CardResourceLoader {
 
   private finishStats() {
     this.stats.loadEndTime = Date.now();
-    if (this.stats.loadStartTime !== null && this.stats.loadEndTime !== null) {
-      this.stats.totalLoadTime = this.stats.loadEndTime - this.stats.loadStartTime;
-      this.stats.averageLoadTime =
-        this.stats.totalRequests > 0 ? this.stats.totalLoadTime / this.stats.totalRequests : this.stats.totalLoadTime;
+    const start = this.stats.loadStartTime;
+    const end = this.stats.loadEndTime;
+    if (start !== null && end !== null) {
+      const total = end - start;
+      this.stats.totalLoadTime = total;
+      this.stats.averageLoadTime = this.stats.totalRequests > 0 ? total / this.stats.totalRequests : total;
     }
     const totalAttempts = this.stats.successfulLoads + this.stats.failedLoads + this.stats.cachedHits;
     this.stats.successRate = totalAttempts
