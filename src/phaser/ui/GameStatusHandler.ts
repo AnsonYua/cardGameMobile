@@ -59,14 +59,19 @@ export class GameStatusHandler {
 
   update(status: Partial<GameStatus>) {
     this.status = { ...this.status, ...status };
-    // Refresh existing labels with new values if they've been drawn.
     (Object.keys(this.labels) as Array<keyof GameStatus>).forEach((key) => {
       const label = this.labels[key];
-      if (label) {
-        const value = this.status[key];
-        const prefix = key === "active" ? "Active" : key === "rested" ? "Rested" : key === "extra" ? "Extra" : "Shield";
-        label.setText(`${prefix}:${value}`);
-      }
+      if (!label) return;
+      const value = this.status[key];
+      const text =
+        key === "shield"
+          ? `Shield:${value}`
+          : key === "active"
+            ? `Active(E):${value}`
+            : key === "rested"
+              ? `Rested(E):${value}`
+              : `Extra(E):${value}`;
+      label.setText(text);
     });
   }
 

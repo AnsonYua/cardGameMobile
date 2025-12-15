@@ -284,6 +284,7 @@ export class BoardScene extends Phaser.Scene {
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipFade", skipFade, "battle?", battle);
     this.updateHeaderOpponentHand(raw);
+    this.updateEnergyStatus(raw);
     this.showUI(!skipFade);
     this.updateHandArea({ skipFade });
     this.updateSlots();
@@ -360,11 +361,35 @@ export class BoardScene extends Phaser.Scene {
     this.ui?.updateHeader({ opponentHand });
   }
 
+  private updateEnergyStatus(raw: any) {
+    const players = raw?.gameEnv?.players || {};
+    const ids = Object.keys(players);
+    if (!ids.length) return;
+    const selfId = (this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : undefined) || ids[0];
+    const opponentId = ids.find((id) => id !== selfId) || ids[0];
+    const summarize = (player: any) => {
+      const zones = player?.zones || player?.zone || {};
+      const shieldArea = zones.shieldArea || player?.shieldArea || [];
+      const energyArea = zones.energyArea || player?.energyArea || [];
+      const shield = Array.isArray(shieldArea) ? shieldArea.length : 0;
+      const energies = Array.isArray(energyArea) ? energyArea : [];
+      const active = energies.filter((e) => e && e.isRested === false && e.isExtraEnergy === false).length;
+      const rested = energies.filter((e) => e && e.isRested === true && e.isExtraEnergy === false).length;
+      const extra = energies.filter((e) => e && e.isRested === false && e.isExtraEnergy === true).length;
+      return { shield, active, rested, extra };
+    };
+    const selfStatus = summarize(players[selfId]);
+    const oppStatus = summarize(players[opponentId]);
+    this.energyControls?.update?.(false, selfStatus);
+    this.energyControls?.update?.(true, oppStatus);
+  }
+
   private updateHandArea(opts: { skipFade?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
     this.updateHeaderOpponentHand(raw);
+    this.updateEnergyStatus(raw);
     const playerId = this.gameContext.playerId;
     const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;

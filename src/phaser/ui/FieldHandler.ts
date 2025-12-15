@@ -2,9 +2,9 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-import { GameStatusHandler } from "./GameStatusHandler";
+import { GameStatus, GameStatusHandler } from "./GameStatusHandler";
 import { ShieldAreaControls, ShieldAreaHandler } from "./ShieldAreaHandler";
-import { EnergyBarHandler } from "./EnergyBarHandler";
+import { EnergyBarHandler, EnergyCounts } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
 import { SlotOwner, SlotPositionMap, SlotViewModel } from "./SlotTypes";
 
@@ -124,6 +124,10 @@ export class FieldHandler {
   private energyBarPlayer: EnergyBarHandler;
   private statusVisible = true;
   private energyVisible = true;
+  private energyAnchors: {
+    opponent?: { x: number; y: number; width: number; isOpponent: boolean };
+    player?: { x: number; y: number; width: number; isOpponent: boolean };
+  } = {};
   private slotDisplay: SlotDisplayHandler;
   private slotPositions: SlotPositionMap = { player: {}, opponent: {} };
   private slotOrder = {
@@ -176,6 +180,7 @@ export class FieldHandler {
     return {
       setVisible: (visible: boolean) => this.setEnergyVisible(visible),
       fadeIn: (duration?: number) => this.fadeInEnergy(duration),
+      update: (isOpponent: boolean, status: GameStatus) => this.updateEnergyArea(isOpponent, status),
     };
   }
 
@@ -286,8 +291,10 @@ export class FieldHandler {
         ? originY - slot / 2 - energy.offsetFromSlots
         : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isOpponent ? energy.offsetX.opponent : energy.offsetX.player);
+    const energyKey = isOpponent ? "opponent" : "player";
+    this.energyAnchors[energyKey] = { x: energyX, y: energyY, width: gridTotalW, isOpponent };
     const energyBar = isOpponent ? this.energyBarOpponent : this.energyBarPlayer;
-    energyBar.drawBar(energyX, energyY, energy, gridTotalW, isOpponent);
+    energyBar.drawBar(energyX, energyY, energy, gridTotalW, isOpponent, { active: 0, rested: 0, extra: 0 });
     energyBar.setVisible(this.energyVisible);
     const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
     statusHandler.draw(energyX, energyY, gridTotalW, isOpponent, {
@@ -296,6 +303,29 @@ export class FieldHandler {
       rested: 0,
       extra: 0,
     });
+    statusHandler.setVisible(this.statusVisible);
+  }
+
+  updateEnergyArea(isOpponent: boolean, status: GameStatus) {
+    const key = isOpponent ? "opponent" : "player";
+    const anchor = this.energyAnchors[key];
+    if (!anchor) return;
+    const merged: GameStatus = {
+      shield: status.shield ?? this.shieldArea.getShieldCount(isOpponent),
+      active: status.active ?? 0,
+      rested: status.rested ?? 0,
+      extra: status.extra ?? 0,
+    };
+    const energyBar = isOpponent ? this.energyBarOpponent : this.energyBarPlayer;
+    const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
+    const counts: EnergyCounts = {
+      active: merged.active,
+      rested: merged.rested,
+      extra: merged.extra,
+    };
+    energyBar.redrawWithCounts(counts);
+    energyBar.setVisible(this.energyVisible);
+    statusHandler.draw(anchor.x, anchor.y, anchor.width, isOpponent, merged);
     statusHandler.setVisible(this.statusVisible);
   }
 
