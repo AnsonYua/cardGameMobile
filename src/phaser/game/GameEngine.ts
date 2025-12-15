@@ -244,6 +244,11 @@ export class GameEngine {
     const prevActive = !!prevBattle;
     const nextActive = !!nextBattle;
     const nextStatus = (nextBattle?.status || "").toString().toUpperCase();
+    const prevStatus = (prevBattle?.status || "").toString().toUpperCase();
+    // Emit battle state change only when it actually changes to avoid UI resets on every poll.
+    if (prevActive !== nextActive || prevStatus !== nextStatus) {
+      this.events.emit(ENGINE_EVENTS.BATTLE_STATE_CHANGED, { active: nextActive, status: nextStatus });
+    }
     if (!prevActive && nextActive && nextStatus === "ACTION_STEP") {
       // Surface a clear status change so UI can label the action step state.
       this.contextStore.update({ lastStatus: "Action Step" });

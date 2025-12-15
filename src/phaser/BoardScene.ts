@@ -114,6 +114,12 @@ export class BoardScene extends Phaser.Scene {
       this.gameContext.lastStatus = snapshot.status;
       this.headerControls?.setStatusFromEngine?.(snapshot.status, { offlineFallback: this.offlineFallback });
     });
+    this.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
+      const status = (payload.status || "").toUpperCase();
+      if (payload.active && status === "ACTION_STEP") {
+        this.headerControls?.setStatusFromEngine?.("Action Step", { offlineFallback: this.offlineFallback });
+      }
+    });
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });

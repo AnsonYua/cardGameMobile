@@ -1,6 +1,7 @@
 import type { ActionDescriptor } from "../game/ActionRegistry";
 import type { GameContext } from "../game/GameContextStore";
 import { GameEngine, type ActionSource } from "../game/GameEngine";
+import { ENGINE_EVENTS } from "../game/EngineEvents";
 import type { HandCardView } from "../ui/HandTypes";
 import { HandPresenter } from "../ui/HandPresenter";
 import type { SlotViewModel, SlotOwner } from "../ui/SlotTypes";
@@ -27,6 +28,7 @@ export class SelectionActionController {
   private lastPhase?: string;
   private selectedSlot?: SlotViewModel;
   private lastBattleActive = false;
+  private lastBattleStatus?: string;
 
   constructor(
     private deps: {
@@ -41,7 +43,12 @@ export class SelectionActionController {
       gameContext: GameContext;
       refreshPhase: (skipFade: boolean) => void;
     },
-  ) {}
+  ) {
+    // React to battle state changes emitted by the engine instead of re-parsing snapshots everywhere.
+    this.deps.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
+      this.handleBattleStateChanged(payload);
+    });
+  }
 
   getSelectedHandCard() {
     return this.selectedHandCard;
@@ -350,7 +357,29 @@ export class SelectionActionController {
   }
 
   private isActionStepPhase() {
+    // Prefer the latest battle event if available; otherwise fall back to snapshot parsing.
+    if (this.lastBattleActive && (this.lastBattleStatus || "").toUpperCase() === "ACTION_STEP") {
+      return true;
+    }
     return this.getBattleState() !== "none";
+  }
+
+  private handleBattleStateChanged(payload: { active: boolean; status: string }) {
+    const status = (payload.status || "").toUpperCase();
+    // No-op if nothing changed; avoids resetting actions on every poll.
+    if (payload.active === this.lastBattleActive && status === (this.lastBattleStatus || "").toUpperCase()) {
+      return;
+    }
+    const wasActive = this.lastBattleActive;
+    this.lastBattleActive = payload.active;
+    this.lastBattleStatus = payload.status;
+    if (payload.active && status === "ACTION_STEP") {
+      // When entering action step, recompute the action bar based on current selection.
+      this.applyBattleActionBar(this.deps.engine.getSelection());
+    } else if (wasActive && !payload.active) {
+      // On exit, restore neutral actions.
+      this.refreshActions("neutral");
+    }
   }
 
   private async handleActionStepActivate() {
