@@ -68,9 +68,11 @@ export class HandAreaHandler {
       return { count, cardW: uniformCardW, cardH: uniformCardH, totalW };
     });
 
-    const totalRowsHeight = rowLayouts.reduce((acc, row) => acc + row.cardH, 0) + gapY * (rowLayouts.length - 1);
+    const desiredRows = Math.max(rowLayouts.length, 2); // Keep one-row hands aligned with the top row of a two-row layout.
+    const desiredRowsHeight = desiredRows * uniformCardH + gapY * (desiredRows - 1);
     const areaTop = BASE_H - areaHeight + offset.y;
-    const currentYStart = areaTop + (areaHeight - totalRowsHeight) / 2 + rowLayouts[0].cardH / 2;
+    const baselineY = areaTop + (areaHeight - desiredRowsHeight) / 2 + uniformCardH / 2;
+    const currentYStart = baselineY;
     let currentY = currentYStart;
     //const labelY = startY - 50;
     /*
