@@ -208,15 +208,22 @@ export class HeaderHandler {
         fontFamily: "Arial",
         color: "#ffffff",
       })
-      .setOrigin(0.5)
+      .setOrigin(1, 0.5) // Right-align so the text hugs the CTA/right edge consistently.
       .setDepth(this.depth + 1);
   }
 
   private computeStatusX() {
-    // If CTA is visible, keep status slightly left of the button; otherwise align nearer the right edge.
+    // If CTA is visible, keep status just to the left of the button; otherwise tuck it against the right edge.
     const padding = this.layout.padding;
-    const offsetWithButton = 160;
-    return this.ctaVisible ? this.headerX.right - padding - offsetWithButton : this.headerX.right - padding - 60;
+    if (this.ctaVisible) {
+      const btnWidth = 80;
+      const btnCenter = this.headerX.right - padding - 35;
+      const btnLeft = btnCenter - btnWidth / 2;
+      const gap = 12;
+      return btnLeft - gap;
+    }
+    const rightGap = 16;
+    return this.headerX.right - padding - rightGap;
   }
 
   private drawAvatarHit(x: number, y: number, w: number, h: number) {
