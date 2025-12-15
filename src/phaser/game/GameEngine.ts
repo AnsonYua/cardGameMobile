@@ -40,6 +40,7 @@ export class GameEngine {
   async updateGameStatus(gameId?: string, playerId?: string, fromScenario = false) {
     if (!gameId || !playerId) return this.getSnapshot();
     const previousPhase = this.lastRaw?.gameEnv?.phase ?? this.lastRaw?.phase ?? null;
+    const previousBattle = this.getBattle(this.lastRaw);
     try {
       const response: GameStatusResponse = fromScenario && this.lastRaw
         ? this.lastRaw
@@ -60,7 +61,24 @@ export class GameEngine {
         this.contextStore.update({ lastStatus: derivedStatus });
         this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
-      }else{
+      } else {
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+      }
+
+      /*
+      comparing the previous gamestatus , if gameEnv.currentBattle change from empty to something
+      look at the currentBattle if status=Action_Step ,ENGINE_EVENTS.STATUS show Action Step label
+      if gameEnv.currentBattle change from something to empty, actionbutton should reset to end turn button
+      */
+      const nextBattle = this.getBattle(this.lastRaw);
+      const prevActive = !!previousBattle;
+      const nextActive = !!nextBattle;
+      const nextStatus = (nextBattle?.status || "").toString().toUpperCase();
+      if (!prevActive && nextActive && nextStatus === "ACTION_STEP") {
+        this.contextStore.update({ lastStatus: "Action Step" });
+        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+      }
+      if (prevActive && !nextActive) {
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
       }
 
@@ -226,6 +244,9 @@ export class GameEngine {
 
   async test(){
 
+  }
+  private getBattle(payload: any) {
+    return payload?.gameEnv?.currentBattle ?? payload?.gameEnv?.currentbattle ?? null;
   }
   private registerDefaultActions() {
     // Play base from hand

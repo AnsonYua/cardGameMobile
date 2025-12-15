@@ -26,6 +26,7 @@ export class SelectionActionController {
   private selectedBaseCard?: any;
   private lastPhase?: string;
   private selectedSlot?: SlotViewModel;
+  private lastBattleActive = false;
 
   constructor(
     private deps: {
@@ -441,6 +442,12 @@ export class SelectionActionController {
     return baseArr && baseArr[0];
   }
 
+  private hasActiveBattle() {
+    const raw: any = this.deps.engine.getSnapshot().raw;
+    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+    return !!battle;
+  }
+
   private applyMainPhaseDefaults() {
     const raw = this.deps.engine.getSnapshot().raw as any;
     const actions = this.deps.actionControls;
@@ -452,10 +459,29 @@ export class SelectionActionController {
     console.log("[applyMainPhaseDefaults] phase", phase, "currentPlayer", currentPlayer, "self", self, "inMainPhase", inMainPhase);
     if (!inMainPhase) {
       this.lastPhase = phase;
+      this.lastBattleActive = false;
       return;
     }
+    const battleActive = this.hasActiveBattle();
+    this.lastBattleActive = battleActive;
     // Always reevaluate battle UI while in MAIN_PHASE so ACTION_STEP updates the bar even without a phase change.
     if (this.applyBattleActionBar(this.deps.engine.getSelection())) {
+      this.lastPhase = phase;
+      return;
+    }
+    if (!battleActive && this.lastPhase === "MAIN_PHASE") {
+      const selection = this.deps.engine.getSelection();
+      if (!selection) {
+        const defaults = this.deps.engine.getAvailableActions("neutral");
+        actions.setState?.({
+          descriptors: this.buildActionDescriptors(defaults),
+        });
+        this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
+        this.lastPhase = phase;
+        return;
+      }
+      // If a selection exists, keep its action bar alive instead of resetting to End Turn.
+      this.refreshActions(selection.kind as ActionSource);
       this.lastPhase = phase;
       return;
     }
