@@ -3,6 +3,7 @@ import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { toPreviewKey } from "./HandTypes";
 import { drawPreviewBadge } from "./PreviewBadge";
+import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
 
 type BaseSize = { w: number; h: number };
 
@@ -46,6 +47,7 @@ export type ShieldAreaControls = Pick<
   | "setBaseVisible"
   | "setBasePreviewData"
   | "setBaseClickHandler"
+  | "getBaseAnchor"
 >;
 
 export class ShieldAreaHandler {
@@ -71,6 +73,10 @@ export class ShieldAreaHandler {
   private previewTimer?: any;
   private previewActive = false;
   private baseClickHandler?: (payload: { side: BaseSide; card?: any }) => void;
+  private baseAnchors: Partial<Record<BaseSide, { x: number; y: number; isOpponent: boolean; w: number; h: number }>> =
+    {};
+  private playAnimator: PlayCardAnimationManager;
+  private lastBaseCardId: Partial<Record<BaseSide, string>> = {};
   private previewConfig = {
     holdDelay: 400,
     overlayAlpha: 0.65,
@@ -87,6 +93,7 @@ export class ShieldAreaHandler {
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.shieldCounts = { opponent: this.config.shieldCount, player: this.config.shieldCount };
     this.shieldCards = { opponent: [], player: [] };
+    this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
   }
 
   setConfig(cfg: Partial<ShieldAreaConfig>) {
@@ -105,6 +112,10 @@ export class ShieldAreaHandler {
       return this.shieldCounts[isOpponent ? "opponent" : "player"];
     }
     return this.config.shieldCount;
+  }
+
+  getBaseAnchor(isOpponent: boolean) {
+    return this.baseAnchors[isOpponent ? "opponent" : "player"];
   }
 
   // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
@@ -193,6 +204,9 @@ export class ShieldAreaHandler {
   // Provide base payload (card + field values) for preview rendering.
   setBasePreviewData(isOpponent: boolean, baseCard: any | null) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
+    const prevCardId = this.lastBaseCardId[key];
+    const nextCardId = baseCard?.cardId;
+    const isNewCard = nextCardId && nextCardId !== prevCardId;
     this.basePreviewData[key] = baseCard || null;
     const hit = this.baseHits[key];
     if (hit) {
@@ -200,6 +214,35 @@ export class ShieldAreaHandler {
       hit.setVisible(enable);
       enable ? hit.setInteractive({ useHandCursor: true }) : hit.disableInteractive();
     }
+
+    // Trigger base play animation when a new base arrives.
+    if (isNewCard) {
+      const anchor = this.baseAnchors[key];
+      if (anchor) {
+        const cam = this.scene.cameras.main;
+        const start = {
+          x: cam.centerX,
+          y: anchor.isOpponent ? cam.height * 0.12 : cam.height - 60,
+        };
+        const field = baseCard?.fieldCardValue || {};
+        const stats = { ap: field.totalAP ?? 0, hp: field.totalHP ?? 0 };
+        const textureKey = toPreviewKey(baseCard?.cardId) || baseCard?.cardId;
+        const size = { w: anchor.w ?? this.config.baseSize.w, h: anchor.h ?? this.config.baseSize.h };
+        // Match hand/unit flight visuals (use default PlayCardAnimationManager sizing).
+        this.playAnimator.play({
+          textureKey: textureKey === "base_default-preview" ? "baseCard" : textureKey,
+          fallbackLabel: baseCard?.cardId,
+          start,
+          end: { x: anchor.x, y: anchor.y },
+          isOpponent: anchor.isOpponent,
+          cardName: baseCard?.cardData?.name || baseCard?.cardId,
+          stats,
+          size,
+        });
+      }
+    }
+
+    this.lastBaseCardId[key] = nextCardId || undefined;
   }
 
   private computeStackHeight(
@@ -275,6 +318,7 @@ export class ShieldAreaHandler {
     const angle = isOpponent ? 180 : 0;
     const overlayKey = isOpponent ? "opponent" : "player";
     const radius = this.config.cornerRadius;
+    this.baseAnchors[overlayKey] = { x, y, isOpponent, w, h };
     // Clean up any previous overlay for this side before drawing anew.
     this.baseOverlays[overlayKey]?.destroy();
     this.baseOverlays[overlayKey] = undefined;

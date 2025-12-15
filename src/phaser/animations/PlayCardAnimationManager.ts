@@ -12,6 +12,7 @@ type PlayAnimationPayload = {
   isOpponent?: boolean;
   cardName?: string;
   stats?: { ap?: number; hp?: number };
+  size?: { w: number; h: number };
 };
 
 /**
@@ -30,7 +31,7 @@ export class PlayCardAnimationManager {
     this.showAlert(payload);
   }
 
-  private playFlight({ textureKey, fallbackLabel, start, end }: PlayAnimationPayload) {
+  private playFlight({ textureKey, fallbackLabel, start, end, size }: PlayAnimationPayload) {
     return new Promise<void>((resolve) => {
       // Bail if geometry is invalid to avoid runtime errors.
       const valid =
@@ -42,10 +43,16 @@ export class PlayCardAnimationManager {
         resolve();
         return;
       }
+      // Default to hand/slot sizing and clamp to a safe fraction of the viewport so oversized assets can't explode.
+      const cam = this.scene.cameras.main;
+      const maxW = Math.max(40, Math.min(cam.width * 0.18, 120));
+      const maxH = Math.max(55, Math.min(cam.height * 0.22, 160));
+      const targetW = Math.min(size?.w ?? 80, maxW);
+      const targetH = Math.min(size?.h ?? 110, maxH);
       const hasTexture = textureKey && this.scene.textures.exists(textureKey);
       const sprite = hasTexture
-        ? this.scene.add.image(start.x, start.y, textureKey!).setDisplaySize(80, 110)
-        : (this.scene.add.rectangle(start.x, start.y, 70, 95, 0x5e48f0) as Phaser.GameObjects.Rectangle);
+        ? this.scene.add.image(start.x, start.y, textureKey!).setDisplaySize(targetW, targetH)
+        : (this.scene.add.rectangle(start.x, start.y, targetW * 0.9, targetH * 0.86, 0x5e48f0) as Phaser.GameObjects.Rectangle);
       sprite.setDepth(2000).setOrigin(0.5).setScale(0.9);
       if (!hasTexture && fallbackLabel) {
         this.scene.add

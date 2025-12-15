@@ -22,6 +22,8 @@ export class HandAreaHandler {
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
+  private previewCardUid?: string;
+  private lastHandSignature?: string;
   private layout: HandLayoutRenderer;
   private config = {
     preview: {
@@ -44,7 +46,8 @@ export class HandAreaHandler {
 
   draw(offset: Offset) {
     this.lastOffset = offset;
-    this.clear();
+    // Preserve any active preview while refreshing card sprites during autopolls.
+    this.clear({ destroyPreview: false });
 
     const maxPerRow = HAND_MAX_PER_ROW;
     const totalCards = this.handCards.length;
@@ -108,7 +111,20 @@ export class HandAreaHandler {
   }
 
   setHand(cards: HandCardView[], opts?: { preserveSelectionUid?: string }) {
+    const signature = this.buildHandSignature(cards);
+    // Skip redraw if nothing changed; prevents autopolls from killing previews/interaction.
+    if (signature && signature === this.lastHandSignature) {
+      return;
+    }
+    this.lastHandSignature = signature;
     this.handCards = cards;
+    // Keep preview alive across updates if the card still exists; hide if it vanished.
+    if (this.previewActive && this.previewCardUid) {
+      const stillPresent = cards.find((c) => c.uid === this.previewCardUid);
+      if (!stillPresent) {
+        this.hidePreview(true);
+      }
+    }
     // Preserve selection if requested and the card still exists; otherwise clear it.
     const maybeKeep = opts?.preserveSelectionUid;
     if (maybeKeep && cards.some((c) => c.uid === maybeKeep)) {
@@ -122,7 +138,7 @@ export class HandAreaHandler {
   clearHand() {
     this.handCards = [];
     this.selectedCardUid = undefined;
-    this.clear();
+    this.clear({ destroyPreview: true });
   }
 
   setVisible(visible: boolean) {
@@ -200,7 +216,6 @@ export class HandAreaHandler {
   }
 
   private showPreview(card: HandCardView) {
-    this.hidePreview(true);
     const cam = this.scene.cameras.main;
     const cx = cam.centerX;
     const cy = cam.centerY;
@@ -219,6 +234,7 @@ export class HandAreaHandler {
 
     this.previewContainer = container;
     this.previewActive = true;
+    this.previewCardUid = card.uid;
     this.scene.tweens.add({
       targets: container,
       alpha: 1,
@@ -245,6 +261,7 @@ export class HandAreaHandler {
       }
     }
     this.previewActive = false;
+    this.previewCardUid = undefined;
   }
 
   private drawPreviewCard(
@@ -262,6 +279,7 @@ export class HandAreaHandler {
       badgeFontSize: this.config.preview.badgeFontSize,
     });
     // Hand cards have no field totals; skip total badge.
+    this.previewCardUid = card.uid;
   }
   private toTextureKey(textureKey?: string) {
     if (!textureKey) return undefined;
@@ -285,9 +303,29 @@ export class HandAreaHandler {
     return undefined;
   }
 
-  private clear() {
+  private buildHandSignature(cards: HandCardView[]) {
+    if (!cards || cards.length === 0) return "empty";
+    return cards
+      .map((c) =>
+        [
+          c.uid ?? "",
+          c.cardId ?? "",
+          c.cardType ?? "",
+          c.cost ?? "",
+          c.ap ?? "",
+          c.hp ?? "",
+          c.fromPilotDesignation ? "1" : "0",
+          c.textureKey ?? "",
+        ].join(":"),
+      )
+      .join("|");
+  }
+
+  private clear(opts: { destroyPreview?: boolean } = {}) {
     this.drawnObjects.forEach((obj) => obj.destroy());
     this.drawnObjects = [];
-    this.hidePreview(true);
+    if (opts.destroyPreview) {
+      this.hidePreview(true);
+    }
   }
 }
