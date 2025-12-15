@@ -178,7 +178,7 @@ black label for the total set(just below the pilot card) ,show fieldCardValue.to
 
 
 
-6.when slot card is clicked (my slot card , not opponent slot card).it will check if opponent slot have unit. if have unit it will show attack Unit,attack Shield and Cancel Button(no end turn button). if dont have unit , it will only show attach Shield and Cancel Button(no end turn button). when click cancel it will deselect the card and show back the End Turn Button. when me placeholder for attack unit and attack shield.when click on attack unit button , it will get all opponent slot unit and display a EffectTargetDialog.when a slot unit is choosen
+6.when slot card is clicked (my slot card , not opponent slot card).it will check if opponent slot have unit. if have unit it will show attack Unit,attack Shield and Cancel Button(no end turn button). if dont have unit , it will only show attack Shield and Cancel Button(no end turn button). when click cancel it will deselect the card and show back the End Turn Button. when me placeholder for attack unit and attack shield.when click on attack unit button , it will get all opponent slot unit and display a EffectTargetDialog.when a slot unit is choosen
 curl 'http://localhost:8080/api/game/player/playerAction' \
   -H 'Accept: */*' \
   -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
@@ -255,7 +255,7 @@ effects.rules.timing.windows.ACTION_STEP . below is an example. otherwise card c
         }
 if it is hand card and selected, and click activate action , it will equalvnace to trigger play card as command .
 
-when player check skip action it will call this api,  curl 'http://localhost:8080/api/game/player/playerAction' \
+when player click skip action it will call this api,  curl 'http://localhost:8080/api/game/player/playerAction' \
   -H 'Accept: */*' \
   -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
   -H 'Cache-Control: no-cache' \
@@ -273,5 +273,32 @@ when player check skip action it will call this api,  curl 'http://localhost:808
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","actionType":"confirmBattle"}'
 currentbattle.confirmations.{currentplayer}=true no button will show in actionbutton bar
+
+
+ highlevel idea. when a player trigger attack, backend
+  currentBattle will become nonempty, it will become action-step phase, after both player confirm it
+  will go back to main phase 
+
+when player click attack Shield button , it will card the below api
+curl 'http://localhost:8080/api/game/player/playerAction' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://localhost:3000/' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-site' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","actionType":"attackShieldArea","attackerCarduid":"ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd"}'
+
+when a player trigger attack (unit /shield), backend currentBattle will become nonempty, it will become action-step phase, after both player confirm itwill go back to main phase 
+  
 
 7.when click a slot card, the white frame will become green as an highlight for selected

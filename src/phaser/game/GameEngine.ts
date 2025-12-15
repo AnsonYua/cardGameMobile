@@ -286,8 +286,8 @@ export class GameEngine {
     this.actions.register("attackUnit", async () => {
       console.log("Attack Unit (placeholder)");
     });
-    this.actions.register("attackShield", async () => {
-      console.log("Attack Shield (placeholder)");
+    this.actions.register("attackShieldArea", async () => {
+      console.log("Attack Shield Area (placeholder)");
     });
 
     this.actions.register("slotAction", async (ctx: ActionContext) => {

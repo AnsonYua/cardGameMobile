@@ -6,7 +6,7 @@ import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatus } from "../game/GameSessionService";
-import type { BaseControls } from "./BaseShieldHandler";
+import type { ShieldAreaControls } from "./ShieldAreaHandler";
 import type { HandCardView } from "./HandTypes";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
@@ -34,7 +34,7 @@ export class BoardUI {
   private field: FieldHandler;
   private hand: HandAreaHandler;
   private actions: ActionButtonBarHandler;
-  private baseControls: BaseControls;
+  private baseControls: ShieldAreaControls;
   private energyControls: EnergyControls;
   private statusControls: StatusControls;
   private slotControls: SlotControls;
@@ -172,7 +172,7 @@ export class BoardUI {
     this.header.setAvatarHandler(handler);
   }
 
-  getBaseControls(): BaseControls {
+  getBaseControls(): ShieldAreaControls {
     return this.baseControls;
   }
 

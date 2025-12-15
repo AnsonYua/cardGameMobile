@@ -39,7 +39,7 @@
 - Layout constants live in `src/config/gameLayout.ts` (hand area sizes, gaps, aspect ratio) to keep UI math consistent and out of renderers.
 - `HandAreaHandler` renders the hand using the shared constants and compact helpers (cost badge, AP|HP badge, long-press preview) to mirror base/shield styling without inflating `BoardScene`.
 - `PreviewBadge.ts` centralizes preview pill rendering; reused by slot, hand, and base previews to keep styling consistent while each renderer preserves its own positioning/logic.
-- Base previews: `BaseShieldHandler` handles long-press zones and rendering (black badge for totalOriginal AP|HP, blue badge for total AP|HP). `BoardScene.showBaseAndShield` feeds base payloads; previews are disabled when base data is absent (shields remain visible).
+- Base previews: `ShieldAreaHandler` handles long-press zones and rendering (black badge for totalOriginal AP|HP, blue badge for total AP|HP). `BoardScene.showBaseAndShield` feeds base payloads; previews are disabled when base data is absent (shields remain visible).
 
 ## API Endpoints (current usage)
 - `POST /api/game/player/startGame` with `{ playerId, gameConfig: { playerName } }`

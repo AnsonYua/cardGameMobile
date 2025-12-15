@@ -3,7 +3,7 @@ import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatusHandler } from "./GameStatusHandler";
-import { BaseControls, BaseShieldHandler } from "./BaseShieldHandler";
+import { ShieldAreaControls, ShieldAreaHandler } from "./ShieldAreaHandler";
 import { EnergyBarHandler } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
 import { SlotOwner, SlotPositionMap, SlotViewModel } from "./SlotTypes";
@@ -118,8 +118,8 @@ export class FieldHandler {
   private field: FieldConfig;
   private gameStatusOpponent: GameStatusHandler;
   private gameStatusPlayer: GameStatusHandler;
-  private baseShield: BaseShieldHandler;
-  private baseControls: BaseControls;
+  private shieldArea: ShieldAreaHandler;
+  private baseControls: ShieldAreaControls;
   private energyBarOpponent: EnergyBarHandler;
   private energyBarPlayer: EnergyBarHandler;
   private statusVisible = true;
@@ -135,8 +135,8 @@ export class FieldHandler {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
     this.gameStatusOpponent = new GameStatusHandler(scene, palette);
     this.gameStatusPlayer = new GameStatusHandler(scene, palette);
-    this.baseShield = new BaseShieldHandler(scene, palette, drawHelpers);
-    this.baseControls = this.baseShield;
+    this.shieldArea = new ShieldAreaHandler(scene, palette, drawHelpers);
+    this.baseControls = this.shieldArea;
     this.energyBarOpponent = new EnergyBarHandler(scene, drawHelpers);
     this.energyBarPlayer = new EnergyBarHandler(scene, drawHelpers);
     this.slotDisplay = new SlotDisplayHandler(scene, palette, drawHelpers);
@@ -196,7 +196,7 @@ export class FieldHandler {
     };
   }
 
-  getBaseControls(): BaseControls {
+  getBaseControls(): ShieldAreaControls {
     return this.baseControls;
   }
 
@@ -264,7 +264,7 @@ export class FieldHandler {
     this.drawPile(pileX, topPileY, deckW, deckH, topPileLabel, isOpponent ? "opponent" : "player");
     this.drawPile(pileX, bottomPileY, deckW, deckH, bottomPileLabel, isOpponent ? "opponent" : "player");
 
-    this.baseShield.drawStack({
+    this.shieldArea.drawStack({
       towerX,
       originY,
       isOpponent,
@@ -291,7 +291,7 @@ export class FieldHandler {
     energyBar.setVisible(this.energyVisible);
     const statusHandler = isOpponent ? this.gameStatusOpponent : this.gameStatusPlayer;
     statusHandler.draw(energyX, energyY, gridTotalW, isOpponent, {
-      shield: this.baseShield.getShieldCount(isOpponent),
+      shield: this.shieldArea.getShieldCount(isOpponent),
       active: 0,
       rested: 0,
       extra: 0,

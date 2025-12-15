@@ -127,7 +127,7 @@ export class SelectionActionController {
         });
       }
       slotDescriptors.push({
-        id: "attackShield",
+        id: "attackShieldArea",
         label: "Attack Shield",
         enabled: true,
         primary: !slotDescriptors.some((d) => d.primary),
@@ -146,8 +146,8 @@ export class SelectionActionController {
             await this.handleAttackUnit();
             return;
           }
-          if (d.id === "attackShield") {
-            await this.handleAttackShield();
+          if (d.id === "attackShieldArea") {
+            await this.handleAttackShieldArea();
             return;
           }
           if (d.id === "cancelSelection") {
@@ -174,8 +174,8 @@ export class SelectionActionController {
       await this.handleAttackUnit();
       return;
     }
-    if (actionId === "attackShield") {
-      await this.handleAttackShield();
+    if (actionId === "attackShieldArea") {
+      await this.handleAttackShieldArea();
       return;
     }
     if (actionId === "skipAction") {
@@ -239,7 +239,7 @@ export class SelectionActionController {
     });
   }
 
-  private async handleAttackShield() {
+  private async handleAttackShieldArea() {
     if (!this.selectedSlot?.unit?.cardUid) {
       console.warn("No attacker selected for shield attack");
       return;
@@ -249,13 +249,13 @@ export class SelectionActionController {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId || !targetPlayerId) {
-      console.warn("Missing data for attackShield", { gameId, playerId, targetPlayerId });
+      console.warn("Missing data for attackShieldArea", { gameId, playerId, targetPlayerId });
       return;
     }
     const payload = {
       playerId,
       gameId,
-      actionType: "attackShield",
+      actionType: "attackShieldArea",
       attackerCarduid,
       targetType: "shield",
       targetPlayerId,
@@ -266,7 +266,7 @@ export class SelectionActionController {
       await this.deps.engine.updateGameStatus(gameId, playerId);
       this.handleCancelSelection();
     } catch (err) {
-      console.warn("attackShield request failed", err);
+      console.warn("attackShieldArea request failed", err);
     }
   }
 

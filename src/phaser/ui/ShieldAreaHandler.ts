@@ -21,7 +21,7 @@ type StackParams = {
   headerGap: number;
 };
 
-type BaseShieldConfig = {
+type ShieldAreaConfig = {
   baseSize: BaseSize;
   shieldSize: BaseSize;
   shieldCount: number;
@@ -31,12 +31,12 @@ type BaseShieldConfig = {
 };
 
 type BaseSide = "opponent" | "player";
-export type BaseStatus = "normal" | "rested" | "destroyed";
+export type ShieldAreaStatus = "normal" | "rested" | "destroyed";
 type BaseCardObject = Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
 type BadgePair = { box: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text };
 
-export type BaseControls = Pick<
-  BaseShieldHandler,
+export type ShieldAreaControls = Pick<
+  ShieldAreaHandler,
   | "setBaseStatus"
   | "setBaseBadgeLabel"
   | "setShieldCount"
@@ -48,8 +48,8 @@ export type BaseControls = Pick<
   | "setBaseClickHandler"
 >;
 
-export class BaseShieldHandler {
-  private config: BaseShieldConfig = {
+export class ShieldAreaHandler {
+  private config: ShieldAreaConfig = {
     baseSize: { w: 60, h: 80 },
     shieldSize: { w: 60, h: 80 },
     shieldCount: 0,
@@ -57,7 +57,7 @@ export class BaseShieldHandler {
     towerGap: -5,
     cornerRadius: 5,
   };
-  private baseStatus: Record<BaseSide, BaseStatus> = { opponent: "normal", player: "normal" };
+  private baseStatus: Record<BaseSide, ShieldAreaStatus> = { opponent: "normal", player: "normal" };
   private baseOverlays: Partial<Record<BaseSide, Phaser.GameObjects.Graphics>> = {};
   private baseMasks: Partial<Record<BaseSide, { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }>> = {};
   private baseCards: Partial<Record<BaseSide, BaseCardObject>> = {};
@@ -89,7 +89,7 @@ export class BaseShieldHandler {
     this.shieldCards = { opponent: [], player: [] };
   }
 
-  setConfig(cfg: Partial<BaseShieldConfig>) {
+  setConfig(cfg: Partial<ShieldAreaConfig>) {
     this.config = { ...this.config, ...cfg };
     if (cfg.shieldCount !== undefined) {
       this.shieldCounts = { opponent: cfg.shieldCount, player: cfg.shieldCount };
@@ -108,7 +108,7 @@ export class BaseShieldHandler {
   }
 
   // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
-  setBaseStatus(isOpponent: boolean, status: BaseStatus) {
+  setBaseStatus(isOpponent: boolean, status: ShieldAreaStatus) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     this.baseStatus[key] = status;
     this.applyBaseStatus(key);

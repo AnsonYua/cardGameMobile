@@ -3,7 +3,7 @@ import { BASE_H, BASE_W } from "../config/gameLayout";
 import { BoardUI } from "./ui/BoardUI";
 import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
 import { DrawHelpers } from "./ui/HeaderHandler";
-import { BaseStatus } from "./ui/BaseShieldHandler";
+import { ShieldAreaStatus } from "./ui/ShieldAreaHandler";
 import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
@@ -50,7 +50,7 @@ export class BoardScene extends Phaser.Scene {
   private offset = { x: 0, y: 0 };
   private ui: BoardUI | null = null;
   private shuffleManager: ShuffleAnimationManager | null = null;
-  private playerBaseStatus: BaseStatus = "normal";
+  private playerBaseStatus: ShieldAreaStatus = "normal";
   private playerShieldCount = 6;
   private offlineFallback = false;
   private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
