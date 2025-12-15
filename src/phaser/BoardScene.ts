@@ -66,6 +66,7 @@ export class BoardScene extends Phaser.Scene {
   private gameContext = this.contextStore.get();
   private handPresenter = new HandPresenter();
   private slotPresenter = new SlotPresenter();
+  private playAnimations = true;
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -124,7 +125,12 @@ export class BoardScene extends Phaser.Scene {
       this.startGame();
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, () => {
-      this.mainPhaseUpdate();
+      // Default updates with animations/fade.
+      this.mainPhaseUpdate(false);
+    });
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, () => {
+      // Scenario or silent updates: no animations/fade.
+      this.mainPhaseUpdate(true);
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
       this.selectionAction?.refreshActions("neutral");
@@ -275,8 +281,8 @@ export class BoardScene extends Phaser.Scene {
     }
   }
  
-  public mainPhaseUpdate(){
-    this.refreshPhase(true);
+  public mainPhaseUpdate(skipFade = true){
+    this.refreshPhase(skipFade);
   }
 
   private refreshPhase(skipFade: boolean) {
@@ -287,7 +293,7 @@ export class BoardScene extends Phaser.Scene {
     this.updateEnergyStatus(raw);
     this.showUI(!skipFade);
     this.updateHandArea({ skipFade });
-    this.updateSlots();
+    this.updateSlots({ skipFade });
     this.updateBaseAndShield({ fade: !skipFade });
     this.updateActionBarForPhase();
     if (raw) {
@@ -401,13 +407,19 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private updateSlots() {
+  private updateSlots(opts: { skipFade?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
+    const allowAnimations = !opts.skipFade && this.playAnimations;
+    this.slotControls?.setPlayAnimations?.(allowAnimations);
     this.slotControls?.setSlots(slots);
+    // Restore preferred animation state for subsequent updates.
+    if (allowAnimations !== this.playAnimations) {
+      this.slotControls?.setPlayAnimations?.(this.playAnimations);
+    }
   }
 
   private updateActionBarForPhase() {

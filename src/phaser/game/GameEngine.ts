@@ -56,7 +56,8 @@ export class GameEngine {
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
       if (fromScenario === true) {
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+        // Scenario loads should update UI without animations.
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, this.getSnapshot());
       } else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
