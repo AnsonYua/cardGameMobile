@@ -68,11 +68,11 @@ export class HandAreaHandler {
       return { count, cardW: uniformCardW, cardH: uniformCardH, totalW };
     });
 
-    const desiredRows = Math.max(rowLayouts.length, 2); // Keep one-row hands aligned with the top row of a two-row layout.
-    const desiredRowsHeight = desiredRows * uniformCardH + gapY * (desiredRows - 1);
-    const areaTop = BASE_H - areaHeight + offset.y;
-    const baselineY = areaTop + (areaHeight - desiredRowsHeight) / 2 + uniformCardH / 2;
-    const currentYStart = baselineY;
+    // Anchor to the expected top-of-hand used by the ActionButtonBar (fixed reference height) so larger cards grow downward.
+    const refLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
+    const refTotalHeight = refLayout.rows * refLayout.cardH + (refLayout.rows - 1) * refLayout.gap;
+    const refHandTop = BASE_H - refLayout.bottomPadding - refTotalHeight + offset.y;
+    const currentYStart = refHandTop + uniformCardH / 2;
     let currentY = currentYStart;
     //const labelY = startY - 50;
     /*
