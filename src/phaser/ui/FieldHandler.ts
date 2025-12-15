@@ -160,8 +160,8 @@ export class FieldHandler {
 
   fadeInStatus(duration = 200) {
     this.statusVisible = true;
-    this.gameStatusOpponent.fadeIn(duration);
-    this.gameStatusPlayer.fadeIn(duration);
+    this.gameStatusOpponent.setVisible(true);
+    this.gameStatusPlayer.setVisible(true);
   }
 
   setEnergyVisible(visible: boolean) {
@@ -172,8 +172,8 @@ export class FieldHandler {
 
   fadeInEnergy(duration = 200) {
     this.energyVisible = true;
-    this.energyBarOpponent.fadeIn(duration);
-    this.energyBarPlayer.fadeIn(duration);
+    this.energyBarOpponent.setVisible(true);
+    this.energyBarPlayer.setVisible(true);
   }
 
   getEnergyControls() {

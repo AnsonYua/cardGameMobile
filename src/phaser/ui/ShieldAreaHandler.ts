@@ -162,40 +162,14 @@ export class ShieldAreaHandler {
     const hit = this.baseHits[key];
     if (hit) elements.push(hit);
 
-    // Toggle visibility immediately when hiding; when showing, fade in for a smoother reveal.
-    if (!visible) {
-      elements.forEach((el: any) => {
-        if (!el) return;
-        el.setVisible(false);
-        if (typeof el.setAlpha === "function") el.setAlpha(1);
-      });
-      return;
-    }
-
+    // Toggle visibility immediately; no fades to avoid flashing on frequent updates.
     elements.forEach((el: any) => {
       if (!el) return;
-      // Respect status-driven visibility: only show overlay when rested, badges hidden if destroyed.
-      if (el === this.baseOverlays[key] && status !== "rested") {
-        el.setVisible(false);
-        return;
-      }
-      if (badge && (el === badge.box || el === badge.label) && status === "destroyed") {
-        el.setVisible(false);
-        return;
-      }
-      el.setVisible(true);
-      console.log("fade error ", fade);
-      if (fade && typeof el.setAlpha === "function") {
-        el.setAlpha(0);
-        this.scene.tweens.add({
-          targets: el,
-          alpha: 1,
-          duration: 200,
-          ease: "Quad.easeOut",
-        });
-      } else if (typeof el.setAlpha === "function") {
-        el.setAlpha(1);
-      }
+      const shouldShow =
+        visible &&
+        !((el === this.baseOverlays[key] && status !== "rested") || (badge && (el === badge.box || el === badge.label) && status === "destroyed"));
+      el.setVisible(shouldShow);
+      if (typeof el.setAlpha === "function") el.setAlpha(1);
     });
   }
 

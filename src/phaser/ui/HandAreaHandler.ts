@@ -128,7 +128,10 @@ export class HandAreaHandler {
   setVisible(visible: boolean) {
     // Skip any objects that may have been destroyed; be defensive to avoid runtime errors.
     this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
-    this.drawnObjects.forEach((obj: any) => obj?.setVisible?.(visible));
+    this.drawnObjects.forEach((obj: any) => {
+      obj?.setVisible?.(visible);
+      if (visible && typeof obj?.setAlpha === "function") obj.setAlpha(1);
+    });
   }
 
   clearSelection() {
@@ -142,17 +145,12 @@ export class HandAreaHandler {
   }
 
   fadeIn(duration = 200) {
+    // Disable fade animation to prevent flashing during frequent updates.
     this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
     this.drawnObjects.forEach((obj: any) => {
       if (!obj) return;
       obj.setVisible(true);
-      if (typeof obj.setAlpha === "function") obj.setAlpha(0);
-      this.scene.tweens.add({
-        targets: obj as any,
-        alpha: 1,
-        duration,
-        ease: "Quad.easeOut",
-      });
+      if (typeof obj.setAlpha === "function") obj.setAlpha(1);
     });
   }
 
