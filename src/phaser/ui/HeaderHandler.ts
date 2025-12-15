@@ -67,12 +67,13 @@ export class DrawHelpers {
 }
 
 type HeaderLayout = { height: number; padding: number; avatar: number };
-type HeaderState = { handCount: number; name: string };
+type HeaderState = { handCount: number; name: string; opponentHand?: number | string };
 
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
-  private state: HeaderState = { handCount: 8, name: "Opponent" };
+  private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
   private depth = 1000;
+  private lastOffset: Offset = { x: 0, y: 0 };
   private ctaButton?: Phaser.GameObjects.Rectangle;
   private ctaLabel?: Phaser.GameObjects.Text;
   private onCta?: () => void;
@@ -81,12 +82,15 @@ export class HeaderHandler {
   private headerX = { left: 0, right: 0, centerY: 0 };
   private avatarHit?: Phaser.GameObjects.Rectangle;
   private onAvatar?: () => void;
+  private nameLabel?: Phaser.GameObjects.Text;
+  private handLabel?: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
 
   draw(offset: Offset) {
+    this.lastOffset = offset;
     const { height, padding, avatar } = this.layout;
-    const { handCount, name } = this.state;
+    const { handCount, name, opponentHand } = this.state;
 
     const containerW = BASE_W;
     const containerX = BASE_W / 2 + offset.x;
@@ -130,7 +134,8 @@ export class HeaderHandler {
 
     // Name next to avatar (left side)
     const nameX = avatarX + avatar / 2 + padding;
-    this.scene.add
+    this.nameLabel?.destroy();
+    this.nameLabel = this.scene.add
       .text(nameX, containerTop + padding, name, {
         fontSize: "20px",
         fontFamily: "Arial",
@@ -142,8 +147,11 @@ export class HeaderHandler {
     // Hand count below name
     const handTextX = nameX;
     const handY = containerTop + padding +25;
-    this.scene.add
-      .text(handTextX, handY, `Hand Num:  ${handCount}`, {
+    const handLabel = opponentHand !== undefined ? opponentHand : handCount;
+    const handDisplay = handLabel === null || handLabel === undefined || handLabel === "" ? "-" : `${handLabel}`;
+    this.handLabel?.destroy();
+    this.handLabel = this.scene.add
+      .text(handTextX, handY, `Opponent Hand: ${handDisplay}`, {
         fontSize: "16px",
         fontFamily: "Arial",
         color:"#ffffff",
@@ -157,6 +165,7 @@ export class HeaderHandler {
 
   updateState(state: Partial<HeaderState>) {
     this.state = { ...this.state, ...state };
+    this.syncLabelsFromState();
   }
 
   setCtaHandler(handler: () => void) {
@@ -231,6 +240,17 @@ export class HeaderHandler {
     this.avatarHit = this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(this.depth + 2);
     if (this.onAvatar) {
       this.avatarHit.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
+    }
+  }
+
+  private syncLabelsFromState() {
+    if (this.nameLabel) {
+      this.nameLabel.setText(this.state.name);
+    }
+    if (this.handLabel) {
+      const handLabel = this.state.opponentHand !== undefined ? this.state.opponentHand : this.state.handCount;
+      const handDisplay = handLabel === null || handLabel === undefined || handLabel === "" ? "-" : `${handLabel}`;
+      this.handLabel.setText(`Opponent Hand: ${handDisplay}`);
     }
   }
 }

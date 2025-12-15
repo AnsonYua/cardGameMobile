@@ -136,7 +136,14 @@ export class BoardUI {
     this.hand.draw(offset);
   }
 
-  updateHeader(state: { handCount?: number; orbCount?: number; scoreCurrent?: number; scoreMax?: number; name?: string }) {
+  updateHeader(state: {
+    handCount?: number;
+    orbCount?: number;
+    scoreCurrent?: number;
+    scoreMax?: number;
+    name?: string;
+    opponentHand?: number | string;
+  }) {
     this.header.updateState(state);
   }
 

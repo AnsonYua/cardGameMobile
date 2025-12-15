@@ -283,6 +283,7 @@ export class BoardScene extends Phaser.Scene {
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipFade", skipFade, "battle?", battle);
+    this.updateHeaderOpponentHand(raw);
     this.showUI(!skipFade);
     this.updateHandArea({ skipFade });
     this.updateSlots();
@@ -336,10 +337,34 @@ export class BoardScene extends Phaser.Scene {
     actions?.setVisible(false);
   }
 
+  private updateHeaderOpponentHand(raw: any) {
+    const players = raw?.gameEnv?.players || {};
+    const playerIds = Object.keys(players);
+    const selfId =
+      (this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : undefined) ||
+      playerIds[0];
+    const opponentId = playerIds.find((id) => id !== selfId) || playerIds[0] || "playerId_1";
+    const opponent = players?.[opponentId] || {};
+    const hand = opponent?.deck?.hand;
+    const handUids = opponent?.deck?.handUids;
+    let opponentHand: number | string = "-";
+    if (typeof hand?.length === "number") {
+      opponentHand = hand.length;
+    } else if (Array.isArray(hand)) {
+      opponentHand = hand.length;
+    } else if (hand && typeof hand === "object") {
+      opponentHand = Object.keys(hand).length;
+    } else if (Array.isArray(handUids)) {
+      opponentHand = handUids.length;
+    }
+    this.ui?.updateHeader({ opponentHand });
+  }
+
   private updateHandArea(opts: { skipFade?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
+    this.updateHeaderOpponentHand(raw);
     const playerId = this.gameContext.playerId;
     const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;

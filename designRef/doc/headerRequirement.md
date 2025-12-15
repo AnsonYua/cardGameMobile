@@ -1,0 +1,1 @@
+1. in header there is a field opponent hand, default show - , if you have gameEnv, it will extract gameEnv.players.playerId_1.deck.hand.length
