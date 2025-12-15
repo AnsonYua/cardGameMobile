@@ -66,7 +66,6 @@ export class BoardScene extends Phaser.Scene {
   private gameContext = this.contextStore.get();
   private handPresenter = new HandPresenter();
   private slotPresenter = new SlotPresenter();
-  private playAnimations = true;
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -83,6 +82,8 @@ export class BoardScene extends Phaser.Scene {
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
+  // Global switch for slot entry animations (true = animate when allowed by update context).
+  private playAnimations = true;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -125,11 +126,11 @@ export class BoardScene extends Phaser.Scene {
       this.startGame();
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, () => {
-      // Default updates with animations/fade.
+      // Default updates with animations.
       this.mainPhaseUpdate(false);
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, () => {
-      // Scenario or silent updates: no animations/fade.
+      // Scenario or silent updates: no animations.
       this.mainPhaseUpdate(true);
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
@@ -280,21 +281,21 @@ export class BoardScene extends Phaser.Scene {
       this.updateBaseAndShield({ fade: false });
     }
   }
- 
-  public mainPhaseUpdate(skipFade = true){
-    this.refreshPhase(skipFade);
+
+  public mainPhaseUpdate(skipAnimation = true){
+    this.refreshPhase(skipAnimation);
   }
 
-  private refreshPhase(skipFade: boolean) {
+  private refreshPhase(skipAnimation: boolean) {
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
-    console.log("[refreshPhase] skipFade", skipFade, "battle?", battle);
+    console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
-    this.showUI(!skipFade);
-    this.updateHandArea({ skipFade });
-    this.updateSlots({ skipFade });
-    this.updateBaseAndShield({ fade: !skipFade });
+    this.showUI(!skipAnimation);
+    this.updateHandArea({ skipAnimation });
+    this.updateSlots({ skipAnimation });
+    this.updateBaseAndShield({ fade: !skipAnimation });
     this.updateActionBarForPhase();
     if (raw) {
       void this.effectTargetController?.syncFromSnapshot(raw);
@@ -390,7 +391,7 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls?.update?.(true, oppStatus);
   }
 
-  private updateHandArea(opts: { skipFade?: boolean } = {}) {
+  private updateHandArea(opts: { skipAnimation?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -402,18 +403,19 @@ export class BoardScene extends Phaser.Scene {
     const selectedUid = this.selectionAction?.getSelectedHandCard()?.uid;
     this.handControls?.setHand(cards, { preserveSelectionUid: selectedUid });
     this.handControls?.setVisible(true);
-    if (!opts.skipFade) {
+    if (!opts.skipAnimation) {
       this.handControls?.fadeIn();
     }
   }
 
-  private updateSlots(opts: { skipFade?: boolean } = {}) {
+  private updateSlots(opts: { skipAnimation?: boolean } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
-    const allowAnimations = !opts.skipFade && this.playAnimations;
+    const allowAnimations = !opts.skipAnimation && this.playAnimations;
+    console.log("[updateSlots] allowAnimations", allowAnimations, "skipAnimation", opts.skipAnimation);
     this.slotControls?.setPlayAnimations?.(allowAnimations);
     this.slotControls?.setSlots(slots);
     // Restore preferred animation state for subsequent updates.

@@ -37,8 +37,14 @@ export class GameEngine {
     this.registerDefaultActions();
   }
   // Optional: call after scenario injection; when `fromScenario` is true we reuse any cached payload if present.
-  async updateGameStatus(gameId?: string, playerId?: string, fromScenario = false) {
+  async updateGameStatus(
+    gameId?: string,
+    playerId?: string,
+    opts: { fromScenario?: boolean; silent?: boolean } = {},
+  ) {
     if (!gameId || !playerId) return this.getSnapshot();
+    const fromScenario = opts.fromScenario === true;
+    const silent = opts.silent === true || fromScenario;
     const previousPhase = this.lastRaw?.gameEnv?.phase ?? this.lastRaw?.phase ?? null;
     const previousBattle = this.getBattle(this.lastRaw);
     const previousStatus = this.contextStore.get().lastStatus;
@@ -55,7 +61,7 @@ export class GameEngine {
       this.lastRaw = response;
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-      if (fromScenario === true) {
+      if (silent) {
         // Scenario loads should update UI without animations.
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, this.getSnapshot());
       } else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {

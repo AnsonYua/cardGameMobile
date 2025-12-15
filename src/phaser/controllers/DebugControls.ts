@@ -39,11 +39,7 @@ export class DebugControls {
 
   // Public helpers for external triggers (unitTestSpec): allow triggering scenarios/polling without clicking UI.
   async setScenario(scenarioPath?: string) {
-    // Disable play-in animations for scenario loads to avoid noisy replays.
-    this.scene.slotControls?.setPlayAnimations?.(false);
     await this.handleSetScenario(scenarioPath, { hidePopup: false });
-    // Re-enable afterward for normal play.
-    this.scene.slotControls?.setPlayAnimations?.(true);
   }
 
   async pollOnce() {
@@ -106,7 +102,7 @@ export class DebugControls {
       await this.api.injectGameState(gameId, gameEnv);
       await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
       console.log("Scenario injected", { scenarioPath: targetScenario, gameId });
-      await this.engine.updateGameStatus(gameId, this.context.playerId, true);
+      await this.engine.updateGameStatus(gameId, this.context.playerId, { fromScenario: true, silent: true });
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
     } catch (err) {
       console.error("Set scenario failed", err);
@@ -117,11 +113,10 @@ export class DebugControls {
       if (!opts?.skipPopupHide) {
         await this.popup?.hide();
       }
-      const snapshot = await this.engine.updateGameStatus(
-        this.context.gameId ?? undefined,
-        this.context.playerId,
-        isSetScenoria
-      );
+      const snapshot = await this.engine.updateGameStatus(this.context.gameId ?? undefined, this.context.playerId, {
+        silent: isSetScenoria,
+        fromScenario: false,
+      });
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;
       }
@@ -143,12 +138,12 @@ export class DebugControls {
 
   private async beginAutoPolling(opts?: { hidePopup?: boolean }) {
     // Kick off an immediate poll, then schedule every 5 seconds.
-    await this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling (initial)" });
+    await this.handleTestPolling(true, { skipPopupHide: true, source: "Auto polling (initial)" });
     this.pollEvent = this.scene.time.addEvent({
       delay: this.pollDelayMs,
       loop: true,
       callback: () => {
-        void this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling" });
+        void this.handleTestPolling(true, { skipPopupHide: true, source: "Auto polling" });
       },
     });
     if (opts?.hidePopup !== false) {
