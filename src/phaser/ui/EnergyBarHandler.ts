@@ -2,12 +2,45 @@ import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import type { FieldConfig } from "./FieldHandler";
 
+type EnergyToken = keyof EnergyCounts;
+
 export type EnergyCounts = {
   active: number;
   rested: number;
   extra: number;
 };
 
+type TokenPalette = {
+  active: { color: string; alpha: number };
+  extra: { color: string; alpha: number };
+  rested: { color: string; alpha: number };
+};
+
+const TOKEN_ORDER: EnergyToken[] = ["active", "extra", "rested"];
+const DEFAULT_PALETTE: TokenPalette = {
+  active: { color: "#18c56c", alpha: 1 },
+  extra: { color: "#18c56c", alpha: 0.6 },
+  rested: { color: "#d94d4d", alpha: 0.35 },
+};
+
+// Pure helpers keep rendering logic small and testable.
+function buildTokenSequence(counts: EnergyCounts): EnergyToken[] {
+  const sequence: EnergyToken[] = [];
+  TOKEN_ORDER.forEach((key) => {
+    const total = Math.max(0, counts[key]);
+    for (let i = 0; i < total; i++) {
+      sequence.push(key);
+    }
+  });
+  return sequence;
+}
+
+function applyTokenStyle(circle: Phaser.GameObjects.Arc, token: EnergyToken, palette: TokenPalette, helpers: DrawHelpers) {
+  const { color, alpha } = palette[token];
+  circle.setFillStyle(helpers.toColor(color), alpha);
+}
+
+// Renders the energy token row/rows and remembers the last draw so counts can be refreshed without re-laying out.
 export class EnergyBarHandler {
   private circles: Phaser.GameObjects.Shape[] = [];
   private visible = true;
@@ -18,7 +51,9 @@ export class EnergyBarHandler {
     barWidth: number;
     isOpponent: boolean;
     counts: EnergyCounts;
+    palette: TokenPalette;
   };
+  private palette: TokenPalette = DEFAULT_PALETTE;
 
   constructor(private scene: Phaser.Scene, private drawHelpers: DrawHelpers) {}
 
@@ -31,14 +66,12 @@ export class EnergyBarHandler {
     counts: EnergyCounts = { active: 0, rested: 0, extra: 0 },
   ) {
     this.clear();
-    this.lastArgs = { centerX, baseY, cfg: { ...cfg }, barWidth, isOpponent, counts: { ...counts } };
-    const total = Math.max(0, counts.active) + Math.max(0, counts.rested) + Math.max(0, counts.extra);
+    const palette = this.palette;
+    this.lastArgs = { centerX, baseY, cfg, barWidth, isOpponent, counts: { ...counts }, palette };
+    const tokens = buildTokenSequence(counts);
+    const total = tokens.length;
     const totalWidth = cfg.perRow * cfg.radius * 2 + (cfg.perRow - 1) * cfg.gap;
     const startX = isOpponent ? centerX + barWidth / 2 - totalWidth : centerX - barWidth / 2;
-    const tokens: Array<keyof EnergyCounts> = [];
-    for (let i = 0; i < counts.active; i++) tokens.push("active");
-    for (let i = 0; i < counts.extra; i++) tokens.push("extra");
-    for (let i = 0; i < counts.rested; i++) tokens.push("rested");
     let drawn = 0;
     for (let row = 0; row < cfg.rows; row++) {
       const y = baseY + row * (cfg.radius * 2 + cfg.rowGap);
@@ -48,13 +81,7 @@ export class EnergyBarHandler {
         const token = tokens[drawn];
         const circle = this.scene.add.circle(x, y, cfg.radius);
         circle.setStrokeStyle(2, this.drawHelpers.toColor(cfg.emptyColor), 1);
-        if (token === "active") {
-          circle.setFillStyle(this.drawHelpers.toColor(cfg.fillColor), 1);
-        } else if (token === "extra") {
-          circle.setFillStyle(this.drawHelpers.toColor(cfg.fillColor), 0.6);
-        } else if (token === "rested") {
-          circle.setFillStyle(this.drawHelpers.toColor(cfg.emptyColor), 0.35);
-        }
+        applyTokenStyle(circle, token, palette, this.drawHelpers);
         circle.setVisible(this.visible);
         this.circles.push(circle);
         drawn++;
@@ -84,16 +111,10 @@ export class EnergyBarHandler {
     });
   }
 
+  // Re-render using the last known geometry while swapping the counts (keeps layout stable between updates).
   redrawWithCounts(counts: EnergyCounts) {
     if (!this.lastArgs) return;
-    this.drawBar(
-      this.lastArgs.centerX,
-      this.lastArgs.baseY,
-      this.lastArgs.cfg,
-      this.lastArgs.barWidth,
-      this.lastArgs.isOpponent,
-      counts,
-    );
+    this.drawBar(this.lastArgs.centerX, this.lastArgs.baseY, this.lastArgs.cfg, this.lastArgs.barWidth, this.lastArgs.isOpponent, counts);
   }
 
   private clear() {
