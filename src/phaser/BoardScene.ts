@@ -33,7 +33,7 @@ const colors = {
   accent: "#d0d5e0",
   pill: "#2f3342",
   text: "#f5f6fb",
-  ink: "#0f1118",
+ink: "#0f1118",
 };
 
 export class BoardScene extends Phaser.Scene {
@@ -287,6 +287,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshPhase(skipAnimation: boolean) {
+    const animationPolicy = { allowAnimations: !skipAnimation && this.playAnimations, reason: skipAnimation ? "scenario" : "live" as const };
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
@@ -294,8 +295,8 @@ export class BoardScene extends Phaser.Scene {
     this.updateEnergyStatus(raw);
     this.showUI(!skipAnimation);
     this.updateHandArea({ skipAnimation });
-    this.updateSlots({ skipAnimation });
-    this.updateBaseAndShield({ fade: !skipAnimation });
+    this.updateSlots({ skipAnimation, animation: animationPolicy });
+    this.updateBaseAndShield({ fade: !skipAnimation, animation: animationPolicy });
     this.updateActionBarForPhase();
     if (raw) {
       void this.effectTargetController?.syncFromSnapshot(raw);
@@ -408,13 +409,13 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private updateSlots(opts: { skipAnimation?: boolean } = {}) {
+  private updateSlots(opts: { skipAnimation?: boolean; animation?: { allowAnimations: boolean } } = {}) {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
-    const allowAnimations = !opts.skipAnimation && this.playAnimations;
+    const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
     console.log("[updateSlots] allowAnimations", allowAnimations, "skipAnimation", opts.skipAnimation);
     this.slotControls?.setPlayAnimations?.(allowAnimations);
     this.slotControls?.setSlots(slots);
@@ -436,7 +437,7 @@ export class BoardScene extends Phaser.Scene {
     console.log("End Turn clicked");
   }
 
-  private updateBaseAndShield(opts: { fade?: boolean } = {}) {
+  private updateBaseAndShield(opts: { fade?: boolean; animation?: { allowAnimations: boolean } } = {}) {
     const fade = opts.fade ?? true;
     console.log("show base")
     const snapshot = this.engine.getSnapshot();
@@ -467,12 +468,12 @@ export class BoardScene extends Phaser.Scene {
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, true);
-        this.baseControls?.setBasePreviewData?.(isOpponent, baseCard);
+        this.baseControls?.setBasePreviewData?.(isOpponent, baseCard, { allowAnimation: opts.animation?.allowAnimations ?? true });
       } else {
         // Hide only the base visuals; keep shields visible. Disable preview.
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, false);
-        this.baseControls?.setBasePreviewData?.(isOpponent, null);
+        this.baseControls?.setBasePreviewData?.(isOpponent, null, { allowAnimation: opts.animation?.allowAnimations ?? true });
       }
     };
 

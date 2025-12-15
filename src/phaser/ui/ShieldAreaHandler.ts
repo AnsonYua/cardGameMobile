@@ -202,8 +202,9 @@ export class ShieldAreaHandler {
   }
 
   // Provide base payload (card + field values) for preview rendering.
-  setBasePreviewData(isOpponent: boolean, baseCard: any | null) {
+  setBasePreviewData(isOpponent: boolean, baseCard: any | null, opts?: { allowAnimation?: boolean }) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
+    const allowAnimation = opts?.allowAnimation !== false;
     const prevCardId = this.lastBaseCardId[key];
     const nextCardId = baseCard?.cardId;
     const isNewCard = nextCardId && nextCardId !== prevCardId;
@@ -216,7 +217,7 @@ export class ShieldAreaHandler {
     }
 
     // Trigger base play animation when a new base arrives.
-    if (isNewCard) {
+    if (isNewCard && allowAnimation) {
       const anchor = this.baseAnchors[key];
       if (anchor) {
         const cam = this.scene.cameras.main;

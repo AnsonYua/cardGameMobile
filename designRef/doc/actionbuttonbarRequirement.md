@@ -398,3 +398,24 @@ curl 'http://localhost:8080/api/game/player/playCard' \
 
 
   8.if cardtype = "pilot" ,show a dialog PilotTargetDialog. it will get all unit without pilot in slot and appear in the dialog. it will has 3 x 2 display. Then when a unit card is selected in the pilottargetDialog , it will call this api. same flow of #5 if the command card place as pilot
+
+
+  9.
+  when click end turn. it will call this api
+  curl 'http://localhost:8080/api/game/player/endTurn' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/json' \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://localhost:3000/' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-site' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  --data-raw '{"gameId":"sample_play_card","playerId":"playerId_2"}'
