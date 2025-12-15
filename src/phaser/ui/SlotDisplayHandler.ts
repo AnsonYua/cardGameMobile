@@ -91,6 +91,7 @@ export class SlotDisplayHandler {
       const prev = prevSlots.find((s) => s.owner === slot.owner && s.slotId === slot.slotId);
       const hadCard = !!(prev && (prev.unit || prev.pilot));
       const hasCard = !!(slot.unit || slot.pilot);
+      const pilotAdded = !prev?.pilot && !!slot.pilot;
       this.slotContainers.get(key)?.destroy();
 
       const isSelected = this.selectedKey === key;
@@ -111,8 +112,12 @@ export class SlotDisplayHandler {
       this.slotContainers.set(key, container);
 
       // Trigger entry animation only when a card just appeared in an empty slot.
-      if (!hadCard && hasCard && this.playAnimations) {
-        this.animateCardEntry(slot, pos);
+      if (this.playAnimations) {
+        if (!hadCard && hasCard) {
+          this.animateCardEntry(slot, pos);
+        } else if (pilotAdded) {
+          this.animateCardEntry(slot, pos, slot.pilot);
+        }
       }
     });
 
@@ -645,14 +650,14 @@ export class SlotDisplayHandler {
     return `${ap}|${hp}`;
   }
 
-  private animateCardEntry(slot: SlotViewModel, pos: { x: number; y: number; isOpponent: boolean }) {
+  private animateCardEntry(slot: SlotViewModel, pos: { x: number; y: number; isOpponent: boolean }, incomingCard?: SlotCardView) {
     const isOpponent = slot.owner === "opponent";
     const cam = this.scene.cameras.main;
     const start = {
       x: cam.centerX,
       y: isOpponent ? cam.height * 0.12 : cam.height - 60,
     };
-    const card = slot.unit || slot.pilot;
+    const card = incomingCard || slot.unit || slot.pilot;
     const cardName = (card as any)?.cardData?.name || card?.id;
     const stats = {
       ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
