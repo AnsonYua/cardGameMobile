@@ -6,7 +6,7 @@ import { GameStatus, GameStatusHandler } from "./GameStatusHandler";
 import { ShieldAreaControls, ShieldAreaHandler } from "./ShieldAreaHandler";
 import { EnergyBarHandler, EnergyCounts } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
-import { SlotOwner, SlotPositionMap, SlotViewModel } from "./SlotTypes";
+import { SlotOwner, SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
 
 export type FieldConfig = {
   slot: number;
@@ -199,6 +199,13 @@ export class FieldHandler {
       setPlayAnimations: (enabled: boolean) => this.slotDisplay.setPlayAnimations(enabled),
       setSelectedSlot: (owner?: SlotOwner, slotId?: string) =>
         this.slotDisplay.setSelectedSlot(owner && slotId ? `${owner}-${slotId}` : undefined),
+      playCardAnimation: (
+        slot: SlotViewModel,
+        card?: SlotCardView,
+        startOverride?: { x: number; y: number; isOpponent?: boolean },
+        endOverride?: { x: number; y: number; isOpponent?: boolean },
+      ) => this.slotDisplay.playCardAnimation(slot, card, startOverride, endOverride),
+      getSlotAreaCenter: (owner: SlotOwner) => this.slotDisplay.getSlotAreaCenter(owner),
     };
   }
 

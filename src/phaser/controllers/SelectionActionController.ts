@@ -186,6 +186,10 @@ export class SelectionActionController {
       this.handleCancelSelection();
       return;
     }
+    if (actionId === "playCommandFromHand") {
+      // Preserve the command card so we can animate it after the effect target flow resolves.
+      this.deps.effectTargetController?.setPendingSourceCard(this.selectedHandCard);
+    }
     const result = await this.deps.engine.runAction(actionId);
     if (result === false) return;
     this.refreshAfterStateChange(actionSource);
@@ -392,6 +396,7 @@ export class SelectionActionController {
       const cardType = (this.selectedHandCard?.cardType || "").toLowerCase();
       console.log("[handleActionStepActivate] hand cardType", cardType);
       if (cardType === "command") {
+        this.deps.effectTargetController?.setPendingSourceCard(this.selectedHandCard);
         await this.runActionThenRefresh("playCommandFromHand", "hand");
         return;
       }

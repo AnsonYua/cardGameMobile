@@ -84,6 +84,13 @@ export class BoardScene extends Phaser.Scene {
   private unitFlow?: UnitFlowController;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
+  private pendingSlotAnimations: Array<{
+    slotId: string;
+    owner: "player" | "opponent";
+    card?: SlotCardView;
+    startOverride?: { x: number; y: number; isOpponent?: boolean };
+    endOverride?: { x: number; y: number; isOpponent?: boolean };
+  }> = [];
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -156,6 +163,8 @@ export class BoardScene extends Phaser.Scene {
       gameContext: this.gameContext,
       engine: this.engine,
       api: this.api,
+      scene: this,
+      enqueueSlotAnimation: (owner, slotId, card, startOverride) => this.enqueueSlotAnimation(owner, slotId, card, startOverride),
     });
     this.selectionAction = new SelectionActionController({
       engine: this.engine,
@@ -419,10 +428,29 @@ export class BoardScene extends Phaser.Scene {
     console.log("[updateSlots] allowAnimations", allowAnimations, "skipAnimation", opts.skipAnimation);
     this.slotControls?.setPlayAnimations?.(allowAnimations);
     this.slotControls?.setSlots(slots);
+    if (allowAnimations) {
+      this.pendingSlotAnimations.forEach(({ slotId, owner, card, startOverride, endOverride }) => {
+        const target = slots.find((s) => s.slotId === slotId && s.owner === owner);
+        if (target) {
+          this.slotControls?.playCardAnimation?.(target, card, startOverride, endOverride);
+        }
+      });
+    }
+    this.pendingSlotAnimations = [];
     // Restore preferred animation state for subsequent updates.
     if (allowAnimations !== this.playAnimations) {
       this.slotControls?.setPlayAnimations?.(this.playAnimations);
     }
+  }
+
+  private enqueueSlotAnimation(
+    owner: "player" | "opponent",
+    slotId: string,
+    card?: SlotCardView,
+    startOverride?: { x: number; y: number; isOpponent?: boolean },
+    endOverride?: { x: number; y: number; isOpponent?: boolean },
+  ) {
+    this.pendingSlotAnimations.push({ owner, slotId, card, startOverride, endOverride });
   }
 
   private updateActionBarForPhase() {

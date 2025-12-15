@@ -4,7 +4,9 @@ import type { GameEngine } from "../game/GameEngine";
 import { SlotPresenter } from "../ui/SlotPresenter";
 import type { SlotViewModel, SlotCardView } from "../ui/SlotTypes";
 import { toPreviewKey } from "../ui/HandTypes";
+import type { HandCardView } from "../ui/HandTypes";
 import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
+import Phaser from "phaser";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -23,8 +25,23 @@ export class EffectTargetController {
       gameContext: GameContext;
       engine: GameEngine;
       api: ApiManager;
+      scene: Phaser.Scene;
+      enqueueSlotAnimation: (
+        owner: "player" | "opponent",
+        slotId: string,
+        card?: SlotCardView,
+        startOverride?: { x: number; y: number; isOpponent?: boolean },
+        endOverride?: { x: number; y: number; isOpponent?: boolean },
+      ) => void;
+      getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
     },
   ) {}
+
+  private pendingSourceCard?: HandCardView;
+
+  setPendingSourceCard(card?: HandCardView) {
+    this.pendingSourceCard = card;
+  }
 
   async syncFromSnapshot(raw: any) {
     if (this.manualOpen) {
@@ -35,6 +52,7 @@ export class EffectTargetController {
     const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
     if (!pending) {
       this.activeEffectChoiceId = undefined;
+      this.pendingSourceCard = undefined;
       await this.deps.dialog.hide();
       return;
     }
@@ -80,6 +98,7 @@ export class EffectTargetController {
 
         try {
           await this.deps.api.confirmTargetChoice(payload);
+          this.enqueueAnimationForSelection(slot);
           await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
         } catch (err) {
           console.warn("confirmTargetChoice failed", err);
@@ -100,11 +119,47 @@ export class EffectTargetController {
       onSelect: async (slot) => {
         try {
           await opts.onSelect(slot);
+          this.enqueueAnimationForSelection(slot);
         } finally {
           this.manualOpen = false;
         }
       },
     });
+  }
+
+  private enqueueAnimationForSelection(slot?: SlotViewModel) {
+    if (!slot || !this.pendingSourceCard) {
+      this.pendingSourceCard = undefined;
+      return;
+    }
+    const card: SlotCardView = {
+      id: this.pendingSourceCard.cardId,
+      textureKey: toPreviewKey(this.pendingSourceCard.cardId),
+      cardType: this.pendingSourceCard.cardType,
+      cardUid: this.pendingSourceCard.uid,
+      cardData: { cardType: this.pendingSourceCard.cardType, name: (this.pendingSourceCard as any)?.cardData?.name },
+    };
+    this.deps.enqueueSlotAnimation(
+      slot.owner,
+      slot.slotId,
+      card,
+      this.computeCommandStartOverride(slot.owner),
+      this.computePlayerSlotCenter(),
+    );
+    this.pendingSourceCard = undefined;
+  }
+
+  private computeCommandStartOverride(targetOwner: "player" | "opponent") {
+    // Launch commands from the player's hand side, toward the player's slot area.
+    const cam = this.deps.scene.cameras.main;
+    return { x: cam.centerX, y: cam.height - 60, isOpponent: false };
+  }
+
+  private computePlayerSlotCenter() {
+    const center = this.deps.getSlotAreaCenter?.("player");
+    if (center) return { ...center, isOpponent: false };
+    const cam = this.deps.scene.cameras.main;
+    return { x: cam.centerX, y: cam.centerY, isOpponent: false };
   }
 
   private mapAvailableTargetsToSlots(raw: any, availableTargets: any[]): SlotViewModel[] {

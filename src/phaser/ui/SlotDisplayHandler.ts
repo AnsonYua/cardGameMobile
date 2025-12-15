@@ -73,6 +73,35 @@ export class SlotDisplayHandler {
   setPlayAnimations(enabled: boolean) {
     this.playAnimations = enabled;
   }
+
+  getSlotAreaCenter(owner: SlotOwner): { x: number; y: number } | undefined {
+    const positions = this.lastPositions?.[owner];
+    if (!positions) return undefined;
+    const vals = Object.values(positions);
+    if (!vals.length) return undefined;
+    const sum = vals.reduce(
+      (acc, p) => {
+        acc.x += p.x;
+        acc.y += p.y;
+        return acc;
+      },
+      { x: 0, y: 0 },
+    );
+    return { x: sum.x / vals.length, y: sum.y / vals.length };
+  }
+
+  playCardAnimation(
+    slot: SlotViewModel,
+    card?: SlotCardView,
+    startOverride?: { x: number; y: number; isOpponent?: boolean },
+    endOverride?: { x: number; y: number; isOpponent?: boolean },
+  ) {
+    if (!this.lastPositions) return;
+    const pos = endOverride ?? this.lastPositions?.[slot.owner]?.[slot.slotId];
+    if (!pos) return;
+    const normalizedPos = { x: pos.x, y: pos.y, isOpponent: pos.isOpponent ?? slot.owner === "opponent" };
+    this.animateCardEntry(slot, normalizedPos, card, startOverride);
+  }
   setSelectedSlot(slotKey?: string) {
     this.selectedKey = slotKey;
     this.rerenderLast();
@@ -114,9 +143,13 @@ export class SlotDisplayHandler {
       // Trigger entry animation only when a card just appeared in an empty slot.
       if (this.playAnimations) {
         if (!hadCard && hasCard) {
-          this.animateCardEntry(slot, pos);
+          if (!this.isCommandCard(slot.unit || slot.pilot)) {
+            this.animateCardEntry(slot, pos);
+          }
         } else if (pilotAdded) {
-          this.animateCardEntry(slot, pos, slot.pilot);
+          if (!this.isCommandCard(slot.pilot)) {
+            this.animateCardEntry(slot, pos, slot.pilot);
+          }
         }
       }
     });
@@ -650,10 +683,15 @@ export class SlotDisplayHandler {
     return `${ap}|${hp}`;
   }
 
-  private animateCardEntry(slot: SlotViewModel, pos: { x: number; y: number; isOpponent: boolean }, incomingCard?: SlotCardView) {
-    const isOpponent = slot.owner === "opponent";
+  private animateCardEntry(
+    slot: SlotViewModel,
+    pos: { x: number; y: number; isOpponent: boolean },
+    incomingCard?: SlotCardView,
+    startOverride?: { x: number; y: number; isOpponent?: boolean },
+  ) {
+    const isOpponent = startOverride?.isOpponent ?? slot.owner === "opponent";
     const cam = this.scene.cameras.main;
-    const start = {
+    const start = startOverride ?? {
       x: cam.centerX,
       y: isOpponent ? cam.height * 0.12 : cam.height - 60,
     };
@@ -673,6 +711,10 @@ export class SlotDisplayHandler {
       cardName,
       stats,
     });
+  }
+
+  private isCommandCard(card?: SlotCardView) {
+    return (card?.cardType || card?.cardData?.cardType || "").toLowerCase() === "command";
   }
 
 }
