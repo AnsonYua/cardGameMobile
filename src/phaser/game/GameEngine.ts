@@ -79,6 +79,7 @@ export class GameEngine {
       const enteredMainPhase = !this.isMainPhase(previousPhase) && this.isMainPhase(nextPhase);
       if (enteredMainPhase) {
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_ENTER, this.getSnapshot());
+        this.contextStore.update({ lastStatus: "Main Step" });
       }
 
       return this.getSnapshot();
@@ -250,6 +251,7 @@ export class GameEngine {
     }
     if (prevActive && !nextActive) {
       // When battle ends, ask UI to recompute buttons (e.g., restore End Turn).
+      this.contextStore.update({ lastStatus: "Main Step" });
       this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
     }
   }

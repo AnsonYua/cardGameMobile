@@ -5,6 +5,7 @@ import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
+import { GameStatus } from "../game/GameSessionService";
 import type { BaseControls } from "./BaseShieldHandler";
 import type { HandCardView } from "./HandTypes";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
@@ -20,6 +21,7 @@ type HandControls = {
 };
 type HeaderControls = {
   setStatus: (text: string) => void;
+  setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
   setButtonVisible: (visible: boolean) => void;
   setButtonHandler: (handler: () => void) => void;
   setAvatarHandler: (handler: () => void) => void;
@@ -59,6 +61,27 @@ export class BoardUI {
     this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
     this.headerControls = {
       setStatus: (text: string) => this.header.setStatusText(text),
+      setStatusFromEngine: (status: any, opts?: { offlineFallback?: boolean }) => {
+        // Ignore empty/non-primitive statuses to avoid clobbering a meaningful label.
+        if (status === null || status === undefined || typeof status === "object") return;
+        const suffix = opts?.offlineFallback ? " (offline)" : "";
+        let label: string;
+        if (status === GameStatus.LoadingResources) {
+          label = "Loading...";
+        } else if (status === GameStatus.InMatch) {
+          label = "In match";
+        } else if (status === GameStatus.Ready) {
+          label = "Ready";
+        } else if (status === "Action Step" || status === "ACTION_STEP" || status === "action_step") {
+          label = "Action Step";
+        } else if (typeof status === "string") {
+          const normalized = status.replace(/_/g, " ");
+          label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+        } else {
+          label = "Status";
+        }
+        this.header.setStatusText(`Status: ${label}${suffix}`);
+      },
       setButtonVisible: (visible: boolean) => this.header.setCtaVisible(visible),
       setButtonHandler: (handler: () => void) => this.header.setCtaHandler(handler),
       setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
