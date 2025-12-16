@@ -206,6 +206,7 @@ export class FieldHandler {
         endOverride?: { x: number; y: number; isOpponent?: boolean },
       ) => this.slotDisplay.playCardAnimation(slot, card, startOverride, endOverride),
       getSlotAreaCenter: (owner: SlotOwner) => this.slotDisplay.getSlotAreaCenter(owner),
+      getSlotPositions: () => this.slotPositions,
     };
   }
 

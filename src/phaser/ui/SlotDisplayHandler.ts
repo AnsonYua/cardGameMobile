@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
-import { SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
+import { SlotPositionMap, SlotViewModel, SlotCardView, SlotOwner } from "./SlotTypes";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
 

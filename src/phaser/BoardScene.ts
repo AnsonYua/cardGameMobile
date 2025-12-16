@@ -25,6 +25,7 @@ import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
+import { PlayAnimationService, AnimationJob } from "./animations/PlayAnimationService";
 
 const colors = {
   bg: "#ffffff",
@@ -84,6 +85,8 @@ export class BoardScene extends Phaser.Scene {
   private unitFlow?: UnitFlowController;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
+  private playAnimationService: PlayAnimationService | null = null;
+  private lastSlotsForAnimation: SlotViewModel[] = [];
   private pendingSlotAnimations: Array<{
     slotId: string;
     owner: "player" | "opponent";
@@ -164,7 +167,9 @@ export class BoardScene extends Phaser.Scene {
       engine: this.engine,
       api: this.api,
       scene: this,
-      enqueueSlotAnimation: (owner, slotId, card, startOverride) => this.enqueueSlotAnimation(owner, slotId, card, startOverride),
+      enqueueSlotAnimation: (owner, slotId, card, startOverride, endOverride) =>
+        this.enqueueSlotAnimation(owner, slotId, card, startOverride, endOverride),
+      getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
     });
     this.selectionAction = new SelectionActionController({
       engine: this.engine,
@@ -190,6 +195,7 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
+    this.playAnimationService = new PlayAnimationService(this);
     this.debugControls.exposeTestHooks(this.buildTestHooks());
 
     this.setupActions();
@@ -427,9 +433,30 @@ export class BoardScene extends Phaser.Scene {
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
     console.log("[updateSlots] allowAnimations", allowAnimations, "skipAnimation", opts.skipAnimation);
     this.slotControls?.setPlayAnimations?.(allowAnimations);
+
+    const positions = this.slotControls?.getSlotPositions?.();
+    let jobs: AnimationJob[] = [];
+    if (allowAnimations && this.playAnimationService && positions) {
+      jobs = this.playAnimationService.computeSlotEntryJobs(
+        this.lastSlotsForAnimation,
+        slots,
+        positions,
+        { allowAnimations },
+      );
+    }
+
     this.slotControls?.setSlots(slots);
+    this.lastSlotsForAnimation = slots.map((s) => ({ ...s }));
+
     if (allowAnimations) {
-      this.pendingSlotAnimations.forEach(({ slotId, owner, card, startOverride, endOverride }) => {
+      const normalizedJobs = jobs.map(({ slotId, owner, card, start, end }) => ({
+        slotId,
+        owner,
+        card,
+        startOverride: start,
+        endOverride: end,
+      }));
+      [...normalizedJobs, ...this.pendingSlotAnimations].forEach(({ slotId, owner, card, startOverride, endOverride }) => {
         const target = slots.find((s) => s.slotId === slotId && s.owner === owner);
         if (target) {
           this.slotControls?.playCardAnimation?.(target, card, startOverride, endOverride);
