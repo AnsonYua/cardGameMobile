@@ -88,13 +88,6 @@ export class BoardScene extends Phaser.Scene {
   private playAnimations = true;
   private playAnimationService: PlayAnimationService | null = null;
   private lastSlotsForAnimation: SlotViewModel[] = [];
-  private pendingSlotAnimations: Array<{
-    slotId: string;
-    owner: "player" | "opponent";
-    card?: SlotCardView;
-    startOverride?: { x: number; y: number; isOpponent?: boolean };
-    endOverride?: { x: number; y: number; isOpponent?: boolean };
-  }> = [];
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -168,8 +161,6 @@ export class BoardScene extends Phaser.Scene {
       engine: this.engine,
       api: this.api,
       scene: this,
-      enqueueSlotAnimation: (owner, slotId, card, startOverride, endOverride) =>
-        this.enqueueSlotAnimation(owner, slotId, card, startOverride, endOverride),
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
     });
     this.selectionAction = new SelectionActionController({
@@ -450,6 +441,7 @@ export class BoardScene extends Phaser.Scene {
     this.lastSlotsForAnimation = slots.map((s) => ({ ...s }));
 
     if (allowAnimations) {
+      console.log("job animation ",JSON.stringify(jobs))
       const normalizedJobs = jobs.map(({ slotId, owner, card, start, end }) => ({
         slotId,
         owner,
@@ -457,29 +449,18 @@ export class BoardScene extends Phaser.Scene {
         startOverride: start,
         endOverride: end,
       }));
-     
-      [...normalizedJobs, ...this.pendingSlotAnimations].forEach(({ slotId, owner, card, startOverride, endOverride }) => {
+
+      normalizedJobs.forEach(({ slotId, owner, card, startOverride, endOverride }) => {
         const target = slots.find((s) => s.slotId === slotId && s.owner === owner);
         if (target) {
           this.slotControls?.playCardAnimation?.(target, card, startOverride, endOverride);
         }
       });
     }
-    this.pendingSlotAnimations = [];
     // Restore preferred animation state for subsequent updates.
     if (allowAnimations !== this.playAnimations) {
       this.slotControls?.setPlayAnimations?.(this.playAnimations);
     }
-  }
-
-  private enqueueSlotAnimation(
-    owner: "player" | "opponent",
-    slotId: string,
-    card?: SlotCardView,
-    startOverride?: { x: number; y: number; isOpponent?: boolean },
-    endOverride?: { x: number; y: number; isOpponent?: boolean },
-  ) {
-    this.pendingSlotAnimations.push({ owner, slotId, card, startOverride, endOverride });
   }
 
   private updateActionBarForPhase() {
