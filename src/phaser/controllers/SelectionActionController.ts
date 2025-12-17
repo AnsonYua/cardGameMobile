@@ -186,6 +186,7 @@ export class SelectionActionController {
       this.handleCancelSelection();
       return;
     }
+    console.log("print commend action")
     if (actionId === "playCommandFromHand") {
       // Preserve the command card so we can animate it after the effect target flow resolves.
       this.deps.effectTargetController?.setPendingSourceCard(this.selectedHandCard);

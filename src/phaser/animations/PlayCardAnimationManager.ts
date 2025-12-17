@@ -28,7 +28,7 @@ export class PlayCardAnimationManager {
     const flight = this.playFlight(payload);
     await flight;
     this.playImpact(payload.end, payload.isOpponent);
-    this.showAlert(payload);
+   // this.showAlert(payload);
   }
 
   private playFlight({ textureKey, fallbackLabel, start, end, size }: PlayAnimationPayload) {

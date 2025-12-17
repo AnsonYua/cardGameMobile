@@ -40,7 +40,7 @@ export class GameEngine {
   async updateGameStatus(
     gameId?: string,
     playerId?: string,
-    opts: { fromScenario?: boolean; silent?: boolean } = {},
+    opts: { fromScenario?: boolean; silent?: boolean; statusPayload?: GameStatusResponse | null } = {},
   ) {
     if (!gameId || !playerId) return this.getSnapshot();
     const fromScenario = opts.fromScenario === true;
@@ -49,7 +49,10 @@ export class GameEngine {
     const previousBattle = this.getBattle(this.lastRaw);
     const previousStatus = this.contextStore.get().lastStatus;
     try {
-      const response: GameStatusResponse = fromScenario && this.lastRaw
+      const forcedPayload = opts.statusPayload ?? null;
+      const response: GameStatusResponse = forcedPayload
+        ? forcedPayload
+        : fromScenario && this.lastRaw
         ? this.lastRaw
         : await this.match.getGameStatus(gameId, playerId);
       // Prefer explicit status fields, otherwise fall back to the entire payload.
@@ -340,6 +343,7 @@ export class GameEngine {
     });
 
     this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {
+      console.log("play log from command")
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
       if (this.commandFlow) return this.commandFlow.handlePlayCommand(ctx);

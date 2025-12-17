@@ -8,6 +8,7 @@ import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
+import type { GameStatusResponse } from "./game/GameTypes";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
 import { parseSessionParams } from "./game/SessionParams";
@@ -456,6 +457,7 @@ export class BoardScene extends Phaser.Scene {
         startOverride: start,
         endOverride: end,
       }));
+     
       [...normalizedJobs, ...this.pendingSlotAnimations].forEach(({ slotId, owner, card, startOverride, endOverride }) => {
         const target = slots.find((s) => s.slotId === slotId && s.owner === owner);
         if (target) {
@@ -587,11 +589,18 @@ export class BoardScene extends Phaser.Scene {
           throw new Error("Missing game id for join mode");
         }
         // Default join identity aligns with backend sample if none provided.
-        const joinId = playerIdParam || "playerId_2";
+        const joinId = playerIdParam || "playerId_1";
         const joinName = playerNameParam || "Demo Opponent";
         this.contextStore.update({ playerId: joinId, playerName: joinName, status: GameStatus.CreatingRoom });
         await this.match.joinRoom(gameId, joinId, joinName);
-        await this.engine.updateGameStatus(gameId, joinId);
+        const resolvedPlayerId = this.gameContext.playerId || joinId;
+        const statusPayload = (await this.match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
+        await this.engine.loadGameResources(gameId, resolvedPlayerId, statusPayload);
+        await this.engine.updateGameStatus(gameId, resolvedPlayerId, {
+          fromScenario: true,
+          silent: true,
+          statusPayload,
+        });
       } else {
         const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
         this.contextStore.update({ playerName: hostName, status: GameStatus.CreatingRoom });
@@ -618,6 +627,7 @@ export class BoardScene extends Phaser.Scene {
       console.warn("Using offline fallback:", msg);
     }
   }
+
   private onMatchStatus(state: MatchState) {
     this.gameContext.status = state.status;
     this.gameContext.gameId = state.gameId;
