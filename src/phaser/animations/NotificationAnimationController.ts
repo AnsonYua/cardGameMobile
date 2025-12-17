@@ -31,6 +31,8 @@ export class NotificationAnimationController {
         | { x: number; y: number; isOpponent: boolean; w?: number; h?: number }
         | undefined;
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
+      onSlotAnimationStart?: (slotKey: string) => void;
+      onSlotAnimationEnd?: (slotKey: string) => void;
     },
   ) {}
 
@@ -92,21 +94,26 @@ export class NotificationAnimationController {
       }
     }
     if (!target) return false;
+    const slotKey = `${slot.owner}-${slot.slotId}`;
     const card = this.getSlotCard(slot, payload.carduid);
     const start = this.getHandOrigin(isSelf);
     const stats = {
       ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
       hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
     };
-    void this.deps.playAnimator.play({
-      textureKey: card?.textureKey,
-      fallbackLabel: card?.id ?? payload.carduid,
-      start,
-      end: { x: target.x, y: target.y },
-      isOpponent: !isSelf,
-      cardName: card?.cardData?.name ?? card?.id ?? payload.carduid,
-      stats,
-    });
+    this.deps.onSlotAnimationStart?.(slotKey);
+    void this.deps.playAnimator
+      .play({
+        textureKey: card?.textureKey,
+        fallbackLabel: card?.id ?? payload.carduid,
+        start,
+        end: { x: target.x, y: target.y },
+        isOpponent: !isSelf,
+        cardName: card?.cardData?.name ?? card?.id ?? payload.carduid,
+        stats,
+      })
+      .then(() => this.deps.onSlotAnimationEnd?.(slotKey))
+      .catch(() => this.deps.onSlotAnimationEnd?.(slotKey));
     return true;
   }
 

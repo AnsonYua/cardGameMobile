@@ -436,7 +436,13 @@ export class SlotDisplayHandler {
       this.lastStatLabels.set(slotKey, { label, score });
       if (previous && previous.label !== label) {
         const delta = score - previous.score;
-        this.triggerStatsPulse(statsText, pill, delta);
+        if (this.animatingSlots.has(slotKey)) {
+          this.pendingStatPulses.set(slotKey, { statsText, pill, delta });
+        } else {
+          this.triggerStatsPulse(statsText, pill, delta);
+        }
+      } else {
+        this.pendingStatPulses.delete(slotKey);
       }
     }
   }
@@ -482,6 +488,19 @@ export class SlotDisplayHandler {
         ease: "Cubic.easeOut",
         onComplete: () => spark.destroy(),
       });
+    }
+  }
+
+  markStatAnimationPending(slotKey: string) {
+    this.animatingSlots.add(slotKey);
+  }
+
+  releaseStatAnimation(slotKey: string) {
+    this.animatingSlots.delete(slotKey);
+    const pending = this.pendingStatPulses.get(slotKey);
+    if (pending) {
+      this.pendingStatPulses.delete(slotKey);
+      this.triggerStatsPulse(pending.statsText, pending.pill, pending.delta);
     }
   }
 

@@ -121,6 +121,8 @@ export class BoardScene extends Phaser.Scene {
       playAnimator: this.cardFlightAnimator,
       getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
+      onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
+      onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
     });
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
@@ -434,8 +436,6 @@ export class BoardScene extends Phaser.Scene {
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
 
     const positions = this.slotControls?.getSlotPositions?.();
-    this.slotControls?.setSlots(slots);
-
     const notificationQueue = this.getNotificationQueue(raw);
     this.notificationAnimator?.process({
       notifications: notificationQueue,
@@ -446,6 +446,7 @@ export class BoardScene extends Phaser.Scene {
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,
     });
+    this.slotControls?.setSlots(slots);
   }
 
   private getNotificationQueue(raw: any): SlotNotification[] {

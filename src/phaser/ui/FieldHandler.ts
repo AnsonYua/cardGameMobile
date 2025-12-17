@@ -207,6 +207,8 @@ export class FieldHandler {
       ) => this.slotDisplay.playCardAnimation(slot, card, startOverride, endOverride),
       getSlotAreaCenter: (owner: SlotOwner) => this.slotDisplay.getSlotAreaCenter(owner),
       getSlotPositions: () => this.slotPositions,
+      markStatAnimationPending: (slotKey: string) => this.slotDisplay.markStatAnimationPending(slotKey),
+      releaseStatAnimation: (slotKey: string) => this.slotDisplay.releaseStatAnimation(slotKey),
     };
   }
 
