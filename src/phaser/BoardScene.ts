@@ -26,8 +26,8 @@ import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
-import { PlayAnimationService, AnimationJob } from "./animations/PlayAnimationService";
-import { SlotAnimationController, type SlotNotification } from "./animations/SlotAnimationController";
+import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
+import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
 
 const colors = {
   bg: "#ffffff",
@@ -87,9 +87,8 @@ export class BoardScene extends Phaser.Scene {
   private unitFlow?: UnitFlowController;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
-  private playAnimationService: PlayAnimationService | null = null;
-  private slotAnimationController: SlotAnimationController | null = null;
-  private lastSlotsForAnimation: SlotViewModel[] = [];
+  private cardFlightAnimator: PlayCardAnimationManager | null = null;
+  private notificationAnimator: NotificationAnimationController | null = null;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -115,9 +114,13 @@ export class BoardScene extends Phaser.Scene {
     this.handControls = this.ui.getHandControls();
     this.slotControls = this.ui.getSlotControls();
     this.slotControls?.setPlayAnimations?.(false);
-    this.slotAnimationController = new SlotAnimationController((slot, card, startOverride, endOverride) =>
-      this.slotControls?.playCardAnimation?.(slot, card, startOverride, endOverride),
-    );
+    const palette = { ink: colors.ink, slot: colors.slot, accent: colors.accent, text: colors.text, bg: colors.bg };
+    this.cardFlightAnimator = new PlayCardAnimationManager(this, palette, new DrawHelpers(this));
+    this.notificationAnimator = new NotificationAnimationController({
+      scene: this,
+      playAnimator: this.cardFlightAnimator,
+      getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
+    });
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -193,7 +196,6 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
-    this.playAnimationService = new PlayAnimationService(this);
     this.debugControls.exposeTestHooks(this.buildTestHooks());
 
     this.setupActions();
@@ -431,21 +433,17 @@ export class BoardScene extends Phaser.Scene {
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
 
     const positions = this.slotControls?.getSlotPositions?.();
-    let jobs: AnimationJob[] = [];
-    if (allowAnimations && this.playAnimationService && positions) {
-      jobs = this.playAnimationService.computeSlotEntryJobs(
-        this.lastSlotsForAnimation,
-        slots,
-        positions,
-        { allowAnimations },
-      );
-    }
-
     this.slotControls?.setSlots(slots);
-    this.lastSlotsForAnimation = slots.map((s) => ({ ...s }));
 
     const notificationQueue = this.getNotificationQueue(raw);
-    //this.slotAnimationController?.animate(jobs, slots, notificationQueue, { allowAnimations });
+    this.notificationAnimator?.process({
+      notifications: notificationQueue,
+      slots,
+      slotPositions: positions,
+      raw,
+      allowAnimations,
+      currentPlayerId: this.gameContext.playerId,
+    });
   }
 
   private getNotificationQueue(raw: any): SlotNotification[] {
@@ -497,7 +495,7 @@ export class BoardScene extends Phaser.Scene {
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, true);
-        // Base play animations are disabled for now; SlotAnimationController should own all entry effects.
+        // Base play animations are disabled for now; NotificationAnimationController owns entry effects.
         this.baseControls?.setBasePreviewData?.(isOpponent, baseCard, { allowAnimation: false });
       } else {
         // Hide only the base visuals; keep shields visible. Disable preview.

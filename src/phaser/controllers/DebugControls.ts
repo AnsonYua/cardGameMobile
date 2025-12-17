@@ -108,13 +108,13 @@ export class DebugControls {
       console.error("Set scenario failed", err);
     }
   }
-  private async handleTestPolling(isSetScenoria=false, opts?: { skipPopupHide?: boolean; source?: string }) {
+  private async handleTestPolling(silentRefresh = false, opts?: { skipPopupHide?: boolean; source?: string }) {
     try {
       if (!opts?.skipPopupHide) {
         await this.popup?.hide();
       }
       const snapshot = await this.engine.updateGameStatus(this.context.gameId ?? undefined, this.context.playerId, {
-        silent: isSetScenoria,
+        silent: silentRefresh,
         fromScenario: false,
       });
       if (snapshot) {
@@ -138,12 +138,12 @@ export class DebugControls {
 
   private async beginAutoPolling(opts?: { hidePopup?: boolean }) {
     // Kick off an immediate poll, then schedule every 5 seconds.
-    await this.handleTestPolling(true, { skipPopupHide: true, source: "Auto polling (initial)" });
+    await this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling (initial)" });
     this.pollEvent = this.scene.time.addEvent({
       delay: this.pollDelayMs,
       loop: true,
       callback: () => {
-        void this.handleTestPolling(true, { skipPopupHide: true, source: "Auto polling" });
+        void this.handleTestPolling(false, { skipPopupHide: true, source: "Auto polling" });
       },
     });
     if (opts?.hidePopup !== false) {
