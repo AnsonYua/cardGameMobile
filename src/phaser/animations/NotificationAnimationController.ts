@@ -68,7 +68,7 @@ export class NotificationAnimationController {
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     if (playAs === "command") {
-      this.animateCommand(payload, isSelf, ctx.raw);
+      this.animateCommand(payload, isSelf, ctx);
       return true;
     }
     if (playAs === "base") {
@@ -134,12 +134,16 @@ export class NotificationAnimationController {
     });
   }
 
-  private animateCommand(payload: any, isSelf: boolean, raw: any) {
-    //if it is opponent , it should go to opponent slot center
+  private animateCommand(payload: any, isSelf: boolean, ctx: ProcessArgs) {
+    //if it is opponent , the end poistion should go to opponent slot center
     const cam = this.deps.scene.cameras.main;
     const start = this.getHandOrigin(isSelf);
-    const end = { x: cam.centerX, y: cam.centerY };
-    const card = this.findCardByUid(raw, payload.carduid);
+    const opponentCenter = this.deps.getSlotAreaCenter?.("opponent");
+    const end =
+      !isSelf && opponentCenter
+        ? { x: opponentCenter.x, y: opponentCenter.y }
+        : { x: cam.centerX, y: cam.centerY };
+    const card = this.findCardByUid(ctx.raw, payload.carduid);
     const stats = {
       ap: card?.cardData?.ap ?? 0,
       hp: card?.cardData?.hp ?? 0,
