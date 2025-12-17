@@ -120,6 +120,7 @@ export class BoardScene extends Phaser.Scene {
       scene: this,
       playAnimator: this.cardFlightAnimator,
       getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
+      getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
     });
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
@@ -440,6 +441,7 @@ export class BoardScene extends Phaser.Scene {
       notifications: notificationQueue,
       slots,
       slotPositions: positions,
+      slotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
       raw,
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,

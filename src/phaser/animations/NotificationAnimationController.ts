@@ -14,6 +14,7 @@ type ProcessArgs = {
   notifications: SlotNotification[];
   slots: SlotViewModel[];
   slotPositions?: SlotPositionMap;
+  slotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
   raw: any;
   allowAnimations: boolean;
   currentPlayerId: string | null;
@@ -29,6 +30,7 @@ export class NotificationAnimationController {
       getBaseAnchor?: (isOpponent: boolean) =>
         | { x: number; y: number; isOpponent: boolean; w?: number; h?: number }
         | undefined;
+      getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
     },
   ) {}
 
@@ -82,7 +84,13 @@ export class NotificationAnimationController {
     if (!slotPositions) return false;
     const slot = this.findSlot(slots, payload.carduid);
     if (!slot) return false;
-    const target = slotPositions[slot.owner]?.[slot.slotId];
+    let target = slotPositions[slot.owner]?.[slot.slotId];
+    if (!target && slot.owner === "opponent") {
+      const fallback = this.deps.getSlotAreaCenter?.("opponent");
+      if (fallback) {
+        target = { id: "opponent-center", x: fallback.x, y: fallback.y, w: 0, h: 0, isOpponent: true };
+      }
+    }
     if (!target) return false;
     const card = this.getSlotCard(slot, payload.carduid);
     const start = this.getHandOrigin(isSelf);
@@ -103,6 +111,7 @@ export class NotificationAnimationController {
   }
 
   private animateBase(payload: any, isSelf: boolean, raw: any) {
+    //if the base is opponent, the card should rotate 180
     const anchor = this.deps.getBaseAnchor?.(!isSelf);
     if (!anchor) return;
     const baseCard = this.findBaseCard(raw, payload.playerId);
@@ -121,10 +130,12 @@ export class NotificationAnimationController {
       cardName: baseCard?.cardData?.name ?? baseCard?.cardId ?? "Base",
       stats,
       size: anchor.w && anchor.h ? { w: anchor.w, h: anchor.h } : undefined,
+      angle: anchor.isOpponent ? 180 : 0,
     });
   }
 
   private animateCommand(payload: any, isSelf: boolean, raw: any) {
+    //if it is opponent , it should go to opponent slot center
     const cam = this.deps.scene.cameras.main;
     const start = this.getHandOrigin(isSelf);
     const end = { x: cam.centerX, y: cam.centerY };

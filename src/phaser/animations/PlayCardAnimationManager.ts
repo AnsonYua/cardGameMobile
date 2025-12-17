@@ -13,6 +13,7 @@ type PlayAnimationPayload = {
   cardName?: string;
   stats?: { ap?: number; hp?: number };
   size?: { w: number; h: number };
+  angle?: number;
 };
 
 /**
@@ -31,7 +32,7 @@ export class PlayCardAnimationManager {
    // this.showAlert(payload);
   }
 
-  private playFlight({ textureKey, fallbackLabel, start, end, size }: PlayAnimationPayload) {
+  private playFlight({ textureKey, fallbackLabel, start, end, size, angle }: PlayAnimationPayload) {
     return new Promise<void>((resolve) => {
       // Bail if geometry is invalid to avoid runtime errors.
       const valid =
@@ -53,7 +54,7 @@ export class PlayCardAnimationManager {
       const sprite = hasTexture
         ? this.scene.add.image(start.x, start.y, textureKey!).setDisplaySize(targetW, targetH)
         : (this.scene.add.rectangle(start.x, start.y, targetW * 0.9, targetH * 0.86, 0x5e48f0) as Phaser.GameObjects.Rectangle);
-      sprite.setDepth(2000).setOrigin(0.5).setScale(0.9);
+      sprite.setDepth(2000).setOrigin(0.5).setScale(0.9).setAngle(angle ?? 0);
       if (!hasTexture && fallbackLabel) {
         this.scene.add
           .text(start.x, start.y, fallbackLabel, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
