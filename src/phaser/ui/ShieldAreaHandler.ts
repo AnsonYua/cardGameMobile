@@ -204,7 +204,7 @@ export class ShieldAreaHandler {
   // Provide base payload (card + field values) for preview rendering.
   setBasePreviewData(isOpponent: boolean, baseCard: any | null, opts?: { allowAnimation?: boolean }) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
-    const allowAnimation = opts?.allowAnimation !== false;
+    const allowAnimation = opts?.allowAnimation === true;
     const prevCardId = this.lastBaseCardId[key];
     const nextCardId = baseCard?.cardId;
     const isNewCard = nextCardId && nextCardId !== prevCardId;

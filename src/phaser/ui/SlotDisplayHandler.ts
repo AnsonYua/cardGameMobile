@@ -17,7 +17,7 @@ export class SlotDisplayHandler {
   private selectedKey?: string;
   private lastSlots: SlotViewModel[] = [];
   private playAnimator: PlayCardAnimationManager;
-  private playAnimations = true;
+  private entryAnimationsEnabled = false;
   private lastPositions?: SlotPositionMap;
   // Centralized tuning knobs so visuals stay consistent without hunting magic numbers.
   private config = {
@@ -71,7 +71,7 @@ export class SlotDisplayHandler {
   }
 
   setPlayAnimations(enabled: boolean) {
-    this.playAnimations = enabled;
+    this.entryAnimationsEnabled = enabled;
   }
 
   getSlotAreaCenter(owner: SlotOwner): { x: number; y: number } | undefined {
@@ -141,7 +141,7 @@ export class SlotDisplayHandler {
       this.slotContainers.set(key, container);
 
       // Trigger entry animation only when a card just appeared in an empty slot.
-      if (this.playAnimations) {
+      if (this.entryAnimationsEnabled) {
         if (!hadCard && hasCard) {
           if (!this.isCommandCard(slot.unit || slot.pilot)) {
             this.animateCardEntry(slot, pos);

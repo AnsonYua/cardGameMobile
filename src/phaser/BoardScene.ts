@@ -27,6 +27,7 @@ import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayAnimationService, AnimationJob } from "./animations/PlayAnimationService";
+import { SlotAnimationController, type SlotNotification } from "./animations/SlotAnimationController";
 
 const colors = {
   bg: "#ffffff",
@@ -87,6 +88,7 @@ export class BoardScene extends Phaser.Scene {
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private playAnimationService: PlayAnimationService | null = null;
+  private slotAnimationController: SlotAnimationController | null = null;
   private lastSlotsForAnimation: SlotViewModel[] = [];
 
   create() {
@@ -112,6 +114,10 @@ export class BoardScene extends Phaser.Scene {
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
     this.slotControls = this.ui.getSlotControls();
+    this.slotControls?.setPlayAnimations?.(false);
+    this.slotAnimationController = new SlotAnimationController((slot, card, startOverride, endOverride) =>
+      this.slotControls?.playCardAnimation?.(slot, card, startOverride, endOverride),
+    );
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -423,8 +429,6 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
-    console.log("[updateSlots] allowAnimations", allowAnimations, "skipAnimation", opts.skipAnimation);
-    this.slotControls?.setPlayAnimations?.(allowAnimations);
 
     const positions = this.slotControls?.getSlotPositions?.();
     let jobs: AnimationJob[] = [];
@@ -440,27 +444,14 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls?.setSlots(slots);
     this.lastSlotsForAnimation = slots.map((s) => ({ ...s }));
 
-    if (allowAnimations) {
-      console.log("job animation ",JSON.stringify(jobs))
-      const normalizedJobs = jobs.map(({ slotId, owner, card, start, end }) => ({
-        slotId,
-        owner,
-        card,
-        startOverride: start,
-        endOverride: end,
-      }));
+    const notificationQueue = this.getNotificationQueue(raw);
+    //this.slotAnimationController?.animate(jobs, slots, notificationQueue, { allowAnimations });
+  }
 
-      normalizedJobs.forEach(({ slotId, owner, card, startOverride, endOverride }) => {
-        const target = slots.find((s) => s.slotId === slotId && s.owner === owner);
-        if (target) {
-          this.slotControls?.playCardAnimation?.(target, card, startOverride, endOverride);
-        }
-      });
-    }
-    // Restore preferred animation state for subsequent updates.
-    if (allowAnimations !== this.playAnimations) {
-      this.slotControls?.setPlayAnimations?.(this.playAnimations);
-    }
+  private getNotificationQueue(raw: any): SlotNotification[] {
+    const queue = raw?.notificationQueue ?? raw?.gameEnv?.notificationQueue;
+    if (!Array.isArray(queue)) return [];
+    return queue;
   }
 
   private updateActionBarForPhase() {
@@ -506,12 +497,13 @@ export class BoardScene extends Phaser.Scene {
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, true);
-        this.baseControls?.setBasePreviewData?.(isOpponent, baseCard, { allowAnimation: opts.animation?.allowAnimations ?? true });
+        // Base play animations are disabled for now; SlotAnimationController should own all entry effects.
+        this.baseControls?.setBasePreviewData?.(isOpponent, baseCard, { allowAnimation: false });
       } else {
         // Hide only the base visuals; keep shields visible. Disable preview.
         this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
         this.baseControls?.setBaseVisible(isOpponent, false);
-        this.baseControls?.setBasePreviewData?.(isOpponent, null, { allowAnimation: opts.animation?.allowAnimations ?? true });
+        this.baseControls?.setBasePreviewData?.(isOpponent, null, { allowAnimation: false });
       }
     };
 
