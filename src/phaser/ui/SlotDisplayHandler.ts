@@ -60,6 +60,9 @@ export class SlotDisplayHandler {
     },
   };
   private previewBadgeSize = this.config.preview.badgeSize;
+  private lastStatLabels = new Map<string, { label: string; score: number }>();
+  private animatingSlots = new Set<string>();
+  private pendingStatPulses = new Map<string, { statsText: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject; delta: number }>();
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
@@ -160,11 +163,21 @@ export class SlotDisplayHandler {
         this.slotContainers.delete(key);
       }
     });
+    Array.from(this.lastStatLabels.keys()).forEach((key) => {
+      if (!nextKeys.has(key)) {
+        this.lastStatLabels.delete(key);
+        this.animatingSlots.delete(key);
+        this.pendingStatPulses.delete(key);
+      }
+    });
   }
 
   clear() {
     this.slotContainers.forEach((c) => c.destroy());
     this.slotContainers.clear();
+    this.lastStatLabels.clear();
+    this.animatingSlots.clear();
+    this.pendingStatPulses.clear();
     this.hidePreview();
   }
 
@@ -213,7 +226,8 @@ export class SlotDisplayHandler {
 
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
     const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
-    this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6);
+    const slotKey = `${slot.owner}-${slot.slotId}`;
+    this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6, slotKey);
   }
 
   private computeCardSize(slotW: number, slotH: number) {
@@ -384,6 +398,7 @@ export class SlotDisplayHandler {
     ap: number,
     hp: number,
     baseDepth: number,
+    slotKey?: string,
   ) {
     const label = `${ap ?? 0}|${hp ?? 0}`;
     const badgeW = w * this.config.slot.statsBadge.wFactor;
@@ -414,6 +429,60 @@ export class SlotDisplayHandler {
       .setDepth(baseDepth + 4);
     container.add(pill);
     container.add(statsText);
+
+    if (slotKey) {
+      const score = (ap ?? 0) + (hp ?? 0);
+      const previous = this.lastStatLabels.get(slotKey);
+      this.lastStatLabels.set(slotKey, { label, score });
+      if (previous && previous.label !== label) {
+        const delta = score - previous.score;
+        this.triggerStatsPulse(statsText, pill, delta);
+      }
+    }
+  }
+
+  private triggerStatsPulse(statsText: Phaser.GameObjects.Text, pill: Phaser.GameObjects.GameObject, delta: number) {
+    const tint = delta > 0 ? 0x4de685 : delta < 0 ? 0xff6b6b : 0xffffff;
+    if (delta !== 0) {
+      statsText.setTint(tint);
+    }
+    const tweenTargets: Phaser.GameObjects.GameObject[] = [statsText];
+    if (pill instanceof Phaser.GameObjects.GameObject) {
+      tweenTargets.push(pill);
+    }
+    this.scene.tweens.add({
+      targets: tweenTargets,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 220,
+      ease: "Back.easeOut",
+      yoyo: true,
+      onComplete: () => {
+        statsText.setTint(0xffffff);
+        if (pill instanceof Phaser.GameObjects.GameObject && typeof (pill as any).setScale === "function") {
+          (pill as any).setScale(1, 1);
+        }
+      },
+    });
+    const matrix = statsText.getWorldTransformMatrix();
+    this.spawnStatSparks(matrix.tx, matrix.ty, tint);
+  }
+
+  private spawnStatSparks(x: number, y: number, color: number) {
+    for (let i = 0; i < 4; i++) {
+      const spark = this.scene.add.rectangle(x, y, 3, 10, color, 0.9).setDepth(1500).setOrigin(0.5);
+      spark.rotation = Phaser.Math.FloatBetween(-0.4, 0.4);
+      this.scene.tweens.add({
+        targets: spark,
+        x: x + Phaser.Math.Between(-14, 14),
+        y: y + Phaser.Math.Between(-12, -30),
+        alpha: 0,
+        rotation: spark.rotation + Phaser.Math.FloatBetween(-0.5, 0.5),
+        duration: 320,
+        ease: "Cubic.easeOut",
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   private startPreviewTimer(slot: SlotViewModel) {
