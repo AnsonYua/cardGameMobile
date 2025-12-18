@@ -61,8 +61,8 @@ export class SlotDisplayHandler {
   };
   private previewBadgeSize = this.config.preview.badgeSize;
   private lastStatLabels = new Map<string, { label: string; score: number }>();
-  private animatingSlots = new Set<string>();
-  private pendingStatPulses = new Map<string, { statsText: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject; delta: number }>();
+  private animatingSlots = new Map<string, string | null>();
+  private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
@@ -167,7 +167,7 @@ export class SlotDisplayHandler {
       if (!nextKeys.has(key)) {
         this.lastStatLabels.delete(key);
         this.animatingSlots.delete(key);
-        this.pendingStatPulses.delete(key);
+        this.statLabelNodes.delete(key);
       }
     });
   }
@@ -177,7 +177,7 @@ export class SlotDisplayHandler {
     this.slotContainers.clear();
     this.lastStatLabels.clear();
     this.animatingSlots.clear();
-    this.pendingStatPulses.clear();
+    this.statLabelNodes.clear();
     this.hidePreview();
   }
 
@@ -429,6 +429,9 @@ export class SlotDisplayHandler {
       .setDepth(baseDepth + 4);
     container.add(pill);
     container.add(statsText);
+    if (slotKey) {
+      this.statLabelNodes.set(slotKey, { text: statsText, pill });
+    }
 
     if (slotKey) {
       const score = (ap ?? 0) + (hp ?? 0);
@@ -436,13 +439,9 @@ export class SlotDisplayHandler {
       this.lastStatLabels.set(slotKey, { label, score });
       if (previous && previous.label !== label) {
         const delta = score - previous.score;
-        if (this.animatingSlots.has(slotKey)) {
-          this.pendingStatPulses.set(slotKey, { statsText, pill, delta });
-        } else {
+        if (!this.animatingSlots.has(slotKey)) {
           this.triggerStatsPulse(statsText, pill, delta);
         }
-      } else {
-        this.pendingStatPulses.delete(slotKey);
       }
     }
   }
@@ -492,15 +491,23 @@ export class SlotDisplayHandler {
   }
 
   markStatAnimationPending(slotKey: string) {
-    this.animatingSlots.add(slotKey);
+    const previous = this.lastStatLabels.get(slotKey)?.label ?? null;
+    this.animatingSlots.set(slotKey, previous);
   }
 
   releaseStatAnimation(slotKey: string) {
+    const previousLabel = this.animatingSlots.get(slotKey);
     this.animatingSlots.delete(slotKey);
-    const pending = this.pendingStatPulses.get(slotKey);
-    if (pending) {
-      this.pendingStatPulses.delete(slotKey);
-      this.triggerStatsPulse(pending.statsText, pending.pill, pending.delta);
+    const current = this.lastStatLabels.get(slotKey);
+    if (!current || current.label === previousLabel) return;
+    const nodes = this.statLabelNodes.get(slotKey);
+    if (nodes) {
+      const previous = previousLabel ?? "";
+      const prevParts = previous.split("|").map((v) => Number(v) || 0);
+      const currParts = current.label.split("|").map((v) => Number(v) || 0);
+      const prevScore = (prevParts[0] ?? 0) + (prevParts[1] ?? 0);
+      const currScore = (currParts[0] ?? 0) + (currParts[1] ?? 0);
+      this.triggerStatsPulse(nodes.text, nodes.pill, currScore - prevScore);
     }
   }
 
