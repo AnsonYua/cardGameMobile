@@ -28,6 +28,7 @@ import { SelectionActionController } from "./controllers/SelectionActionControll
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
+import { AttackIndicator } from "./animations/AttackIndicator";
 
 const colors = {
   bg: "#ffffff",
@@ -85,6 +86,7 @@ export class BoardScene extends Phaser.Scene {
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
+  private attackIndicator?: AttackIndicator;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
@@ -124,6 +126,7 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
     });
+    this.attackIndicator = new AttackIndicator(this);
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -184,6 +187,7 @@ export class BoardScene extends Phaser.Scene {
       slotControls: this.slotControls,
       actionControls: this.actionControls,
       effectTargetController: this.effectTargetController,
+      attackIndicator: this.attackIndicator,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
     });

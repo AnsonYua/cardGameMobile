@@ -4,10 +4,11 @@ import { GameEngine, type ActionSource } from "../game/GameEngine";
 import { ENGINE_EVENTS } from "../game/EngineEvents";
 import type { HandCardView } from "../ui/HandTypes";
 import { HandPresenter } from "../ui/HandPresenter";
-import type { SlotViewModel, SlotOwner } from "../ui/SlotTypes";
+import type { SlotViewModel, SlotOwner, SlotPositionMap } from "../ui/SlotTypes";
 import { SlotPresenter } from "../ui/SlotPresenter";
 import { ApiManager } from "../api/ApiManager";
 import type { EffectTargetController } from "./EffectTargetController";
+import { AttackIndicator } from "../animations/AttackIndicator";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -16,6 +17,7 @@ type HandControls = {
 
 type SlotControls = {
   setSelectedSlot?: (owner?: SlotOwner, slotId?: string) => void;
+  getSlotPositions?: () => SlotPositionMap | undefined;
 };
 
 type ActionControls = {
@@ -29,6 +31,7 @@ export class SelectionActionController {
   private selectedSlot?: SlotViewModel;
   private lastBattleActive = false;
   private lastBattleStatus?: string;
+  private activeAttackIndicator?: { attackerSlot: string; targetSlot: string };
 
   constructor(
     private deps: {
@@ -40,6 +43,7 @@ export class SelectionActionController {
       slotControls?: SlotControls | null;
       actionControls?: ActionControls | null;
       effectTargetController?: EffectTargetController | null;
+      attackIndicator?: AttackIndicator | null;
       gameContext: GameContext;
       refreshPhase: (skipFade: boolean) => void;
     },
@@ -197,12 +201,15 @@ export class SelectionActionController {
     this.applyMainPhaseDefaults();
   }
 
-  clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
+  clearSelectionUI(opts: { clearEngine?: boolean; keepAttackIndicator?: boolean } = {}) {
     this.selectedHandCard = undefined;
     this.selectedBaseCard = undefined;
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
     this.deps.handControls?.clearSelection?.();
+    if (!opts.keepAttackIndicator) {
+      this.hideAttackIndicator({ fadeDuration: 150 });
+    }
     if (opts.clearEngine) {
       this.deps.engine.clearSelection();
     }
@@ -271,8 +278,8 @@ export class SelectionActionController {
     }
   }
 
-  private handleCancelSelection() {
-    this.clearSelectionUI({ clearEngine: true });
+  private handleCancelSelection(opts?: { keepAttackIndicator?: boolean }) {
+    this.clearSelectionUI({ clearEngine: true, keepAttackIndicator: opts?.keepAttackIndicator });
     this.refreshActions("neutral");
   }
 
@@ -380,6 +387,7 @@ export class SelectionActionController {
     } else if (wasActive && !payload.active) {
       // On exit, restore neutral actions.
       this.refreshActions("neutral");
+      this.hideAttackIndicator({ fadeDuration: 220 });
     }
   }
 
@@ -551,6 +559,53 @@ export class SelectionActionController {
     return allIds.find((id) => id !== selfId);
   }
 
+  private tryShowAttackIndicator(target: SlotViewModel) {
+    if (!this.deps.attackIndicator || !this.selectedSlot) {
+      console.warn("[SelectionActionController] Missing attack indicator or attacker slot");
+      return;
+    }
+    const positions = this.deps.slotControls?.getSlotPositions?.();
+    if (!positions) {
+      console.warn("[SelectionActionController] Slot positions unavailable for attack indicator");
+      return;
+    }
+    const attackerCenter = this.getSlotCenter(positions, this.selectedSlot);
+    const targetCenter = this.getSlotCenter(positions, target);
+    if (!attackerCenter || !targetCenter) {
+      console.warn("[SelectionActionController] Unable to compute slot centers", {
+        attacker: this.selectedSlot?.slotId,
+        target: target.slotId,
+        attackerCenter,
+        targetCenter,
+      });
+      return;
+    }
+    console.log("[SelectionActionController] Showing attack indicator", {
+      from: attackerCenter,
+      to: targetCenter,
+      attackerSlot: this.selectedSlot.slotId,
+      targetSlot: target.slotId,
+    });
+    this.hideAttackIndicator({ immediate: true });
+    const attackerKey = `${this.selectedSlot.owner}-${this.selectedSlot.slotId}`;
+    const targetKey = `${target.owner}-${target.slotId}`;
+    this.activeAttackIndicator = { attackerSlot: attackerKey, targetSlot: targetKey };
+    this.deps.attackIndicator.show({ from: attackerCenter, to: targetCenter });
+  }
+
+  private getSlotCenter(map: SlotPositionMap | undefined, slot?: SlotViewModel) {
+    if (!map || !slot) return undefined;
+    const entry = map[slot.owner]?.[slot.slotId];
+    if (!entry) return undefined;
+    return { x: entry.x, y: entry.y };
+  }
+
+  private hideAttackIndicator(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
+    if (!this.deps.attackIndicator || !this.activeAttackIndicator) return;
+    this.deps.attackIndicator.hide(opts);
+    this.activeAttackIndicator = undefined;
+  }
+
   private async performAttackUnit(target: SlotViewModel) {
     if (!this.selectedSlot?.unit?.cardUid) {
       console.warn("No attacker selected");
@@ -565,6 +620,7 @@ export class SelectionActionController {
       console.warn("Missing data for attackUnit", { gameId, playerId, targetUnitUid, targetPlayerId });
       return;
     }
+    this.tryShowAttackIndicator(target);
     const payload = {
       playerId,
       gameId,
@@ -578,9 +634,11 @@ export class SelectionActionController {
     try {
       await this.deps.api.playerAction(payload);
       await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
+      this.handleCancelSelection({ keepAttackIndicator: true });
     } catch (err) {
       console.warn("attackUnit request failed", err);
+      this.hideAttackIndicator({ fadeDuration: 150 });
+      this.handleCancelSelection();
     }
   }
 }

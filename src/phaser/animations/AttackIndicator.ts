@@ -1,0 +1,224 @@
+import Phaser from "phaser";
+
+type Point = { x: number; y: number };
+
+type ShowOpts = {
+  from: Point;
+  to: Point;
+};
+
+export class AttackIndicator {
+  private container?: Phaser.GameObjects.Container;
+  private glowGraphics?: Phaser.GameObjects.Graphics;
+  private coreGraphics?: Phaser.GameObjects.Graphics;
+  private highlightGraphics?: Phaser.GameObjects.Graphics;
+  private drawTween?: Phaser.Tweens.Tween;
+  private pulseTween?: Phaser.Tweens.Tween;
+  private fadeTween?: Phaser.Tweens.Tween;
+  private glowTween?: Phaser.Tweens.Tween;
+  private state = { progress: 0, pulse: 0, glowShift: 0 };
+  private current?: ShowOpts;
+
+  constructor(private scene: Phaser.Scene) {}
+
+  show(opts: ShowOpts) {
+    this.reset();
+    this.current = opts;
+    console.log("[AttackIndicator] show", opts);
+    this.container = this.scene.add.container(0, 0);
+    this.glowGraphics = this.scene.add.graphics();
+    this.coreGraphics = this.scene.add.graphics();
+    this.highlightGraphics = this.scene.add.graphics();
+    [this.glowGraphics, this.coreGraphics, this.highlightGraphics].forEach((g) => {
+      g?.setDepth(5000);
+    });
+    this.glowGraphics?.setBlendMode(Phaser.BlendModes.ADD);
+    this.highlightGraphics?.setBlendMode(Phaser.BlendModes.ADD);
+    this.container.add([this.glowGraphics!, this.coreGraphics!, this.highlightGraphics!]);
+    this.container.setDepth(5000);
+    this.container.setAlpha(0);
+    this.state.progress = 0;
+    this.state.pulse = 0;
+    this.state.glowShift = 0;
+    this.fadeTween = this.scene.tweens.add({
+      targets: this.container,
+      alpha: { from: 0, to: 1 },
+      duration: 150,
+      ease: "Sine.easeOut",
+    });
+    this.drawTween = this.scene.tweens.add({
+      targets: this.state,
+      progress: 1,
+      duration: 300,
+      ease: "Sine.easeOut",
+      onUpdate: () => this.renderArrow(),
+      onComplete: () => this.startPulse(),
+    });
+    this.glowTween = this.scene.tweens.add({
+      targets: this.state,
+      glowShift: 1,
+      duration: 900,
+      repeat: -1,
+      ease: "Linear",
+      onUpdate: () => this.renderArrow(),
+    });
+  }
+
+  hide(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
+    if (!this.container) return;
+    console.log("[AttackIndicator] hide", { immediate: opts.immediate, fadeDuration: opts.fadeDuration });
+    const fadeDuration = opts.fadeDuration ?? 220;
+    if (opts.immediate) {
+      this.destroyGraphics();
+      return;
+    }
+    const target = this.container;
+    this.fadeTween?.remove();
+    this.fadeTween = this.scene.tweens.add({
+      targets: target,
+      alpha: 0,
+      duration: fadeDuration,
+      ease: "Sine.easeIn",
+      onComplete: () => this.destroyGraphics(),
+    });
+  }
+
+  private startPulse() {
+    this.pulseTween?.remove();
+    this.pulseTween = this.scene.tweens.add({
+      targets: this.state,
+      pulse: 1,
+      duration: 650,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+      onUpdate: () => this.renderArrow(),
+    });
+  }
+
+  private renderArrow() {
+    if (!this.current || !this.glowGraphics || !this.coreGraphics || !this.highlightGraphics) return;
+    if (!this.container) return;
+    const { from, to } = this.current;
+    const progress = Phaser.Math.Clamp(this.state.progress, 0, 1);
+    const pulse = Phaser.Math.Clamp(this.state.pulse, 0, 1);
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const drawT = Phaser.Math.Clamp(progress, 0.01, 1);
+    const endX = from.x + dx * drawT;
+    const endY = from.y + dy * drawT;
+    const angle = Math.atan2(dy, dx);
+    const arrowHeadProgress = Phaser.Math.Clamp((drawT - 0.5) / 0.5, 0, 1);
+    const headLength = 38 * arrowHeadProgress;
+    const headWidth = 26 * arrowHeadProgress;
+    const pulseThickness = 8 + pulse * 2;
+    const glowAlpha = 0.3 + pulse * 0.2;
+    const lineAlpha = 0.85 + pulse * 0.15;
+    const pathPoints = this.sampleLinePoints({ from, to, t: drawT, segments: 48 });
+    if (pathPoints.length < 2) return;
+
+    this.glowGraphics.clear();
+    this.coreGraphics.clear();
+    this.highlightGraphics.clear();
+
+    // Outer glow trail
+    this.glowGraphics.lineStyle(pulseThickness + 8, 0xff5470, glowAlpha);
+    this.drawSolidPath(this.glowGraphics, pathPoints);
+
+    // Secondary glow for soft inner aura
+    this.glowGraphics.lineStyle(pulseThickness + 2, 0xfdee89, glowAlpha * 0.5);
+    this.drawSolidPath(this.glowGraphics, pathPoints);
+
+    // Core line
+    this.coreGraphics.lineStyle(pulseThickness, 0xfff06a, lineAlpha);
+    this.drawSolidPath(this.coreGraphics, pathPoints);
+
+    // Traveling highlight pulse
+    const minHighlight = 0.1;
+    if (drawT > minHighlight) {
+      const highlightSpan = 0.08;
+      const travel = Phaser.Math.Linear(minHighlight, drawT, this.state.glowShift);
+      const startT = Phaser.Math.Clamp(travel - highlightSpan, 0, drawT);
+      const endT = Phaser.Math.Clamp(travel + highlightSpan, 0, drawT);
+      if (endT > startT) {
+        const startX = from.x + dx * startT;
+        const startY = from.y + dy * startT;
+        const highlightX = from.x + dx * endT;
+        const highlightY = from.y + dy * endT;
+        this.highlightGraphics.lineStyle(4 + pulse * 2, 0xffffff, 0.9);
+        this.highlightGraphics.beginPath();
+        this.highlightGraphics.moveTo(startX, startY);
+        this.highlightGraphics.lineTo(highlightX, highlightY);
+        this.highlightGraphics.strokePath();
+      }
+    }
+
+    if (arrowHeadProgress > 0) {
+      const baseX = endX - Math.cos(angle) * headLength;
+      const baseY = endY - Math.sin(angle) * headLength;
+      const innerX = endX - Math.cos(angle) * (headLength * 0.45);
+      const innerY = endY - Math.sin(angle) * (headLength * 0.45);
+      const tailX = endX - Math.cos(angle) * (headLength * 0.8);
+      const tailY = endY - Math.sin(angle) * (headLength * 0.8);
+      const perpAngle = angle + Math.PI / 2;
+      const halfWidth = headWidth / 2;
+      const innerHalf = halfWidth * 0.55;
+      const tailHalf = halfWidth * 0.3;
+      const points = [
+        new Phaser.Geom.Point(endX, endY),
+        new Phaser.Geom.Point(baseX + Math.cos(perpAngle) * halfWidth, baseY + Math.sin(perpAngle) * halfWidth),
+        new Phaser.Geom.Point(innerX + Math.cos(perpAngle) * innerHalf, innerY + Math.sin(perpAngle) * innerHalf),
+        new Phaser.Geom.Point(tailX + Math.cos(perpAngle) * tailHalf, tailY + Math.sin(perpAngle) * tailHalf),
+        new Phaser.Geom.Point(tailX - Math.cos(perpAngle) * tailHalf, tailY - Math.sin(perpAngle) * tailHalf),
+        new Phaser.Geom.Point(innerX - Math.cos(perpAngle) * innerHalf, innerY - Math.sin(perpAngle) * innerHalf),
+        new Phaser.Geom.Point(baseX - Math.cos(perpAngle) * halfWidth, baseY - Math.sin(perpAngle) * halfWidth),
+      ];
+      const tipPulse = 0.75 + 0.25 * Math.sin(pulse * Math.PI * 2);
+      this.glowGraphics.fillStyle(0xff3358, glowAlpha + 0.35 * tipPulse);
+      this.glowGraphics.fillPoints(points, true);
+      this.coreGraphics.fillStyle(0xfff06a, lineAlpha);
+      this.coreGraphics.fillPoints(points, true);
+    }
+  }
+
+  private reset() {
+    this.drawTween?.remove();
+    this.pulseTween?.remove();
+    this.fadeTween?.remove();
+    this.glowTween?.remove();
+    this.destroyGraphics();
+    this.state.progress = 0;
+    this.state.pulse = 0;
+    this.state.glowShift = 0;
+  }
+
+  private destroyGraphics() {
+    this.container?.destroy();
+    this.glowGraphics = undefined;
+    this.coreGraphics = undefined;
+    this.highlightGraphics = undefined;
+    this.container = undefined;
+    this.current = undefined;
+  }
+  private sampleLinePoints({ from, to, t, segments }: { from: Point; to: Point; t: number; segments: number }) {
+    const pts: Phaser.Math.Vector2[] = [];
+    const clamped = Phaser.Math.Clamp(t, 0, 1);
+    for (let i = 0; i <= segments; i++) {
+      const ratio = (clamped * i) / segments;
+      const px = Phaser.Math.Linear(from.x, to.x, ratio);
+      const py = Phaser.Math.Linear(from.y, to.y, ratio);
+      pts.push(new Phaser.Math.Vector2(px, py));
+    }
+    return pts;
+  }
+
+  private drawSolidPath(graphics: Phaser.GameObjects.Graphics, points: Phaser.Math.Vector2[]) {
+    if (!points.length) return;
+    graphics.beginPath();
+    graphics.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      graphics.lineTo(points[i].x, points[i].y);
+    }
+    graphics.strokePath();
+  }
+}
