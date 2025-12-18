@@ -82,6 +82,7 @@ export class ApiManager {
   }
 
   private resolveBaseUrl(baseUrl?: string) {
+    console.log("adsdsas ",baseUrl)
     if (baseUrl) return baseUrl;
     if (typeof window === "undefined" || !window.location) return "http://localhost:8080";
     const params = new URLSearchParams(window.location.search);
@@ -116,6 +117,7 @@ export class ApiManager {
   }
 
   private buildUrl(path: string) {
+    this.baseUrl = 'http://localhost:8080'
     if (!this.baseUrl) return path;
     return `${this.baseUrl}${path}`;
   }

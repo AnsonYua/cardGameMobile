@@ -114,3 +114,11 @@
     }
 }
 2. we should not have any animation when SetScenario button is clicked
+
+
+
+3. when player select its only unit and trigger attack , it should show a prominent visual attack indicator appears.
+A thick, glowing arrow (bright red or vibrant yellow with slight transparency) draws itself smoothly from the center of the attacking player's unit card upward to the center of the targeted opponent unit card.
+The arrow features a sharp, filled triangular arrowhead at the target end, clearly pointing directly at the defender.
+The line pulses gently or has a subtle glow effect to emphasize the attack declaration, making it immediately obvious which unit is attacking which opponent.
+The arrow remains visible throughout the attack resolution process, providing clear feedback, and then fades away or disappears once the attack is complete or canceled.
