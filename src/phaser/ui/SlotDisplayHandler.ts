@@ -68,9 +68,14 @@ export class SlotDisplayHandler {
     this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
   }
   private onSlotClick?: (slot: SlotViewModel) => void;
+  private slotClicksEnabled = true;
 
   setSlotClickHandler(handler?: (slot: SlotViewModel) => void) {
     this.onSlotClick = handler;
+  }
+
+  setSlotClickEnabled(enabled: boolean) {
+    this.slotClicksEnabled = enabled;
   }
 
   setPlayAnimations(enabled: boolean) {
@@ -523,7 +528,9 @@ export class SlotDisplayHandler {
     if (this.previewActive) return;
     this.cancelPreviewTimer();
     if (slot) {
-      this.onSlotClick?.(slot);
+      if (this.slotClicksEnabled) {
+        this.onSlotClick?.(slot);
+      }
     }
   }
 

@@ -419,3 +419,24 @@ curl 'http://localhost:8080/api/game/player/playCard' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"gameId":"sample_play_card","playerId":"playerId_2"}'
+
+
+  10.if this is opponent turn , gameEnv.currentPlayer != currentPlayID, in the actionbuttonbar, there should not show anybutton and there should be a label/text wait for opponent action. this label is flashing.
+
+{
+  "success": true,
+  "gameId": "d85cb669-a05d-4bd1-983c-163b6706d68b",
+  "gameEnv": {
+    "phase": "MAIN_PHASE",
+    "playerId_1": "playerId_1",
+    "playerId_2": "playerId_2",
+    "gameStarted": true,
+    "firstPlayer": 0,
+    "currentPlayer": "playerId_2",
+    "currentTurn": 0,
+    "playersReady": {
+      "playerId_1": true,
+      "playerId_2": true
+    },
+  }
+}

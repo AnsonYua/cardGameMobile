@@ -14,6 +14,7 @@ import { GameContextStore } from "./game/GameContextStore";
 import { parseSessionParams } from "./game/SessionParams";
 import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
+import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotCardView, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
@@ -70,6 +71,7 @@ export class BoardScene extends Phaser.Scene {
   private gameContext = this.contextStore.get();
   private handPresenter = new HandPresenter();
   private slotPresenter = new SlotPresenter();
+  private turnController = new TurnStateController();
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -428,6 +430,9 @@ export class BoardScene extends Phaser.Scene {
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
+    const isLocalTurn = this.turnController.update(raw, playerId);
+    this.actionControls?.setWaitingForOpponent?.(!isLocalTurn);
+    this.slotControls?.setSlotClickEnabled?.(isLocalTurn);
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
 

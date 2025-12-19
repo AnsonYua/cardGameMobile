@@ -209,6 +209,7 @@ export class FieldHandler {
       getSlotPositions: () => this.slotPositions,
       markStatAnimationPending: (slotKey: string) => this.slotDisplay.markStatAnimationPending(slotKey),
       releaseStatAnimation: (slotKey: string) => this.slotDisplay.releaseStatAnimation(slotKey),
+      setSlotClickEnabled: (enabled: boolean) => this.slotDisplay.setSlotClickEnabled(enabled),
     };
   }
 

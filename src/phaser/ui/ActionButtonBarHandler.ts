@@ -26,6 +26,9 @@ export class ActionButtonBarHandler {
   private onAction: (index: number) => void = () => {};
   private lastOffset: { x: number; y: number } = { x: 0, y: 0 };
   private barBounds = { left: 0, right: 0, top: 0, bottom: 0 };
+  private waitingLabel?: Phaser.GameObjects.Text;
+  private waitingTween?: Phaser.Tweens.Tween;
+  private waitingMode = false;
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
@@ -68,6 +71,12 @@ export class ActionButtonBarHandler {
       primary: (b as any)?.primary ?? false,
     }));
     this.setState({ descriptors: normalized });
+  }
+
+  setWaitingForOpponent(waiting: boolean) {
+    if (this.waitingMode === waiting) return;
+    this.waitingMode = waiting;
+    this.draw(this.lastOffset);
   }
 
   setVisible(visible: boolean) {
@@ -131,6 +140,12 @@ export class ActionButtonBarHandler {
       })
       .setDepth(0);
     this.elements.push(bg);
+    this.waitingLabel?.destroy();
+    this.waitingTween?.remove();
+    if (this.waitingMode) {
+      this.drawWaitingLabel(barY);
+      return;
+    }
 
     // Build buttons to render (hide pinned if blank/disabled).
     const renderButtons: Array<{ config: ActionButtonConfig; color: number; actionIndex: number | null }> = [];
@@ -219,5 +234,28 @@ export class ActionButtonBarHandler {
     });
     this.hitAreas.push(hit);
     this.elements.push(hit);
+  }
+
+  private drawWaitingLabel(y: number) {
+    this.waitingLabel?.destroy();
+    this.waitingLabel = this.scene
+      .add
+      .text(INTERNAL_W / 2, y, "Waiting for opponent...", {
+        fontSize: "16px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(900);
+    this.elements.push(this.waitingLabel);
+    this.waitingTween?.remove();
+    this.waitingTween = this.scene.tweens.add({
+      targets: this.waitingLabel,
+      alpha: 0.3,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 }

@@ -6,6 +6,7 @@ import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatus } from "../game/GameSessionService";
+import { formatHeaderStatus } from "./HeaderStatusFormatter";
 import type { ShieldAreaControls } from "./ShieldAreaHandler";
 import type { HandCardView } from "./HandTypes";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
@@ -60,25 +61,10 @@ export class BoardUI {
     this.headerControls = {
       setStatus: (text: string) => this.header.setStatusText(text),
       setStatusFromEngine: (status: any, opts?: { offlineFallback?: boolean }) => {
-        console.log("set status 111 ",status)
-        if (status === null || status === undefined || typeof status === "object") return;
-        const suffix = opts?.offlineFallback ? " (offline)" : "";
-        let label: string;
-        if (status === GameStatus.LoadingResources) {
-          label = "Loading...";
-        } else if (status === GameStatus.InMatch) {
-          label = "In match";
-        } else if (status === GameStatus.Ready) {
-          label = "Ready";
-        } else if (status === "Action Step" || status === "ACTION_STEP" || status === "action_step") {
-          label = "Action Step";
-        } else if (typeof status === "string") {
-          const normalized = status.replace(/_/g, " ");
-          label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
-        } else {
-          label = "Status";
+        const text = formatHeaderStatus(status, opts);
+        if (text) {
+          this.header.setStatusText(text);
         }
-        this.header.setStatusText(`Status: ${label}${suffix}`);
       },
       setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
     };
@@ -204,6 +190,7 @@ export class BoardUI {
       setDescriptors: (buttons: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
         this.actions.setDescriptors(buttons),
       setState: (state: { descriptors: any[] }) => this.actions.setState(state),
+      setWaitingForOpponent: (waiting: boolean) => this.actions.setWaitingForOpponent(waiting),
     };
   }
 
