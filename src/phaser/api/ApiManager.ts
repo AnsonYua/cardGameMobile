@@ -82,20 +82,20 @@ export class ApiManager {
   }
 
   private resolveBaseUrl(baseUrl?: string) {
-    console.log("adsdsas ",baseUrl)
     if (baseUrl) return baseUrl;
-    if (typeof window === "undefined" || !window.location) return "http://localhost:8080";
+    if (typeof window === "undefined" || !window.location) return this.fallbackUrl;
     const params = new URLSearchParams(window.location.search);
     const apiUrlParam = params.get("apiUrl") || params.get("apiurl");
     const apiHostParam = params.get("apiHost") || params.get("apihost");
+    const { protocol, hostname } = window.location;
     if (apiUrlParam) {
-      return apiUrlParam.startsWith("http") ? apiUrlParam : `${window.location.protocol}//${apiUrlParam}`;
+      if (apiUrlParam.startsWith("http")) return apiUrlParam;
+      return `${protocol}//${apiUrlParam}`;
     }
     if (apiHostParam) {
-      return `${window.location.protocol}//${apiHostParam}:8080`;
+      return `${protocol}//${apiHostParam}:8080`;
     }
-    // Default to same origin and rely on Vite proxy for /api.
-    return "";
+    return `${protocol}//${hostname}:8080`;
   }
 
   private async requestWithFallback(url: string, body: Record<string, any>) {
@@ -117,9 +117,9 @@ export class ApiManager {
   }
 
   private buildUrl(path: string) {
-    this.baseUrl = 'http://localhost:8080'
-    if (!this.baseUrl) return path;
-    return `${this.baseUrl}${path}`;
+    const base = this.getBaseUrl();
+    if (!base) return path;
+    return `${base}${path}`;
   }
 
   private async requestGetWithFallback(url: string) {
