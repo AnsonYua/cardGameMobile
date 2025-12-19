@@ -201,15 +201,12 @@ export class SelectionActionController {
     this.applyMainPhaseDefaults();
   }
 
-  clearSelectionUI(opts: { clearEngine?: boolean; keepAttackIndicator?: boolean } = {}) {
+  clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
     this.selectedHandCard = undefined;
     this.selectedBaseCard = undefined;
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
     this.deps.handControls?.clearSelection?.();
-    if (!opts.keepAttackIndicator) {
-      this.hideAttackIndicator({ fadeDuration: 150 });
-    }
     if (opts.clearEngine) {
       this.deps.engine.clearSelection();
     }
@@ -278,8 +275,8 @@ export class SelectionActionController {
     }
   }
 
-  private handleCancelSelection(opts?: { keepAttackIndicator?: boolean }) {
-    this.clearSelectionUI({ clearEngine: true, keepAttackIndicator: opts?.keepAttackIndicator });
+  private handleCancelSelection() {
+    this.clearSelectionUI({ clearEngine: true });
     this.refreshActions("neutral");
   }
 
@@ -387,7 +384,6 @@ export class SelectionActionController {
     } else if (wasActive && !payload.active) {
       // On exit, restore neutral actions.
       this.refreshActions("neutral");
-      this.hideAttackIndicator({ fadeDuration: 220 });
     }
   }
 
@@ -586,10 +582,6 @@ export class SelectionActionController {
       attackerSlot: this.selectedSlot.slotId,
       targetSlot: target.slotId,
     });
-    this.hideAttackIndicator({ immediate: true });
-    const attackerKey = `${this.selectedSlot.owner}-${this.selectedSlot.slotId}`;
-    const targetKey = `${target.owner}-${target.slotId}`;
-    this.activeAttackIndicator = { attackerSlot: attackerKey, targetSlot: targetKey };
     this.deps.attackIndicator.show({ from: attackerCenter, to: targetCenter });
   }
 
@@ -598,12 +590,6 @@ export class SelectionActionController {
     const entry = map[slot.owner]?.[slot.slotId];
     if (!entry) return undefined;
     return { x: entry.x, y: entry.y };
-  }
-
-  private hideAttackIndicator(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
-    if (!this.deps.attackIndicator || !this.activeAttackIndicator) return;
-    this.deps.attackIndicator.hide(opts);
-    this.activeAttackIndicator = undefined;
   }
 
   private async performAttackUnit(target: SlotViewModel) {
@@ -634,11 +620,16 @@ export class SelectionActionController {
     try {
       await this.deps.api.playerAction(payload);
       await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection({ keepAttackIndicator: true });
+      this.handleCancelSelection();
     } catch (err) {
       console.warn("attackUnit request failed", err);
-      this.hideAttackIndicator({ fadeDuration: 150 });
       this.handleCancelSelection();
     }
+  }
+
+  private hideAttackIndicator(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
+    if (!this.deps.attackIndicator || !this.activeAttackIndicator) return;
+    this.deps.attackIndicator.hide(opts);
+    this.activeAttackIndicator = undefined;
   }
 }
