@@ -22,8 +22,6 @@ type HandControls = {
 type HeaderControls = {
   setStatus: (text: string) => void;
   setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
-  setButtonVisible: (visible: boolean) => void;
-  setButtonHandler: (handler: () => void) => void;
   setAvatarHandler: (handler: () => void) => void;
 };
 
@@ -62,7 +60,7 @@ export class BoardUI {
     this.headerControls = {
       setStatus: (text: string) => this.header.setStatusText(text),
       setStatusFromEngine: (status: any, opts?: { offlineFallback?: boolean }) => {
-        // Ignore empty/non-primitive statuses to avoid clobbering a meaningful label.
+        console.log("set status 111 ",status)
         if (status === null || status === undefined || typeof status === "object") return;
         const suffix = opts?.offlineFallback ? " (offline)" : "";
         let label: string;
@@ -82,8 +80,6 @@ export class BoardUI {
         }
         this.header.setStatusText(`Status: ${label}${suffix}`);
       },
-      setButtonVisible: (visible: boolean) => this.header.setCtaVisible(visible),
-      setButtonHandler: (handler: () => void) => this.header.setCtaHandler(handler),
       setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
     };
   }
@@ -161,14 +157,6 @@ export class BoardUI {
 
   setActionHandler(handler: (index: number) => void) {
     this.actions.setActionHandler(handler);
-  }
-
-  setHeaderButtonHandler(handler: () => void) {
-    this.header.setCtaHandler(handler);
-  }
-
-  setHeaderButtonVisible(visible: boolean) {
-    this.header.setCtaVisible(visible);
   }
 
   setHeaderStatus(text: string) {

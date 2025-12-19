@@ -6,7 +6,7 @@ import { DrawHelpers } from "./ui/HeaderHandler";
 import { ShieldAreaStatus } from "./ui/ShieldAreaHandler";
 import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
-import { MatchStateMachine, MatchState } from "./game/MatchStateMachine";
+import { MatchStateMachine } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
 import type { GameStatusResponse } from "./game/GameTypes";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
@@ -131,7 +131,6 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
-    this.match.events.on("status", (state: MatchState) => this.onMatchStatus(state));
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
       this.gameContext.lastStatus = snapshot.status;
       this.headerControls?.setStatusFromEngine?.(snapshot.status, { offlineFallback: this.offlineFallback });
@@ -209,8 +208,6 @@ export class BoardScene extends Phaser.Scene {
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
     this.hideDefaultUI();
-    // Sync header with initial state before async work.
-    this.onMatchStatus(this.match.getState());
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();
@@ -278,13 +275,8 @@ export class BoardScene extends Phaser.Scene {
     return hooks;
   }
    
-  public startGame(){
-    if (this.gameContext.status !== GameStatus.Ready && this.gameContext.status !== GameStatus.InMatch) {
-      console.log("Not ready to start match yet");
-      return;
-    }
+  public startGame() {
     this.session.markInMatch();
-    this.gameContext.status = GameStatus.InMatch;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
     if (promise && typeof promise.then === "function") {
@@ -624,7 +616,6 @@ export class BoardScene extends Phaser.Scene {
     this.handControls?.setCardClickHandler?.((card) => this.selectionAction?.handleHandCardSelected(card));
     this.slotControls?.setSlotClickHandler?.((slot) => this.selectionAction?.handleSlotCardSelected(slot));
     this.baseControls?.setBaseClickHandler?.((payload) => this.selectionAction?.handleBaseCardSelected(payload));
-    this.headerControls?.setButtonHandler(() => this.startGame());
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
   }
   private async initSession() {
@@ -649,7 +640,7 @@ export class BoardScene extends Phaser.Scene {
         // Default join identity aligns with backend sample if none provided.
         const joinId = playerIdParam || "playerId_1";
         const joinName = playerNameParam || "Demo Opponent";
-        this.contextStore.update({ playerId: joinId, playerName: joinName, status: GameStatus.CreatingRoom });
+        this.contextStore.update({ playerId: joinId, playerName: joinName });
         await this.match.joinRoom(gameId, joinId, joinName);
         const resolvedPlayerId = this.gameContext.playerId || joinId;
         const statusPayload = (await this.match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
@@ -661,7 +652,7 @@ export class BoardScene extends Phaser.Scene {
         });
       } else {
         const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
-        this.contextStore.update({ playerName: hostName, status: GameStatus.CreatingRoom });
+        this.contextStore.update({ playerName: hostName });
         await this.match.startAsHost(this.gameContext.playerId, { playerName: hostName });
         // Capture gameId from the match state after hosting is created.
         const state = this.match.getState();
@@ -678,22 +669,12 @@ export class BoardScene extends Phaser.Scene {
           : `demo-${Date.now()}`;
       // Fallback to a local ready state so the UI remains usable even if API/host is unreachable.
       this.offlineFallback = true;
-      this.gameContext.status = GameStatus.Ready;
-      this.onMatchStatus({ status: GameStatus.Ready, gameId: fallbackGameId, mode: this.gameContext.mode });
+      this.gameContext.gameId = fallbackGameId;
+      this.headerControls?.setStatusFromEngine?.(GameStatus.Ready, { offlineFallback: true });
       // Keep UI clean; log error only.
       const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
       console.warn("Using offline fallback:", msg);
     }
-  }
-
-  private onMatchStatus(state: MatchState) {
-    this.gameContext.status = state.status;
-    this.gameContext.gameId = state.gameId;
-    this.gameContext.mode = state.mode;
-    // Use shared header formatter so match lifecycle statuses render consistently.
-    this.headerControls?.setStatusFromEngine?.(state.status, { offlineFallback: this.offlineFallback });
-    const showButton = state.status === GameStatus.Ready || state.status === GameStatus.InMatch;
-    this.ui?.setHeaderButtonVisible(showButton);
   }
 
   private setupActions() {

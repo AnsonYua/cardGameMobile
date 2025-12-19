@@ -74,10 +74,6 @@ export class HeaderHandler {
   private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
   private depth = 1000;
   private lastOffset: Offset = { x: 0, y: 0 };
-  private ctaButton?: Phaser.GameObjects.Rectangle;
-  private ctaLabel?: Phaser.GameObjects.Text;
-  private onCta?: () => void;
-  private ctaVisible = true;
   private statusLabel?: Phaser.GameObjects.Text;
   private headerX = { left: 0, right: 0, centerY: 0 };
   private avatarHit?: Phaser.GameObjects.Rectangle;
@@ -159,8 +155,7 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    this.drawStartButton(containerRight - padding - 35, containerY, 80, height - padding * 2);
-    this.drawStatus(this.computeStatusX(), containerY);
+    this.drawStatus(containerRight - padding - 16, containerY);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -168,45 +163,13 @@ export class HeaderHandler {
     this.syncLabelsFromState();
   }
 
-  setCtaHandler(handler: () => void) {
-    this.onCta = handler;
-  }
-
   setAvatarHandler(handler: () => void) {
     this.onAvatar = handler;
     this.avatarHit?.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
   }
-
-  setCtaVisible(visible: boolean) {
-    this.ctaVisible = visible;
-    this.ctaButton?.setVisible(visible);
-    this.ctaLabel?.setVisible(visible);
-    // Recompute status position when button visibility changes.
-    if (this.statusLabel) {
-      this.statusLabel.setPosition(this.computeStatusX(), this.headerX.centerY);
-    }
-  }
-
   setStatusText(text: string) {
     if (!this.statusLabel) return;
     this.statusLabel.setText(text);
-  }
-
-  private drawStartButton(x: number, y: number, w: number, h: number) {
-    this.ctaButton?.destroy();
-    this.ctaLabel?.destroy();
-    this.ctaButton = this.scene.add.rectangle(x, y, w, h, 0xffffff, 0.15).setStrokeStyle(1.5, 0xffffff, 0.8).setDepth(this.depth);
-    this.ctaLabel = this.scene.add
-      .text(x, y, "Start", {
-        fontSize: "14px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-      })
-      .setOrigin(0.5)
-      .setDepth(this.depth + 1);
-
-    this.ctaButton.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onCta?.());
-    this.setCtaVisible(this.ctaVisible);
   }
 
   private drawStatus(x: number, y: number) {
@@ -219,20 +182,6 @@ export class HeaderHandler {
       })
       .setOrigin(1, 0.5) // Right-align so the text hugs the CTA/right edge consistently.
       .setDepth(this.depth + 1);
-  }
-
-  private computeStatusX() {
-    // If CTA is visible, keep status just to the left of the button; otherwise tuck it against the right edge.
-    const padding = this.layout.padding;
-    if (this.ctaVisible) {
-      const btnWidth = 80;
-      const btnCenter = this.headerX.right - padding - 35;
-      const btnLeft = btnCenter - btnWidth / 2;
-      const gap = 12;
-      return btnLeft - gap;
-    }
-    const rightGap = 16;
-    return this.headerX.right - padding - rightGap;
   }
 
   private drawAvatarHit(x: number, y: number, w: number, h: number) {

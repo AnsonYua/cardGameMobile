@@ -64,6 +64,7 @@ export class GameEngine {
       this.lastRaw = response;
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+      console.log("update game status ",JSON.stringify(this.getSnapshot()))
       if (silent) {
         // Scenario loads should update UI without animations.
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, this.getSnapshot());
