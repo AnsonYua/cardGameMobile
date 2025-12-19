@@ -16,7 +16,7 @@ import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
-import type { SlotViewModel, SlotCardView } from "./ui/SlotTypes";
+import type { SlotViewModel, SlotCardView, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
 import { toPreviewKey } from "./ui/HandTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
@@ -87,6 +87,7 @@ export class BoardScene extends Phaser.Scene {
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
   private attackIndicator?: AttackIndicator;
+  private activeAttackNotificationId?: string;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
@@ -187,7 +188,6 @@ export class BoardScene extends Phaser.Scene {
       slotControls: this.slotControls,
       actionControls: this.actionControls,
       effectTargetController: this.effectTargetController,
-      attackIndicator: this.attackIndicator,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
     });
@@ -451,12 +451,92 @@ export class BoardScene extends Phaser.Scene {
       currentPlayerId: this.gameContext.playerId,
     });
     this.slotControls?.setSlots(slots);
+    this.updateAttackIndicatorFromNotifications(raw, slots, positions);
   }
 
   private getNotificationQueue(raw: any): SlotNotification[] {
     const queue = raw?.notificationQueue ?? raw?.gameEnv?.notificationQueue;
     if (!Array.isArray(queue)) return [];
     return queue;
+  }
+
+  private updateAttackIndicatorFromNotifications(raw: any, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
+    if (!this.attackIndicator) return;
+    const notifications = this.getNotificationQueue(raw);
+    const attackNote = notifications.find((n) => (n?.type || "").toUpperCase() === "UNIT_ATTACK_DECLARED");
+    if (!attackNote) {
+      if (this.activeAttackNotificationId) {
+        this.attackIndicator.hide({ fadeDuration: 180 });
+        this.activeAttackNotificationId = undefined;
+      }
+      return;
+    }
+
+    if (!positions) {
+      if (this.activeAttackNotificationId) {
+        this.attackIndicator.hide({ fadeDuration: 180 });
+        this.activeAttackNotificationId = undefined;
+      }
+      return;
+    }
+
+    if (this.activeAttackNotificationId === attackNote.id) {
+      return;
+    }
+
+    const payload = attackNote.payload || {};
+    const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
+    const defenderOwner = this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
+    const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
+    const targetSlotId = payload.targetSlotName || payload.targetSlot;
+    const targetCarduid = payload.targetCarduid || payload.targetUnitUid;
+    const attackerSlotVm = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
+    const defenderSlotVm = this.findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
+    const attackerCenter = this.getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
+    const defenderCenter = this.getSlotCenterFromMap(positions, defenderSlotVm, defenderOwner, targetSlotId);
+    if (!attackerCenter || !defenderCenter) {
+      if (this.activeAttackNotificationId) {
+        this.attackIndicator.hide({ fadeDuration: 180 });
+        this.activeAttackNotificationId = undefined;
+      }
+      return;
+    }
+    this.attackIndicator.show({ from: attackerCenter, to: defenderCenter });
+    this.activeAttackNotificationId = attackNote.id;
+  }
+
+  private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {
+    if (!playerId) return undefined;
+    if (playerId === this.gameContext.playerId) {
+      return "player";
+    }
+    return "opponent";
+  }
+
+  private findSlotForAttack(slots: SlotViewModel[], cardUid?: string, owner?: SlotOwner, fallbackSlot?: string) {
+    if (cardUid) {
+      const found = slots.find((slot) => slot.unit?.cardUid === cardUid || slot.pilot?.cardUid === cardUid);
+      if (found) return found;
+    }
+    if (owner && fallbackSlot) {
+      return slots.find((slot) => slot.owner === owner && slot.slotId === fallbackSlot);
+    }
+    return undefined;
+  }
+
+  private getSlotCenterFromMap(
+    positions?: SlotPositionMap | null,
+    slot?: SlotViewModel,
+    owner?: SlotOwner,
+    fallbackSlotId?: string,
+  ) {
+    if (!positions) return undefined;
+    const resolvedOwner = slot?.owner ?? owner;
+    const slotId = slot?.slotId ?? fallbackSlotId;
+    if (!resolvedOwner || !slotId) return undefined;
+    const entry = positions[resolvedOwner]?.[slotId];
+    if (!entry) return undefined;
+    return { x: entry.x, y: entry.y };
   }
 
   private updateActionBarForPhase() {

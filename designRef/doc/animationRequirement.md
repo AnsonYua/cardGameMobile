@@ -121,4 +121,31 @@
 A thick, glowing arrow (bright red or vibrant yellow with slight transparency) draws itself smoothly from the center of the attacking player's unit card upward to the center of the targeted opponent unit card.
 The arrow features a sharp, filled triangular arrowhead at the target end, clearly pointing directly at the defender.
 The line pulses gently or has a subtle glow effect to emphasize the attack declaration, making it immediately obvious which unit is attacking which opponent.
-The arrow remains visible throughout the attack resolution process, providing clear feedback, and then fades away or disappears once the attack is complete or canceled.
+The arrow remains visible throughout the attack resolution process, providing clear feedback, and then fades away or disappears once the attack is complete or canceled. this animation should control by frontend action it should control by api and both player (current player and opponent) should be able to see it. the direction of arrow for the opponent should be different.
+
+gameEnv.notificationQueue[
+            {
+                "id": "unit_attack_declared_1766128857886_5rjb3p87v",
+                "type": "UNIT_ATTACK_DECLARED",
+                "metadata": {
+                    "timestamp": 1766128857886,
+                    "expiresAt": 1766128860886,
+                    "requiresAcknowledgment": false,
+                    "frontendProcessed": false,
+                    "priority": "normal"
+                },
+                "payload": {
+                    "gameId": "0dba3406-e7e8-4120-ad52-2699d2fb1a89",
+                    "attackingPlayerId": "playerId_2",
+                    "defendingPlayerId": "playerId_1",
+                    "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+                    "attackerName": "GM",
+                    "attackerSlot": "slot1",
+                    "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+                    "targetName": "Gundam Aerial (Permet Score Six)",
+                    "targetSlotName": "slot1",
+                    "fromBurst": false,
+                    "timestamp": 1766128857886
+                }
+            }
+]

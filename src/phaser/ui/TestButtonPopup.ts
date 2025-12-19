@@ -105,7 +105,25 @@ export class TestButtonPopup {
 
   private copyToClipboard(text: string) {
     if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).catch(() => {});
+      navigator.clipboard.writeText(text).catch(() => this.execFallbackCopy(text));
+      return;
+    }
+    this.execFallbackCopy(text);
+  }
+
+  private execFallbackCopy(text: string) {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch {
+      // no-op
     }
   }
 }

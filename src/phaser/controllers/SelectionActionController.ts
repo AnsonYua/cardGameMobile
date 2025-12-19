@@ -8,7 +8,6 @@ import type { SlotViewModel, SlotOwner, SlotPositionMap } from "../ui/SlotTypes"
 import { SlotPresenter } from "../ui/SlotPresenter";
 import { ApiManager } from "../api/ApiManager";
 import type { EffectTargetController } from "./EffectTargetController";
-import { AttackIndicator } from "../animations/AttackIndicator";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -31,7 +30,6 @@ export class SelectionActionController {
   private selectedSlot?: SlotViewModel;
   private lastBattleActive = false;
   private lastBattleStatus?: string;
-  private activeAttackIndicator?: { attackerSlot: string; targetSlot: string };
 
   constructor(
     private deps: {
@@ -43,7 +41,6 @@ export class SelectionActionController {
       slotControls?: SlotControls | null;
       actionControls?: ActionControls | null;
       effectTargetController?: EffectTargetController | null;
-      attackIndicator?: AttackIndicator | null;
       gameContext: GameContext;
       refreshPhase: (skipFade: boolean) => void;
     },
@@ -555,43 +552,6 @@ export class SelectionActionController {
     return allIds.find((id) => id !== selfId);
   }
 
-  private tryShowAttackIndicator(target: SlotViewModel) {
-    if (!this.deps.attackIndicator || !this.selectedSlot) {
-      console.warn("[SelectionActionController] Missing attack indicator or attacker slot");
-      return;
-    }
-    const positions = this.deps.slotControls?.getSlotPositions?.();
-    if (!positions) {
-      console.warn("[SelectionActionController] Slot positions unavailable for attack indicator");
-      return;
-    }
-    const attackerCenter = this.getSlotCenter(positions, this.selectedSlot);
-    const targetCenter = this.getSlotCenter(positions, target);
-    if (!attackerCenter || !targetCenter) {
-      console.warn("[SelectionActionController] Unable to compute slot centers", {
-        attacker: this.selectedSlot?.slotId,
-        target: target.slotId,
-        attackerCenter,
-        targetCenter,
-      });
-      return;
-    }
-    console.log("[SelectionActionController] Showing attack indicator", {
-      from: attackerCenter,
-      to: targetCenter,
-      attackerSlot: this.selectedSlot.slotId,
-      targetSlot: target.slotId,
-    });
-    this.deps.attackIndicator.show({ from: attackerCenter, to: targetCenter });
-  }
-
-  private getSlotCenter(map: SlotPositionMap | undefined, slot?: SlotViewModel) {
-    if (!map || !slot) return undefined;
-    const entry = map[slot.owner]?.[slot.slotId];
-    if (!entry) return undefined;
-    return { x: entry.x, y: entry.y };
-  }
-
   private async performAttackUnit(target: SlotViewModel) {
     if (!this.selectedSlot?.unit?.cardUid) {
       console.warn("No attacker selected");
@@ -606,7 +566,6 @@ export class SelectionActionController {
       console.warn("Missing data for attackUnit", { gameId, playerId, targetUnitUid, targetPlayerId });
       return;
     }
-    this.tryShowAttackIndicator(target);
     const payload = {
       playerId,
       gameId,
@@ -625,11 +584,5 @@ export class SelectionActionController {
       console.warn("attackUnit request failed", err);
       this.handleCancelSelection();
     }
-  }
-
-  private hideAttackIndicator(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
-    if (!this.deps.attackIndicator || !this.activeAttackIndicator) return;
-    this.deps.attackIndicator.hide(opts);
-    this.activeAttackIndicator = undefined;
   }
 }
