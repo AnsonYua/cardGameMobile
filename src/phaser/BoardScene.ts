@@ -452,12 +452,18 @@ export class BoardScene extends Phaser.Scene {
     const isLocalTurn = this.turnController.update(raw, playerId);
     const currentPlayerId = raw?.gameEnv?.currentPlayer;
     const currentBattle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+    /*
     const needsSkip =
       !isLocalTurn &&
       currentBattle &&
       currentPlayerId &&
       currentBattle.confirmations &&
       currentBattle.confirmations[currentPlayerId] === false;
+      */
+    let needsSkip = false;
+    if(currentBattle && playerId!=null && currentBattle.confirmations[playerId] === false){
+      needsSkip = true
+    }
     const overrideButtons = needsSkip
       ? [
           {
