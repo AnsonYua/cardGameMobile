@@ -21,7 +21,7 @@ type SlotControls = {
 
 type ActionControls = {
   setState?: (state: { descriptors: any[] }) => void;
-  setWaitingForOpponent?: (waiting: boolean) => void;
+  setWaitingForOpponent?: (waiting: boolean, overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) => void;
 };
 
 export class SelectionActionController {

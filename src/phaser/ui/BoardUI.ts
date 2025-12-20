@@ -190,7 +190,8 @@ export class BoardUI {
       setDescriptors: (buttons: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
         this.actions.setDescriptors(buttons),
       setState: (state: { descriptors: any[] }) => this.actions.setState(state),
-      setWaitingForOpponent: (waiting: boolean) => this.actions.setWaitingForOpponent(waiting),
+      setWaitingForOpponent: (waiting: boolean, overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
+        this.actions.setWaitingForOpponent(waiting, overrideButtons),
     };
   }
 

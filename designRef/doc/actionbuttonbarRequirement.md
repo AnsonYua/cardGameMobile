@@ -440,3 +440,48 @@ curl 'http://localhost:8080/api/game/player/playCard' \
     },
   }
 }
+
+
+
+8.if this is opponent turn, if  gameEnv.currentBattle!=null and gameEnv.currentBattle.confirmations.currentPlayer = false, show skip action. when player click the skip action it will call api as usual
+{
+  "success": true,
+  "gameId": "f91a9c52-98ee-4c7e-ae0b-3d5afbbc2657",
+  "gameEnv": {
+    "phase": "MAIN_PHASE",
+    "playerId_1": "playerId_1",
+    "playerId_2": "playerId_2",
+    "gameStarted": true,
+    "firstPlayer": 0,
+    "currentPlayer": "playerId_2",
+    "currentTurn": 0,
+    "playersReady": {
+      "playerId_1": true,
+      "playerId_2": true
+    },
+    "currentBattle": {
+      "actionType": "attackUnit",
+      "attackingPlayerId": "playerId_2",
+      "defendingPlayerId": "playerId_1",
+      "pendingEvent": {
+        "type": "PLAYER_ACTION",
+        "playerId": "playerId_2",
+        "gameId": "f91a9c52-98ee-4c7e-ae0b-3d5afbbc2657",
+        "actionType": "attackUnit",
+        "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+        "targetType": "unit",
+        "targetUnitUid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+        "targetPlayerId": "playerId_1",
+        "targetPilotUid": null
+      },
+      "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+      "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+      "targetPlayerId": "playerId_1",
+      "status": "ACTION_STEP",
+      "fromBurst": false,
+      "openedAt": 1766134247891,
+      "confirmations": {
+        "playerId_2": false,
+        "playerId_1": false
+      }
+    },

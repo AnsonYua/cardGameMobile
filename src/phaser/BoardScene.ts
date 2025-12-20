@@ -431,7 +431,25 @@ export class BoardScene extends Phaser.Scene {
     if (!raw) return;
     const playerId = this.gameContext.playerId;
     const isLocalTurn = this.turnController.update(raw, playerId);
-    this.actionControls?.setWaitingForOpponent?.(!isLocalTurn);
+    const currentPlayerId = raw?.gameEnv?.currentPlayer;
+    const currentBattle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+    const needsSkip =
+      !isLocalTurn &&
+      currentBattle &&
+      currentPlayerId &&
+      currentBattle.confirmations &&
+      currentBattle.confirmations[currentPlayerId] === false;
+    const overrideButtons = needsSkip
+      ? [
+          {
+            label: "Skip Action",
+            onClick: () => this.selectionAction?.runActionThenRefresh("skipAction"),
+            enabled: true,
+            primary: true,
+          },
+        ]
+      : undefined;
+    this.actionControls?.setWaitingForOpponent?.(!isLocalTurn, overrideButtons);
     this.slotControls?.setSlotClickEnabled?.(isLocalTurn);
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);

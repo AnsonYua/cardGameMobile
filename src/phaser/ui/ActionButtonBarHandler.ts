@@ -29,6 +29,7 @@ export class ActionButtonBarHandler {
   private waitingLabel?: Phaser.GameObjects.Text;
   private waitingTween?: Phaser.Tweens.Tween;
   private waitingMode = false;
+  private waitingOverride: ActionButtonConfig[] | null = null;
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
@@ -73,9 +74,9 @@ export class ActionButtonBarHandler {
     this.setState({ descriptors: normalized });
   }
 
-  setWaitingForOpponent(waiting: boolean) {
-    if (this.waitingMode === waiting) return;
+  setWaitingForOpponent(waiting: boolean, overrideButtons?: ActionButtonConfig[]) {
     this.waitingMode = waiting;
+    this.waitingOverride = overrideButtons?.length ? overrideButtons : null;
     this.draw(this.lastOffset);
   }
 
@@ -142,14 +143,15 @@ export class ActionButtonBarHandler {
     this.elements.push(bg);
     this.waitingLabel?.destroy();
     this.waitingTween?.remove();
-    if (this.waitingMode) {
+    if (this.waitingMode && !this.waitingOverride) {
       this.drawWaitingLabel(barY);
       return;
     }
 
     // Build buttons to render (hide pinned if blank/disabled).
     const renderButtons: Array<{ config: ActionButtonConfig; color: number; actionIndex: number | null }> = [];
-    this.state.descriptors.forEach((btn) => {
+    const sourceDescriptors = this.waitingOverride ?? this.state.descriptors;
+    sourceDescriptors.forEach((btn) => {
       if (!btn.label || !btn.label.trim() || btn.enabled === false) return;
       const color = btn.primary ? this.buttonStyle.endOuterColor : 0x5e48f0;
       renderButtons.push({ config: btn, color, actionIndex: null });
