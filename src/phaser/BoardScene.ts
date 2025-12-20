@@ -29,7 +29,7 @@ import { SelectionActionController } from "./controllers/SelectionActionControll
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
-import { AttackIndicator } from "./animations/AttackIndicator";
+import { AttackIndicator, type AttackIndicatorStyle } from "./animations/AttackIndicator";
 
 const colors = {
   bg: "#ffffff",
@@ -133,10 +133,6 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
-    this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
-      this.gameContext.lastStatus = snapshot.status;
-      this.headerControls?.setStatusFromEngine?.(snapshot.status, { offlineFallback: this.offlineFallback });
-    });
     this.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
       const status = (payload.status || "").toUpperCase();
       if (payload.active && status === "ACTION_STEP") {
@@ -146,13 +142,11 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
       this.startGame();
     });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, () => {
-      // Default updates with animations.
-      this.mainPhaseUpdate(false);
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, (snapshot: GameStatusSnapshot) => {
+      this.mainPhaseUpdate(false, snapshot);
     });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, () => {
-      // Scenario or silent updates: no animations.
-      this.mainPhaseUpdate(true);
+    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, (snapshot: GameStatusSnapshot) => {
+      this.mainPhaseUpdate(true, snapshot);
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
       this.selectionAction?.refreshActions("neutral");
@@ -285,38 +279,43 @@ export class BoardScene extends Phaser.Scene {
       promise
         .then(() => {
           this.showDefaultUI();
-          this.updateHandArea();
-          this.updateSlots();
-          this.updateBaseAndShield({ fade: false });
+          this.refreshPhase(false);
         })
         .then(() => console.log("Shuffle animation finished"));
     } else {
       this.showDefaultUI();
-      this.updateHandArea();
-      this.updateSlots();
-      this.updateBaseAndShield({ fade: false });
+      this.refreshPhase(false);
     }
   }
 
-  public mainPhaseUpdate(skipAnimation = true){
+  public mainPhaseUpdate(skipAnimation = true, snapshot?: GameStatusSnapshot) {
+    if (snapshot) {
+      this.gameContext.lastStatus = snapshot.status;
+      this.headerControls?.setStatusFromEngine?.(snapshot.status, { offlineFallback: this.offlineFallback });
+    }
     this.refreshPhase(skipAnimation);
   }
 
   private refreshPhase(skipAnimation: boolean) {
-    const animationPolicy = { allowAnimations: !skipAnimation && this.playAnimations, reason: skipAnimation ? "scenario" : "live" as const };
+    const reason: "scenario" | "live" = skipAnimation ? "scenario" : "live";
+    const animationPolicy = { allowAnimations: !skipAnimation && this.playAnimations, reason };
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
+    this.updateMainPhaseUI(raw, skipAnimation, animationPolicy);
+    if (raw) {
+      void this.effectTargetController?.syncFromSnapshot(raw);
+    }
+  }
+
+  private updateMainPhaseUI(raw: any, skipAnimation: boolean, animationPolicy: { allowAnimations: boolean; reason: "scenario" | "live" }) {
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
     this.showUI(!skipAnimation);
     this.updateHandArea({ skipAnimation });
     this.updateSlots({ skipAnimation, animation: animationPolicy });
     this.updateBaseAndShield({ fade: !skipAnimation, animation: animationPolicy });
-    this.updateActionBarForPhase();
-    if (raw) {
-      void this.effectTargetController?.syncFromSnapshot(raw);
-    }
+    this.refreshActionBarState(raw, skipAnimation);
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -430,6 +429,26 @@ export class BoardScene extends Phaser.Scene {
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
+    const slots = this.slotPresenter.toSlots(raw, playerId);
+    const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
+
+    const positions = this.slotControls?.getSlotPositions?.();
+    const notificationQueue = this.getNotificationQueue(raw);
+    this.notificationAnimator?.process({
+      notifications: notificationQueue,
+      slots,
+      slotPositions: positions,
+      slotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
+      raw,
+      allowAnimations,
+      currentPlayerId: this.gameContext.playerId,
+    });
+    this.slotControls?.setSlots(slots);
+    this.updateAttackIndicatorFromNotifications(raw, slots, positions);
+  }
+
+  private refreshActionBarState(raw: any, skipAnimation: boolean) {
+    const playerId = this.gameContext.playerId;
     const isLocalTurn = this.turnController.update(raw, playerId);
     const currentPlayerId = raw?.gameEnv?.currentPlayer;
     const currentBattle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
@@ -451,22 +470,7 @@ export class BoardScene extends Phaser.Scene {
       : undefined;
     this.actionControls?.setWaitingForOpponent?.(!isLocalTurn, overrideButtons);
     this.slotControls?.setSlotClickEnabled?.(isLocalTurn);
-    const slots = this.slotPresenter.toSlots(raw, playerId);
-    const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
-
-    const positions = this.slotControls?.getSlotPositions?.();
-    const notificationQueue = this.getNotificationQueue(raw);
-    this.notificationAnimator?.process({
-      notifications: notificationQueue,
-      slots,
-      slotPositions: positions,
-      slotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
-      raw,
-      allowAnimations,
-      currentPlayerId: this.gameContext.playerId,
-    });
-    this.slotControls?.setSlots(slots);
-    this.updateAttackIndicatorFromNotifications(raw, slots, positions);
+    this.updateActionBarForPhase();
   }
 
   private getNotificationQueue(raw: any): SlotNotification[] {
@@ -516,7 +520,8 @@ export class BoardScene extends Phaser.Scene {
       }
       return;
     }
-    this.attackIndicator.show({ from: attackerCenter, to: defenderCenter });
+    const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
+    this.attackIndicator.show({ from: attackerCenter, to: defenderCenter, style: attackStyle });
     this.activeAttackNotificationId = attackNote.id;
   }
 

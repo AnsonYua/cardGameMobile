@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 
 type Point = { x: number; y: number };
+export type AttackIndicatorStyle = "player" | "opponent";
 
 type ShowOpts = {
   from: Point;
   to: Point;
+  style?: AttackIndicatorStyle;
 };
 
 export class AttackIndicator {
@@ -18,20 +20,19 @@ export class AttackIndicator {
   private glowTween?: Phaser.Tweens.Tween;
   private state = { progress: 0, pulse: 0, glowShift: 0 };
   private current?: ShowOpts;
+  private currentStyle: AttackIndicatorStyle = "player";
 
   constructor(private scene: Phaser.Scene) {}
 
   show(opts: ShowOpts) {
     this.reset();
     this.current = opts;
+    this.currentStyle = opts.style ?? "player";
     console.log("[AttackIndicator] show", opts);
     this.container = this.scene.add.container(0, 0);
     this.glowGraphics = this.scene.add.graphics();
     this.coreGraphics = this.scene.add.graphics();
     this.highlightGraphics = this.scene.add.graphics();
-    [this.glowGraphics, this.coreGraphics, this.highlightGraphics].forEach((g) => {
-      g?.setDepth(5000);
-    });
     this.glowGraphics?.setBlendMode(Phaser.BlendModes.ADD);
     this.highlightGraphics?.setBlendMode(Phaser.BlendModes.ADD);
     this.container.add([this.glowGraphics!, this.coreGraphics!, this.highlightGraphics!]);
@@ -102,35 +103,37 @@ export class AttackIndicator {
     const { from, to } = this.current;
     const progress = Phaser.Math.Clamp(this.state.progress, 0, 1);
     const pulse = Phaser.Math.Clamp(this.state.pulse, 0, 1);
+    const drawT = Phaser.Math.Clamp(progress, 0.01, 1);
+    const pathPoints = this.sampleLinePoints({ from, to, t: drawT, segments: 48 });
+    if (pathPoints.length < 2) return;
+    const finalPoint = pathPoints[pathPoints.length - 1];
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const drawT = Phaser.Math.Clamp(progress, 0.01, 1);
-    const endX = from.x + dx * drawT;
-    const endY = from.y + dy * drawT;
     const angle = Math.atan2(dy, dx);
+    const endX = finalPoint.x;
+    const endY = finalPoint.y;
     const arrowHeadProgress = Phaser.Math.Clamp((drawT - 0.5) / 0.5, 0, 1);
     const headLength = 38 * arrowHeadProgress;
     const headWidth = 26 * arrowHeadProgress;
     const pulseThickness = 8 + pulse * 2;
     const glowAlpha = 0.3 + pulse * 0.2;
     const lineAlpha = 0.85 + pulse * 0.15;
-    const pathPoints = this.sampleLinePoints({ from, to, t: drawT, segments: 48 });
-    if (pathPoints.length < 2) return;
 
     this.glowGraphics.clear();
     this.coreGraphics.clear();
     this.highlightGraphics.clear();
 
     // Outer glow trail
-    this.glowGraphics.lineStyle(pulseThickness + 8, 0xff5470, glowAlpha);
+    const palette = this.getPalette(this.currentStyle);
+    this.glowGraphics.lineStyle(pulseThickness + 8, palette.glowOuter, glowAlpha);
     this.drawSolidPath(this.glowGraphics, pathPoints);
 
     // Secondary glow for soft inner aura
-    this.glowGraphics.lineStyle(pulseThickness + 2, 0xfdee89, glowAlpha * 0.5);
+    this.glowGraphics.lineStyle(pulseThickness + 2, palette.glowInner, glowAlpha * 0.5);
     this.drawSolidPath(this.glowGraphics, pathPoints);
 
     // Core line
-    this.coreGraphics.lineStyle(pulseThickness, 0xfff06a, lineAlpha);
+    this.coreGraphics.lineStyle(pulseThickness, palette.core, lineAlpha);
     this.drawSolidPath(this.coreGraphics, pathPoints);
 
     // Traveling highlight pulse
@@ -145,7 +148,7 @@ export class AttackIndicator {
         const startY = from.y + dy * startT;
         const highlightX = from.x + dx * endT;
         const highlightY = from.y + dy * endT;
-        this.highlightGraphics.lineStyle(4 + pulse * 2, 0xffffff, 0.9);
+        this.highlightGraphics.lineStyle(4 + pulse * 2, palette.highlight, 0.9);
         this.highlightGraphics.beginPath();
         this.highlightGraphics.moveTo(startX, startY);
         this.highlightGraphics.lineTo(highlightX, highlightY);
@@ -174,9 +177,9 @@ export class AttackIndicator {
         new Phaser.Geom.Point(baseX - Math.cos(perpAngle) * halfWidth, baseY - Math.sin(perpAngle) * halfWidth),
       ];
       const tipPulse = 0.75 + 0.25 * Math.sin(pulse * Math.PI * 2);
-      this.glowGraphics.fillStyle(0xff3358, glowAlpha + 0.35 * tipPulse);
+      this.glowGraphics.fillStyle(palette.arrowhead, glowAlpha + 0.35 * tipPulse);
       this.glowGraphics.fillPoints(points, true);
-      this.coreGraphics.fillStyle(0xfff06a, lineAlpha);
+      this.coreGraphics.fillStyle(palette.core, lineAlpha);
       this.coreGraphics.fillPoints(points, true);
     }
   }
@@ -210,6 +213,25 @@ export class AttackIndicator {
       pts.push(new Phaser.Math.Vector2(px, py));
     }
     return pts;
+  }
+
+  private getPalette(style: AttackIndicatorStyle) {
+    if (style === "opponent") {
+      return {
+        glowOuter: 0xfff17f,
+        glowInner: 0xfff6b7,
+        core: 0xffd86a,
+        highlight: 0xffffff,
+        arrowhead: 0xffe061,
+      };
+    }
+    return {
+      glowOuter: 0xff5470,
+      glowInner: 0xfdee89,
+      core: 0xfff06a,
+      highlight: 0xffffff,
+      arrowhead: 0xff3358,
+    };
   }
 
   private drawSolidPath(graphics: Phaser.GameObjects.Graphics, points: Phaser.Math.Vector2[]) {
