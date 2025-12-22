@@ -450,33 +450,7 @@ export class BoardScene extends Phaser.Scene {
   private refreshActionBarState(raw: any, skipAnimation: boolean) {
     const playerId = this.gameContext.playerId;
     const isLocalTurn = this.turnController.update(raw, playerId);
-    const currentPlayerId = raw?.gameEnv?.currentPlayer;
-    const currentBattle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
-    /*
-    const needsSkip =
-      !isLocalTurn &&
-      currentBattle &&
-      currentPlayerId &&
-      currentBattle.confirmations &&
-      currentBattle.confirmations[currentPlayerId] === false;
-      */
-    let needsSkip = false;
-    if(currentBattle && playerId!=null && currentBattle.confirmations[playerId] === false){
-      needsSkip = true
-    }
-    const overrideButtons = needsSkip
-      ? [
-          {
-            label: "Skip Action",
-            onClick: () => this.selectionAction?.runActionThenRefresh("skipAction"),
-            enabled: true,
-            primary: true,
-          },
-        ]
-      : undefined;
-    this.actionControls?.setWaitingForOpponent?.(!isLocalTurn, overrideButtons);
-    this.slotControls?.setSlotClickEnabled?.(isLocalTurn);
-    this.updateActionBarForPhase();
+    this.selectionAction?.updateActionBarForPhase(raw, { isLocalTurn });
   }
 
   private getNotificationQueue(raw: any): SlotNotification[] {
@@ -563,10 +537,6 @@ export class BoardScene extends Phaser.Scene {
     const entry = positions[resolvedOwner]?.[slotId];
     if (!entry) return undefined;
     return { x: entry.x, y: entry.y };
-  }
-
-  private updateActionBarForPhase() {
-    this.selectionAction?.updateActionBarForPhase();
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {

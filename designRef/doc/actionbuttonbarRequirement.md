@@ -442,6 +442,148 @@ curl 'http://localhost:8080/api/game/player/playCard' \
 }
 
 
+11.if this is opponent turn, if  gameEnv.currentBattle!=null and gameEnv.currentBattle.confirmations.currentPlayer = false, show skip action. when player click the skip action it will call api as usual
+{
+  "success": true,
+  "gameId": "f91a9c52-98ee-4c7e-ae0b-3d5afbbc2657",
+  "gameEnv": {
+    "phase": "MAIN_PHASE",
+    "playerId_1": "playerId_1",
+    "playerId_2": "playerId_2",
+    "gameStarted": true,
+    "firstPlayer": 0,
+    "currentPlayer": "playerId_2",
+    "currentTurn": 0,
+    "playersReady": {
+      "playerId_1": true,
+      "playerId_2": true
+    },
+    "currentBattle": {
+      "actionType": "attackUnit",
+      "attackingPlayerId": "playerId_2",
+      "defendingPlayerId": "playerId_1",
+      "pendingEvent": {
+        "type": "PLAYER_ACTION",
+        "playerId": "playerId_2",
+        "gameId": "f91a9c52-98ee-4e7e-ae0b-3d5afbbc2657",
+        "actionType": "attackUnit",
+        "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+        "targetType": "unit",
+        "targetUnitUid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+        "targetPlayerId": "playerId_1",
+        "targetPilotUid": null
+      },
+      "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+      "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+      "targetPlayerId": "playerId_1",
+      "status": "ACTION_STEP",
+      "fromBurst": false,
+      "openedAt": 1766134247891,
+      "confirmations": {
+        "playerId_2": false,
+        "playerId_1": false
+      }
+    },
+  }
+}
+
+
+12.
+when player trigger Attack (to unit /shield) → it will go to Blocker selection phase(if opponent have any block) → then go to Action-Step Flow
+
+  - Declare attack
+      - POST /api/game/player/playerAction
+
+        {
+          "playerId": "playerId_1",
+          "gameId": "733760d3-9ea2-4e88-b332-09085e5900e1",
+          "actionType": "attackUnit",
+          "attackerCarduid": "ST01-001_a5fcfa44-d212-4400-8c12-9a58fdbcac84",
+          "targetPlayerId": "playerId_2",
+          "targetUnitUid": "ST01-005_be13f9a5-9fc9-4e3b-a9b2-fdf999d9f63d"
+        }
+      - Backend creates a PLAYER_ACTION event. GameEngine.checkAndExecuteBlockerAction runs attack-phase effects, then examines blockers via
+        BlockerChoiceManager.processAttackWithBlockerChoice.
+      - If no blockers: BattlePhaseManager.startBattle runs immediately; currentBattle appears with status: 'ACTION_STEP'.
+      - If blockers exist: a BLOCKER_CHOICE event is appended to processingQueue (status: 'DECLARED', playerId = defendingPlayer). currentBattle stays
+        undefined until that event resolves.
+  - Frontend handling after attack POST
+      1. Disable attack buttons until the response arrives; if error, show it and re-enable controls.
+      2. On success, wait for the next poll (see below) and drive UI from gameEnv.processingQueue + currentBattle.
+
+  ———
+
+  Polling for game state
+
+  - GET /api/game/player/:playerId?gameId=.... Treat gameEnv as immutable state:
+      - Replace your local game state with the response; do not merge.
+      - processingQueue: inspect the first entry whose status !== 'RESOLVED'.
+          - if there is BLOCKER_CHOICE , player should show waiting for opponent in actionbuttonbar and opponent should show a button "skip blocker step".
+      - currentBattle: when present and status === 'ACTION_STEP', show battle info and confirm/skip buttons for any player whose
+        confirmations[playerId] === false, but only if the queue head isn’t a blocking choice.
+
+  ———
+
+  Resolving blocker choice
+
+  - UI trigger: processingQueue[0].type === 'BLOCKER_CHOICE' and playerId matches the defending user. availableTargets in the event tells you which units can block. these unit in slot will be allow for opponent to click. when opponent select these unit, it will show a "block" button and "cancel" button in actionbuttonbar. when click "cancel" it will show back "skip blocker step". when click "block" button it will call api
+  - API call: POST /api/game/player/confirmBlockerChoice
+
+    {
+      "gameId": "733760d3-9ea2-4e88-b332-09085e5900e1",
+      "playerId": "playerId_2",
+      "eventId": "blocker_choice_12345",
+      "selectedTargets": [
+        {
+          "carduid": "ST01-010_ffcc...",
+          "zone": "frontRowSlotA",
+          "playerId": "playerId_2"
+        }
+      ]
+    }
+      - if opponent click "skip blocker step" , selectedTargets will be an empty array to decline blocking.
+  - Frontend should keep the blocker modal open until the POST succeeds. After success, wait for the next poll: the BLOCKER_CHOICE event disappears,
+    and either currentBattle appears (action step) or, if the attack fizzled, the queue may already be empty.
+
+  ———
+
+  Action-step confirmations
+
+  - Once currentBattle is populated:
+      - Watch currentBattle.confirmations. For each player where the flag is false, render a “Confirm Battle” button.
+      - Allowed actions while the action step is open:
+          - POST /api/game/player/playerAction with actionType: 'useCommandCard' (payload depends on the command card) → processed immediately because
+            needsPlayerInput() allows command-card events.
+          - POST /api/game/player/playerAction with actionType: 'confirmBattle'.
+
+            {
+              "playerId": "playerId_2",
+              "gameId": "733760d3-9ea2-4e88-b332-09085e5900e1",
+              "actionType": "confirmBattle"
+            }
+            Backend flips the confirmation flag. When both players confirm, BattlePhaseManager.resolveBattle executes and clears currentBattle.
+      - Do not send other actions (new attacks, end turn, etc.) while currentBattle exists unless the queue head explicitly permits it per the
+        needsPlayerInput() rules.
+
+  ———
+
+  Frontend logic summary
+
+  1. Polling every second
+      - On success: replace local gameEnv.
+      - On error: show message, pause user inputs until next success.
+  2. UI gating
+      - If queue head is a declared choice (blocker/target/burst): show corresponding dialog, block other actions.
+      - If no blocking event but currentBattle exists: show action-step UI and confirm buttons for players with confirmations[playerId] === false.
+        Allow command cards and confirmBattle POSTs only.
+      - Otherwise: normal play controls.
+  3. Action submission
+      - Every button click maps to a backend endpoint:
+          1. Attack / use ability / confirm battle → POST /playerAction with proper actionType.
+          2. Blocker/target/burst choices → respective confirmation endpoints (e.g., /player/confirmBlockerChoice).
+      - Disable the initiating button until the response arrives; on success, rely on the next poll to update UI.
+
+  By following this contract, the frontend stays synchronized with the backend’s event queue and battle state without extra fields or guesswork.
 
 8.if this is opponent turn, if  gameEnv.currentBattle!=null and gameEnv.currentBattle.confirmations.currentPlayer = false, show skip action. when player click the skip action it will call api as usual
 {

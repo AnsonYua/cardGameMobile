@@ -62,6 +62,16 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
+  confirmBlockerChoice(payload: {
+    gameId: string;
+    playerId: string;
+    eventId: string;
+    selectedTargets: Array<{ carduid: string; zone: string; playerId: string }>;
+  }) {
+    const url = this.buildUrl("/api/game/player/confirmBlockerChoice");
+    return this.requestWithFallback(url, payload);
+  }
+
   playerAction(payload: {
     playerId: string;
     gameId: string;
