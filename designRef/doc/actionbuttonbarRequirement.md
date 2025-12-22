@@ -526,13 +526,19 @@ when player trigger Attack (to unit /shield) → it will go to Blocker selection
 
   Resolving blocker choice
 
-  - UI trigger: processingQueue[0].type === 'BLOCKER_CHOICE' and playerId matches the defending user. availableTargets in the event tells you which units can block. these unit in slot will be allow for opponent to click. when opponent select these unit, it will show a "block" button and "cancel" button in actionbuttonbar. when click "cancel" it will show back "skip blocker step". when click "block" button it will call api
+  - UI trigger: processingQueue[0].type === 'BLOCKER_CHOICE' and playerId matches the defending user. availableTargets in the event tells you which units can block.
+  - This enters the blocker selection phase. Slots that can block are highlighted, but the EffectChoice dialog does not show automatically; instead the action button bar manages the interaction.
+  - Action bar buttons for the defender:
+      1. **Choose Blocker** – opens the EffectChoice dialog (with a close button) to pick one of the availableTargets. Closing the dialog before picking simply returns to the blocker phase so the button can be pressed again. Selecting a defender unit triggers `confirmBlockerChoice` with the matching target payload.
+      2. **Skip Blocker Phase** – providers the same behavior as submitting `confirmBlockerChoice` with an empty `selectedTargets` array, rejecting all blockers.
+  - When the defender is not the current player, the action bar shows a waiting state instead. Slots remain unclickable until the blocker event resolves.
   - API call: POST /api/game/player/confirmBlockerChoice
 
     {
       "gameId": "733760d3-9ea2-4e88-b332-09085e5900e1",
       "playerId": "playerId_2",
       "eventId": "blocker_choice_12345",
+      "notificationId": "unit_attack_declared_1766407730182_k1ldjajva",
       "selectedTargets": [
         {
           "carduid": "ST01-010_ffcc...",
@@ -541,10 +547,50 @@ when player trigger Attack (to unit /shield) → it will go to Blocker selection
         }
       ]
     }
+      - `notificationId` should be the last entry in `gameEnv.notificationQueue` (typically the `UNIT_ATTACK_DECLARED` event that triggered the blocker choice). If unavailable, it may be omitted but prefer supplying it.
       - if opponent click "skip blocker step" , selectedTargets will be an empty array to decline blocking.
+      - When blocking resolves, the attacking notification will contain `forcedTargetCarduid`, `forcedTargetZone`, and `forcedTargetPlayerId`. The frontend should point the attack indicator to these values if present so the arrow follows the forced target.
   - Frontend should keep the blocker modal open until the POST succeeds. After success, wait for the next poll: the BLOCKER_CHOICE event disappears,
     and either currentBattle appears (action step) or, if the attack fizzled, the queue may already be empty.
 
+  -after user select a blocker, 
+    these field will show update. 
+    "forcedTargetCarduid": "ST01-009_d0276af7-b917-45ba-8e16-692d241a7360",
+    "forcedTargetZone": "slot3",
+    "forcedTargetPlayerId": "playerId_1"
+    show always pointer to forcedTargetCarduid, if these field exist
+    this.updateAttackIndicatorFromNotifications(raw, slots, positions);
+
+
+    {
+                "id": "unit_attack_declared_1766409009819_5r3mojkqy",
+                "type": "UNIT_ATTACK_DECLARED",
+                "metadata": {
+                    "timestamp": 1766409009819,
+                    "expiresAt": 1766409012819,
+                    "requiresAcknowledgment": false,
+                    "frontendProcessed": false,
+                    "priority": "normal"
+                },
+                "payload": {
+                    "gameId": "c5667f86-be5e-477f-8aaf-d3aa6fcd2b39",
+                    "attackingPlayerId": "playerId_2",
+                    "defendingPlayerId": "playerId_1",
+                    "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+                    "attackerName": "GM",
+                    "attackerSlot": "slot1",
+                    "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+                    "targetName": "Gundam Aerial (Permet Score Six)",
+                    "targetSlotName": "slot1",
+                    "fromBurst": false,
+                    "timestamp": 1766409009819,
+                    "forcedTargetCarduid": "ST01-009_d0276af7-b917-45ba-8e16-692d241a7360",
+                    "forcedTargetZone": "slot3",
+                    "forcedTargetPlayerId": "playerId_1"
+                }
+    }
+
+ 
   ———
 
   Action-step confirmations

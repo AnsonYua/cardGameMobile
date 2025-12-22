@@ -2,15 +2,16 @@ import { ApiManager } from "../api/ApiManager";
 import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import { SlotPresenter } from "../ui/SlotPresenter";
-import type { SlotViewModel, SlotCardView } from "../ui/SlotTypes";
-import { toPreviewKey } from "../ui/HandTypes";
+import type { SlotViewModel } from "../ui/SlotTypes";
 import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import Phaser from "phaser";
+import { mapAvailableTargetsToSlotTargets } from "./TargetSlotMapper";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
   header?: string;
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
+  showCloseButton?: boolean;
 };
 
 export class EffectTargetController {
@@ -36,6 +37,9 @@ export class EffectTargetController {
     const selfId = this.deps.gameContext.playerId;
     const processing: any[] = raw?.gameEnv?.processingQueue || [];
     const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
+    if (pending?.type?.toString().toUpperCase() === "BLOCKER_CHOICE") {
+      return;
+    }
     if (!pending) {
       this.activeEffectChoiceId = undefined;
       await this.deps.dialog.hide();
@@ -45,7 +49,13 @@ export class EffectTargetController {
       return;
     }
 
-    const targets = this.mapAvailableTargetsToSlots(raw, pending.data?.availableTargets || []);
+    const slotTargets = mapAvailableTargetsToSlotTargets(
+      this.deps.slotPresenter,
+      raw,
+      pending.data?.availableTargets || [],
+      selfId,
+    );
+    const targets = slotTargets.map((entry) => entry.slot);
     if (!targets.length) return;
 
     const players = raw?.gameEnv?.players || {};
@@ -100,12 +110,16 @@ export class EffectTargetController {
     this.deps.dialog.show({
       targets: opts.targets,
       header: opts.header ?? "Choose a Target",
+      showCloseButton: opts.showCloseButton ?? false,
       onSelect: async (slot) => {
         try {
           await opts.onSelect(slot);
         } finally {
           this.manualOpen = false;
         }
+      },
+      onClose: () => {
+        this.manualOpen = false;
       },
     });
   }
@@ -123,41 +137,4 @@ export class EffectTargetController {
     return { x: cam.centerX, y: cam.centerY, isOpponent: false };
   }
 
-  private mapAvailableTargetsToSlots(raw: any, availableTargets: any[]): SlotViewModel[] {
-    if (!raw) return [];
-    const selfId = this.deps.gameContext.playerId;
-    const allSlots = this.deps.slotPresenter.toSlots(raw, selfId);
-    const mapped: SlotViewModel[] = [];
-
-    availableTargets.forEach((t: any) => {
-      const owner: "player" | "opponent" = t.playerId === selfId ? "player" : "opponent";
-      const existing = allSlots.find((s) => s.slotId === t.zone && s.owner === owner);
-      if (existing) {
-        mapped.push(existing);
-        return;
-      }
-
-      const cardType = (t.cardData?.cardType || "").toLowerCase();
-      const cardView: SlotCardView = {
-        id: t.cardData?.id,
-        cardType: t.cardData?.cardType,
-        textureKey: toPreviewKey(t.cardData?.id),
-        cardUid: t.carduid ?? t.cardUid,
-        cardData: t.cardData,
-      };
-      const slot: SlotViewModel = {
-        owner,
-        slotId: t.zone || "unknown",
-        fieldCardValue: { totalAP: t.cardData?.ap ?? 0, totalHP: t.cardData?.hp ?? 0 },
-      };
-      if (cardType === "pilot" || cardType === "command") {
-        slot.pilot = cardView;
-      } else {
-        slot.unit = cardView;
-      }
-      mapped.push(slot);
-    });
-
-    return mapped;
-  }
 }

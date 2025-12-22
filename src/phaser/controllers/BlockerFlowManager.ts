@@ -2,23 +2,28 @@ import type { ApiManager } from "../api/ApiManager";
 import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { SlotViewModel } from "../ui/SlotTypes";
-import type { ActionControls, SlotControls } from "./ControllerTypes";
-import { slotKey } from "./ControllerTypes";
+import type { EffectTargetController } from "./EffectTargetController";
+import type { ActionControls } from "./ControllerTypes";
+import { mapAvailableTargetsToSlotTargets, type SlotTarget } from "./TargetSlotMapper";
+import type { SlotPresenter } from "../ui/SlotPresenter";
+import { SlotInteractionGate } from "./SlotInteractionGate";
 
 type BlockerDeps = {
   api: ApiManager;
   engine: GameEngine;
   gameContext: GameContext;
+  slotPresenter: SlotPresenter;
   actionControls?: ActionControls | null;
-  slotControls?: SlotControls | null;
+  effectTargetController?: EffectTargetController | null;
   refreshActions: () => void;
+  slotGate: SlotInteractionGate;
 };
 
 export class BlockerFlowManager {
   private queueEntry?: any;
-  private selectedSlot?: SlotViewModel;
-  private allowedSlots = new Set<string>();
   private requestPending = false;
+  private slotTargets: SlotTarget[] = [];
+  private notificationId?: string;
 
   constructor(private deps: BlockerDeps) {}
 
@@ -32,12 +37,13 @@ export class BlockerFlowManager {
       return entry;
     }
     this.queueEntry = entry;
-    this.selectedSlot = undefined;
-    this.allowedSlots.clear();
-    (entry?.data?.availableTargets || []).forEach((target: any) => {
-      if (!target?.zone) return;
-      this.allowedSlots.add(`${target.playerId === this.deps.gameContext.playerId ? "player" : "opponent"}-${target.zone}`);
-    });
+    this.slotTargets = mapAvailableTargetsToSlotTargets(
+      this.deps.slotPresenter,
+      raw,
+      entry?.data?.availableTargets || [],
+      this.deps.gameContext.playerId,
+    );
+    this.notificationId = this.extractNotificationId(raw);
     this.requestPending = false;
     return entry;
   }
@@ -46,37 +52,27 @@ export class BlockerFlowManager {
     if (!this.queueEntry) return false;
     const selfId = this.deps.gameContext.playerId;
     const isDefender = this.queueEntry.playerId === selfId;
+    this.deps.slotGate.disable("blocker-choice");
     if (!isDefender) {
       this.deps.actionControls?.setWaitingForOpponent?.(true);
       return true;
     }
-    if (this.selectedSlot) {
-      this.deps.actionControls?.setWaitingForOpponent?.(false);
-      this.deps.actionControls?.setState?.({
-        descriptors: [
-          {
-            label: "Block",
-            primary: true,
-            enabled: !this.requestPending,
-            onClick: () => this.submitBlockChoice(),
-          },
-          {
-            label: "Cancel",
-            enabled: !this.requestPending,
-            onClick: () => this.resetSelection(),
-          },
-        ],
-      });
-      return true;
-    }
-    this.deps.actionControls?.setWaitingForOpponent?.(false, [
-      {
-        label: "Skip Blocker Step",
-        primary: true,
-        enabled: !this.requestPending,
-        onClick: () => this.skipBlockerStep(),
-      },
-    ]);
+    this.deps.actionControls?.setWaitingForOpponent?.(false);
+    this.deps.actionControls?.setState?.({
+      descriptors: [
+        {
+          label: "Choose Blocker",
+          primary: true,
+          enabled: !this.requestPending && this.slotTargets.length > 0,
+          onClick: () => this.openBlockerChoiceDialog(),
+        },
+        {
+          label: "Skip Blocker Phase",
+          enabled: !this.requestPending,
+          onClick: () => this.skipBlockerStep(),
+        },
+      ],
+    });
     return true;
   }
 
@@ -88,34 +84,30 @@ export class BlockerFlowManager {
     return !!this.queueEntry && this.queueEntry.playerId !== this.deps.gameContext.playerId;
   }
 
-  isAllowedSlot(slot: SlotViewModel) {
-    return this.allowedSlots.has(slotKey(slot));
-  }
-
-  selectSlot(slot: SlotViewModel) {
-    this.selectedSlot = slot;
-    this.deps.refreshActions();
-  }
-
-  resetSelection() {
-    this.selectedSlot = undefined;
-    this.deps.refreshActions();
-  }
-
-  async submitBlockChoice() {
-    if (!this.queueEntry || !this.selectedSlot) return;
-    await this.postBlockChoice([
-      {
-        carduid: this.selectedSlot.unit?.cardUid || "",
-        zone: this.selectedSlot.slotId || "",
-        playerId: this.queueEntry.playerId || "",
-      },
-    ]);
-  }
-
   async skipBlockerStep() {
     if (!this.queueEntry) return;
     await this.postBlockChoice([]);
+  }
+
+  private async openBlockerChoiceDialog() {
+    if (!this.deps.effectTargetController || !this.slotTargets.length) return;
+    await this.deps.effectTargetController.showManualTargets({
+      targets: this.slotTargets.map((entry) => entry.slot),
+      header: "Choose a Blocker",
+      showCloseButton: true,
+      onSelect: async (slot) => {
+        await this.submitBlockChoiceForSlot(slot);
+      },
+    });
+  }
+
+  private async submitBlockChoiceForSlot(slot: SlotViewModel) {
+    if (!this.queueEntry) return;
+    const target = this.findMatchingTarget(slot);
+    if (!target) return;
+    const payload = this.buildTargetPayload(slot, target);
+    if (!payload) return;
+    await this.postBlockChoice([payload]);
   }
 
   private async postBlockChoice(targets: Array<{ carduid: string; zone: string; playerId: string }>) {
@@ -126,20 +118,19 @@ export class BlockerFlowManager {
     this.requestPending = true;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmBlockerChoice({
-        gameId,
-        playerId,
-        eventId: this.queueEntry.id,
-        selectedTargets: targets,
-      });
+    await this.deps.api.confirmBlockerChoice({
+      gameId,
+      playerId,
+      eventId: this.queueEntry.id,
+      notificationId: this.notificationId,
+      selectedTargets: targets,
+    });
       await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (error) {
       console.warn("confirmBlockerChoice failed", error);
     } finally {
       this.requestPending = false;
-      this.selectedSlot = undefined;
-      this.allowedSlots.clear();
-      this.queueEntry = undefined;
+      this.clear();
       this.deps.refreshActions();
     }
   }
@@ -154,10 +145,43 @@ export class BlockerFlowManager {
     return !!entry && ((entry.type || "").toString().toUpperCase() === "BLOCKER_CHOICE");
   }
 
+  private findMatchingTarget(slot: SlotViewModel) {
+    const zoneKey = `${slot.owner}-${slot.slotId}`;
+    const cardUid = slot.unit?.cardUid || slot.pilot?.cardUid;
+    return this.slotTargets.find((entry) => {
+      const entryKey = `${entry.slot.owner}-${entry.slot.slotId}`;
+      if (entryKey === zoneKey) return true;
+      const candidateUid = (entry.data?.carduid || entry.data?.cardUid || entry.data?.uid || entry.data?.id || "").toString();
+      if (cardUid && candidateUid && cardUid === candidateUid) return true;
+      return false;
+    })?.data;
+  }
+
+  private buildTargetPayload(slot: SlotViewModel, target: any) {
+    const selfId = this.deps.gameContext.playerId;
+    const zone = target?.zone || slot.slotId || "";
+    const playerId = target?.playerId || (slot.owner === "player" ? selfId : this.queueEntry?.playerId || "");
+    const cardUid = target?.carduid || target?.cardUid || slot.unit?.cardUid || slot.pilot?.cardUid || "";
+    if (!playerId) return null;
+    return {
+      carduid: cardUid,
+      zone,
+      playerId,
+    };
+  }
+
   private clear() {
     this.queueEntry = undefined;
-    this.selectedSlot = undefined;
-    this.allowedSlots.clear();
-    this.requestPending = false;
+    this.slotTargets = [];
+    this.notificationId = undefined;
+    this.deps.slotGate.enable("blocker-choice");
+  }
+
+  private extractNotificationId(raw: any) {
+    const notifications = raw?.gameEnv?.notificationQueue ?? [];
+    if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+    const last = notifications[notifications.length - 1];
+    if (!last || typeof last?.id !== "string") return undefined;
+    return last.id;
   }
 }

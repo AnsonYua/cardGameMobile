@@ -489,10 +489,23 @@ export class BoardScene extends Phaser.Scene {
     const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
     const targetSlotId = payload.targetSlotName || payload.targetSlot;
     const targetCarduid = payload.targetCarduid || payload.targetUnitUid;
+    const forcedTargetSlotId = payload.forcedTargetZone;
+    const forcedTargetCarduid = payload.forcedTargetCarduid;
+    const forcedTargetPlayerId = payload.forcedTargetPlayerId;
     const attackerSlotVm = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const defenderSlotVm = this.findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
+    const targetSlotVm = this.findSlotForAttack(
+      slots,
+      forcedTargetCarduid ?? targetCarduid,
+      this.resolveSlotOwnerByPlayer(forcedTargetPlayerId) ?? defenderOwner,
+      forcedTargetSlotId ?? targetSlotId,
+    );
     const attackerCenter = this.getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
-    const defenderCenter = this.getSlotCenterFromMap(positions, defenderSlotVm, defenderOwner, targetSlotId);
+    const defenderCenter = this.getSlotCenterFromMap(
+      positions,
+      targetSlotVm,
+      this.resolveSlotOwnerByPlayer(forcedTargetPlayerId) ?? defenderOwner,
+      forcedTargetSlotId ?? targetSlotId,
+    );
     if (!attackerCenter || !defenderCenter) {
       if (this.activeAttackNotificationId) {
         this.attackIndicator.hide({ fadeDuration: 180 });

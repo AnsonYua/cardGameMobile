@@ -6,6 +6,8 @@ type EffectTargetDialogShowOpts = {
   targets: SlotViewModel[];
   header?: string;
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
+  showCloseButton?: boolean;
+  onClose?: () => void;
 };
 
 // Reuses PilotTargetDialog layout but keeps piloted slots visible for effect targeting.
@@ -21,7 +23,8 @@ export class EffectTargetDialog extends PilotTargetDialog {
       header: opts.header ?? "Choose a Target",
       allowPiloted: true,
       closeOnBackdrop: false,
-      showCloseButton: false,
+      showCloseButton: opts.showCloseButton ?? false,
+      onClose: opts.onClose,
     };
     super.show(baseOpts);
   }

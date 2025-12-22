@@ -66,6 +66,7 @@ export class ApiManager {
     gameId: string;
     playerId: string;
     eventId: string;
+    notificationId?: string;
     selectedTargets: Array<{ carduid: string; zone: string; playerId: string }>;
   }) {
     const url = this.buildUrl("/api/game/player/confirmBlockerChoice");

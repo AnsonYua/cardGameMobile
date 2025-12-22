@@ -11,6 +11,7 @@ import type { EffectTargetController } from "./EffectTargetController";
 import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { BlockerFlowManager } from "./BlockerFlowManager";
 import type { ActionControls, SlotControls } from "./ControllerTypes";
+import { SlotInteractionGate } from "./SlotInteractionGate";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -26,6 +27,7 @@ export class SelectionActionController {
   private lastBattleStatus?: string;
   private actionControls?: ActionControls | null;
   private slotControls?: SlotControls | null;
+  private slotGate: SlotInteractionGate;
   private attackCoordinator: AttackTargetCoordinator;
   private blockerFlow: BlockerFlowManager;
 
@@ -49,14 +51,17 @@ export class SelectionActionController {
     });
     this.actionControls = this.deps.actionControls;
     this.slotControls = this.deps.slotControls;
+    this.slotGate = new SlotInteractionGate(this.slotControls ?? null);
     this.attackCoordinator = new AttackTargetCoordinator(this.actionControls ?? null);
     this.blockerFlow = new BlockerFlowManager({
       api: this.deps.api,
       engine: this.deps.engine,
       gameContext: this.deps.gameContext,
+      slotPresenter: this.deps.slotPresenter,
       actionControls: this.actionControls,
-      slotControls: this.slotControls,
+      effectTargetController: this.deps.effectTargetController,
       refreshActions: () => this.refreshActions("neutral"),
+      slotGate: this.slotGate,
     });
   }
 
@@ -92,13 +97,9 @@ export class SelectionActionController {
       return;
     }
     if (this.blockerFlow.isActive()) {
-      if (!slot.unit || !this.blockerFlow.isAllowedSlot(slot)) {
-        // ensure only allowed slots stay highlighted when blocker choice is active
-        this.clearSelectionUI({ clearEngine: true });
-        this.refreshActions("neutral");
-        return;
-      }
-      this.blockerFlow.selectSlot(slot);
+      // Block slot selection while blocker choice is in progress.
+      this.clearSelectionUI({ clearEngine: true });
+      this.refreshActions("neutral");
       return;
     }
     if (!this.isPlayersTurn() || slot.owner !== "player" || !slot.unit) {
@@ -108,10 +109,12 @@ export class SelectionActionController {
       return;
     }
     if (this.isActionStepPhase() && !this.slotHasActionStepWindow(slot)) {
+      // block selecting slots outside current action-step window
       this.clearSelectionUI({ clearEngine: true });
       this.refreshActions("neutral");
       return;
     }
+    // mark this slot as the current action source and refresh UI
     this.selectedSlot = slot;
     this.selectedHandCard = undefined;
     this.selectedBaseCard = undefined;
@@ -229,16 +232,18 @@ export class SelectionActionController {
 
   updateActionBarForPhase(raw: any, opts: { isLocalTurn: boolean }) {
     console.log("[updateActionBarForPhase] entry", "isLocalTurn", opts.isLocalTurn);
+    if (opts.isLocalTurn) {
+      this.slotGate.enable("phase-turn");
+    } else {
+      this.slotGate.disable("phase-turn");
+    }
     this.blockerFlow.handleSnapshot(raw);
     if (this.blockerFlow.applyActionBar()) {
       return;
     }
     if (this.attackCoordinator.applyActionBar()) {
-      this.slotControls?.setSlotClickEnabled?.(true);
       return;
     }
-    const allowSlotClicks = opts.isLocalTurn;
-    this.slotControls?.setSlotClickEnabled?.(allowSlotClicks);
     this.applyMainPhaseDefaults(raw);
   }
 

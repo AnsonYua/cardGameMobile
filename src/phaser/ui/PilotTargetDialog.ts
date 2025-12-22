@@ -8,6 +8,7 @@ export type PilotTargetDialogShowOpts = {
   allowPiloted?: boolean;
   closeOnBackdrop?: boolean;
   showCloseButton?: boolean;
+  onClose?: () => void;
 };
 
 export class PilotTargetDialog {
@@ -16,6 +17,7 @@ export class PilotTargetDialog {
   private open = false;
   private lastTargets: SlotViewModel[] = [];
   private lastOnSelect?: (slot: SlotViewModel) => Promise<void> | void;
+  private lastOnClose?: (() => void) | undefined;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -66,7 +68,10 @@ export class PilotTargetDialog {
     this.dialog = undefined;
     this.lastTargets = [];
     this.lastOnSelect = undefined;
+    const onClose = this.lastOnClose;
+    this.lastOnClose = undefined;
     this.open = false;
+    onClose?.();
   }
 
   isOpen() {
@@ -90,6 +95,7 @@ export class PilotTargetDialog {
     const targets = filtered.slice(0, 6);
     this.lastTargets = targets;
     this.lastOnSelect = opts.onSelect;
+    this.lastOnClose = opts.onClose;
     const { cols, rows, margin, gap, widthFactor, minWidth, minHeight, extraHeight, panelRadius, headerOffset, closeSize, closeOffset, headerWrapPad } =
       this.cfg.dialog;
     const rowCount = targets.length <= cols ? 1 : rows;

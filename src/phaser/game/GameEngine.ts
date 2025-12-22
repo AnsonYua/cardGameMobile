@@ -22,6 +22,7 @@ export type ActionSource = "hand" | "slot" | "base" | "neutral";
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private lastRaw: GameStatusResponse | null = null;
+  private pendingBattleTransition?: { prevBattle: any; nextBattle: any };
   private resourceLoader: CardResourceLoader;
   private selection = new SelectionStore();
   private actions = new ActionRegistry();
@@ -35,6 +36,7 @@ export class GameEngine {
     this.resourceLoader = new CardResourceLoader(scene);
     this.api = new ApiManager(this.match.getApiBaseUrl());
     this.registerDefaultActions();
+    this.registerBattleTransitionListeners();
   }
   // Optional: call after scenario injection; when `fromScenario` is true we reuse any cached payload if present.
   async updateGameStatus(
@@ -62,6 +64,8 @@ export class GameEngine {
       const derivedStatus = response?.status ?? response?.gameStatus ?? fallback;
       const nextPhase = response?.gameEnv?.phase ?? response?.phase ?? null;
       this.lastRaw = response;
+      const nextBattle = this.getBattle(this.lastRaw);
+      this.pendingBattleTransition = { prevBattle: previousBattle, nextBattle };
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
       console.log("update game status ",JSON.stringify(this.getSnapshot()))
@@ -79,10 +83,6 @@ export class GameEngine {
       } else {
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
       }
-
-      // Battle transitions: enter/exit currentBattle to drive UI labels/buttons.
-      this.handleBattleTransition(previousBattle, this.getBattle(this.lastRaw));
-
       /*
       if lastStatus is not mainPhase and new status is mainPhase 
        trigger this.refreshActions("neutral"); in BoardScene
@@ -270,6 +270,20 @@ export class GameEngine {
       this.contextStore.update({ lastStatus: "Main Step" });
       this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
     }
+  }
+
+  private registerBattleTransitionListeners() {
+    const handler = () => this.processPendingBattleTransition();
+    this.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, handler);
+    this.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, handler);
+    this.events.on(ENGINE_EVENTS.PHASE_REDRAW, handler);
+  }
+
+  private processPendingBattleTransition() {
+    if (!this.pendingBattleTransition) return;
+    const { prevBattle, nextBattle } = this.pendingBattleTransition;
+    this.pendingBattleTransition = undefined;
+    this.handleBattleTransition(prevBattle, nextBattle);
   }
   private registerDefaultActions() {
     // Play base from hand
