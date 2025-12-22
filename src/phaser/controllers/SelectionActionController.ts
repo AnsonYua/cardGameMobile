@@ -8,21 +8,13 @@ import type { SlotViewModel, SlotOwner, SlotPositionMap } from "../ui/SlotTypes"
 import { SlotPresenter } from "../ui/SlotPresenter";
 import { ApiManager } from "../api/ApiManager";
 import type { EffectTargetController } from "./EffectTargetController";
+import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
+import { BlockerFlowManager } from "./BlockerFlowManager";
+import type { ActionControls, SlotControls } from "./ControllerTypes";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearSelection?: () => void;
-};
-
-type SlotControls = {
-  setSelectedSlot?: (owner?: SlotOwner, slotId?: string) => void;
-  getSlotPositions?: () => SlotPositionMap | undefined;
-  setSlotClickEnabled?: (enabled: boolean) => void;
-};
-
-type ActionControls = {
-  setState?: (state: { descriptors: any[] }) => void;
-  setWaitingForOpponent?: (waiting: boolean, overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) => void;
 };
 
 export class SelectionActionController {
@@ -32,12 +24,10 @@ export class SelectionActionController {
   private selectedSlot?: SlotViewModel;
   private lastBattleActive = false;
   private lastBattleStatus?: string;
-  private pendingQueueEntryId?: string;
-  private pendingQueueEntry?: any;
-  private blockerAllowedSlots = new Set<string>();
-  private blockerTargetLookup = new Map<string, { zone: string; playerId: string; carduid: string; owner: SlotOwner }>();
-  private blockSelectionActive = false;
-  private blockRequestPending = false;
+  private actionControls?: ActionControls | null;
+  private slotControls?: SlotControls | null;
+  private attackCoordinator: AttackTargetCoordinator;
+  private blockerFlow: BlockerFlowManager;
 
   constructor(
     private deps: {
@@ -57,6 +47,17 @@ export class SelectionActionController {
     this.deps.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
       this.handleBattleStateChanged(payload);
     });
+    this.actionControls = this.deps.actionControls;
+    this.slotControls = this.deps.slotControls;
+    this.attackCoordinator = new AttackTargetCoordinator(this.actionControls ?? null);
+    this.blockerFlow = new BlockerFlowManager({
+      api: this.deps.api,
+      engine: this.deps.engine,
+      gameContext: this.deps.gameContext,
+      actionControls: this.actionControls,
+      slotControls: this.slotControls,
+      refreshActions: () => this.refreshActions("neutral"),
+    });
   }
 
   getSelectedHandCard() {
@@ -72,7 +73,7 @@ export class SelectionActionController {
     this.selectedHandCard = card;
     this.selectedSlot = undefined;
     this.selectedBaseCard = undefined;
-    this.deps.slotControls?.setSelectedSlot?.();
+    this.slotControls?.setSelectedSlot?.();
     this.deps.engine.select({
       kind: "hand",
       uid: card.uid || "",
@@ -83,35 +84,39 @@ export class SelectionActionController {
     this.refreshActions("hand");
   }
 
-  handleSlotCardSelected(slot: SlotViewModel) {
+  async handleSlotCardSelected(slot: SlotViewModel) {
     const raw = this.deps.engine.getSnapshot().raw as any;
-    this.syncBlockerQueue(raw);
-    const queueEntry = this.getActiveQueueEntry(raw);
-    const queueIsBlocker = this.isBlockerChoiceEntry(queueEntry);
-    if (queueIsBlocker) {
-      if (slot.owner !== "player" || !slot.unit || !this.isAllowedBlockSlot(slot)) {
+    this.blockerFlow.handleSnapshot(raw);
+    // let blocker flow inspect latest queue before acting on the slot click
+    if (await this.attackCoordinator.handleSlot(slot)) {
+      return;
+    }
+    if (this.blockerFlow.isActive()) {
+      if (!slot.unit || !this.blockerFlow.isAllowedSlot(slot)) {
+        // ensure only allowed slots stay highlighted when blocker choice is active
         this.clearSelectionUI({ clearEngine: true });
         this.refreshActions("neutral");
         return;
       }
-    } else if (!this.isPlayersTurn() || slot.owner !== "player" || !slot.unit) {
+      this.blockerFlow.selectSlot(slot);
+      return;
+    }
+    if (!this.isPlayersTurn() || slot.owner !== "player" || !slot.unit) {
+      // disallow selecting opponent cards or empty slots when not in player turn
       this.clearSelectionUI({ clearEngine: true });
       this.refreshActions("neutral");
       return;
     }
-    if (!queueIsBlocker && this.isActionStepPhase() && !this.slotHasActionStepWindow(slot)) {
+    if (this.isActionStepPhase() && !this.slotHasActionStepWindow(slot)) {
       this.clearSelectionUI({ clearEngine: true });
       this.refreshActions("neutral");
       return;
-    }
-    if (queueIsBlocker) {
-      this.blockSelectionActive = true;
     }
     this.selectedSlot = slot;
     this.selectedHandCard = undefined;
     this.selectedBaseCard = undefined;
     this.deps.handControls?.clearSelection?.();
-    this.deps.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
+    this.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
     this.deps.engine.select({ kind: "slot", slotId: slot.slotId, owner: slot.owner });
     this.refreshActions("slot");
   }
@@ -120,7 +125,7 @@ export class SelectionActionController {
     this.selectedHandCard = undefined;
     this.selectedSlot = undefined;
     this.selectedBaseCard = payload?.card;
-    this.deps.slotControls?.setSelectedSlot?.();
+    this.slotControls?.setSelectedSlot?.();
     if (!payload?.card) return;
     if (this.isActionStepPhase() && !this.cardDataHasActionStepWindow(payload.card?.cardData)) {
       this.clearSelectionUI({ clearEngine: true });
@@ -134,9 +139,11 @@ export class SelectionActionController {
   refreshActions(source: ActionSource = "neutral") {
     console.log("[refreshActions] source", source, "selection", this.deps.engine.getSelection());
     const raw = this.deps.engine.getSnapshot().raw as any;
-    this.syncBlockerQueue(raw);
-    const queueEntry = this.getActiveQueueEntry(raw);
-    if (this.applyQueueActionBar(queueEntry)) {
+    this.blockerFlow.handleSnapshot(raw);
+    if (this.blockerFlow.applyActionBar()) {
+      return;
+    }
+    if (this.attackCoordinator.applyActionBar()) {
       return;
     }
     const selection = this.deps.engine.getSelection();
@@ -222,15 +229,16 @@ export class SelectionActionController {
 
   updateActionBarForPhase(raw: any, opts: { isLocalTurn: boolean }) {
     console.log("[updateActionBarForPhase] entry", "isLocalTurn", opts.isLocalTurn);
-    this.syncBlockerQueue(raw);
-    const queueEntry = this.getActiveQueueEntry(raw);
-    const handledByQueue = this.applyQueueActionBar(queueEntry);
-    const isBlockerForSelf = !!queueEntry && this.isBlockerChoiceEntry(queueEntry) && queueEntry.playerId === this.deps.gameContext.playerId;
-    const allowSlotClicks = opts.isLocalTurn || isBlockerForSelf;
-    this.deps.slotControls?.setSlotClickEnabled?.(allowSlotClicks);
-    if (handledByQueue) {
+    this.blockerFlow.handleSnapshot(raw);
+    if (this.blockerFlow.applyActionBar()) {
       return;
     }
+    if (this.attackCoordinator.applyActionBar()) {
+      this.slotControls?.setSlotClickEnabled?.(true);
+      return;
+    }
+    const allowSlotClicks = opts.isLocalTurn;
+    this.slotControls?.setSlotClickEnabled?.(allowSlotClicks);
     this.applyMainPhaseDefaults(raw);
   }
 
@@ -238,7 +246,7 @@ export class SelectionActionController {
     this.selectedHandCard = undefined;
     this.selectedBaseCard = undefined;
     this.selectedSlot = undefined;
-    this.deps.slotControls?.setSelectedSlot?.();
+    this.slotControls?.setSelectedSlot?.();
     this.deps.handControls?.clearSelection?.();
     if (opts.clearEngine) {
       this.deps.engine.clearSelection();
@@ -263,18 +271,19 @@ export class SelectionActionController {
   }
 
   private async handleAttackUnit() {
+    const attacker = this.selectedSlot;
+    if (!attacker) {
+      console.warn("No attacker selected");
+      return;
+    }
     const targets = this.getOpponentUnitSlots();
     if (!targets.length) {
       console.warn("No opponent units to target");
       return;
     }
-    await this.deps.effectTargetController?.showManualTargets({
-      targets,
-      header: "Choose a target to attack",
-      onSelect: async (slot) => {
-        await this.performAttackUnit(slot);
-      },
-    });
+    this.attackCoordinator.enter(targets, async (slot) => {
+      await this.performAttackUnit(slot);
+    }, () => this.handleCancelSelection());
   }
 
   private async handleAttackShieldArea() {
@@ -309,6 +318,7 @@ export class SelectionActionController {
   }
 
   private handleCancelSelection() {
+    this.attackCoordinator.reset();
     this.clearSelectionUI({ clearEngine: true });
     this.refreshActions("neutral");
   }
@@ -375,215 +385,6 @@ export class SelectionActionController {
       ],
     });
     return true;
-  }
-
-  private applyQueueActionBar(entry?: any) {
-    const targetEntry = entry ?? this.pendingQueueEntry;
-    if (!targetEntry) {
-      return false;
-    }
-    if (this.isBlockerChoiceEntry(targetEntry)) {
-      this.pendingQueueEntry = targetEntry;
-      return this.applyBlockerChoice(targetEntry);
-    }
-    const selfId = this.deps.gameContext.playerId;
-    if (targetEntry.playerId && targetEntry.playerId !== selfId) {
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      return true;
-    }
-    return false;
-  }
-
-  private applyBlockerChoice(entry: any) {
-    const selfId = this.deps.gameContext.playerId;
-    const isDefender = entry.playerId === selfId;
-    if (!isDefender) {
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      return true;
-    }
-    if (this.blockSelectionActive) {
-      this.deps.actionControls?.setWaitingForOpponent?.(false);
-      this.deps.actionControls?.setState?.({
-        descriptors: [
-          {
-            label: "Block",
-            primary: true,
-            enabled: !this.blockRequestPending,
-            onClick: () => this.submitBlockerChoice(),
-          },
-          {
-            label: "Cancel",
-            enabled: !this.blockRequestPending,
-            onClick: () => this.resetBlockSelection(),
-          },
-        ],
-      });
-    } else {
-      this.deps.actionControls?.setWaitingForOpponent?.(false, [
-        {
-          label: "Skip Blocker Step",
-          primary: true,
-          enabled: !this.blockRequestPending,
-          onClick: () => this.handleSkipBlockerStep(),
-        },
-      ]);
-    }
-    return true;
-  }
-
-  private resetBlockSelection() {
-    this.blockSelectionActive = false;
-    this.clearSelectionUI({ clearEngine: true });
-    this.blockRequestPending = false;
-    this.refreshActions("neutral");
-  }
-
-  private async handleSkipBlockerStep() {
-    if (this.blockRequestPending) return;
-    const entry = this.pendingQueueEntry;
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    if (!entry || !gameId || !playerId) return;
-    this.blockRequestPending = true;
-    this.deps.actionControls?.setState?.({
-      descriptors: [
-        {
-          label: "Skip Blocker Step",
-          primary: true,
-          enabled: false,
-        },
-      ],
-    });
-    try {
-      await this.deps.api.confirmBlockerChoice({
-        gameId,
-        playerId,
-        eventId: entry.id,
-        selectedTargets: [],
-      });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-    } catch (err) {
-      console.warn("confirmBlockerChoice failed", err);
-    } finally {
-      this.blockRequestPending = false;
-      this.blockSelectionActive = false;
-      this.clearSelectionUI({ clearEngine: true });
-      this.clearBlockerState();
-      this.refreshActions("neutral");
-    }
-  }
-
-  private async submitBlockerChoice() {
-    if (this.blockRequestPending) return;
-    const entry = this.pendingQueueEntry;
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    const slot = this.selectedSlot;
-    if (!entry || !gameId || !playerId || !slot) return;
-    const targetKey = this.getSlotKey(slot);
-    const target = this.blockerTargetLookup.get(targetKey);
-    if (!target) return;
-    this.blockRequestPending = true;
-    this.deps.actionControls?.setState?.({
-      descriptors: [
-        {
-          label: "Block",
-          primary: true,
-          enabled: false,
-        },
-        {
-          label: "Cancel",
-          enabled: false,
-        },
-      ],
-    });
-    try {
-      await this.deps.api.confirmBlockerChoice({
-        gameId,
-        playerId,
-        eventId: entry.id,
-        selectedTargets: [
-          {
-            carduid: target.carduid,
-            zone: target.zone,
-            playerId: target.playerId,
-          },
-        ],
-      });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-    } catch (err) {
-      console.warn("blockerChoice request failed", err);
-    } finally {
-      this.blockRequestPending = false;
-      this.blockSelectionActive = false;
-      this.clearSelectionUI({ clearEngine: true });
-      this.clearBlockerState();
-      this.refreshActions("neutral");
-    }
-  }
-
-  private syncBlockerQueue(raw: any) {
-    const entry = this.getActiveQueueEntry(raw);
-    if (!entry || !this.isBlockerChoiceEntry(entry)) {
-      this.clearBlockerState();
-      return;
-    }
-    if (this.pendingQueueEntryId === entry.id) {
-      this.pendingQueueEntry = entry;
-      return;
-    }
-    this.pendingQueueEntryId = entry.id;
-    this.pendingQueueEntry = entry;
-    this.blockSelectionActive = false;
-    this.blockRequestPending = false;
-    this.blockerAllowedSlots.clear();
-    this.blockerTargetLookup.clear();
-    this.mapBlockerTargets(entry);
-  }
-
-  private mapBlockerTargets(entry: any) {
-    const selfId = this.deps.gameContext.playerId;
-    const targets = entry?.data?.availableTargets || [];
-    targets.forEach((target: any) => {
-      if (!target?.zone) return;
-      const owner: SlotOwner = target.playerId === selfId ? "player" : "opponent";
-      const slotKey = `${owner}-${target.zone}`;
-      this.blockerAllowedSlots.add(slotKey);
-      this.blockerTargetLookup.set(slotKey, {
-        zone: target.zone,
-        playerId: target.playerId || "",
-        carduid: target.carduid || target.cardUid || "",
-        owner,
-      });
-    });
-  }
-
-  private clearBlockerState() {
-    this.pendingQueueEntryId = undefined;
-    this.pendingQueueEntry = undefined;
-    this.blockSelectionActive = false;
-    this.blockRequestPending = false;
-    this.blockerAllowedSlots.clear();
-    this.blockerTargetLookup.clear();
-  }
-
-  private isBlockerChoiceEntry(entry?: any) {
-    return !!entry && ((entry.type || "").toString().toUpperCase() === "BLOCKER_CHOICE");
-  }
-
-  private isAllowedBlockSlot(slot: SlotViewModel) {
-    const key = this.getSlotKey(slot);
-    return this.blockerAllowedSlots.has(key);
-  }
-
-  private getSlotKey(slot: SlotViewModel) {
-    return `${slot.owner}-${slot.slotId ?? ""}`;
-  }
-
-  private getActiveQueueEntry(raw: any) {
-    const queue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
-    if (!Array.isArray(queue)) return undefined;
-    return queue.find((entry) => (entry?.status || "").toString().toUpperCase() !== "RESOLVED");
   }
 
   private getBattleState(): "awaiting" | "confirmed" | "none" {
