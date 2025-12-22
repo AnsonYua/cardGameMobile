@@ -90,6 +90,7 @@ export class BoardScene extends Phaser.Scene {
   private unitFlow?: UnitFlowController;
   private attackIndicator?: AttackIndicator;
   private activeAttackNotificationId?: string;
+  private activeAttackTargetKey?: string;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
@@ -467,6 +468,7 @@ export class BoardScene extends Phaser.Scene {
       if (this.activeAttackNotificationId) {
         this.attackIndicator.hide({ fadeDuration: 180 });
         this.activeAttackNotificationId = undefined;
+        this.activeAttackTargetKey = undefined;
       }
       return;
     }
@@ -475,15 +477,17 @@ export class BoardScene extends Phaser.Scene {
       if (this.activeAttackNotificationId) {
         this.attackIndicator.hide({ fadeDuration: 180 });
         this.activeAttackNotificationId = undefined;
+        this.activeAttackTargetKey = undefined;
       }
       return;
     }
 
-    if (this.activeAttackNotificationId === attackNote.id) {
+    const payload = attackNote.payload || {};
+    const targetKey = this.buildAttackTargetKey(payload);
+    if (this.activeAttackNotificationId === attackNote.id && this.activeAttackTargetKey === targetKey) {
       return;
     }
 
-    const payload = attackNote.payload || {};
     const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
     const defenderOwner = this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
     const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
@@ -492,6 +496,7 @@ export class BoardScene extends Phaser.Scene {
     const forcedTargetSlotId = payload.forcedTargetZone;
     const forcedTargetCarduid = payload.forcedTargetCarduid;
     const forcedTargetPlayerId = payload.forcedTargetPlayerId;
+
     const attackerSlotVm = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
     const targetSlotVm = this.findSlotForAttack(
       slots,
@@ -510,12 +515,14 @@ export class BoardScene extends Phaser.Scene {
       if (this.activeAttackNotificationId) {
         this.attackIndicator.hide({ fadeDuration: 180 });
         this.activeAttackNotificationId = undefined;
+        this.activeAttackTargetKey = undefined;
       }
       return;
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
     this.attackIndicator.show({ from: attackerCenter, to: defenderCenter, style: attackStyle });
     this.activeAttackNotificationId = attackNote.id;
+    this.activeAttackTargetKey = targetKey;
   }
 
   private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {
@@ -554,6 +561,14 @@ export class BoardScene extends Phaser.Scene {
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
+  }
+
+  private buildAttackTargetKey(payload: any) {
+    const attacker = payload.attackerCarduid ?? payload.attackerUnitUid ?? "";
+    const target = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid ?? "";
+    const slot = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot ?? "";
+    const player = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? "";
+    return `${attacker}|${target}|${slot}|${player}`;
   }
 
   private handleEndTurn() {
