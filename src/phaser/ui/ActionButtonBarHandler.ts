@@ -41,6 +41,11 @@ export class ActionButtonBarHandler {
     textColor: "#1f3f9c",
     endOuterColor: 0x1e7bff,
   };
+  private buttonTextStyle = {
+    fontSize: "15px",
+    fontFamily: "Arial",
+    fontStyle: "bold" as const,
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -115,7 +120,6 @@ export class ActionButtonBarHandler {
     const barY = handTop - this.barHeight / 2 - 12;
     const barX = INTERNAL_W / 2;
     const btnGap = 12;
-    const btnWidth = 120; // fixed size to keep buttons consistent
     const btnHeight = this.barHeight;
 
     this.barBounds = {
@@ -157,13 +161,28 @@ export class ActionButtonBarHandler {
       renderButtons.push({ config: btn, color, actionIndex: null });
     });
 
-    const count = renderButtons.length;
-    const totalWidth = count * btnWidth + (count - 1) * btnGap;
-    const leftStart = barX - totalWidth / 2 + btnWidth / 2;
+    if (!renderButtons.length) {
+      return;
+    }
 
-    renderButtons.forEach((btn, idx) => {
-      const x = leftStart + idx * (btnWidth + btnGap);
-      this.drawButton(x, barY, btnWidth, btnHeight, btn.config, 900, btn.color, btn.actionIndex);
+    const buttonsWithSize = renderButtons.map((btn) => {
+      const temp = this.scene.add
+        .text(0, 0, btn.config.label || "", this.buttonTextStyle)
+        .setOrigin(0.5)
+        .setVisible(false);
+      const width = Math.max(110, temp.width + 32);
+      temp.destroy();
+      return { ...btn, width };
+    });
+
+    const totalButtonsWidth = buttonsWithSize.reduce((sum, btn) => sum + btn.width, 0);
+    const totalWidth = totalButtonsWidth + btnGap * (buttonsWithSize.length - 1);
+    let currentX = barX - totalWidth / 2;
+
+    buttonsWithSize.forEach((btn) => {
+      const x = currentX + btn.width / 2;
+      this.drawButton(x, barY, btn.width, btnHeight, btn.config, 900, btn.color, btn.actionIndex);
+      currentX += btn.width + btnGap;
     });
   }
 
@@ -212,15 +231,11 @@ export class ActionButtonBarHandler {
       .setDepth(depth + 1);
     this.elements.push(inner);
 
-    const text = this.scene.add
-      .text(x, y, config.label || "", {
-        fontSize: "15px",
-        fontFamily: "Arial",
-        color: enabled ? this.buttonStyle.textColor : "#8a9abf",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setDepth(depth + 2);
+    const textStyle = {
+      ...this.buttonTextStyle,
+      color: enabled ? this.buttonStyle.textColor : "#8a9abf",
+    };
+    const text = this.scene.add.text(x, y, config.label || "", textStyle).setOrigin(0.5).setDepth(depth + 2);
     this.elements.push(text);
 
     const hit = this.scene.add
