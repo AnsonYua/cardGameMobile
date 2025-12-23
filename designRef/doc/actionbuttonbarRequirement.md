@@ -491,7 +491,7 @@ curl 'http://localhost:8080/api/game/player/playCard' \
 12.
 
 
- 
+ -------------------------------------------------------------
 
 
 
@@ -501,7 +501,60 @@ player trigger attack -> blocker selection phase -> action step -> summarize of 
 if opponent doesnt has blocker, flow will like this
 player trigger attack -> action step -> summarize of the battle
 
-  Action-step confirmations
+Action-step phase
+in this phase, since the blocker selection phase is ended, in the processingQueue, there should not be any blocker_choice event.
+then frontend will focus to look at gameEnv.currentBattle
+gameEnv.currentBattle in this time will not be empty. if empty , meaning there is error in backend, just show error dialog.
+if currentBattle.confirmations.{currentPlayer} = false
+in the actionbuttonbar will show "skip action-step" button only.
+
+all card under currentBattle.actionTargets.{currentPlayer} array will be clickable / selectable, or card not in the array will not clickable / selectable.
+        "currentBattle": {
+            "actionType": "attackUnit",
+            "attackingPlayerId": "playerId_2",
+            "defendingPlayerId": "playerId_1",
+            "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+            "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+            "targetPlayerId": "playerId_1",
+            "status": "ACTION_STEP",
+            "fromBurst": false,
+            "openedAt": 1766419766061,
+            "confirmations": {
+                "playerId_2": false,
+                "playerId_1": false
+            },
+            "actionTargets": {
+                "playerId_2": [
+                    {
+                        "carduid": "ST01-014_208685cf-f7c9-4c50-b66f-2e125760ac0d",
+                        "cardId": "ST01-014",
+                        "cardName": "Unforeseen Incident",
+                        "cardType": "command",
+                        "location": "hand",
+                        "zoneType": "hand",
+                        "effectIds": [
+                            "main_action_ap_reduction"
+                        ]
+                    }
+                ],
+                "playerId_1": []
+            }
+        },
+
+when click /select that card. it will show "trigger card effect" and "cancel" button
+when "cancel" button card it will deselect the card and show "skip action-step" button
+when "trigger card effect", if it is in hand, it will trigger play card action, if it is in slot/base, just write placeholder.
+if it is slot card and both pilot or unit have effect, it will show trigger pilot effect and trigger unit effect button  and cancel, and write placeholder  for the click function callback.
+when currentBattle.confirmations.{currentPlayer} = true just show the text waiting for opponent with animation.
+when click skip action-step button, call 
+- POST /api/game/player/playerAction with actionType: 'confirmBattle'.
+
+  {
+    "playerId": "playerId_2",
+    "gameId": "733760d3-9ea2-4e88-b332-09085e5900e1",
+    "actionType": "confirmBattle"
+  }
+------------------------------------------------------------------
 
   - Once currentBattle is populated:
       - Watch currentBattle.confirmations. For each player where the flag is false, render a “Confirm Battle” button.

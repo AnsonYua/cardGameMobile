@@ -118,13 +118,13 @@ export class BlockerFlowManager {
     this.requestPending = true;
     this.deps.refreshActions();
     try {
-    await this.deps.api.confirmBlockerChoice({
-      gameId,
-      playerId,
-      eventId: this.queueEntry.id,
-      notificationId: this.notificationId,
-      selectedTargets: targets,
-    });
+      await this.deps.api.confirmBlockerChoice({
+        gameId,
+        playerId,
+        eventId: this.queueEntry.id,
+        notificationId: this.notificationId,
+        selectedTargets: targets,
+      });
       await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (error) {
       console.warn("confirmBlockerChoice failed", error);
@@ -180,6 +180,14 @@ export class BlockerFlowManager {
   private extractNotificationId(raw: any) {
     const notifications = raw?.gameEnv?.notificationQueue ?? [];
     if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+    for (let idx = notifications.length - 1; idx >= 0; idx--) {
+      const entry = notifications[idx];
+      if (!entry) continue;
+      const type = (entry.type || "").toString().toUpperCase();
+      if (type === "UNIT_ATTACK_DECLARED" && typeof entry.id === "string") {
+        return entry.id;
+      }
+    }
     const last = notifications[notifications.length - 1];
     if (!last || typeof last?.id !== "string") return undefined;
     return last.id;

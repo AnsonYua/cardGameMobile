@@ -12,6 +12,15 @@ import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { BlockerFlowManager } from "./BlockerFlowManager";
 import type { ActionControls, SlotControls } from "./ControllerTypes";
 import { SlotInteractionGate } from "./SlotInteractionGate";
+import {
+  ActionTargetEntry,
+  getActionTargetsForPlayer,
+  getBattleFromRaw,
+  getSlotBySelection,
+  handCardMatchesActionTarget,
+  selectionMatchesActionTarget,
+  slotMatchesActionTarget,
+} from "./ActionStepUtils";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -70,10 +79,22 @@ export class SelectionActionController {
   }
 
   handleHandCardSelected(card: HandCardView) {
-    if (this.isActionStepPhase() && !this.cardDataHasActionStepWindow(this.getHandCardData(card.uid))) {
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
+    if (this.isActionStepPhase()) {
+      const raw = this.deps.engine.getSnapshot().raw as any;
+      const battle = getBattleFromRaw(raw);
+      if (battle) {
+        const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
+        if (!handCardMatchesActionTarget(card.uid, targets)) {
+          this.clearSelectionUI({ clearEngine: true });
+          this.refreshActions("neutral");
+          return;
+        }
+      }
+      if (!this.cardDataHasActionStepWindow(this.getHandCardData(card.uid))) {
+        this.clearSelectionUI({ clearEngine: true });
+        this.refreshActions("neutral");
+        return;
+      }
     }
     this.selectedHandCard = card;
     this.selectedSlot = undefined;
@@ -101,6 +122,18 @@ export class SelectionActionController {
       this.clearSelectionUI({ clearEngine: true });
       this.refreshActions("neutral");
       return;
+    }
+    if (this.isActionStepPhase()) {
+      const battle = getBattleFromRaw(raw);
+      if (battle) {
+        const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
+        if (!slotMatchesActionTarget(slot, targets)) {
+          // Gate slot interactions to only allow cards that appear in the action-step targets list.
+          this.clearSelectionUI({ clearEngine: true });
+          this.refreshActions("neutral");
+          return;
+        }
+      }
     }
     if (!this.isPlayersTurn() || slot.owner !== "player" || !slot.unit) {
       // disallow selecting opponent cards or empty slots when not in player turn
@@ -234,8 +267,10 @@ export class SelectionActionController {
     console.log("[updateActionBarForPhase] entry", "isLocalTurn", opts.isLocalTurn);
     if (opts.isLocalTurn) {
       this.slotGate.enable("phase-turn");
+      this.deps.actionControls?.setWaitingForOpponent?.(false);
     } else {
       this.slotGate.disable("phase-turn");
+      this.deps.actionControls?.setWaitingForOpponent?.(true);
     }
     this.blockerFlow.handleSnapshot(raw);
     if (this.blockerFlow.applyActionBar()) {
@@ -348,53 +383,51 @@ export class SelectionActionController {
   }
 
   private applyBattleActionBar(selection: any) {
-    const battleState = this.getBattleState();
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    const battleState = this.getBattleState(raw);
     console.log("[applyBattleActionBar] battleState", battleState, "selection", selection);
     if (battleState === "none") return false;
-    const hasActionStepEffect = selection ? this.selectionHasActionStepWindow(selection) : false;
-    console.log("[applyBattleActionBar] hasActionStepEffect", hasActionStepEffect);
+    const battle = getBattleFromRaw(raw);
+    if (!battle) return false;
+    const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
+
     if (battleState === "confirmed") {
+      this.deps.actionControls?.setWaitingForOpponent?.(true);
       this.deps.actionControls?.setState?.({ descriptors: [] });
       return true;
     }
-    if (hasActionStepEffect) {
+
+    this.deps.actionControls?.setWaitingForOpponent?.(false);
+    const matchesTarget = selectionMatchesActionTarget(
+      selection,
+      targets,
+      raw,
+      this.deps.slotPresenter,
+      this.deps.gameContext.playerId,
+    );
+    if (matchesTarget) {
+      const descriptors = this.buildActionStepDescriptorsForSelection(selection, targets);
+      this.deps.actionControls?.setState?.({ descriptors });
+    } else {
       this.deps.actionControls?.setState?.({
         descriptors: [
           {
-            label: "Activate Effect",
+            label: "Skip Action-Step",
             enabled: true,
             primary: true,
             onClick: async () => {
-              await this.handleActionStepActivate();
+              await this.handleSkipAction();
             },
-          },
-          {
-            label: "Cancel",
-            enabled: true,
-            onClick: () => this.handleCancelSelection(),
           },
         ],
       });
-      return true;
     }
-    this.deps.actionControls?.setState?.({
-      descriptors: [
-        {
-          label: "Skip Action",
-          enabled: true,
-          primary: true,
-          onClick: async () => {
-            await this.handleSkipAction();
-          },
-        },
-      ],
-    });
     return true;
   }
 
-  private getBattleState(): "awaiting" | "confirmed" | "none" {
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+  private getBattleState(raw?: any): "awaiting" | "confirmed" | "none" {
+    const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
+    const battle = snapshotRaw?.gameEnv?.currentBattle ?? snapshotRaw?.gameEnv?.currentbattle;
     const currentPlayer = raw?.gameEnv?.currentPlayer;
     const self = this.deps.gameContext.playerId;
     console.log("[getBattleState] battle", battle, "currentPlayer", currentPlayer, "self", self);
@@ -410,11 +443,8 @@ export class SelectionActionController {
   }
 
   private isActionStepPhase() {
-    // Prefer the latest battle event if available; otherwise fall back to snapshot parsing.
-    if (this.lastBattleActive && (this.lastBattleStatus || "").toUpperCase() === "ACTION_STEP") {
-      return true;
-    }
-    return this.getBattleState() !== "none";
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    return this.getBattleState(raw) !== "none";
   }
 
   private handleBattleStateChanged(payload: { active: boolean; status: string }) {
@@ -435,15 +465,14 @@ export class SelectionActionController {
     }
   }
 
-  private async handleActionStepActivate() {
-    const selection = this.deps.engine.getSelection();
+  private async handleActionStepTrigger(selection: any) {
     if (!selection) {
       console.warn("No selection to activate");
       return;
     }
     if (selection.kind === "hand") {
       const cardType = (this.selectedHandCard?.cardType || "").toLowerCase();
-      console.log("[handleActionStepActivate] hand cardType", cardType);
+      console.log("[handleActionStepTrigger] hand cardType", cardType);
       if (cardType === "command") {
         await this.runActionThenRefresh("playCommandFromHand", "hand");
         return;
@@ -462,13 +491,96 @@ export class SelectionActionController {
     }
   }
 
+  private buildActionStepDescriptorsForSelection(selection: any, targets: ActionTargetEntry[]) {
+    const descriptors: Array<{ label: string; enabled?: boolean; primary?: boolean; onClick?: () => Promise<void> | void }> = [];
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    if (
+      !selection ||
+      !selectionMatchesActionTarget(selection, targets, raw, this.deps.slotPresenter, this.deps.gameContext.playerId)
+    )
+      return descriptors;
+    if (selection.kind === "hand") {
+      descriptors.push({
+        label: "Trigger Card Effect",
+        primary: true,
+        enabled: true,
+        onClick: async () => {
+          await this.handleActionStepTrigger(selection);
+        },
+      });
+    } else if (selection.kind === "slot") {
+      const raw = this.deps.engine.getSnapshot().raw as any;
+      const slot = getSlotBySelection(selection, raw, this.deps.slotPresenter, this.deps.gameContext.playerId);
+      const pilotHasEffect = this.cardDataHasActionStepWindow(slot?.pilot?.cardData);
+      const unitHasEffect = this.cardDataHasActionStepWindow(slot?.unit?.cardData);
+      if (pilotHasEffect) {
+        descriptors.push({
+          label: "Trigger Pilot Effect",
+          enabled: true,
+          primary: true,
+          onClick: async () => {
+            await this.handlePilotEffectTrigger(slot);
+          },
+        });
+      }
+      if (unitHasEffect) {
+        descriptors.push({
+          label: "Trigger Unit Effect",
+          enabled: true,
+          primary: pilotHasEffect ? false : true,
+          onClick: async () => {
+            await this.handleUnitEffectTrigger(slot);
+          },
+        });
+      }
+      if (!pilotHasEffect && !unitHasEffect) {
+        descriptors.push({
+          label: "Trigger Card Effect",
+          enabled: true,
+          primary: true,
+          onClick: async () => {
+            await this.handleActionStepTrigger(selection);
+          },
+        });
+      }
+    } else {
+      descriptors.push({
+        label: "Trigger Card Effect",
+        primary: true,
+        enabled: true,
+        onClick: async () => {
+          await this.handleActionStepTrigger(selection);
+        },
+      });
+    }
+    descriptors.push({
+      label: "Cancel",
+      enabled: true,
+      onClick: () => {
+        this.handleCancelSelection();
+      },
+    });
+    return descriptors;
+  }
+
+  private async handlePilotEffectTrigger(slot?: SlotViewModel) {
+    console.log("Trigger pilot effect placeholder", slot?.slotId);
+    this.handleCancelSelection();
+  }
+
+  private async handleUnitEffectTrigger(slot?: SlotViewModel) {
+    console.log("Trigger unit effect placeholder", slot?.slotId);
+    this.handleCancelSelection();
+  }
+
   private selectionHasActionStepWindow(selection: any) {
     if (!selection) return false;
     if (selection.kind === "hand") {
       return this.cardDataHasActionStepWindow(this.getHandCardData(selection.uid));
     }
     if (selection.kind === "slot") {
-      const slot = this.getSlotBySelection(selection);
+      const raw = this.deps.engine.getSnapshot().raw as any;
+      const slot = getSlotBySelection(selection, raw, this.deps.slotPresenter, this.deps.gameContext.playerId);
       return this.slotHasActionStepWindow(slot);
     }
     if (selection.kind === "base") {
@@ -505,13 +617,6 @@ export class SelectionActionController {
     return found?.cardData;
   }
 
-  private getSlotBySelection(selection: { slotId?: string; owner?: SlotOwner }) {
-    if (!selection?.slotId || !selection.owner) return undefined;
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const selfId = this.deps.gameContext.playerId;
-    const slots = this.deps.slotPresenter.toSlots(raw, selfId);
-    return slots.find((s) => s.slotId === selection.slotId && s.owner === selection.owner);
-  }
 
   private getBaseCardData(isOpponent: boolean) {
     const raw: any = this.deps.engine.getSnapshot().raw;
