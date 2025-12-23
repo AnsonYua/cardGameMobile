@@ -57,7 +57,8 @@
   - `forcedTargetCarduid`
   - `forcedTargetZone`
   - `forcedTargetPlayerId`
-  The attack indicator must redraw toward that forced slot whenever those fields change, even if the notification ID stays the same.
+  - `battleEnd`
+The attack indicator must redraw toward that forced slot whenever those fields change, even if the notification ID stays the same; however, once `battleEnd === true` the arrow should disappear and only return when the field is missing or explicitly `false`.
 
 ## Action-step phase
 
@@ -73,32 +74,32 @@
 - The UI should never allow new attacks, base plays, etc. while the action step remains unresolved unless `processingQueue` explicitly allows it via `needsPlayerInput()` semantics.
 
 
-the notification have been update with payload.battleEnd if the battle completed.
-we should not show the attackindicatior when battleEnd = true. attackindicatior should only show when this field is missing or battleEnd =false
+The notification payload now includes `battleEnd` when the attack/battle has resolved, which means the arrow should stay hidden anytime `battleEnd === true` (draw it only while the field is missing or set to `false`). For example:
 
-
-            {
-                "id": "unit_attack_declared_1766478365693_aep7jma1n",
-                "type": "UNIT_ATTACK_DECLARED",
-                "metadata": {
-                    "timestamp": 1766478365693,
-                    "expiresAt": 1766478368693,
-                    "requiresAcknowledgment": false,
-                    "frontendProcessed": false,
-                    "priority": "normal"
-                },
-                "payload": {
-                    "gameId": "b76d4e53-bb69-464c-9b98-19596149f0f6",
-                    "attackingPlayerId": "playerId_2",
-                    "defendingPlayerId": "playerId_1",
-                    "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
-                    "attackerName": "GM",
-                    "attackerSlot": "slot1",
-                    "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
-                    "targetName": "Gundam Aerial (Permet Score Six)",
-                    "targetSlotName": "slot1",
-                    "fromBurst": false,
-                    "timestamp": 1766478365693,
-                    "battleEnd": true
-                }
-            }
+```json
+{
+  "id": "unit_attack_declared_1766478365693_aep7jma1n",
+  "type": "UNIT_ATTACK_DECLARED",
+  "metadata": {
+    "timestamp": 1766478365693,
+    "expiresAt": 1766478368693,
+    "requiresAcknowledgment": false,
+    "frontendProcessed": false,
+    "priority": "normal"
+  },
+  "payload": {
+    "gameId": "b76d4e53-bb69-464c-9b98-19596149f0f6",
+    "attackingPlayerId": "playerId_2",
+    "defendingPlayerId": "playerId_1",
+    "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+    "attackerName": "GM",
+    "attackerSlot": "slot1",
+    "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+    "targetName": "Gundam Aerial (Permet Score Six)",
+    "targetSlotName": "slot1",
+    "fromBurst": false,
+    "timestamp": 1766478365693,
+    "battleEnd": true
+  }
+}
+```

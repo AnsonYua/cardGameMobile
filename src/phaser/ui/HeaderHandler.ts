@@ -155,7 +155,7 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    this.drawStatus(containerRight - padding - 16, containerY);
+    this.drawStatus(containerRight - padding , containerY);
   }
 
   updateState(state: Partial<HeaderState>) {

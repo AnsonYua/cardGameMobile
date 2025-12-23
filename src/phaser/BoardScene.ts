@@ -292,7 +292,6 @@ export class BoardScene extends Phaser.Scene {
   public mainPhaseUpdate(skipAnimation = true, snapshot?: GameStatusSnapshot) {
     if (snapshot) {
       this.gameContext.lastStatus = snapshot.status;
-      this.headerControls?.setStatusFromEngine?.(snapshot.status, { offlineFallback: this.offlineFallback });
     }
     this.refreshPhase(skipAnimation);
   }
@@ -303,6 +302,7 @@ export class BoardScene extends Phaser.Scene {
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
+    this.updateHeaderPhaseStatus(raw);
     this.updateMainPhaseUI(raw, skipAnimation, animationPolicy);
     if (raw) {
       void this.effectTargetController?.syncFromSnapshot(raw);
@@ -446,6 +446,13 @@ export class BoardScene extends Phaser.Scene {
     });
     this.slotControls?.setSlots(slots);
     this.updateAttackIndicatorFromNotifications(raw, slots, positions);
+  }
+
+  private updateHeaderPhaseStatus(raw: any) {
+    const phase = raw?.gameEnv?.phase;
+    if (phase) {
+      this.headerControls?.setStatusFromEngine?.(phase, { offlineFallback: this.offlineFallback });
+    }
   }
 
   private refreshActionBarState(raw: any, skipAnimation: boolean) {
