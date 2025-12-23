@@ -465,24 +465,20 @@ export class BoardScene extends Phaser.Scene {
     const notifications = this.getNotificationQueue(raw);
     const attackNote = notifications.find((n) => (n?.type || "").toUpperCase() === "UNIT_ATTACK_DECLARED");
     if (!attackNote) {
-      if (this.activeAttackNotificationId) {
-        this.attackIndicator.hide({ fadeDuration: 180 });
-        this.activeAttackNotificationId = undefined;
-        this.activeAttackTargetKey = undefined;
-      }
+      this.hideAttackIndicator();
       return;
     }
 
     if (!positions) {
-      if (this.activeAttackNotificationId) {
-        this.attackIndicator.hide({ fadeDuration: 180 });
-        this.activeAttackNotificationId = undefined;
-        this.activeAttackTargetKey = undefined;
-      }
+      this.hideAttackIndicator();
       return;
     }
 
     const payload = attackNote.payload || {};
+    if (payload.battleEnd === true) {
+      this.hideAttackIndicator();
+      return;
+    }
     const targetKey = this.buildAttackTargetKey(payload);
     if (this.activeAttackNotificationId === attackNote.id && this.activeAttackTargetKey === targetKey) {
       return;
@@ -512,11 +508,7 @@ export class BoardScene extends Phaser.Scene {
       forcedTargetSlotId ?? targetSlotId,
     );
     if (!attackerCenter || !defenderCenter) {
-      if (this.activeAttackNotificationId) {
-        this.attackIndicator.hide({ fadeDuration: 180 });
-        this.activeAttackNotificationId = undefined;
-        this.activeAttackTargetKey = undefined;
-      }
+      this.hideAttackIndicator();
       return;
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
@@ -557,6 +549,14 @@ export class BoardScene extends Phaser.Scene {
     const entry = positions[resolvedOwner]?.[slotId];
     if (!entry) return undefined;
     return { x: entry.x, y: entry.y };
+  }
+
+  private hideAttackIndicator() {
+    if (!this.attackIndicator) return;
+    if (!this.activeAttackNotificationId) return;
+    this.attackIndicator.hide({ fadeDuration: 180 });
+    this.activeAttackNotificationId = undefined;
+    this.activeAttackTargetKey = undefined;
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {

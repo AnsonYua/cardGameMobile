@@ -71,3 +71,34 @@
     * For slot-based cards where both pilot and unit present effects, expose separate **Trigger Pilot Effect** and **Trigger Unit Effect** buttons (with placeholder callbacks).
 - Once `currentBattle.confirmations[currentPlayer] === true`, replace the buttons with a waiting indicator telling the player to wait for the opponent (with an animation, e.g., pulsing text).
 - The UI should never allow new attacks, base plays, etc. while the action step remains unresolved unless `processingQueue` explicitly allows it via `needsPlayerInput()` semantics.
+
+
+the notification have been update with payload.battleEnd if the battle completed.
+we should not show the attackindicatior when battleEnd = true. attackindicatior should only show when this field is missing or battleEnd =false
+
+
+            {
+                "id": "unit_attack_declared_1766478365693_aep7jma1n",
+                "type": "UNIT_ATTACK_DECLARED",
+                "metadata": {
+                    "timestamp": 1766478365693,
+                    "expiresAt": 1766478368693,
+                    "requiresAcknowledgment": false,
+                    "frontendProcessed": false,
+                    "priority": "normal"
+                },
+                "payload": {
+                    "gameId": "b76d4e53-bb69-464c-9b98-19596149f0f6",
+                    "attackingPlayerId": "playerId_2",
+                    "defendingPlayerId": "playerId_1",
+                    "attackerCarduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+                    "attackerName": "GM",
+                    "attackerSlot": "slot1",
+                    "targetCarduid": "ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578",
+                    "targetName": "Gundam Aerial (Permet Score Six)",
+                    "targetSlotName": "slot1",
+                    "fromBurst": false,
+                    "timestamp": 1766478365693,
+                    "battleEnd": true
+                }
+            }
