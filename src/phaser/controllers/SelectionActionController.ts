@@ -79,6 +79,11 @@ export class SelectionActionController {
   }
 
   handleHandCardSelected(card: HandCardView) {
+    if (!this.isPlayersTurn()) {
+      this.clearSelectionUI({ clearEngine: true });
+      this.refreshActions("neutral");
+      return;
+    }
     if (this.isActionStepPhase()) {
       const raw = this.deps.engine.getSnapshot().raw as any;
       const battle = getBattleFromRaw(raw);
