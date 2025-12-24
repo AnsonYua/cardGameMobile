@@ -13,7 +13,7 @@ export const formatHeaderStatus = (status: any, opts?: { offlineFallback?: boole
   } else if (status === "Action Step" || status === "ACTION_STEP" || status === "action_step") {
     label = "Action Step";
   } else if (typeof status === "string") {
-    const normalized = status.replace(/_/g, " ");
+    const normalized = status.replace(/_/g, " ").toLowerCase();
     label = normalized.charAt(0).toUpperCase() + normalized.slice(1);
   } else {
     label = "Status";

@@ -148,14 +148,14 @@ export class HeaderHandler {
     this.handLabel?.destroy();
     this.handLabel = this.scene.add
       .text(handTextX, handY, `Opponent Hand: ${handDisplay}`, {
-        fontSize: "16px",
+        fontSize: "14px",
         fontFamily: "Arial",
         color:"#ffffff",
       })
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    this.drawStatus(containerRight - padding , containerY);
+    this.drawStatus(containerRight -5 , containerY-15);
   }
 
   updateState(state: Partial<HeaderState>) {
