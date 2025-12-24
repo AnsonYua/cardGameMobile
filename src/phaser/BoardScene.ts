@@ -494,32 +494,15 @@ export class BoardScene extends Phaser.Scene {
     const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
     const defenderOwner = this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
     const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
-    const targetSlotId = payload.targetSlotName || payload.targetSlot;
-    const targetCarduid = payload.targetCarduid || payload.targetUnitUid;
-    const forcedTargetSlotId = payload.forcedTargetZone;
-    const forcedTargetCarduid = payload.forcedTargetCarduid;
-    const forcedTargetPlayerId = payload.forcedTargetPlayerId;
-
     const attackerSlotVm = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const targetSlotVm = this.findSlotForAttack(
-      slots,
-      forcedTargetCarduid ?? targetCarduid,
-      this.resolveSlotOwnerByPlayer(forcedTargetPlayerId) ?? defenderOwner,
-      forcedTargetSlotId ?? targetSlotId,
-    );
     const attackerCenter = this.getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
-    const defenderCenter = this.getSlotCenterFromMap(
-      positions,
-      targetSlotVm,
-      this.resolveSlotOwnerByPlayer(forcedTargetPlayerId) ?? defenderOwner,
-      forcedTargetSlotId ?? targetSlotId,
-    );
-    if (!attackerCenter || !defenderCenter) {
+    const targetPoint = this.resolveAttackTargetPoint(payload, slots, positions, defenderOwner);
+    if (!attackerCenter || !targetPoint) {
       this.hideAttackIndicator();
       return;
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
-    this.attackIndicator.show({ from: attackerCenter, to: defenderCenter, style: attackStyle });
+    this.attackIndicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
     this.activeAttackNotificationId = attackNote.id;
     this.activeAttackTargetKey = targetKey;
   }
@@ -556,6 +539,54 @@ export class BoardScene extends Phaser.Scene {
     const entry = positions[resolvedOwner]?.[slotId];
     if (!entry) return undefined;
     return { x: entry.x, y: entry.y };
+  }
+
+  private resolveAttackTargetPoint(
+    payload: any,
+    slots: SlotViewModel[],
+    positions: SlotPositionMap | null | undefined,
+    defenderOwner: SlotOwner,
+  ) {
+    const targetSlotId =
+      payload.forcedTargetZone ??
+      payload.targetSlotName ??
+      payload.targetSlot ??
+      undefined;
+    const normalizedSlot = (targetSlotId ?? "").toLowerCase();
+    const normalizedName = (payload.targetName ?? "").toLowerCase();
+    const targetPlayerId = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? payload.defendingPlayerId;
+    const targetOwner = this.resolveSlotOwnerByPlayer(targetPlayerId) ?? defenderOwner;
+    const isOpponentTarget = targetOwner === "opponent";
+
+    if (this.isBaseTarget(normalizedSlot, normalizedName)) {
+      const anchor = this.baseControls?.getBaseAnchor(isOpponentTarget);
+      if (anchor) {
+        return { x: anchor.x, y: anchor.y };
+      }
+    }
+
+    if (this.isShieldTarget(normalizedSlot, normalizedName)) {
+      const anchor = this.baseControls?.getShieldTopAnchor(isOpponentTarget);
+      if (anchor) {
+        return anchor;
+      }
+      const fallbackAnchor = this.baseControls?.getBaseAnchor(isOpponentTarget);
+      if (fallbackAnchor) {
+        return { x: fallbackAnchor.x, y: fallbackAnchor.y };
+      }
+    }
+
+    const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
+    const slotVm = this.findSlotForAttack(slots, targetCarduid, targetOwner, targetSlotId);
+    return this.getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
+  }
+
+  private isBaseTarget(normalizedSlot: string, normalizedName: string) {
+    return normalizedSlot === "base" || normalizedName === "base";
+  }
+
+  private isShieldTarget(normalizedSlot: string, normalizedName: string) {
+    return normalizedSlot === "shield" || normalizedName.includes("shield");
   }
 
   private hideAttackIndicator() {

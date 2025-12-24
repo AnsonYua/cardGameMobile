@@ -48,6 +48,7 @@ export type ShieldAreaControls = Pick<
   | "setBasePreviewData"
   | "setBaseClickHandler"
   | "getBaseAnchor"
+  | "getShieldTopAnchor"
 >;
 
 export class ShieldAreaHandler {
@@ -75,6 +76,7 @@ export class ShieldAreaHandler {
   private baseClickHandler?: (payload: { side: BaseSide; card?: any }) => void;
   private baseAnchors: Partial<Record<BaseSide, { x: number; y: number; isOpponent: boolean; w: number; h: number }>> =
     {};
+  private shieldAnchors: Partial<Record<BaseSide, { x: number; y: number }>> = {};
   private playAnimator: PlayCardAnimationManager;
   private lastBaseCardId: Partial<Record<BaseSide, string>> = {};
   private previewConfig = {
@@ -116,6 +118,10 @@ export class ShieldAreaHandler {
 
   getBaseAnchor(isOpponent: boolean) {
     return this.baseAnchors[isOpponent ? "opponent" : "player"];
+  }
+
+  getShieldTopAnchor(isOpponent: boolean) {
+    return this.shieldAnchors[isOpponent ? "opponent" : "player"];
   }
 
   // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
@@ -283,8 +289,14 @@ export class ShieldAreaHandler {
       ? barsTop + totalBarsHeight + towerGap - baseOverlap + baseSize.h / 2
       : stackTop + baseSize.h / 2 - baseOverlap / 2;
     const baseYWithOffset = baseY + baseYOffset;
-    console.log("asdfsasddf ",JSON.stringify(this.shieldCards) , " ",isOpponent)
     this.clearShieldsForSide(side);
+    if (shieldCount > 0) {
+      const topIndex = isOpponent ? 0 : shieldCount - 1;
+      const shieldTopY = barsTop + shieldH / 2 + topIndex * (shieldH + shieldGap) + shieldYOffset;
+      this.shieldAnchors[side] = { x: shieldX, y: shieldTopY };
+    } else {
+      this.shieldAnchors[side] = undefined;
+    }
     if (isOpponent) {
       for (let i = 0; i < shieldCount; i++) {
         const y = barsTop + shieldH / 2 + i * (shieldH + shieldGap) + shieldYOffset;
@@ -305,6 +317,7 @@ export class ShieldAreaHandler {
   private clearShieldsForSide(side: BaseSide) {
     this.shieldCards[side].forEach((c) => c.destroy());
     this.shieldCards[side] = [];
+    this.shieldAnchors[side] = undefined;
   }
 
   private drawShieldCard(x: number, y: number, w: number, h: number) {
