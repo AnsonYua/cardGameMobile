@@ -118,6 +118,8 @@ export class AttackIndicator {
     const pulseThickness = 8 + pulse * 2;
     const glowAlpha = 0.3 + pulse * 0.2;
     const lineAlpha = 0.85 + pulse * 0.15;
+    const trimDistance = headLength > 0 ? headLength * 0.45 : 0;
+    const renderPath = trimDistance > 0 ? this.trimPathEnd(pathPoints, trimDistance) : pathPoints;
 
     this.glowGraphics.clear();
     this.coreGraphics.clear();
@@ -126,15 +128,15 @@ export class AttackIndicator {
     // Outer glow trail
     const palette = this.getPalette(this.currentStyle);
     this.glowGraphics.lineStyle(pulseThickness + 8, palette.glowOuter, glowAlpha);
-    this.drawSolidPath(this.glowGraphics, pathPoints);
+    this.drawSolidPath(this.glowGraphics, renderPath);
 
     // Secondary glow for soft inner aura
     this.glowGraphics.lineStyle(pulseThickness + 2, palette.glowInner, glowAlpha * 0.5);
-    this.drawSolidPath(this.glowGraphics, pathPoints);
+    this.drawSolidPath(this.glowGraphics, renderPath);
 
     // Core line
     this.coreGraphics.lineStyle(pulseThickness, palette.core, lineAlpha);
-    this.drawSolidPath(this.coreGraphics, pathPoints);
+    this.drawSolidPath(this.coreGraphics, renderPath);
 
     // Traveling highlight pulse
     const minHighlight = 0.1;
@@ -213,6 +215,29 @@ export class AttackIndicator {
       pts.push(new Phaser.Math.Vector2(px, py));
     }
     return pts;
+  }
+
+  private trimPathEnd(points: Phaser.Math.Vector2[], trimDistance: number) {
+    if (!points.length || trimDistance <= 0) return points;
+    const trimmed = points.map((p) => p.clone());
+    let remaining = trimDistance;
+    while (trimmed.length > 1 && remaining > 0) {
+      const lastIndex = trimmed.length - 1;
+      const last = trimmed[lastIndex];
+      const prev = trimmed[lastIndex - 1];
+      const segLen = Phaser.Math.Distance.Between(prev.x, prev.y, last.x, last.y);
+      if (segLen <= remaining) {
+        trimmed.pop();
+        remaining -= segLen;
+      } else {
+        const keepRatio = (segLen - remaining) / segLen;
+        const newX = prev.x + (last.x - prev.x) * keepRatio;
+        const newY = prev.y + (last.y - prev.y) * keepRatio;
+        trimmed[lastIndex] = new Phaser.Math.Vector2(newX, newY);
+        remaining = 0;
+      }
+    }
+    return trimmed;
   }
 
   private getPalette(style: AttackIndicatorStyle) {
