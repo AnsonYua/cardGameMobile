@@ -36,7 +36,7 @@ export class AttackIndicator {
     this.glowGraphics?.setBlendMode(Phaser.BlendModes.ADD);
     this.highlightGraphics?.setBlendMode(Phaser.BlendModes.ADD);
     this.container.add([this.glowGraphics!, this.coreGraphics!, this.highlightGraphics!]);
-    this.container.setDepth(200);
+    this.container.setDepth(500);
     this.container.setAlpha(0);
     this.state.progress = 0;
     this.state.pulse = 0;

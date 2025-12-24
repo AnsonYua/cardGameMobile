@@ -470,7 +470,7 @@ export class BoardScene extends Phaser.Scene {
   private updateAttackIndicatorFromNotifications(raw: any, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!this.attackIndicator) return;
     const notifications = this.getNotificationQueue(raw);
-    const attackNote = notifications.find((n) => (n?.type || "").toUpperCase() === "UNIT_ATTACK_DECLARED");
+    const attackNote = this.findActiveAttackNotification(notifications);
     if (!attackNote) {
       this.hideAttackIndicator();
       return;
@@ -482,10 +482,6 @@ export class BoardScene extends Phaser.Scene {
     }
 
     const payload = attackNote.payload || {};
-    if (payload.battleEnd === true) {
-      this.hideAttackIndicator();
-      return;
-    }
     const targetKey = this.buildAttackTargetKey(payload);
     if (this.activeAttackNotificationId === attackNote.id && this.activeAttackTargetKey === targetKey) {
       return;
@@ -607,6 +603,20 @@ export class BoardScene extends Phaser.Scene {
     const slot = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot ?? "";
     const player = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? "";
     return `${attacker}|${target}|${slot}|${player}`;
+  }
+
+  private findActiveAttackNotification(notifications: SlotNotification[]) {
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return undefined;
+    }
+    for (let i = notifications.length - 1; i >= 0; i -= 1) {
+      const note = notifications[i];
+      if (!note) continue;
+      if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
+      if (note.payload?.battleEnd === true) continue;
+      return note;
+    }
+    return undefined;
   }
 
   private handleEndTurn() {

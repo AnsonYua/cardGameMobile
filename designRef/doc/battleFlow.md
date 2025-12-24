@@ -105,7 +105,7 @@ The notification payload now includes `battleEnd` when the attack/battle has res
 ```
 
 below is the noticationQueue when player attacking shield area/base,
-when u see the "targetName" is  "Base" / "Shield", u should draw the attackIndicator point to base / top card of shield  
+when u see the "targetName" is  "Base" or "targetName": "Shield Area", u should draw the attackIndicator point to base / top card of shield  
 {
     "id": "unit_attack_declared_1766568601442_rav81179z",
     "type": "UNIT_ATTACK_DECLARED",
