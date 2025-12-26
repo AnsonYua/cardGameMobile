@@ -5,6 +5,7 @@ import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import { findSlotForAttack, getSlotPositionEntry, resolveAttackTargetPoint } from "../utils/AttackResolver";
 import { FxToolkit } from "./FxToolkit";
 import { toPreviewKey } from "../ui/HandTypes";
+import { ProcessedIdCache, SnapshotCache } from "./AnimationCaches";
 
 type SlotVisibilityControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -31,19 +32,18 @@ type PendingBattleSnapshot = {
   attacker?: BattleSpriteSeed;
   target?: BattleSpriteSeed;
   targetPoint: { x: number; y: number };
-  savedAt: number;
 };
 
 export class BattleAnimationManager {
   private slotControls?: SlotVisibilityControls | null;
   private battleAnimationLayer?: Phaser.GameObjects.Container;
-  private pendingBattleSnapshots = new Map<string, PendingBattleSnapshot>();
-  private processedBattleResolutionIds = new Set<string>();
+  private snapshotCache = new SnapshotCache<PendingBattleSnapshot>({
+    ttlMs: 15000,
+    maxEntries: 24,
+  });
+  private processedResolutions = new ProcessedIdCache(200);
   private battleAnimationQueue: Promise<void> = Promise.resolve();
   private fx: FxToolkit;
-  private snapshotTtlMs = 15000;
-  private maxSnapshots = 24;
-  private maxProcessedBattleResolutions = 200;
   private lockedSlotSnapshots = new Map<string, SlotViewModel>();
 
   constructor(private config: BattleAnimationManagerConfig) {
@@ -58,7 +58,7 @@ export class BattleAnimationManager {
   captureAttackSnapshot(note: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!note || !positions) return;
     const payload = note.payload || {};
-    const previousSnapshot = this.pendingBattleSnapshots.get(note.id);
+    const previousSnapshot = this.snapshotCache.get(note.id);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] captureAttackSnapshot", note.id, note.type, {
       battleEnd: payload?.battleEnd,
@@ -82,6 +82,7 @@ export class BattleAnimationManager {
         attackerPosition: !!attackerPosition,
         targetPoint: !!targetPoint,
       });
+      this.snapshotCache.evictExpired();
       return;
     }
 
@@ -98,10 +99,7 @@ export class BattleAnimationManager {
       console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", note.id);
       if (previousSnapshot) {
         this.releaseLockedSlotsForSnapshot(previousSnapshot);
-        this.pendingBattleSnapshots.delete(note.id);
-      }
-      if (this.pendingBattleSnapshots.has(note.id)) {
-        this.pendingBattleSnapshots.delete(note.id);
+        this.snapshotCache.delete(note.id);
       }
       return;
     }
@@ -121,32 +119,29 @@ export class BattleAnimationManager {
       console.log("[BattleAnimation] captureAttackSnapshot keeping previous target", note.id);
       return;
     }
-    if (previousSnapshot) {
-      this.releaseLockedSlotsForSnapshot(previousSnapshot);
-      this.pendingBattleSnapshots.delete(note.id);
-    }
-    this.pendingBattleSnapshots.set(note.id, {
+    const replacedSnapshot = this.snapshotCache.set(note.id, {
       attacker: attackerSeed,
       target: targetSeed,
       targetPoint,
-      savedAt: Date.now(),
     });
+    if (replacedSnapshot) {
+      this.releaseLockedSlotsForSnapshot(replacedSnapshot);
+    }
     this.lockSlotSnapshot(attackerSlot);
     this.lockSlotSnapshot(targetSlot);
-    this.trimSnapshotCache();
-    this.evictExpiredSnapshots();
+    this.snapshotCache.evictExpired();
   }
 
   processBattleResolutionNotifications(notifications: SlotNotification[]) {
     if (!Array.isArray(notifications) || notifications.length === 0) {
       return;
     }
-    this.evictExpiredSnapshots();
+    this.snapshotCache.evictExpired();
     notifications.forEach((note) => {
       if (!note) return;
       if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
-      if (this.processedBattleResolutionIds.has(note.id)) return;
-      this.recordProcessedBattleResolution(note.id);
+      if (this.processedResolutions.has(note.id)) return;
+      this.processedResolutions.add(note.id);
       this.queueBattleResolution(note);
     });
   }
@@ -155,7 +150,7 @@ export class BattleAnimationManager {
     const payload = note.payload || {};
     const attackId = payload.attackNotificationId;
     if (!attackId) return;
-    const snapshot = this.pendingBattleSnapshots.get(attackId);
+    const snapshot = this.snapshotCache.get(attackId);
     if (!snapshot) {
       // eslint-disable-next-line no-console
       console.log("[BattleAnimation] missing snapshot for battle", attackId, note.id, payload?.battleType);
@@ -163,22 +158,18 @@ export class BattleAnimationManager {
       return;
     }
     this.battleAnimationQueue = this.battleAnimationQueue
-      .then(() => this.playBattleResolutionAnimation(attackId, snapshot, payload))
+      .then(() => this.playBattleResolutionAnimation(snapshot, payload))
       .then(() => {
         console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
       })
       .catch((err) => console.warn("battle animation failed", err))
       .finally(() => {
         this.releaseLockedSlotsForSnapshot(snapshot);
-        this.pendingBattleSnapshots.delete(attackId);
+        this.snapshotCache.delete(attackId);
       });
   }
 
-  private async playBattleResolutionAnimation(
-    attackId: string,
-    snapshot: PendingBattleSnapshot,
-    payload: any,
-  ): Promise<void> {
+  private async playBattleResolutionAnimation(snapshot: PendingBattleSnapshot, payload: any): Promise<void> {
     const attackerSeed = snapshot.attacker;
     if (!attackerSeed) {
       return;
@@ -456,31 +447,4 @@ export class BattleAnimationManager {
     target.destroy(true);
   }
 
-  private trimSnapshotCache() {
-    while (this.pendingBattleSnapshots.size > this.maxSnapshots) {
-      const oldestKey = this.pendingBattleSnapshots.keys().next().value;
-      if (!oldestKey) break;
-      this.pendingBattleSnapshots.delete(oldestKey);
-    }
-  }
-
-  private recordProcessedBattleResolution(id: string) {
-    this.processedBattleResolutionIds.add(id);
-    if (this.processedBattleResolutionIds.size <= this.maxProcessedBattleResolutions) {
-      return;
-    }
-    const oldestKey = this.processedBattleResolutionIds.values().next().value;
-    if (oldestKey) {
-      this.processedBattleResolutionIds.delete(oldestKey);
-    }
-  }
-
-  private evictExpiredSnapshots(now = Date.now()) {
-    const ttl = this.snapshotTtlMs;
-    this.pendingBattleSnapshots.forEach((snapshot, key) => {
-      if (now - snapshot.savedAt > ttl) {
-        this.pendingBattleSnapshots.delete(key);
-      }
-    });
-  }
 }

@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
 import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
 import { toPreviewKey } from "../ui/HandTypes";
+import { ProcessedIdCache } from "./AnimationCaches";
 
 export type SlotNotification = {
   id: string;
@@ -22,7 +23,7 @@ type ProcessArgs = {
 };
 
 export class NotificationAnimationController {
-  private processedIds = new Set<string>();
+  private processedIds = new ProcessedIdCache(Number.MAX_SAFE_INTEGER);
   private animationQueue: Promise<void> = Promise.resolve();
   private hiddenSlots = new Set<string>();
   private lockedSlotSnapshots = new Map<string, SlotViewModel>();
