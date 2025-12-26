@@ -766,6 +766,7 @@ export class BoardScene extends Phaser.Scene {
         duration: 320,
         ease: "Sine.easeIn",
       });
+      await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
 
       const result = payload?.result || {};
       const cleanupTasks: Promise<void>[] = [];
@@ -852,9 +853,15 @@ export class BoardScene extends Phaser.Scene {
       } = config as Phaser.Types.Tweens.TweenBuilderConfig & Record<string, any>;
       const tween = this.tweens.add({
         ...rest,
-        onComplete: (...args: any[]) => {
+        onComplete: (tweenObj: Phaser.Tweens.Tween, targets: any, ...cbArgs: any[]) => {
           if (typeof onComplete === "function") {
-            onComplete.apply(onCompleteScope ?? this, onCompleteParams ?? args);
+            const userArgs = Array.isArray(onCompleteParams) ? onCompleteParams : cbArgs;
+            (onComplete as (t: Phaser.Tweens.Tween, target: any, ...args: any[]) => void).call(
+              onCompleteScope ?? this,
+              tweenObj,
+              targets,
+              ...userArgs,
+            );
           }
           resolve();
         },
@@ -863,6 +870,23 @@ export class BoardScene extends Phaser.Scene {
         resolve();
       }
     });
+  }
+
+  private async playImpactEffects(
+    attackerSprite: Phaser.GameObjects.Container,
+    targetSprite: Phaser.GameObjects.Container | undefined,
+    point: { x: number; y: number },
+  ) {
+    const tasks: Promise<void>[] = [];
+    tasks.push(this.punchSprite(attackerSprite));
+    tasks.push(this.spawnImpactBurst(point));
+    tasks.push(this.shakeCamera(140, 0.008));
+    if (targetSprite) {
+      tasks.push(this.flashSprite(targetSprite));
+    } else {
+      tasks.push(this.flashAtPoint(point));
+    }
+    await Promise.all(tasks);
   }
 
   private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {
@@ -896,6 +920,88 @@ export class BoardScene extends Phaser.Scene {
     const meta = target as any;
     if (meta?.destroyed) return;
     target.destroy(true);
+  }
+
+  private punchSprite(target: Phaser.GameObjects.Container) {
+    target.setScale(1);
+    return this.runTween({
+      targets: target,
+      scale: 1.12,
+      duration: 90,
+      ease: "Quad.easeOut",
+      yoyo: true,
+    }).then(() => {
+      target.setScale(1);
+    });
+  }
+
+  private flashSprite(target: Phaser.GameObjects.Container) {
+    const initialAlpha = target.alpha;
+    return this.runTween({
+      targets: target,
+      alpha: initialAlpha * 0.35,
+      duration: 110,
+      yoyo: true,
+      ease: "Sine.easeIn",
+    }).then(() => {
+      target.setAlpha(initialAlpha);
+    });
+  }
+
+  private flashAtPoint(point: { x: number; y: number }) {
+    const rect = this.add.rectangle(point.x, point.y, 120, 140, 0xffffff, 0.65);
+    rect.setDepth(920);
+    return this.runTween({
+      targets: rect,
+      alpha: 0,
+      duration: 160,
+      ease: "Quad.easeOut",
+    }).then(() => rect.destroy());
+  }
+
+  private spawnImpactBurst(point: { x: number; y: number }) {
+    const ring = this.add.circle(point.x, point.y, 8, 0xffffff, 0.15);
+    ring.setStrokeStyle(2, 0xffffff, 0.8);
+    ring.setDepth(920);
+    const sparks: Phaser.GameObjects.Rectangle[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const spark = this.add.rectangle(point.x, point.y, 4, 12, 0xfff3b0, 0.85);
+      spark.setAngle(i * 90 + 45);
+      spark.setDepth(921);
+      sparks.push(spark);
+    }
+    return Promise.all([
+      this.runTween({
+        targets: ring,
+        scale: 1.8,
+        alpha: 0,
+        duration: 220,
+        ease: "Quad.easeOut",
+      }),
+      ...sparks.map((spark) =>
+        this.runTween({
+          targets: spark,
+          y: spark.y - 8,
+          alpha: 0,
+          duration: 180,
+          ease: "Sine.easeOut",
+        }),
+      ),
+    ]).then(() => {
+      ring.destroy();
+      sparks.forEach((spark) => spark.destroy());
+    });
+  }
+
+  private shakeCamera(duration = 120, intensity = 0.008) {
+    this.cameras.main?.shake(duration, intensity);
+    return this.delay(duration);
+  }
+
+  private delay(ms: number) {
+    return new Promise<void>((resolve) => {
+      this.time.delayedCall(ms, () => resolve());
+    });
   }
 
   private setSlotVisible(owner?: SlotOwner, slotId?: string, visible = true) {
