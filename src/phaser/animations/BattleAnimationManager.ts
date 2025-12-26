@@ -42,6 +42,7 @@ export class BattleAnimationManager {
   private fx: FxToolkit;
   private snapshotTtlMs = 15000;
   private maxSnapshots = 24;
+  private maxProcessedBattleResolutions = 200;
   private lockedSlotSnapshots = new Map<string, SlotViewModel>();
 
   constructor(private config: BattleAnimationManagerConfig) {
@@ -56,6 +57,7 @@ export class BattleAnimationManager {
   captureAttackSnapshot(note: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!note || !positions) return;
     const payload = note.payload || {};
+    const previousSnapshot = this.pendingBattleSnapshots.get(note.id);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] captureAttackSnapshot", note.id, note.type, {
       battleEnd: payload?.battleEnd,
@@ -87,13 +89,41 @@ export class BattleAnimationManager {
     const targetSlot = findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
     const targetPosition = getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
 
-    const attackerSeed = this.buildBattleSpriteSeed(attackerSlot, attackerPosition);
+    const attackerSeed =
+      this.buildBattleSpriteSeed(attackerSlot, attackerPosition) ||
+      this.buildPayloadSeed(payload, "attacker", attackerOwner, attackerSlotId, attackerPosition);
     if (!attackerSeed) {
       // eslint-disable-next-line no-console
       console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", note.id);
+      if (previousSnapshot) {
+        this.releaseLockedSlotsForSnapshot(previousSnapshot);
+        this.pendingBattleSnapshots.delete(note.id);
+      }
+      if (this.pendingBattleSnapshots.has(note.id)) {
+        this.pendingBattleSnapshots.delete(note.id);
+      }
       return;
     }
-    const targetSeed = this.buildBattleSpriteSeed(targetSlot, targetPosition);
+    const targetSeed =
+      this.buildBattleSpriteSeed(targetSlot, targetPosition) ||
+      this.buildPayloadSeed(payload, "target", defenderOwner, targetSlotId, targetPosition);
+    const expectsTargetSlot = Boolean(
+      payload.forcedTargetZone ||
+        payload.targetSlotName ||
+        payload.targetSlot ||
+        payload.forcedTargetCarduid ||
+        payload.targetCarduid ||
+        payload.targetUnitUid,
+    );
+    if (previousSnapshot?.target && !targetSeed && expectsTargetSlot) {
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] captureAttackSnapshot keeping previous target", note.id);
+      return;
+    }
+    if (previousSnapshot) {
+      this.releaseLockedSlotsForSnapshot(previousSnapshot);
+      this.pendingBattleSnapshots.delete(note.id);
+    }
     this.pendingBattleSnapshots.set(note.id, {
       attacker: attackerSeed,
       target: targetSeed,
@@ -115,7 +145,7 @@ export class BattleAnimationManager {
       if (!note) return;
       if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
       if (this.processedBattleResolutionIds.has(note.id)) return;
-      this.processedBattleResolutionIds.add(note.id);
+      this.recordProcessedBattleResolution(note.id);
       this.queueBattleResolution(note);
     });
   }
@@ -128,6 +158,7 @@ export class BattleAnimationManager {
     if (!snapshot) {
       // eslint-disable-next-line no-console
       console.log("[BattleAnimation] missing snapshot for battle", attackId, note.id, payload?.battleType);
+      this.releaseLockedSlotsByPayload(payload);
       return;
     }
     this.battleAnimationQueue = this.battleAnimationQueue
@@ -138,7 +169,6 @@ export class BattleAnimationManager {
       .catch((err) => console.warn("battle animation failed", err))
       .finally(() => {
         this.releaseLockedSlotsForSnapshot(snapshot);
-        this.processedBattleResolutionIds.delete(note.id);
         this.pendingBattleSnapshots.delete(attackId);
       });
   }
@@ -222,6 +252,37 @@ export class BattleAnimationManager {
       position: { x: slotPosition.x, y: slotPosition.y },
       size: { w: base, h: base * 1.4 },
       isOpponent: slotPosition.isOpponent ?? slot.owner === "opponent",
+    };
+  }
+
+  private buildPayloadSeed(
+    payload: any,
+    role: "attacker" | "target",
+    owner: SlotOwner | undefined,
+    slotId: string | undefined,
+    position?: { x: number; y: number; w: number; h: number; isOpponent?: boolean },
+  ): BattleSpriteSeed | undefined {
+    if (!owner || !slotId || !position) return undefined;
+    const uid =
+      role === "attacker"
+        ? payload.attackerCarduid
+        : payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
+    const label = role === "attacker" ? payload.attackerName : payload.targetName;
+    const id = label || uid || (role === "attacker" ? "Attacker" : "Target");
+    const card: SlotCardView = {
+      id,
+      cardUid: uid,
+      cardType: role === "attacker" ? "unit" : undefined,
+      cardData: label ? { name: label } : undefined,
+    };
+    const base = Math.min(position.w, position.h) * 0.8;
+    return {
+      owner,
+      slotId,
+      card,
+      position: { x: position.x, y: position.y },
+      size: { w: base, h: base * 1.4 },
+      isOpponent: position.isOpponent ?? owner === "opponent",
     };
   }
 
@@ -321,6 +382,26 @@ export class BattleAnimationManager {
     }
   }
 
+  private releaseLockedSlotsByPayload(payload: any) {
+    const released: string[] = [];
+    const tryRelease = (owner: SlotOwner | undefined, slotId?: string) => {
+      if (!owner || !slotId) return;
+      const key = `${owner}-${slotId}`;
+      if (this.lockedSlotSnapshots.delete(key)) {
+        released.push(key);
+      }
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] unlockSlot", key);
+    };
+    const attackerOwner = this.config.resolveSlotOwnerByPlayer(payload.attacker?.playerId ?? payload.attackingPlayerId);
+    const targetOwner = this.config.resolveSlotOwnerByPlayer(payload.target?.playerId ?? payload.defendingPlayerId);
+    tryRelease(attackerOwner, payload.attacker?.slot);
+    tryRelease(targetOwner, payload.target?.slot);
+    if (released.length) {
+      this.config.onSlotsUnlocked?.(released);
+    }
+  }
+
   getLockedSlots() {
     return new Map(this.lockedSlotSnapshots);
   }
@@ -367,6 +448,17 @@ export class BattleAnimationManager {
       const oldestKey = this.pendingBattleSnapshots.keys().next().value;
       if (!oldestKey) break;
       this.pendingBattleSnapshots.delete(oldestKey);
+    }
+  }
+
+  private recordProcessedBattleResolution(id: string) {
+    this.processedBattleResolutionIds.add(id);
+    if (this.processedBattleResolutionIds.size <= this.maxProcessedBattleResolutions) {
+      return;
+    }
+    const oldestKey = this.processedBattleResolutionIds.values().next().value;
+    if (oldestKey) {
+      this.processedBattleResolutionIds.delete(oldestKey);
     }
   }
 
