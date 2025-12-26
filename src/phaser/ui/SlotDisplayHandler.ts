@@ -63,6 +63,7 @@ export class SlotDisplayHandler {
   private lastStatLabels = new Map<string, { label: string; score: number }>();
   private animatingSlots = new Map<string, string | null>();
   private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
+  private hiddenSlots = new Set<string>();
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
@@ -80,6 +81,17 @@ export class SlotDisplayHandler {
 
   setPlayAnimations(enabled: boolean) {
     this.entryAnimationsEnabled = enabled;
+  }
+
+  setSlotVisible(owner: SlotOwner, slotId: string, visible: boolean) {
+    const key = `${owner}-${slotId}`;
+    if (!visible) {
+      this.hiddenSlots.add(key);
+    } else {
+      this.hiddenSlots.delete(key);
+    }
+    const container = this.slotContainers.get(key);
+    container?.setVisible(visible);
   }
 
   getSlotAreaCenter(owner: SlotOwner): { x: number; y: number } | undefined {
@@ -147,6 +159,9 @@ export class SlotDisplayHandler {
       container.setAlpha(slot.isRested ? 0.75 : 1);
 
       this.slotContainers.set(key, container);
+      if (this.hiddenSlots.has(key)) {
+        container.setVisible(false);
+      }
 
       // Trigger entry animation only when a card just appeared in an empty slot.
       if (this.entryAnimationsEnabled) {
@@ -166,6 +181,7 @@ export class SlotDisplayHandler {
       if (!nextKeys.has(key)) {
         container.destroy();
         this.slotContainers.delete(key);
+        this.hiddenSlots.delete(key);
       }
     });
     Array.from(this.lastStatLabels.keys()).forEach((key) => {

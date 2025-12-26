@@ -9,6 +9,7 @@ export type SlotControls = {
   setSelectedSlot?: (owner?: SlotOwner, slotId?: string) => void;
   getSlotPositions?: () => Record<string, Record<string, { x: number; y: number }>> | undefined;
   setSlotClickEnabled?: (enabled: boolean) => void;
+  setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
 };
 
 export const slotKey = (slot: SlotViewModel) => `${slot.owner}-${slot.slotId ?? ""}`;

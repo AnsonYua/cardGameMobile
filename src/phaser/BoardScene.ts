@@ -17,7 +17,7 @@ import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
-import type { SlotViewModel, SlotCardView, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
+import type { SlotViewModel, SlotCardView, SlotOwner, SlotPositionMap, SlotPosition } from "./ui/SlotTypes";
 import { toPreviewKey } from "./ui/HandTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
@@ -39,6 +39,21 @@ const colors = {
   pill: "#2f3342",
   text: "#f5f6fb",
 ink: "#0f1118",
+};
+
+type BattleSpriteSeed = {
+  owner: SlotOwner;
+  slotId?: string;
+  card: SlotCardView;
+  position: { x: number; y: number };
+  size: { w: number; h: number };
+  isOpponent?: boolean;
+};
+
+type PendingBattleSnapshot = {
+  attacker?: BattleSpriteSeed;
+  target?: BattleSpriteSeed;
+  targetPoint: { x: number; y: number };
 };
 
 export class BoardScene extends Phaser.Scene {
@@ -91,6 +106,10 @@ export class BoardScene extends Phaser.Scene {
   private attackIndicator?: AttackIndicator;
   private activeAttackNotificationId?: string;
   private activeAttackTargetKey?: string;
+  private pendingBattleSnapshots = new Map<string, PendingBattleSnapshot>();
+  private processedBattleResolutionIds = new Set<string>();
+  private battleAnimationQueue: Promise<void> = Promise.resolve();
+  private battleAnimationLayer?: Phaser.GameObjects.Container;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
@@ -204,6 +223,8 @@ export class BoardScene extends Phaser.Scene {
     this.setupActions();
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
+    this.battleAnimationLayer = this.add.container(0, 0);
+    this.battleAnimationLayer.setDepth(900);
     this.hideDefaultUI();
 
     // Kick off game session on load (host flow placeholder).
@@ -433,8 +454,13 @@ export class BoardScene extends Phaser.Scene {
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
 
-    const positions = this.slotControls?.getSlotPositions?.();
     const notificationQueue = this.getNotificationQueue(raw);
+    const positions = this.slotControls?.getSlotPositions?.();
+    const currentAttackNote = this.findActiveAttackNotification(notificationQueue);
+    if (currentAttackNote && positions) {
+      this.cacheBattleSnapshot(currentAttackNote, slots, positions);
+    }
+    this.processBattleResolutionNotifications(notificationQueue);
     this.notificationAnimator?.process({
       notifications: notificationQueue,
       slots,
@@ -445,7 +471,7 @@ export class BoardScene extends Phaser.Scene {
       currentPlayerId: this.gameContext.playerId,
     });
     this.slotControls?.setSlots(slots);
-    this.updateAttackIndicatorFromNotifications(raw, slots, positions);
+    this.updateAttackIndicatorFromNotifications(notificationQueue, slots, positions, currentAttackNote);
   }
 
   private updateHeaderPhaseStatus(raw: any) {
@@ -467,11 +493,15 @@ export class BoardScene extends Phaser.Scene {
     return queue;
   }
 
-  private updateAttackIndicatorFromNotifications(raw: any, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
+  private updateAttackIndicatorFromNotifications(
+    notifications: SlotNotification[],
+    slots: SlotViewModel[],
+    positions?: SlotPositionMap | null,
+    attackNote?: SlotNotification,
+  ) {
     if (!this.attackIndicator) return;
-    const notifications = this.getNotificationQueue(raw);
-    const attackNote = this.findActiveAttackNotification(notifications);
-    if (!attackNote) {
+    const note = attackNote ?? this.findActiveAttackNotification(notifications);
+    if (!note) {
       this.hideAttackIndicator();
       return;
     }
@@ -481,9 +511,9 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
 
-    const payload = attackNote.payload || {};
+    const payload = note.payload || {};
     const targetKey = this.buildAttackTargetKey(payload);
-    if (this.activeAttackNotificationId === attackNote.id && this.activeAttackTargetKey === targetKey) {
+    if (this.activeAttackNotificationId === note.id && this.activeAttackTargetKey === targetKey) {
       return;
     }
 
@@ -499,7 +529,7 @@ export class BoardScene extends Phaser.Scene {
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
     this.attackIndicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
-    this.activeAttackNotificationId = attackNote.id;
+    this.activeAttackNotificationId = note.id;
     this.activeAttackTargetKey = targetKey;
   }
 
@@ -605,6 +635,64 @@ export class BoardScene extends Phaser.Scene {
     return `${attacker}|${target}|${slot}|${player}`;
   }
 
+  private cacheBattleSnapshot(note: SlotNotification, slots: SlotViewModel[], positions: SlotPositionMap) {
+    const payload = note.payload || {};
+    const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
+    const defenderOwner =
+      this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
+    const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
+    const attackerSlot = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
+    const attackerPosition = this.getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
+    const targetPoint = this.resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent");
+    if (!attackerPosition || !targetPoint) {
+      return;
+    }
+
+    const targetSlotId = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot;
+    const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
+    const targetSlot = this.findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
+    const targetPosition = this.getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
+
+    const attackerSeed = this.buildBattleSpriteSeed(attackerSlot, attackerPosition);
+    if (!attackerSeed) {
+      return;
+    }
+    const targetSeed = this.buildBattleSpriteSeed(targetSlot, targetPosition);
+    this.pendingBattleSnapshots.set(note.id, {
+      attacker: attackerSeed,
+      target: targetSeed,
+      targetPoint,
+    });
+  }
+
+  private getSlotPositionEntry(
+    positions?: SlotPositionMap | null,
+    slot?: SlotViewModel,
+    owner?: SlotOwner,
+    fallbackSlotId?: string,
+  ): SlotPosition | undefined {
+    if (!positions) return undefined;
+    const resolvedOwner = slot?.owner ?? owner;
+    const slotId = slot?.slotId ?? fallbackSlotId;
+    if (!resolvedOwner || !slotId) return undefined;
+    return positions[resolvedOwner]?.[slotId];
+  }
+
+  private buildBattleSpriteSeed(slot?: SlotViewModel, slotPosition?: SlotPosition): BattleSpriteSeed | undefined {
+    if (!slot || !slotPosition) return undefined;
+    const card = slot.unit ?? slot.pilot;
+    if (!card) return undefined;
+    const base = Math.min(slotPosition.w, slotPosition.h) * 0.8;
+    return {
+      owner: slot.owner,
+      slotId: slot.slotId,
+      card,
+      position: { x: slotPosition.x, y: slotPosition.y },
+      size: { w: base, h: base * 1.4 },
+      isOpponent: slotPosition.isOpponent ?? slot.owner === "opponent",
+    };
+  }
+
   private findActiveAttackNotification(notifications: SlotNotification[]) {
     if (!Array.isArray(notifications) || notifications.length === 0) {
       return undefined;
@@ -617,6 +705,202 @@ export class BoardScene extends Phaser.Scene {
       return note;
     }
     return undefined;
+  }
+
+  private processBattleResolutionNotifications(notifications: SlotNotification[]) {
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return;
+    }
+    notifications.forEach((note) => {
+      if (!note) return;
+      if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
+      if (this.processedBattleResolutionIds.has(note.id)) return;
+      this.processedBattleResolutionIds.add(note.id);
+      this.queueBattleResolution(note);
+    });
+  }
+
+  private queueBattleResolution(note: SlotNotification) {
+    const payload = note.payload || {};
+    const attackId = payload.attackNotificationId;
+    if (!attackId) return;
+    const snapshot = this.pendingBattleSnapshots.get(attackId);
+    if (!snapshot) return;
+    this.battleAnimationQueue = this.battleAnimationQueue
+      .then(() => this.playBattleResolutionAnimation(attackId, snapshot, payload))
+      .catch((err) => console.warn("battle animation failed", err));
+  }
+
+  private async playBattleResolutionAnimation(
+    attackId: string,
+    snapshot: PendingBattleSnapshot,
+    payload: any,
+  ): Promise<void> {
+    const attackerSeed = snapshot.attacker;
+    if (!attackerSeed) {
+      this.pendingBattleSnapshots.delete(attackId);
+      return;
+    }
+    const attackerSprite = this.createBattleSprite(attackerSeed);
+    if (!attackerSprite) {
+      this.pendingBattleSnapshots.delete(attackId);
+      return;
+    }
+    const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
+    const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
+    const releaseVisibility: Array<() => void> = [];
+    const hideSlot = (seed?: BattleSpriteSeed) => {
+      if (!seed?.slotId) return;
+      this.setSlotVisible(seed.owner, seed.slotId, false);
+      releaseVisibility.push(() => {
+        this.setSlotVisible(seed.owner, seed.slotId, true);
+      });
+    };
+    hideSlot(attackerSeed);
+    hideSlot(snapshot.target);
+    try {
+      await this.runTween({
+        targets: attackerSprite,
+        x: targetPoint.x,
+        y: targetPoint.y,
+        duration: 320,
+        ease: "Sine.easeIn",
+      });
+
+      const result = payload?.result || {};
+      const cleanupTasks: Promise<void>[] = [];
+      if (result.attackerDestroyed) {
+        cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
+      } else {
+        cleanupTasks.push(
+          this.runTween({
+            targets: attackerSprite,
+            x: attackerSeed.position.x,
+            y: attackerSeed.position.y,
+            duration: 260,
+            ease: "Sine.easeOut",
+          }),
+        );
+      }
+
+      if (targetSprite) {
+        if (result.defenderDestroyed) {
+          cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
+        } else {
+          cleanupTasks.push(this.pulseSprite(targetSprite));
+        }
+      }
+
+      await Promise.all(cleanupTasks);
+      this.destroyBattleSprite(attackerSprite);
+      this.destroyBattleSprite(targetSprite);
+      this.pendingBattleSnapshots.delete(attackId);
+    } finally {
+      releaseVisibility.forEach((fn) => fn());
+    }
+  }
+
+  private ensureBattleAnimationLayer() {
+    if (!this.battleAnimationLayer) {
+      this.battleAnimationLayer = this.add.container(0, 0);
+      this.battleAnimationLayer.setDepth(900);
+    }
+    return this.battleAnimationLayer;
+  }
+
+  private createBattleSprite(seed: BattleSpriteSeed) {
+    const layer = this.ensureBattleAnimationLayer();
+    if (!seed.card) return undefined;
+    const container = this.add.container(seed.position.x, seed.position.y);
+    container.setDepth(seed.isOpponent ? 905 : 915);
+    layer?.add(container);
+
+    const width = seed.size.w;
+    const height = seed.size.h;
+    if (seed.card.textureKey && this.textures.exists(seed.card.textureKey)) {
+      const img = this.add.image(0, 0, seed.card.textureKey);
+      img.setDisplaySize(width, height);
+      img.setOrigin(0.5);
+      container.add(img);
+    } else {
+      const rect = this.add.rectangle(0, 0, width, height, 0x2f3342, 0.95);
+      rect.setStrokeStyle(2, 0x111926, 0.9);
+      container.add(rect);
+      if (seed.card.id) {
+        const label = this.add
+          .text(0, 0, seed.card.id, {
+            fontSize: "14px",
+            fontFamily: "Arial",
+            color: "#f5f6fb",
+            align: "center",
+          })
+          .setOrigin(0.5);
+        container.add(label);
+      }
+    }
+
+    return container;
+  }
+
+  private runTween(config: Phaser.Types.Tweens.TweenBuilderConfig) {
+    return new Promise<void>((resolve) => {
+      const {
+        onComplete,
+        onCompleteScope,
+        onCompleteParams,
+        ...rest
+      } = config as Phaser.Types.Tweens.TweenBuilderConfig & Record<string, any>;
+      const tween = this.tweens.add({
+        ...rest,
+        onComplete: (...args: any[]) => {
+          if (typeof onComplete === "function") {
+            onComplete.apply(onCompleteScope ?? this, onCompleteParams ?? args);
+          }
+          resolve();
+        },
+      });
+      if (!tween) {
+        resolve();
+      }
+    });
+  }
+
+  private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {
+    return this.runTween({
+      targets: target,
+      alpha: 0,
+      duration: 200,
+      ease: "Sine.easeIn",
+    }).then(() => {
+      this.destroyBattleSprite(target);
+    });
+  }
+
+  private pulseSprite(target: Phaser.GameObjects.Container) {
+    return this.runTween({
+      targets: target,
+      scale: 1.08,
+      yoyo: true,
+      duration: 140,
+      ease: "Sine.easeInOut",
+    }).then(() => {
+      const meta = target as any;
+      if (!meta?.destroyed) {
+        target.setScale(1);
+      }
+    });
+  }
+
+  private destroyBattleSprite(target?: Phaser.GameObjects.Container) {
+    if (!target) return;
+    const meta = target as any;
+    if (meta?.destroyed) return;
+    target.destroy(true);
+  }
+
+  private setSlotVisible(owner?: SlotOwner, slotId?: string, visible = true) {
+    if (!owner || !slotId) return;
+    this.slotControls?.setSlotVisible?.(owner, slotId, visible);
   }
 
   private handleEndTurn() {
