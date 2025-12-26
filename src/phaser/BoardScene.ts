@@ -213,8 +213,6 @@ export class BoardScene extends Phaser.Scene {
     this.setupActions();
     this.wireUiHandlers();
     this.ui.drawAll(this.offset);
-    this.battleAnimationLayer = this.add.container(0, 0);
-    this.battleAnimationLayer.setDepth(900);
     this.hideDefaultUI();
 
     // Kick off game session on load (host flow placeholder).
