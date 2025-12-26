@@ -55,18 +55,19 @@ export function resolveAttackTargetPoint(
   const targetSlotId = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot ?? undefined;
   const normalizedSlot = (targetSlotId ?? "").toLowerCase();
   const normalizedName = (payload.targetName ?? "").toLowerCase();
+  const hasForcedTarget = Boolean(payload.forcedTargetCarduid || payload.forcedTargetZone || payload.forcedTargetPlayerId);
   const targetPlayerId = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? payload.defendingPlayerId;
   const targetOwner = context.resolveSlotOwnerByPlayer(targetPlayerId) ?? defenderOwner;
   const isOpponentTarget = targetOwner === "opponent";
 
-  if (isBaseTarget(normalizedSlot, normalizedName)) {
+  if (!hasForcedTarget && isBaseTarget(normalizedSlot, normalizedName)) {
     const anchor = context.anchors.getBaseAnchor?.(isOpponentTarget);
     if (anchor) {
       return { x: anchor.x, y: anchor.y };
     }
   }
 
-  if (isShieldTarget(normalizedSlot, normalizedName)) {
+  if (!hasForcedTarget && isShieldTarget(normalizedSlot, normalizedName)) {
     const anchor = context.anchors.getShieldAnchor?.(isOpponentTarget);
     if (anchor) {
       return anchor;
