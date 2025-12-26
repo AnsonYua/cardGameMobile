@@ -4,6 +4,7 @@ import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "..
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import { findSlotForAttack, getSlotPositionEntry, resolveAttackTargetPoint } from "../utils/AttackResolver";
 import { FxToolkit } from "./FxToolkit";
+import { toPreviewKey } from "../ui/HandTypes";
 
 type SlotVisibilityControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -268,9 +269,12 @@ export class BattleAnimationManager {
         ? payload.attackerCarduid
         : payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
     const label = role === "attacker" ? payload.attackerName : payload.targetName;
+    const cardId = this.extractCardId(uid);
+    const textureKey = cardId ? toPreviewKey(cardId) : undefined;
     const id = label || uid || (role === "attacker" ? "Attacker" : "Target");
     const card: SlotCardView = {
       id,
+      textureKey,
       cardUid: uid,
       cardType: role === "attacker" ? "unit" : undefined,
       cardData: label ? { name: label } : undefined,
@@ -284,6 +288,15 @@ export class BattleAnimationManager {
       size: { w: base, h: base * 1.4 },
       isOpponent: position.isOpponent ?? owner === "opponent",
     };
+  }
+
+  private extractCardId(uid?: string) {
+    if (!uid || typeof uid !== "string") return undefined;
+    const trimmed = uid.trim();
+    if (!trimmed) return undefined;
+    const idx = trimmed.indexOf("_");
+    if (idx > 0) return trimmed.slice(0, idx);
+    return trimmed;
   }
 
   private lockSlotSnapshot(slot?: SlotViewModel) {
