@@ -129,3 +129,231 @@ when u see the "targetName" is  "Base" or "targetName": "Shield Area", u should 
         "timestamp": 1766568601442
     }
 }
+
+-after both player currentBattle.confirmation.both player = true . backend will do resolve battle and end the battle. it will generate a object like this in noticationQueue.
+{
+                "id": "battle_resolved_1766726059749_whspupshy",
+                "type": "BATTLE_RESOLVED",
+                "metadata": {
+                    "timestamp": 1766726059749,
+                    "expiresAt": 1766726062749,
+                    "requiresAcknowledgment": false,
+                    "frontendProcessed": false,
+                    "priority": "normal"
+                },
+                "payload": {
+                    "battleType": "attackUnit",
+                    "attackingPlayerId": "playerId_2",
+                    "defendingPlayerId": "playerId_1",
+                    "attackNotificationId": "unit_attack_declared_1766725975903_ziej6bkiu",
+                    "attacker": {
+                        "playerId": "playerId_2",
+                        "slot": "slot1",
+                        "zoneType": "slot",
+                        "unit": {
+                            "carduid": "ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd",
+                            "cardId": "ST01-005",
+                            "cardData": {
+                                "id": "ST01-005",
+                                "name": "GM",
+                                "cardType": "unit",
+                                "color": "Blue",
+                                "level": 2,
+                                "cost": 1,
+                                "zone": [
+                                    "Space",
+                                    "Earth"
+                                ],
+                                "traits": [
+                                    "Earth Federation"
+                                ],
+                                "link": [],
+                                "ap": 2,
+                                "hp": 2,
+                                "effects": {
+                                    "description": [],
+                                    "rules": []
+                                }
+                            },
+                            "placedAt": 1759418650840,
+                            "placedBy": "playerId_2",
+                            "isRested": false,
+                            "originalAP": 2,
+                            "originalHP": 2,
+                            "isFirstPlay": true,
+                            "damageReceived": 2,
+                            "continueModifyAP": 2,
+                            "continueModifyHP": 0
+                        },
+                        "pilot": {
+                            "carduid": "ST01-010_3a548657-cf14-4304-ae88-65130fc9b6fb",
+                            "cardId": "ST01-010",
+                            "cardData": {
+                                "id": "ST01-010",
+                                "name": "Amuro Ray",
+                                "cardType": "pilot",
+                                "color": "Blue",
+                                "level": 4,
+                                "cost": 1,
+                                "zone": [],
+                                "traits": [
+                                    "Earth Federation",
+                                    "White Base Team",
+                                    "Newtype"
+                                ],
+                                "link": [],
+                                "ap": 2,
+                                "hp": 1,
+                                "effects": {
+                                    "description": [
+                                        "【Burst】Add this card to your hand.",
+                                        "【When Paired】Choose 1 enemy Unit with 5 or less HP. Rest it."
+                                    ],
+                                    "rules": [
+                                        {
+                                            "effectId": "burst_add_to_hand",
+                                            "type": "triggered",
+                                            "trigger": "BURST_CONDITION",
+                                            "target": {
+                                                "type": "card",
+                                                "scope": "self"
+                                            },
+                                            "action": "addToHand"
+                                        },
+                                        {
+                                            "effectId": "paired_rest_medium_hp",
+                                            "type": "triggered",
+                                            "trigger": "PAIRING_COMPLETE",
+                                            "target": {
+                                                "type": "unit",
+                                                "scope": "opponent",
+                                                "filters": {
+                                                    "hp": "<=5"
+                                                },
+                                                "count": 1
+                                            },
+                                            "action": "rest"
+                                        }
+                                    ]
+                                }
+                            },
+                            "placedAt": 1759418653679,
+                            "placedBy": "playerId_2",
+                            "isRested": false,
+                            "originalAP": 2,
+                            "originalHP": 1,
+                            "continueModifyAP": 0,
+                            "continueModifyHP": 0
+                        },
+                        "fieldCardValue": {
+                            "totalOriginalAP": 4,
+                            "totalOriginalHP": 3,
+                            "totalTempModifyAP": 0,
+                            "totalTempModifyHP": 0,
+                            "totalContinueModifyAP": 2,
+                            "totalContinueModifyHP": 0,
+                            "totalDamageReceived": 2,
+                            "totalAP": 6,
+                            "totalHP": 1,
+                            "isRested": false
+                        }
+                    },
+                    "target": {
+                        "playerId": "playerId_1",
+                        "slot": "slot3",
+                        "zoneType": "slot",
+                        "unit": {
+                            "carduid": "ST01-009_d0276af7-b917-45ba-8e16-692d241a7360",
+                            "cardId": "ST01-009",
+                            "cardData": {
+                                "id": "ST01-009",
+                                "name": "Zowort",
+                                "cardType": "unit",
+                                "color": "White",
+                                "level": 2,
+                                "cost": 2,
+                                "zone": [
+                                    "Space",
+                                    "Earth"
+                                ],
+                                "traits": [
+                                    "Academy"
+                                ],
+                                "link": [],
+                                "ap": 3,
+                                "hp": 2,
+                                "effects": {
+                                    "description": [
+                                        "<Blocker> (Rest this Unit to change the attack target to it.)",
+                                        "This Unit can't choose the enemy player as its attack target."
+                                    ],
+                                    "rules": [
+                                        {
+                                            "effectId": "blocker",
+                                            "type": "keyword",
+                                            "trigger": "ATTACK_REDIRECT",
+                                            "target": {
+                                                "type": "unit",
+                                                "scope": "self"
+                                            },
+                                            "effect": {
+                                                "action": "redirect_attack",
+                                                "parameters": {
+                                                    "cost": "rest_self"
+                                                },
+                                                "duration": "instant"
+                                            }
+                                        },
+                                        {
+                                            "effectId": "attack_restriction",
+                                            "type": "static",
+                                            "trigger": "continuous",
+                                            "target": {
+                                                "type": "unit",
+                                                "scope": "self"
+                                            },
+                                            "effect": {
+                                                "action": "restrict_attack",
+                                                "parameters": {
+                                                    "restriction": "cannot_attack_player"
+                                                },
+                                                "duration": "permanent"
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "placedAt": 1757865720753,
+                            "placedBy": "playerId_1",
+                            "isRested": false,
+                            "originalAP": 3,
+                            "originalHP": 2,
+                            "isFirstPlay": true,
+                            "damageReceived": 0
+                        },
+                        "pilot": null,
+                        "fieldCardValue": {
+                            "totalOriginalAP": 3,
+                            "totalOriginalHP": 2,
+                            "totalTempModifyAP": 0,
+                            "totalTempModifyHP": 0,
+                            "totalContinueModifyAP": 0,
+                            "totalContinueModifyHP": 0,
+                            "totalDamageReceived": 0,
+                            "totalAP": 3,
+                            "totalHP": 2,
+                            "isRested": false
+                        }
+                    },
+                    "focusTarget": null,
+                    "result": {
+                        "targetType": "unit",
+                        "attackerDestroyed": true,
+                        "defenderDestroyed": true,
+                        "attackerDamageTaken": 3,
+                        "defenderDamageTaken": 6
+                    }
+                }
+            }
+
+when u see this, i want you add an animation move the attacking unit to the targeted unit. if the unit is destroyed , it will disappear in the slot.
