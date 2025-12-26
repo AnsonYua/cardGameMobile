@@ -449,8 +449,9 @@ export class BoardScene extends Phaser.Scene {
     const notificationQueue = this.getNotificationQueue(raw);
     const positions = this.slotControls?.getSlotPositions?.();
     const currentAttackNote = this.findActiveAttackNotification(notificationQueue);
+    const attackNoteForAnimation = this.findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
     this.battleAnimations?.setSlotControls(this.slotControls);
-    this.battleAnimations?.captureAttackSnapshot(currentAttackNote, slots, positions);
+    this.battleAnimations?.captureAttackSnapshot(attackNoteForAnimation, slots, positions);
     const attackTargetSlotKey = this.getActiveAttackTargetSlotKey(currentAttackNote);
     const battleSlotKeys = this.getUpcomingBattleSlotKeys(notificationQueue);
     const notificationPromise = this.notificationAnimator?.process({
@@ -531,7 +532,28 @@ export class BoardScene extends Phaser.Scene {
       const note = notifications[i];
       if (!note) continue;
       if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
-      if (note.payload?.battleEnd === true) continue;
+      if (note.payload?.battleEnd === true) {
+        // eslint-disable-next-line no-console
+        console.log("[BoardScene] skip attack note with battleEnd", note.id);
+        continue;
+      }
+      return note;
+    }
+    return undefined;
+  }
+
+  private findLatestAttackNotification(
+    notifications: SlotNotification[],
+    opts: { includeBattleEnd?: boolean } = {},
+  ) {
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return undefined;
+    }
+    for (let i = notifications.length - 1; i >= 0; i -= 1) {
+      const note = notifications[i];
+      if (!note) continue;
+      if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
+      if (!opts.includeBattleEnd && note.payload?.battleEnd === true) continue;
       return note;
     }
     return undefined;
