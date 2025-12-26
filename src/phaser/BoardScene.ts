@@ -17,7 +17,7 @@ import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
-import type { SlotViewModel, SlotCardView, SlotOwner, SlotPositionMap, SlotPosition } from "./ui/SlotTypes";
+import type { SlotViewModel, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
 import { toPreviewKey } from "./ui/HandTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
@@ -30,6 +30,8 @@ import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
 import { AttackIndicator, type AttackIndicatorStyle } from "./animations/AttackIndicator";
+import { BattleAnimationManager } from "./animations/BattleAnimationManager";
+import { findSlotForAttack, getSlotCenterFromMap, resolveAttackTargetPoint, type TargetAnchorProviders } from "./utils/AttackResolver";
 
 const colors = {
   bg: "#ffffff",
@@ -39,21 +41,6 @@ const colors = {
   pill: "#2f3342",
   text: "#f5f6fb",
 ink: "#0f1118",
-};
-
-type BattleSpriteSeed = {
-  owner: SlotOwner;
-  slotId?: string;
-  card: SlotCardView;
-  position: { x: number; y: number };
-  size: { w: number; h: number };
-  isOpponent?: boolean;
-};
-
-type PendingBattleSnapshot = {
-  attacker?: BattleSpriteSeed;
-  target?: BattleSpriteSeed;
-  targetPoint: { x: number; y: number };
 };
 
 export class BoardScene extends Phaser.Scene {
@@ -106,10 +93,7 @@ export class BoardScene extends Phaser.Scene {
   private attackIndicator?: AttackIndicator;
   private activeAttackNotificationId?: string;
   private activeAttackTargetKey?: string;
-  private pendingBattleSnapshots = new Map<string, PendingBattleSnapshot>();
-  private processedBattleResolutionIds = new Set<string>();
-  private battleAnimationQueue: Promise<void> = Promise.resolve();
-  private battleAnimationLayer?: Phaser.GameObjects.Container;
+  private battleAnimations?: BattleAnimationManager;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
@@ -138,6 +122,12 @@ export class BoardScene extends Phaser.Scene {
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
     this.slotControls = this.ui.getSlotControls();
+    this.battleAnimations = new BattleAnimationManager({
+      scene: this,
+      slotControls: this.slotControls,
+      anchors: this.getTargetAnchorProviders(),
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+    });
     this.slotControls?.setPlayAnimations?.(false);
     const palette = { ink: colors.ink, slot: colors.slot, accent: colors.accent, text: colors.text, bg: colors.bg };
     this.cardFlightAnimator = new PlayCardAnimationManager(this, palette, new DrawHelpers(this));
@@ -457,10 +447,9 @@ export class BoardScene extends Phaser.Scene {
     const notificationQueue = this.getNotificationQueue(raw);
     const positions = this.slotControls?.getSlotPositions?.();
     const currentAttackNote = this.findActiveAttackNotification(notificationQueue);
-    if (currentAttackNote && positions) {
-      this.cacheBattleSnapshot(currentAttackNote, slots, positions);
-    }
-    this.processBattleResolutionNotifications(notificationQueue);
+    this.battleAnimations?.setSlotControls(this.slotControls);
+    this.battleAnimations?.captureAttackSnapshot(currentAttackNote, slots, positions);
+    this.battleAnimations?.processBattleResolutionNotifications(notificationQueue);
     this.notificationAnimator?.process({
       notifications: notificationQueue,
       slots,
@@ -493,6 +482,13 @@ export class BoardScene extends Phaser.Scene {
     return queue;
   }
 
+  private getTargetAnchorProviders(): TargetAnchorProviders {
+    return {
+      getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
+      getShieldAnchor: (isOpponent) => this.baseControls?.getShieldTopAnchor(isOpponent),
+    };
+  }
+
   private updateAttackIndicatorFromNotifications(
     notifications: SlotNotification[],
     slots: SlotViewModel[],
@@ -520,9 +516,12 @@ export class BoardScene extends Phaser.Scene {
     const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
     const defenderOwner = this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
     const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
-    const attackerSlotVm = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const attackerCenter = this.getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
-    const targetPoint = this.resolveAttackTargetPoint(payload, slots, positions, defenderOwner);
+    const attackerSlotVm = findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
+    const attackerCenter = getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
+    const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner, {
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      anchors: this.getTargetAnchorProviders(),
+    });
     if (!attackerCenter || !targetPoint) {
       this.hideAttackIndicator();
       return;
@@ -539,80 +538,6 @@ export class BoardScene extends Phaser.Scene {
       return "player";
     }
     return "opponent";
-  }
-
-  private findSlotForAttack(slots: SlotViewModel[], cardUid?: string, owner?: SlotOwner, fallbackSlot?: string) {
-    if (cardUid) {
-      const found = slots.find((slot) => slot.unit?.cardUid === cardUid || slot.pilot?.cardUid === cardUid);
-      if (found) return found;
-    }
-    if (owner && fallbackSlot) {
-      return slots.find((slot) => slot.owner === owner && slot.slotId === fallbackSlot);
-    }
-    return undefined;
-  }
-
-  private getSlotCenterFromMap(
-    positions?: SlotPositionMap | null,
-    slot?: SlotViewModel,
-    owner?: SlotOwner,
-    fallbackSlotId?: string,
-  ) {
-    if (!positions) return undefined;
-    const resolvedOwner = slot?.owner ?? owner;
-    const slotId = slot?.slotId ?? fallbackSlotId;
-    if (!resolvedOwner || !slotId) return undefined;
-    const entry = positions[resolvedOwner]?.[slotId];
-    if (!entry) return undefined;
-    return { x: entry.x, y: entry.y };
-  }
-
-  private resolveAttackTargetPoint(
-    payload: any,
-    slots: SlotViewModel[],
-    positions: SlotPositionMap | null | undefined,
-    defenderOwner: SlotOwner,
-  ) {
-    const targetSlotId =
-      payload.forcedTargetZone ??
-      payload.targetSlotName ??
-      payload.targetSlot ??
-      undefined;
-    const normalizedSlot = (targetSlotId ?? "").toLowerCase();
-    const normalizedName = (payload.targetName ?? "").toLowerCase();
-    const targetPlayerId = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? payload.defendingPlayerId;
-    const targetOwner = this.resolveSlotOwnerByPlayer(targetPlayerId) ?? defenderOwner;
-    const isOpponentTarget = targetOwner === "opponent";
-
-    if (this.isBaseTarget(normalizedSlot, normalizedName)) {
-      const anchor = this.baseControls?.getBaseAnchor(isOpponentTarget);
-      if (anchor) {
-        return { x: anchor.x, y: anchor.y };
-      }
-    }
-
-    if (this.isShieldTarget(normalizedSlot, normalizedName)) {
-      const anchor = this.baseControls?.getShieldTopAnchor(isOpponentTarget);
-      if (anchor) {
-        return anchor;
-      }
-      const fallbackAnchor = this.baseControls?.getBaseAnchor(isOpponentTarget);
-      if (fallbackAnchor) {
-        return { x: fallbackAnchor.x, y: fallbackAnchor.y };
-      }
-    }
-
-    const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
-    const slotVm = this.findSlotForAttack(slots, targetCarduid, targetOwner, targetSlotId);
-    return this.getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
-  }
-
-  private isBaseTarget(normalizedSlot: string, normalizedName: string) {
-    return normalizedSlot === "base" || normalizedName === "base";
-  }
-
-  private isShieldTarget(normalizedSlot: string, normalizedName: string) {
-    return normalizedSlot === "shield" || normalizedName.includes("shield");
   }
 
   private hideAttackIndicator() {
@@ -635,64 +560,6 @@ export class BoardScene extends Phaser.Scene {
     return `${attacker}|${target}|${slot}|${player}`;
   }
 
-  private cacheBattleSnapshot(note: SlotNotification, slots: SlotViewModel[], positions: SlotPositionMap) {
-    const payload = note.payload || {};
-    const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
-    const defenderOwner =
-      this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
-    const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
-    const attackerSlot = this.findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const attackerPosition = this.getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
-    const targetPoint = this.resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent");
-    if (!attackerPosition || !targetPoint) {
-      return;
-    }
-
-    const targetSlotId = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot;
-    const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
-    const targetSlot = this.findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
-    const targetPosition = this.getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
-
-    const attackerSeed = this.buildBattleSpriteSeed(attackerSlot, attackerPosition);
-    if (!attackerSeed) {
-      return;
-    }
-    const targetSeed = this.buildBattleSpriteSeed(targetSlot, targetPosition);
-    this.pendingBattleSnapshots.set(note.id, {
-      attacker: attackerSeed,
-      target: targetSeed,
-      targetPoint,
-    });
-  }
-
-  private getSlotPositionEntry(
-    positions?: SlotPositionMap | null,
-    slot?: SlotViewModel,
-    owner?: SlotOwner,
-    fallbackSlotId?: string,
-  ): SlotPosition | undefined {
-    if (!positions) return undefined;
-    const resolvedOwner = slot?.owner ?? owner;
-    const slotId = slot?.slotId ?? fallbackSlotId;
-    if (!resolvedOwner || !slotId) return undefined;
-    return positions[resolvedOwner]?.[slotId];
-  }
-
-  private buildBattleSpriteSeed(slot?: SlotViewModel, slotPosition?: SlotPosition): BattleSpriteSeed | undefined {
-    if (!slot || !slotPosition) return undefined;
-    const card = slot.unit ?? slot.pilot;
-    if (!card) return undefined;
-    const base = Math.min(slotPosition.w, slotPosition.h) * 0.8;
-    return {
-      owner: slot.owner,
-      slotId: slot.slotId,
-      card,
-      position: { x: slotPosition.x, y: slotPosition.y },
-      size: { w: base, h: base * 1.4 },
-      isOpponent: slotPosition.isOpponent ?? slot.owner === "opponent",
-    };
-  }
-
   private findActiveAttackNotification(notifications: SlotNotification[]) {
     if (!Array.isArray(notifications) || notifications.length === 0) {
       return undefined;
@@ -705,308 +572,6 @@ export class BoardScene extends Phaser.Scene {
       return note;
     }
     return undefined;
-  }
-
-  private processBattleResolutionNotifications(notifications: SlotNotification[]) {
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return;
-    }
-    notifications.forEach((note) => {
-      if (!note) return;
-      if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
-      if (this.processedBattleResolutionIds.has(note.id)) return;
-      this.processedBattleResolutionIds.add(note.id);
-      this.queueBattleResolution(note);
-    });
-  }
-
-  private queueBattleResolution(note: SlotNotification) {
-    const payload = note.payload || {};
-    const attackId = payload.attackNotificationId;
-    if (!attackId) return;
-    const snapshot = this.pendingBattleSnapshots.get(attackId);
-    if (!snapshot) return;
-    this.battleAnimationQueue = this.battleAnimationQueue
-      .then(() => this.playBattleResolutionAnimation(attackId, snapshot, payload))
-      .catch((err) => console.warn("battle animation failed", err));
-  }
-
-  private async playBattleResolutionAnimation(
-    attackId: string,
-    snapshot: PendingBattleSnapshot,
-    payload: any,
-  ): Promise<void> {
-    const attackerSeed = snapshot.attacker;
-    if (!attackerSeed) {
-      this.pendingBattleSnapshots.delete(attackId);
-      return;
-    }
-    const attackerSprite = this.createBattleSprite(attackerSeed);
-    if (!attackerSprite) {
-      this.pendingBattleSnapshots.delete(attackId);
-      return;
-    }
-    const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
-    const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
-    const releaseVisibility: Array<() => void> = [];
-    const hideSlot = (seed?: BattleSpriteSeed) => {
-      if (!seed?.slotId) return;
-      this.setSlotVisible(seed.owner, seed.slotId, false);
-      releaseVisibility.push(() => {
-        this.setSlotVisible(seed.owner, seed.slotId, true);
-      });
-    };
-    hideSlot(attackerSeed);
-    hideSlot(snapshot.target);
-    try {
-      await this.runTween({
-        targets: attackerSprite,
-        x: targetPoint.x,
-        y: targetPoint.y,
-        duration: 320,
-        ease: "Sine.easeIn",
-      });
-      await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
-
-      const result = payload?.result || {};
-      const cleanupTasks: Promise<void>[] = [];
-      if (result.attackerDestroyed) {
-        cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
-      } else {
-        cleanupTasks.push(
-          this.runTween({
-            targets: attackerSprite,
-            x: attackerSeed.position.x,
-            y: attackerSeed.position.y,
-            duration: 260,
-            ease: "Sine.easeOut",
-          }),
-        );
-      }
-
-      if (targetSprite) {
-        if (result.defenderDestroyed) {
-          cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
-        } else {
-          cleanupTasks.push(this.pulseSprite(targetSprite));
-        }
-      }
-
-      await Promise.all(cleanupTasks);
-      this.destroyBattleSprite(attackerSprite);
-      this.destroyBattleSprite(targetSprite);
-      this.pendingBattleSnapshots.delete(attackId);
-    } finally {
-      releaseVisibility.forEach((fn) => fn());
-    }
-  }
-
-  private ensureBattleAnimationLayer() {
-    if (!this.battleAnimationLayer) {
-      this.battleAnimationLayer = this.add.container(0, 0);
-      this.battleAnimationLayer.setDepth(900);
-    }
-    return this.battleAnimationLayer;
-  }
-
-  private createBattleSprite(seed: BattleSpriteSeed) {
-    const layer = this.ensureBattleAnimationLayer();
-    if (!seed.card) return undefined;
-    const container = this.add.container(seed.position.x, seed.position.y);
-    container.setDepth(seed.isOpponent ? 905 : 915);
-    layer?.add(container);
-
-    const width = seed.size.w;
-    const height = seed.size.h;
-    if (seed.card.textureKey && this.textures.exists(seed.card.textureKey)) {
-      const img = this.add.image(0, 0, seed.card.textureKey);
-      img.setDisplaySize(width, height);
-      img.setOrigin(0.5);
-      container.add(img);
-    } else {
-      const rect = this.add.rectangle(0, 0, width, height, 0x2f3342, 0.95);
-      rect.setStrokeStyle(2, 0x111926, 0.9);
-      container.add(rect);
-      if (seed.card.id) {
-        const label = this.add
-          .text(0, 0, seed.card.id, {
-            fontSize: "14px",
-            fontFamily: "Arial",
-            color: "#f5f6fb",
-            align: "center",
-          })
-          .setOrigin(0.5);
-        container.add(label);
-      }
-    }
-
-    return container;
-  }
-
-  private runTween(config: Phaser.Types.Tweens.TweenBuilderConfig) {
-    return new Promise<void>((resolve) => {
-      const {
-        onComplete,
-        onCompleteScope,
-        onCompleteParams,
-        ...rest
-      } = config as Phaser.Types.Tweens.TweenBuilderConfig & Record<string, any>;
-      const tween = this.tweens.add({
-        ...rest,
-        onComplete: (tweenObj: Phaser.Tweens.Tween, targets: any, ...cbArgs: any[]) => {
-          if (typeof onComplete === "function") {
-            const userArgs = Array.isArray(onCompleteParams) ? onCompleteParams : cbArgs;
-            (onComplete as (t: Phaser.Tweens.Tween, target: any, ...args: any[]) => void).call(
-              onCompleteScope ?? this,
-              tweenObj,
-              targets,
-              ...userArgs,
-            );
-          }
-          resolve();
-        },
-      });
-      if (!tween) {
-        resolve();
-      }
-    });
-  }
-
-  private async playImpactEffects(
-    attackerSprite: Phaser.GameObjects.Container,
-    targetSprite: Phaser.GameObjects.Container | undefined,
-    point: { x: number; y: number },
-  ) {
-    const tasks: Promise<void>[] = [];
-    tasks.push(this.punchSprite(attackerSprite));
-    tasks.push(this.spawnImpactBurst(point));
-    tasks.push(this.shakeCamera(140, 0.008));
-    if (targetSprite) {
-      tasks.push(this.flashSprite(targetSprite));
-    } else {
-      tasks.push(this.flashAtPoint(point));
-    }
-    await Promise.all(tasks);
-  }
-
-  private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {
-    return this.runTween({
-      targets: target,
-      alpha: 0,
-      duration: 200,
-      ease: "Sine.easeIn",
-    }).then(() => {
-      this.destroyBattleSprite(target);
-    });
-  }
-
-  private pulseSprite(target: Phaser.GameObjects.Container) {
-    return this.runTween({
-      targets: target,
-      scale: 1.08,
-      yoyo: true,
-      duration: 140,
-      ease: "Sine.easeInOut",
-    }).then(() => {
-      const meta = target as any;
-      if (!meta?.destroyed) {
-        target.setScale(1);
-      }
-    });
-  }
-
-  private destroyBattleSprite(target?: Phaser.GameObjects.Container) {
-    if (!target) return;
-    const meta = target as any;
-    if (meta?.destroyed) return;
-    target.destroy(true);
-  }
-
-  private punchSprite(target: Phaser.GameObjects.Container) {
-    target.setScale(1);
-    return this.runTween({
-      targets: target,
-      scale: 1.12,
-      duration: 90,
-      ease: "Quad.easeOut",
-      yoyo: true,
-    }).then(() => {
-      target.setScale(1);
-    });
-  }
-
-  private flashSprite(target: Phaser.GameObjects.Container) {
-    const initialAlpha = target.alpha;
-    return this.runTween({
-      targets: target,
-      alpha: initialAlpha * 0.35,
-      duration: 110,
-      yoyo: true,
-      ease: "Sine.easeIn",
-    }).then(() => {
-      target.setAlpha(initialAlpha);
-    });
-  }
-
-  private flashAtPoint(point: { x: number; y: number }) {
-    const rect = this.add.rectangle(point.x, point.y, 120, 140, 0xffffff, 0.65);
-    rect.setDepth(920);
-    return this.runTween({
-      targets: rect,
-      alpha: 0,
-      duration: 160,
-      ease: "Quad.easeOut",
-    }).then(() => rect.destroy());
-  }
-
-  private spawnImpactBurst(point: { x: number; y: number }) {
-    const ring = this.add.circle(point.x, point.y, 8, 0xffffff, 0.15);
-    ring.setStrokeStyle(2, 0xffffff, 0.8);
-    ring.setDepth(920);
-    const sparks: Phaser.GameObjects.Rectangle[] = [];
-    for (let i = 0; i < 4; i += 1) {
-      const spark = this.add.rectangle(point.x, point.y, 4, 12, 0xfff3b0, 0.85);
-      spark.setAngle(i * 90 + 45);
-      spark.setDepth(921);
-      sparks.push(spark);
-    }
-    return Promise.all([
-      this.runTween({
-        targets: ring,
-        scale: 1.8,
-        alpha: 0,
-        duration: 220,
-        ease: "Quad.easeOut",
-      }),
-      ...sparks.map((spark) =>
-        this.runTween({
-          targets: spark,
-          y: spark.y - 8,
-          alpha: 0,
-          duration: 180,
-          ease: "Sine.easeOut",
-        }),
-      ),
-    ]).then(() => {
-      ring.destroy();
-      sparks.forEach((spark) => spark.destroy());
-    });
-  }
-
-  private shakeCamera(duration = 120, intensity = 0.008) {
-    this.cameras.main?.shake(duration, intensity);
-    return this.delay(duration);
-  }
-
-  private delay(ms: number) {
-    return new Promise<void>((resolve) => {
-      this.time.delayedCall(ms, () => resolve());
-    });
-  }
-
-  private setSlotVisible(owner?: SlotOwner, slotId?: string, visible = true) {
-    if (!owner || !slotId) return;
-    this.slotControls?.setSlotVisible?.(owner, slotId, visible);
   }
 
   private handleEndTurn() {
