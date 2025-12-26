@@ -29,9 +29,9 @@ import { SelectionActionController } from "./controllers/SelectionActionControll
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
-import { AttackIndicator, type AttackIndicatorStyle } from "./animations/AttackIndicator";
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
-import { findSlotForAttack, getSlotCenterFromMap, resolveAttackTargetPoint, type TargetAnchorProviders } from "./utils/AttackResolver";
+import { type TargetAnchorProviders } from "./utils/AttackResolver";
+import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 
 const colors = {
   bg: "#ffffff",
@@ -90,14 +90,13 @@ export class BoardScene extends Phaser.Scene {
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
-  private attackIndicator?: AttackIndicator;
-  private activeAttackNotificationId?: string;
-  private activeAttackTargetKey?: string;
+  private attackIndicatorController?: AttackIndicatorController;
   private battleAnimations?: BattleAnimationManager;
   // Global switch for slot entry animations (true = animate when allowed by update context).
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
+  private lastRenderedSlots: SlotViewModel[] = [];
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -127,10 +126,10 @@ export class BoardScene extends Phaser.Scene {
       slotControls: this.slotControls,
       anchors: this.getTargetAnchorProviders(),
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      onSlotsUnlocked: () => this.refreshSlotsView(),
     });
     this.slotControls?.setPlayAnimations?.(false);
-    const palette = { ink: colors.ink, slot: colors.slot, accent: colors.accent, text: colors.text, bg: colors.bg };
-    this.cardFlightAnimator = new PlayCardAnimationManager(this, palette, new DrawHelpers(this));
+    this.cardFlightAnimator = new PlayCardAnimationManager(this);
     this.notificationAnimator = new NotificationAnimationController({
       scene: this,
       playAnimator: this.cardFlightAnimator,
@@ -138,8 +137,13 @@ export class BoardScene extends Phaser.Scene {
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
       onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
+      setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
-    this.attackIndicator = new AttackIndicator(this);
+    this.attackIndicatorController = new AttackIndicatorController({
+      scene: this,
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      anchorsProvider: () => this.getTargetAnchorProviders(),
+    });
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -447,8 +451,9 @@ export class BoardScene extends Phaser.Scene {
     const currentAttackNote = this.findActiveAttackNotification(notificationQueue);
     this.battleAnimations?.setSlotControls(this.slotControls);
     this.battleAnimations?.captureAttackSnapshot(currentAttackNote, slots, positions);
-    this.battleAnimations?.processBattleResolutionNotifications(notificationQueue);
-    this.notificationAnimator?.process({
+    const attackTargetSlotKey = this.getActiveAttackTargetSlotKey(currentAttackNote);
+    const battleSlotKeys = this.getUpcomingBattleSlotKeys(notificationQueue);
+    const notificationPromise = this.notificationAnimator?.process({
       notifications: notificationQueue,
       slots,
       slotPositions: positions,
@@ -456,8 +461,30 @@ export class BoardScene extends Phaser.Scene {
       raw,
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,
+      shouldHideSlot: (slotKey) => {
+        const shouldHide =
+          !battleSlotKeys.has(slotKey) &&
+          !(attackTargetSlotKey && slotKey === attackTargetSlotKey);
+        return shouldHide;
+      },
     });
-    this.slotControls?.setSlots(slots);
+    const processBattles = () => {
+      this.battleAnimations?.processBattleResolutionNotifications(notificationQueue);
+    };
+    if (notificationPromise) {
+      notificationPromise.then(processBattles);
+    } else {
+      processBattles();
+    }
+    const mergedSlots = this.applyLockedSlotOverrides(slots);
+    // eslint-disable-next-line no-console
+    console.log("[BoardScene] setSlots", {
+      rawCount: slots.length,
+      mergedCount: mergedSlots.length,
+      lockedKeys: Array.from(this.collectLockedSlots().keys()),
+    });
+    this.slotControls?.setSlots(mergedSlots);
+    this.lastRenderedSlots = mergedSlots.map((slot) => ({ ...slot, unit: slot.unit ? { ...slot.unit } : undefined, pilot: slot.pilot ? { ...slot.pilot } : undefined }));
     this.updateAttackIndicatorFromNotifications(notificationQueue, slots, positions, currentAttackNote);
   }
 
@@ -493,69 +520,7 @@ export class BoardScene extends Phaser.Scene {
     positions?: SlotPositionMap | null,
     attackNote?: SlotNotification,
   ) {
-    if (!this.attackIndicator) return;
-    const note = attackNote ?? this.findActiveAttackNotification(notifications);
-    if (!note) {
-      this.hideAttackIndicator();
-      return;
-    }
-
-    if (!positions) {
-      this.hideAttackIndicator();
-      return;
-    }
-
-    const payload = note.payload || {};
-    const targetKey = this.buildAttackTargetKey(payload);
-    if (this.activeAttackNotificationId === note.id && this.activeAttackTargetKey === targetKey) {
-      return;
-    }
-
-    const attackerOwner = this.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
-    const defenderOwner = this.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
-    const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
-    const attackerSlotVm = findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const attackerCenter = getSlotCenterFromMap(positions, attackerSlotVm, attackerOwner, attackerSlotId);
-    const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner, {
-      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      anchors: this.getTargetAnchorProviders(),
-    });
-    if (!attackerCenter || !targetPoint) {
-      this.hideAttackIndicator();
-      return;
-    }
-    const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
-    this.attackIndicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
-    this.activeAttackNotificationId = note.id;
-    this.activeAttackTargetKey = targetKey;
-  }
-
-  private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {
-    if (!playerId) return undefined;
-    if (playerId === this.gameContext.playerId) {
-      return "player";
-    }
-    return "opponent";
-  }
-
-  private hideAttackIndicator() {
-    if (!this.attackIndicator) return;
-    if (!this.activeAttackNotificationId) return;
-    this.attackIndicator.hide({ fadeDuration: 180 });
-    this.activeAttackNotificationId = undefined;
-    this.activeAttackTargetKey = undefined;
-  }
-
-  private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
-    await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
-  }
-
-  private buildAttackTargetKey(payload: any) {
-    const attacker = payload.attackerCarduid ?? payload.attackerUnitUid ?? "";
-    const target = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid ?? "";
-    const slot = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot ?? "";
-    const player = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? "";
-    return `${attacker}|${target}|${slot}|${player}`;
+    this.attackIndicatorController?.updateFromNotifications(notifications, slots, positions, attackNote);
   }
 
   private findActiveAttackNotification(notifications: SlotNotification[]) {
@@ -570,6 +535,161 @@ export class BoardScene extends Phaser.Scene {
       return note;
     }
     return undefined;
+  }
+
+  private getActiveAttackTargetSlotKey(note?: SlotNotification) {
+    if (!note) return undefined;
+    if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") return undefined;
+    const payload = note.payload || {};
+    const slotId =
+      payload.forcedTargetZone ||
+      payload.targetSlotName ||
+      payload.targetSlot ||
+      payload.slotId ||
+      payload.targetSlotId;
+    if (!slotId) return undefined;
+    const targetPlayerId = payload.forcedTargetPlayerId || payload.targetPlayerId || payload.defendingPlayerId;
+    const owner = this.resolveSlotOwnerByPlayer(targetPlayerId);
+    if (!owner) return undefined;
+    return `${owner}-${slotId}`;
+  }
+
+  private getUpcomingBattleSlotKeys(notifications: SlotNotification[]) {
+    const slots = new Set<string>();
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return slots;
+    }
+    for (const note of notifications) {
+      if (!note) continue;
+      if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") continue;
+      const payload = note.payload || {};
+      const attackerSlotId = payload.attacker?.slot;
+      const targetSlotId = payload.target?.slot;
+      const attackerPlayerId = payload.attacker?.playerId;
+      const targetPlayerId = payload.target?.playerId;
+      const attackerOwner = this.resolveSlotOwnerByPlayer(attackerPlayerId);
+      const targetOwner = this.resolveSlotOwnerByPlayer(targetPlayerId);
+      if (attackerOwner && attackerSlotId) {
+        slots.add(`${attackerOwner}-${attackerSlotId}`);
+      }
+      if (targetOwner && targetSlotId) {
+        slots.add(`${targetOwner}-${targetSlotId}`);
+      }
+    }
+    return slots;
+  }
+
+  private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {
+    if (!playerId) return undefined;
+    if (playerId === this.gameContext.playerId) {
+      return "player";
+    }
+    return "opponent";
+  }
+
+  private collectLockedSlots(): Map<string, SlotViewModel> {
+    const locked = new Map<string, SlotViewModel>();
+    const notificationLocked = this.notificationAnimator?.getLockedSlots();
+    notificationLocked?.forEach((slot, key) => locked.set(key, slot));
+    const battleLocked = this.battleAnimations?.getLockedSlots();
+    battleLocked?.forEach((slot, key) => locked.set(key, slot));
+    // eslint-disable-next-line no-console
+    console.log("[BoardScene] collectLockedSlots", Array.from(locked.keys()));
+    return locked;
+  }
+
+  private applyLockedSlotOverrides(slots: SlotViewModel[]): SlotViewModel[] {
+    const locked = this.collectLockedSlots();
+    if (!locked.size) return slots;
+    const currentByKey = new Map<string, SlotViewModel>();
+    slots.forEach((slot) => {
+      currentByKey.set(`${slot.owner}-${slot.slotId}`, slot);
+    });
+    const used = new Set<string>();
+    const merged: SlotViewModel[] = [];
+
+    const useLockedOrLast = (key: string) => {
+      const lockedSlot = locked.get(key);
+      const last = this.lastRenderedSlots.find((prev) => `${prev.owner}-${prev.slotId}` === key);
+      if (lockedSlot && (lockedSlot.unit || lockedSlot.pilot)) {
+        // eslint-disable-next-line no-console
+        console.log("[BoardScene] overrideSlot", key);
+        return lockedSlot;
+      }
+      if (last && (last.unit || last.pilot)) {
+        // eslint-disable-next-line no-console
+        console.log("[BoardScene] overrideSlotWithLast", key);
+        return last;
+      }
+      if (lockedSlot) {
+        // eslint-disable-next-line no-console
+        console.log("[BoardScene] overrideSlot", key);
+        return lockedSlot;
+      }
+      return undefined;
+    };
+
+    this.lastRenderedSlots.forEach((prev) => {
+      const key = `${prev.owner}-${prev.slotId}`;
+      if (locked.has(key)) {
+        const frozen = useLockedOrLast(key);
+        if (frozen) {
+          merged.push(frozen);
+          used.add(key);
+          return;
+        }
+      }
+      const current = currentByKey.get(key);
+      if (current) {
+        merged.push(current);
+        used.add(key);
+      }
+    });
+
+    slots.forEach((slot) => {
+      const key = `${slot.owner}-${slot.slotId}`;
+      if (used.has(key)) return;
+      if (locked.has(key)) {
+        const frozen = useLockedOrLast(key);
+        if (frozen) {
+          merged.push(frozen);
+          used.add(key);
+        }
+        return;
+      }
+      merged.push(slot);
+      used.add(key);
+    });
+
+    locked.forEach((_slot, key) => {
+      if (used.has(key)) return;
+      const frozen = useLockedOrLast(key);
+      if (frozen) {
+        merged.push(frozen);
+        used.add(key);
+      }
+    });
+
+    return merged;
+  }
+
+  private refreshSlotsView() {
+    const snapshot = this.engine.getSnapshot();
+    const raw = snapshot.raw as any;
+    if (!raw) return;
+    const playerId = this.gameContext.playerId;
+    const slots = this.slotPresenter.toSlots(raw, playerId);
+    const mergedSlots = this.applyLockedSlotOverrides(slots);
+    this.slotControls?.setSlots(mergedSlots);
+    this.lastRenderedSlots = mergedSlots.map((slot) => ({
+      ...slot,
+      unit: slot.unit ? { ...slot.unit } : undefined,
+      pilot: slot.pilot ? { ...slot.pilot } : undefined,
+    }));
+  }
+
+  private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
+    await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
   }
 
   private handleEndTurn() {

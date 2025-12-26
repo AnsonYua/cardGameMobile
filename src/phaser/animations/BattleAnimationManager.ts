@@ -2,11 +2,8 @@ import Phaser from "phaser";
 import type { SlotNotification } from "./NotificationAnimationController";
 import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "../ui/SlotTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
-import {
-  findSlotForAttack,
-  getSlotPositionEntry,
-  resolveAttackTargetPoint,
-} from "../utils/AttackResolver";
+import { findSlotForAttack, getSlotPositionEntry, resolveAttackTargetPoint } from "../utils/AttackResolver";
+import { FxToolkit } from "./FxToolkit";
 
 type SlotVisibilityControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -17,6 +14,7 @@ type BattleAnimationManagerConfig = {
   slotControls?: SlotVisibilityControls | null;
   anchors: TargetAnchorProviders;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
+  onSlotsUnlocked?: (keys: string[]) => void;
 };
 
 type BattleSpriteSeed = {
@@ -32,6 +30,7 @@ type PendingBattleSnapshot = {
   attacker?: BattleSpriteSeed;
   target?: BattleSpriteSeed;
   targetPoint: { x: number; y: number };
+  savedAt: number;
 };
 
 export class BattleAnimationManager {
@@ -40,9 +39,14 @@ export class BattleAnimationManager {
   private pendingBattleSnapshots = new Map<string, PendingBattleSnapshot>();
   private processedBattleResolutionIds = new Set<string>();
   private battleAnimationQueue: Promise<void> = Promise.resolve();
+  private fx: FxToolkit;
+  private snapshotTtlMs = 15000;
+  private maxSnapshots = 24;
+  private lockedSlotSnapshots = new Map<string, SlotViewModel>();
 
   constructor(private config: BattleAnimationManagerConfig) {
     this.slotControls = config.slotControls;
+    this.fx = new FxToolkit(config.scene);
   }
 
   setSlotControls(slotControls?: SlotVisibilityControls | null) {
@@ -52,6 +56,13 @@ export class BattleAnimationManager {
   captureAttackSnapshot(note: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!note || !positions) return;
     const payload = note.payload || {};
+    // eslint-disable-next-line no-console
+    console.log("[BattleAnimation] captureAttackSnapshot", note.id, note.type, {
+      battleEnd: payload?.battleEnd,
+      attackerSlot: payload?.attackerSlot || payload?.attackerSlotName,
+      targetSlot: payload?.targetSlotName || payload?.targetSlot,
+      forcedTargetZone: payload?.forcedTargetZone,
+    });
     const attackerOwner = this.config.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
     const defenderOwner =
       this.config.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
@@ -63,6 +74,11 @@ export class BattleAnimationManager {
       anchors: this.config.anchors,
     });
     if (!attackerPosition || !targetPoint) {
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] captureAttackSnapshot skipped", {
+        attackerPosition: !!attackerPosition,
+        targetPoint: !!targetPoint,
+      });
       return;
     }
 
@@ -73,6 +89,8 @@ export class BattleAnimationManager {
 
     const attackerSeed = this.buildBattleSpriteSeed(attackerSlot, attackerPosition);
     if (!attackerSeed) {
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", note.id);
       return;
     }
     const targetSeed = this.buildBattleSpriteSeed(targetSlot, targetPosition);
@@ -80,13 +98,19 @@ export class BattleAnimationManager {
       attacker: attackerSeed,
       target: targetSeed,
       targetPoint,
+      savedAt: Date.now(),
     });
+    this.lockSlotSnapshot(attackerSlot);
+    this.lockSlotSnapshot(targetSlot);
+    this.trimSnapshotCache();
+    this.evictExpiredSnapshots();
   }
 
   processBattleResolutionNotifications(notifications: SlotNotification[]) {
     if (!Array.isArray(notifications) || notifications.length === 0) {
       return;
     }
+    this.evictExpiredSnapshots();
     notifications.forEach((note) => {
       if (!note) return;
       if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
@@ -101,10 +125,22 @@ export class BattleAnimationManager {
     const attackId = payload.attackNotificationId;
     if (!attackId) return;
     const snapshot = this.pendingBattleSnapshots.get(attackId);
-    if (!snapshot) return;
+    if (!snapshot) {
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] missing snapshot for battle", attackId, note.id, payload?.battleType);
+      return;
+    }
     this.battleAnimationQueue = this.battleAnimationQueue
       .then(() => this.playBattleResolutionAnimation(attackId, snapshot, payload))
-      .catch((err) => console.warn("battle animation failed", err));
+      .then(() => {
+        console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
+      })
+      .catch((err) => console.warn("battle animation failed", err))
+      .finally(() => {
+        this.releaseLockedSlotsForSnapshot(snapshot);
+        this.processedBattleResolutionIds.delete(note.id);
+        this.pendingBattleSnapshots.delete(attackId);
+      });
   }
 
   private async playBattleResolutionAnimation(
@@ -114,12 +150,10 @@ export class BattleAnimationManager {
   ): Promise<void> {
     const attackerSeed = snapshot.attacker;
     if (!attackerSeed) {
-      this.pendingBattleSnapshots.delete(attackId);
       return;
     }
     const attackerSprite = this.createBattleSprite(attackerSeed);
     if (!attackerSprite) {
-      this.pendingBattleSnapshots.delete(attackId);
       return;
     }
     const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
@@ -135,7 +169,7 @@ export class BattleAnimationManager {
     hideSlot(attackerSeed);
     hideSlot(snapshot.target);
     try {
-      await this.runTween({
+      await this.fx.runTween({
         targets: attackerSprite,
         x: targetPoint.x,
         y: targetPoint.y,
@@ -150,7 +184,7 @@ export class BattleAnimationManager {
         cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
       } else {
         cleanupTasks.push(
-          this.runTween({
+          this.fx.runTween({
             targets: attackerSprite,
             x: attackerSeed.position.x,
             y: attackerSeed.position.y,
@@ -171,7 +205,6 @@ export class BattleAnimationManager {
       await Promise.all(cleanupTasks);
       this.destroyBattleSprite(attackerSprite);
       this.destroyBattleSprite(targetSprite);
-      this.pendingBattleSnapshots.delete(attackId);
     } finally {
       releaseVisibility.forEach((fn) => fn());
     }
@@ -190,6 +223,25 @@ export class BattleAnimationManager {
       size: { w: base, h: base * 1.4 },
       isOpponent: slotPosition.isOpponent ?? slot.owner === "opponent",
     };
+  }
+
+  private lockSlotSnapshot(slot?: SlotViewModel) {
+    if (!slot) return;
+    const key = `${slot.owner}-${slot.slotId}`;
+    if (!slot.slotId) return;
+    const snapshot: SlotViewModel = {
+      owner: slot.owner,
+      slotId: slot.slotId,
+      unit: slot.unit ? { ...slot.unit } : undefined,
+      pilot: slot.pilot ? { ...slot.pilot } : undefined,
+      isRested: slot.isRested,
+      ap: slot.ap,
+      hp: slot.hp,
+      fieldCardValue: slot.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
+    };
+    this.lockedSlotSnapshots.set(key, snapshot);
+    // eslint-disable-next-line no-console
+    console.log("[BattleAnimation] lockSlot", key, snapshot.unit?.cardUid ?? snapshot.pilot?.cardUid ?? null);
   }
 
   private ensureBattleAnimationLayer() {
@@ -234,76 +286,73 @@ export class BattleAnimationManager {
     return container;
   }
 
-  private runTween(config: Phaser.Types.Tweens.TweenBuilderConfig) {
-    return new Promise<void>((resolve) => {
-      const {
-        onComplete,
-        onCompleteScope,
-        onCompleteParams,
-        ...rest
-      } = config as Phaser.Types.Tweens.TweenBuilderConfig & Record<string, any>;
-      const tween = this.config.scene.tweens.add({
-        ...rest,
-        onComplete: (tweenObj: Phaser.Tweens.Tween, targets: any, ...cbArgs: any[]) => {
-          if (typeof onComplete === "function") {
-            const userArgs = Array.isArray(onCompleteParams) ? onCompleteParams : cbArgs;
-            (onComplete as (t: Phaser.Tweens.Tween, target: any, ...args: any[]) => void).call(
-              onCompleteScope ?? this,
-              tweenObj,
-              targets,
-              ...userArgs,
-            );
-          }
-          resolve();
-        },
-      });
-      if (!tween) {
-        resolve();
-      }
-    });
-  }
-
   private async playImpactEffects(
     attackerSprite: Phaser.GameObjects.Container,
     targetSprite: Phaser.GameObjects.Container | undefined,
     point: { x: number; y: number },
   ) {
     const tasks: Promise<void>[] = [];
-    tasks.push(this.punchSprite(attackerSprite));
-    tasks.push(this.spawnImpactBurst(point));
-    tasks.push(this.shakeCamera(140, 0.008));
+    tasks.push(this.fx.punchSprite(attackerSprite));
+    tasks.push(this.fx.spawnImpactBurst(point));
+    tasks.push(this.fx.shakeCamera(140, 0.008));
     if (targetSprite) {
-      tasks.push(this.flashSprite(targetSprite));
+      tasks.push(this.fx.flashSprite(targetSprite));
     } else {
-      tasks.push(this.flashAtPoint(point));
+      tasks.push(this.fx.flashAtPoint(point));
     }
     await Promise.all(tasks);
   }
 
+  private releaseLockedSlotsForSnapshot(snapshot: PendingBattleSnapshot) {
+    const released: string[] = [];
+    const release = (seed?: BattleSpriteSeed) => {
+      if (!seed || !seed.slotId) return;
+      const key = `${seed.owner}-${seed.slotId}`;
+      if (this.lockedSlotSnapshots.delete(key)) {
+        released.push(key);
+      }
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] unlockSlot", key);
+    };
+    release(snapshot.attacker);
+    release(snapshot.target);
+    if (released.length) {
+      this.config.onSlotsUnlocked?.(released);
+    }
+  }
+
+  getLockedSlots() {
+    return new Map(this.lockedSlotSnapshots);
+  }
+
   private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {
-    return this.runTween({
-      targets: target,
-      alpha: 0,
-      duration: 200,
-      ease: "Sine.easeIn",
-    }).then(() => {
-      this.destroyBattleSprite(target);
-    });
+    return this.fx
+      .runTween({
+        targets: target,
+        alpha: 0,
+        duration: 200,
+        ease: "Sine.easeIn",
+      })
+      .then(() => {
+        this.destroyBattleSprite(target);
+      });
   }
 
   private pulseSprite(target: Phaser.GameObjects.Container) {
-    return this.runTween({
-      targets: target,
-      scale: 1.08,
-      yoyo: true,
-      duration: 140,
-      ease: "Sine.easeInOut",
-    }).then(() => {
-      const meta = target as any;
-      if (!meta?.destroyed) {
-        target.setScale(1);
-      }
-    });
+    return this.fx
+      .runTween({
+        targets: target,
+        scale: 1.08,
+        yoyo: true,
+        duration: 140,
+        ease: "Sine.easeInOut",
+      })
+      .then(() => {
+        const meta = target as any;
+        if (!meta?.destroyed) {
+          target.setScale(1);
+        }
+      });
   }
 
   private destroyBattleSprite(target?: Phaser.GameObjects.Container) {
@@ -313,85 +362,20 @@ export class BattleAnimationManager {
     target.destroy(true);
   }
 
-  private punchSprite(target: Phaser.GameObjects.Container) {
-    target.setScale(1);
-    return this.runTween({
-      targets: target,
-      scale: 1.12,
-      duration: 90,
-      ease: "Quad.easeOut",
-      yoyo: true,
-    }).then(() => {
-      target.setScale(1);
-    });
-  }
-
-  private flashSprite(target: Phaser.GameObjects.Container) {
-    const initialAlpha = target.alpha;
-    return this.runTween({
-      targets: target,
-      alpha: initialAlpha * 0.35,
-      duration: 110,
-      yoyo: true,
-      ease: "Sine.easeIn",
-    }).then(() => {
-      target.setAlpha(initialAlpha);
-    });
-  }
-
-  private flashAtPoint(point: { x: number; y: number }) {
-    const rect = this.config.scene.add.rectangle(point.x, point.y, 120, 140, 0xffffff, 0.65);
-    rect.setDepth(920);
-    return this.runTween({
-      targets: rect,
-      alpha: 0,
-      duration: 160,
-      ease: "Quad.easeOut",
-    }).then(() => rect.destroy());
-  }
-
-  private spawnImpactBurst(point: { x: number; y: number }) {
-    const ring = this.config.scene.add.circle(point.x, point.y, 8, 0xffffff, 0.15);
-    ring.setStrokeStyle(2, 0xffffff, 0.8);
-    ring.setDepth(920);
-    const sparks: Phaser.GameObjects.Rectangle[] = [];
-    for (let i = 0; i < 4; i += 1) {
-      const spark = this.config.scene.add.rectangle(point.x, point.y, 4, 12, 0xfff3b0, 0.85);
-      spark.setAngle(i * 90 + 45);
-      spark.setDepth(921);
-      sparks.push(spark);
+  private trimSnapshotCache() {
+    while (this.pendingBattleSnapshots.size > this.maxSnapshots) {
+      const oldestKey = this.pendingBattleSnapshots.keys().next().value;
+      if (!oldestKey) break;
+      this.pendingBattleSnapshots.delete(oldestKey);
     }
-    return Promise.all([
-      this.runTween({
-        targets: ring,
-        scale: 1.8,
-        alpha: 0,
-        duration: 220,
-        ease: "Quad.easeOut",
-      }),
-      ...sparks.map((spark) =>
-        this.runTween({
-          targets: spark,
-          y: spark.y - 8,
-          alpha: 0,
-          duration: 180,
-          ease: "Sine.easeOut",
-        }),
-      ),
-    ]).then(() => {
-      ring.destroy();
-      sparks.forEach((spark) => spark.destroy());
-    });
   }
 
-  private shakeCamera(duration = 120, intensity = 0.008) {
-    this.config.scene.cameras.main?.shake(duration, intensity);
-    return this.delay(duration);
-  }
-
-  private delay(ms: number) {
-    return new Promise<void>((resolve) => {
-      this.config.scene.time.delayedCall(ms, () => resolve());
+  private evictExpiredSnapshots(now = Date.now()) {
+    const ttl = this.snapshotTtlMs;
+    this.pendingBattleSnapshots.forEach((snapshot, key) => {
+      if (now - snapshot.savedAt > ttl) {
+        this.pendingBattleSnapshots.delete(key);
+      }
     });
   }
 }

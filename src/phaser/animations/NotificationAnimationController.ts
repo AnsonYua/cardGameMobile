@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
-import type { SlotViewModel, SlotCardView, SlotPositionMap } from "../ui/SlotTypes";
+import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
 import { toPreviewKey } from "../ui/HandTypes";
 
 export type SlotNotification = {
@@ -18,10 +18,14 @@ type ProcessArgs = {
   raw: any;
   allowAnimations: boolean;
   currentPlayerId: string | null;
+  shouldHideSlot?: (slotKey: string) => boolean;
 };
 
 export class NotificationAnimationController {
   private processedIds = new Set<string>();
+  private animationQueue: Promise<void> = Promise.resolve();
+  private hiddenSlots = new Set<string>();
+  private lockedSlotSnapshots = new Map<string, SlotViewModel>();
 
   constructor(
     private deps: {
@@ -33,6 +37,7 @@ export class NotificationAnimationController {
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
       onSlotAnimationStart?: (slotKey: string) => void;
       onSlotAnimationEnd?: (slotKey: string) => void;
+      setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
     },
   ) {}
 
@@ -40,52 +45,71 @@ export class NotificationAnimationController {
     this.processedIds.clear();
   }
 
-  process(args: ProcessArgs) {
+  process(args: ProcessArgs): Promise<void> {
     const { notifications, allowAnimations } = args;
 
-    if (!notifications?.length) return;
+    if (!notifications?.length) return this.animationQueue;
 
     if (!allowAnimations) {
-      return;
+      return this.animationQueue;
     }
 
     notifications.forEach((note) => {
       if (!note || !note.id || this.processedIds.has(note.id)) return;
       const type = (note.type || "").toUpperCase();
       if (type === "CARD_PLAYED") {
-        const handled = this.handleCardPlayed(note.payload ?? {}, args);
-        if (handled) {
-          this.processedIds.add(note.id);
-        }
+        const task = this.buildCardPlayedTask(note.payload ?? {}, args);
+        if (!task) return;
+        this.processedIds.add(note.id);
+        this.enqueueAnimation(note.id, task);
       }
     });
+    return this.animationQueue;
   }
 
-  private handleCardPlayed(payload: any, ctx: ProcessArgs) {
-    if (!payload?.isCompleted) return false;
+  private enqueueAnimation(id: string, task: () => Promise<void>) {
+    // eslint-disable-next-line no-console
+    console.log("[NotificationAnimator] enqueue", id, Date.now());
+    this.animationQueue = this.animationQueue
+      .then(async () => {
+        // eslint-disable-next-line no-console
+        console.log("[NotificationAnimator] start", id, Date.now());
+        await task();
+        // eslint-disable-next-line no-console
+        console.log("[NotificationAnimator] complete", id, Date.now());
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn("[NotificationAnimator] animation task failed", err);
+      });
+  }
+
+  private buildCardPlayedTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
+    if (!payload?.isCompleted) return null;
     const reason = (payload.reason ?? "").toString().toLowerCase();
-    if (reason && reason !== "hand") return false;
+    if (reason && reason !== "hand") return null;
 
     const playAs = (payload.playAs ?? "").toString().toLowerCase();
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     if (playAs === "command") {
-      this.animateCommand(payload, isSelf, ctx);
-      return true;
+      return () => this.animateCommand(payload, isSelf, ctx);
     }
     if (playAs === "base") {
-      this.animateBase(payload, isSelf, ctx.raw);
-      return true;
+      return () => this.animateBase(payload, isSelf, ctx.raw);
     }
-    const animated = this.animateSlotCard(payload, isSelf, ctx);
-    return animated;
+    const slotTask = this.buildSlotAnimationTask(payload, isSelf, ctx);
+    if (slotTask) {
+      return slotTask;
+    }
+    return null;
   }
 
-  private animateSlotCard(payload: any, isSelf: boolean, ctx: ProcessArgs) {
+  private buildSlotAnimationTask(payload: any, isSelf: boolean, ctx: ProcessArgs): (() => Promise<void>) | null {
     const { slots, slotPositions } = ctx;
-    if (!slotPositions) return false;
+    if (!slotPositions) return null;
     const slot = this.findSlot(slots, payload.carduid);
-    if (!slot) return false;
+    if (!slot) return null;
     let target = slotPositions[slot.owner]?.[slot.slotId];
     if (!target && slot.owner === "opponent") {
       const fallback = this.deps.getSlotAreaCenter?.("opponent");
@@ -93,7 +117,7 @@ export class NotificationAnimationController {
         target = { id: "opponent-center", x: fallback.x, y: fallback.y, w: 0, h: 0, isOpponent: true };
       }
     }
-    if (!target) return false;
+    if (!target) return null;
     const slotKey = `${slot.owner}-${slot.slotId}`;
     const card = this.getSlotCard(slot, payload.carduid);
     const start = this.getHandOrigin(isSelf);
@@ -101,23 +125,67 @@ export class NotificationAnimationController {
       ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
       hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
     };
-    this.deps.onSlotAnimationStart?.(slotKey);
-    void this.deps.playAnimator
-      .play({
-        textureKey: card?.textureKey,
-        fallbackLabel: card?.id ?? payload.carduid,
+    const end = { x: target.x, y: target.y };
+    const cardName = card?.cardData?.name ?? card?.id ?? payload.carduid;
+    const fallbackLabel = card?.id ?? payload.carduid;
+    const textureKey = card?.textureKey;
+    const shouldHide = ctx.shouldHideSlot ? ctx.shouldHideSlot(slotKey) : true;
+    if (shouldHide) {
+      this.lockSlotSnapshot(slotKey, slot);
+    }
+    return () =>
+      this.animateSlotCard({
+        slotKey,
+        owner: slot.owner,
+        slotId: slot.slotId,
         start,
-        end: { x: target.x, y: target.y },
+        end,
         isOpponent: !isSelf,
-        cardName: card?.cardData?.name ?? card?.id ?? payload.carduid,
+        cardName,
         stats,
-      })
-      .then(() => this.deps.onSlotAnimationEnd?.(slotKey))
-      .catch(() => this.deps.onSlotAnimationEnd?.(slotKey));
-    return true;
+        textureKey,
+        fallbackLabel,
+        shouldHide,
+      });
   }
 
-  private animateBase(payload: any, isSelf: boolean, raw: any) {
+  private async animateSlotCard(spec: {
+    slotKey: string;
+    owner: SlotOwner;
+    slotId: string;
+    start: { x: number; y: number; isOpponent?: boolean };
+    end: { x: number; y: number };
+    isOpponent: boolean;
+    cardName: string;
+    stats: { ap?: number; hp?: number };
+    textureKey?: string;
+    fallbackLabel?: string;
+    shouldHide: boolean;
+  }) {
+    if (spec.shouldHide) {
+      this.hideSlot(spec.owner, spec.slotId);
+    }
+    this.deps.onSlotAnimationStart?.(spec.slotKey);
+    try {
+      await this.deps.playAnimator.play({
+        textureKey: spec.textureKey,
+        fallbackLabel: spec.fallbackLabel,
+        start: spec.start,
+        end: spec.end,
+        isOpponent: spec.isOpponent,
+        cardName: spec.cardName,
+        stats: spec.stats,
+      });
+    } finally {
+      this.deps.onSlotAnimationEnd?.(spec.slotKey);
+      if (spec.shouldHide) {
+        this.showSlot(spec.owner, spec.slotId);
+      }
+      this.releaseSlotSnapshot(spec.slotKey);
+    }
+  }
+
+  private async animateBase(payload: any, isSelf: boolean, raw: any) {
     //if the base is opponent, the card should rotate 180
     const anchor = this.deps.getBaseAnchor?.(!isSelf);
     if (!anchor) return;
@@ -128,7 +196,7 @@ export class NotificationAnimationController {
       hp: baseCard?.fieldCardValue?.totalHP ?? 0,
     };
     const textureKey = baseCard ? toPreviewKey(baseCard.cardId ?? baseCard.id) : undefined;
-    void this.deps.playAnimator.play({
+    await this.deps.playAnimator.play({
       textureKey,
       fallbackLabel: baseCard?.cardId ?? payload.carduid,
       start,
@@ -155,7 +223,7 @@ export class NotificationAnimationController {
       ap: card?.cardData?.ap ?? 0,
       hp: card?.cardData?.hp ?? 0,
     };
-    void this.deps.playAnimator.play({
+    return this.deps.playAnimator.play({
       textureKey: card?.textureKey,
       fallbackLabel: card?.id ?? payload.carduid,
       start,
@@ -260,6 +328,50 @@ export class NotificationAnimationController {
       cardType: card.cardData?.cardType,
       cardData: card.cardData,
     };
+  }
+
+  private hideSlot(owner?: SlotOwner, slotId?: string) {
+    if (!owner || !slotId) return;
+    const key = `${owner}-${slotId}`;
+    if (this.hiddenSlots.has(key)) return;
+    this.deps.setSlotVisible?.(owner, slotId, false);
+    this.hiddenSlots.add(key);
+  }
+
+  private showSlot(owner?: SlotOwner, slotId?: string) {
+    if (!owner || !slotId) return;
+    const key = `${owner}-${slotId}`;
+    if (!this.hiddenSlots.has(key)) return;
+    this.hiddenSlots.delete(key);
+    this.deps.setSlotVisible?.(owner, slotId, true);
+  }
+
+  private lockSlotSnapshot(slotKey: string, slot: SlotViewModel) {
+    if (!slotKey) return;
+    const snapshot: SlotViewModel = {
+      owner: slot.owner,
+      slotId: slot.slotId,
+      unit: slot.unit ? { ...slot.unit } : undefined,
+      pilot: slot.pilot ? { ...slot.pilot } : undefined,
+      isRested: slot.isRested,
+      ap: slot.ap,
+      hp: slot.hp,
+      fieldCardValue: slot.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
+    };
+    this.lockedSlotSnapshots.set(slotKey, snapshot);
+    // eslint-disable-next-line no-console
+    console.log("[NotificationAnimator] lockSlot", slotKey, snapshot.unit?.cardUid ?? snapshot.pilot?.cardUid ?? null);
+  }
+
+  private releaseSlotSnapshot(slotKey: string) {
+    if (!slotKey) return;
+    this.lockedSlotSnapshots.delete(slotKey);
+    // eslint-disable-next-line no-console
+    console.log("[NotificationAnimator] unlockSlot", slotKey);
+  }
+
+  getLockedSlots() {
+    return new Map(this.lockedSlotSnapshots);
   }
 
   private getCardUid(card: any) {

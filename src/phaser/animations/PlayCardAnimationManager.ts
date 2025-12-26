@@ -1,6 +1,5 @@
 import Phaser from "phaser";
-import { DrawHelpers } from "../ui/HeaderHandler";
-import { Palette } from "../ui/types";
+import { FxToolkit } from "./FxToolkit";
 
 type Vector2 = { x: number; y: number };
 
@@ -16,20 +15,17 @@ type PlayAnimationPayload = {
   angle?: number;
 };
 
-/**
- * Orchestrates the "card played" sequence: flight from hand to slot, impact FX, and a HUD-style alert banner.
- * Designed to be self-contained so SlotDisplayHandler can stay lean.
- */
 export class PlayCardAnimationManager {
-  private alertContainer?: Phaser.GameObjects.Container;
+  private fx: FxToolkit;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  constructor(private scene: Phaser.Scene) {
+    this.fx = new FxToolkit(scene);
+  }
 
   async play(payload: PlayAnimationPayload) {
     const flight = this.playFlight(payload);
     await flight;
     this.playImpact(payload.end, payload.isOpponent);
-   // this.showAlert(payload);
   }
 
   private playFlight({ textureKey, fallbackLabel, start, end, size, angle }: PlayAnimationPayload) {
@@ -51,15 +47,18 @@ export class PlayCardAnimationManager {
       const targetW = Math.min(size?.w ?? 80, maxW);
       const targetH = Math.min(size?.h ?? 110, maxH);
       const hasTexture = textureKey && this.scene.textures.exists(textureKey);
+      const createdNodes: Phaser.GameObjects.GameObject[] = [];
       const sprite = hasTexture
         ? this.scene.add.image(start.x, start.y, textureKey!).setDisplaySize(targetW, targetH)
         : (this.scene.add.rectangle(start.x, start.y, targetW * 0.9, targetH * 0.86, 0x5e48f0) as Phaser.GameObjects.Rectangle);
       sprite.setDepth(2000).setOrigin(0.5).setScale(0.9).setAngle(angle ?? 0);
+      createdNodes.push(sprite);
       if (!hasTexture && fallbackLabel) {
-        this.scene.add
+        const label = this.scene.add
           .text(start.x, start.y, fallbackLabel, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
           .setOrigin(0.5)
           .setDepth(2001);
+        createdNodes.push(label);
       }
 
       const control = {
@@ -91,7 +90,7 @@ export class PlayCardAnimationManager {
           sprite.setPosition(p.x, p.y);
         },
         onComplete: () => {
-          sprite.destroy();
+          createdNodes.forEach((node) => node.destroy());
           resolve();
         },
       });
@@ -99,35 +98,9 @@ export class PlayCardAnimationManager {
   }
 
   private playImpact(pos: Vector2, isOpponent?: boolean) {
-    const cam = this.scene.cameras.main;
-    cam.shake(120, 0.004);
-    const ring = this.scene.add.circle(pos.x, pos.y, 12, 0x000000, 0).setStrokeStyle(2, 0xffffff, 0.7).setDepth(1800);
-    this.scene.tweens.add({
-      targets: ring,
-      radius: 38,
-      alpha: 0,
-      duration: 320,
-      ease: "Quad.easeOut",
-      onComplete: () => ring.destroy(),
-    });
-
     const color = isOpponent ? 0xff6b4a : 0x5ee0ff;
-    for (let i = 0; i < 10; i++) {
-      const angle = Phaser.Math.DegToRad((360 / 10) * i + Phaser.Math.Between(-10, 10));
-      const dist = Phaser.Math.Between(28, 52);
-      const target = { x: pos.x + Math.cos(angle) * dist, y: pos.y + Math.sin(angle) * dist };
-      const particle = this.scene.add.circle(pos.x, pos.y, Phaser.Math.Between(3, 5), color, 0.9).setDepth(1850);
-      this.scene.tweens.add({
-        targets: particle,
-        x: target.x,
-        y: target.y,
-        alpha: 0,
-        scale: 0.6,
-        duration: 320,
-        ease: "Quad.easeOut",
-        onComplete: () => particle.destroy(),
-      });
-    }
+    this.fx.shakeCamera(120, 0.004);
+    this.fx.spawnImpactBurst(pos, { ringColor: color, ringAlpha: 0.5, sparkColor: color, sparkCount: 10, sparkLength: 16 });
 
     // Quick scan-line overlay to hint at tech feel.
     const scan = this.scene.add.rectangle(pos.x, pos.y, 90, 110, 0xffffff, 0.08).setDepth(1820);
@@ -142,95 +115,4 @@ export class PlayCardAnimationManager {
     });
   }
 
-  private showAlert({ cardName, stats, isOpponent, textureKey, fallbackLabel }: PlayAnimationPayload) {
-    this.alertContainer?.destroy();
-    const cam = this.scene.cameras.main;
-    const width = cam.width * 0.7;
-    const height = 140;
-    const x = cam.centerX;
-    const y = cam.height * 0.28;
-    const borderColor = isOpponent ? 0xff6b4a : 0x5ee0ff;
-
-    const container = this.scene.add.container(x, y).setDepth(2500).setAlpha(0);
-    const bg = this.drawHelpers.drawRoundedRect({
-      x: 0,
-      y: 0,
-      width,
-      height,
-      radius: 18,
-      fillColor: "#000000",
-      fillAlpha: 0.75,
-      strokeColor: borderColor,
-      strokeAlpha: 0.8,
-      strokeWidth: 2,
-    });
-    container.add(bg);
-
-    const thumbSize = height - 30;
-    const hasTexture = textureKey && this.scene.textures.exists(textureKey);
-    const thumb = hasTexture
-      ? (this.scene.add.image(-width / 2 + thumbSize / 2 + 18, 0, textureKey!).setDisplaySize(thumbSize, thumbSize) as any)
-      : (this.scene.add.rectangle(-width / 2 + thumbSize / 2 + 18, 0, thumbSize, thumbSize, 0x5e48f0) as any);
-    thumb.setOrigin(0.5);
-    container.add(thumb);
-    if (!hasTexture && fallbackLabel) {
-      const lbl = this.scene.add
-        .text(thumb.x, thumb.y, fallbackLabel, { fontSize: "12px", fontFamily: "Arial", color: "#ffffff" })
-        .setOrigin(0.5);
-      container.add(lbl);
-    }
-
-    const title = this.scene.add
-      .text(
-        -width / 2 + thumbSize + 32,
-        -20,
-        isOpponent ? `Opponent played ${cardName ?? "a card"}!` : `Deploying ${cardName ?? "card"}!`,
-        {
-          fontSize: "20px",
-          fontFamily: "Arial",
-          color: "#f7f9ff",
-          fontStyle: "bold",
-        },
-      )
-      .setOrigin(0, 0.5);
-    const subtitle = this.scene.add
-      .text(
-        -width / 2 + thumbSize + 32,
-        20,
-        `Power: ${stats?.ap ?? "--"} / ${stats?.hp ?? "--"}`,
-        { fontSize: "16px", fontFamily: "Arial", color: "#c8d4ff" },
-      )
-      .setOrigin(0, 0.5);
-    container.add(title);
-    container.add(subtitle);
-
-    // Glow pulse
-    this.scene.tweens.add({
-      targets: bg,
-      alpha: 0.9,
-      duration: 280,
-      yoyo: true,
-      repeat: 2,
-      ease: "Sine.easeInOut",
-    });
-
-    this.scene.tweens.add({
-      targets: container,
-      alpha: 1,
-      y: y + 8,
-      duration: 220,
-      ease: "Sine.easeOut",
-    });
-
-    this.scene.tweens.add({
-      targets: container,
-      alpha: 0,
-      duration: 350,
-      delay: 1200,
-      ease: "Sine.easeIn",
-      onComplete: () => container.destroy(),
-    });
-
-    this.alertContainer = container;
-  }
 }

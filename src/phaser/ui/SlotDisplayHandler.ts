@@ -66,7 +66,7 @@ export class SlotDisplayHandler {
   private hiddenSlots = new Set<string>();
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
-    this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
+    this.playAnimator = new PlayCardAnimationManager(scene);
   }
   private onSlotClick?: (slot: SlotViewModel) => void;
   private slotClicksEnabled = true;

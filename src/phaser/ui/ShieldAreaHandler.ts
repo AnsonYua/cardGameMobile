@@ -95,7 +95,7 @@ export class ShieldAreaHandler {
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.shieldCounts = { opponent: this.config.shieldCount, player: this.config.shieldCount };
     this.shieldCards = { opponent: [], player: [] };
-    this.playAnimator = new PlayCardAnimationManager(scene, palette, drawHelpers);
+    this.playAnimator = new PlayCardAnimationManager(scene);
   }
 
   setConfig(cfg: Partial<ShieldAreaConfig>) {
