@@ -1,11 +1,9 @@
 import Phaser from "phaser";
-import { BASE_H, BASE_W } from "../../config/gameLayout";
 import { FieldHandler } from "./FieldHandler";
 import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-import { GameStatus } from "../game/GameSessionService";
 import { formatHeaderStatus } from "./HeaderStatusFormatter";
 import type { ShieldAreaControls } from "./ShieldAreaHandler";
 import type { HandCardView } from "./HandTypes";
@@ -14,7 +12,7 @@ type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
 type SlotControls = ReturnType<FieldHandler["getSlotControls"]>;
 type HandControls = {
   setVisible: (visible: boolean) => void;
-  fadeIn: (duration?: number) => void;
+  fadeIn: () => void;
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearHand: () => void;
   clearSelection?: () => void;
@@ -27,7 +25,6 @@ type HeaderControls = {
 };
 
 export class BoardUI {
-  private framePadding = 12;
   private drawHelpers: DrawHelpers;
   private header: HeaderHandler;
   private field: FieldHandler;
@@ -42,7 +39,7 @@ export class BoardUI {
 
   constructor(private scene: Phaser.Scene, private palette: Palette) {
     this.drawHelpers = new DrawHelpers(scene);
-    this.header = new HeaderHandler(scene, palette, this.drawHelpers, this.framePadding);
+    this.header = new HeaderHandler(scene, palette, this.drawHelpers);
     this.field = new FieldHandler(scene, palette, this.drawHelpers);
     this.baseControls = this.field.getBaseControls();
     this.energyControls = this.field.getEnergyControls();
@@ -51,13 +48,13 @@ export class BoardUI {
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
     this.handControls = {
       setVisible: (visible: boolean) => this.hand.setVisible(visible),
-      fadeIn: (duration?: number) => this.hand.fadeIn(duration),
+      fadeIn: () => this.hand.fadeIn(),
       setHand: (cards, opts) => this.hand.setHand(cards, opts),
       clearHand: () => this.hand.clearHand(),
       clearSelection: () => this.hand.clearSelection(),
       setCardClickHandler: (handler) => this.hand.setCardClickHandler?.(handler),
     };
-    this.actions = new ActionButtonBarHandler(scene, palette, this.drawHelpers);
+    this.actions = new ActionButtonBarHandler(scene);
     this.headerControls = {
       setStatus: (text: string) => this.header.setStatusText(text),
       setStatusFromEngine: (status: any, opts?: { offlineFallback?: boolean }) => {
@@ -70,7 +67,7 @@ export class BoardUI {
     };
   }
 
-  drawFrame(offset: Offset) {
+  drawFrame() {
     const camW = this.scene.scale.width;
     const camH = this.scene.scale.height;
     const width = camW;
@@ -99,7 +96,7 @@ export class BoardUI {
   }
 
   drawAll(offset: Offset) {
-    this.drawFrame(offset);
+    this.drawFrame();
     this.drawHeader(offset);
     this.drawField(offset);
     this.drawActions(offset);
@@ -137,8 +134,8 @@ export class BoardUI {
     this.hand.setVisible(visible);
   }
 
-  fadeInHand(duration = 200) {
-    this.hand.fadeIn(duration);
+  fadeInHand() {
+    this.hand.fadeIn();
   }
 
   setActionHandler(handler: (index: number) => void) {
@@ -161,8 +158,8 @@ export class BoardUI {
     this.field.setStatusVisible(visible);
   }
 
-  fadeInStatus(duration = 200) {
-    this.field.fadeInStatus(duration);
+  fadeInStatus() {
+    this.field.fadeInStatus();
   }
 
   getEnergyControls() {

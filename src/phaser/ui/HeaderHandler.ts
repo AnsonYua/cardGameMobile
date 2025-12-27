@@ -73,18 +73,15 @@ export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
   private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
   private depth = 1000;
-  private lastOffset: Offset = { x: 0, y: 0 };
   private statusLabel?: Phaser.GameObjects.Text;
-  private headerX = { left: 0, right: 0, centerY: 0 };
   private avatarHit?: Phaser.GameObjects.Rectangle;
   private onAvatar?: () => void;
   private nameLabel?: Phaser.GameObjects.Text;
   private handLabel?: Phaser.GameObjects.Text;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers, private framePadding: number) {}
+  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
   draw(offset: Offset) {
-    this.lastOffset = offset;
     const { height, padding, avatar } = this.layout;
     const { handCount, name, opponentHand } = this.state;
 
@@ -95,8 +92,6 @@ export class HeaderHandler {
     const containerLeft = containerX - containerW / 2;
     const containerRight = containerX + containerW / 2;
     const containerTop = containerY - height / 2;
-    const containerBottom = containerY + height / 2;
-    this.headerX = { left: containerLeft, right: containerRight, centerY: containerY };
 
     this.drawHelpers.drawRoundedRect({
       x: containerX,

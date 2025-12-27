@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BASE_H, BASE_W } from "../../config/gameLayout";
+import { BASE_W } from "../../config/gameLayout";
 import { DrawHelpers } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
 import { GameStatus, GameStatusHandler } from "./GameStatusHandler";
@@ -137,8 +137,8 @@ export class FieldHandler {
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.field = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
-    this.gameStatusOpponent = new GameStatusHandler(scene, palette);
-    this.gameStatusPlayer = new GameStatusHandler(scene, palette);
+    this.gameStatusOpponent = new GameStatusHandler(scene);
+    this.gameStatusPlayer = new GameStatusHandler(scene);
     this.shieldArea = new ShieldAreaHandler(scene, palette, drawHelpers);
     this.baseControls = this.shieldArea;
     this.energyBarOpponent = new EnergyBarHandler(scene, drawHelpers);
@@ -158,7 +158,7 @@ export class FieldHandler {
     this.gameStatusPlayer.setVisible(visible);
   }
 
-  fadeInStatus(duration = 200) {
+  fadeInStatus() {
     this.statusVisible = true;
     this.gameStatusOpponent.setVisible(true);
     this.gameStatusPlayer.setVisible(true);
@@ -170,7 +170,7 @@ export class FieldHandler {
     this.energyBarPlayer.setVisible(visible);
   }
 
-  fadeInEnergy(duration = 200) {
+  fadeInEnergy() {
     this.energyVisible = true;
     this.energyBarOpponent.setVisible(true);
     this.energyBarPlayer.setVisible(true);
@@ -179,7 +179,7 @@ export class FieldHandler {
   getEnergyControls() {
     return {
       setVisible: (visible: boolean) => this.setEnergyVisible(visible),
-      fadeIn: (duration?: number) => this.fadeInEnergy(duration),
+      fadeIn: () => this.fadeInEnergy(),
       update: (isOpponent: boolean, status: GameStatus) => this.updateEnergyArea(isOpponent, status),
     };
   }
@@ -187,7 +187,7 @@ export class FieldHandler {
   getStatusControls() {
     return {
       setVisible: (visible: boolean) => this.setStatusVisible(visible),
-      fadeIn: (duration?: number) => this.fadeInStatus(duration),
+      fadeIn: () => this.fadeInStatus(),
     };
   }
 
@@ -220,7 +220,7 @@ export class FieldHandler {
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
-    const { slot, gap, cols, rows, deckW, deckH, towerWidth, columnGap, energy } = this.field;
+    const { slot, gap, cols, rows, deckW, deckH, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
     const sideOffsets = sideConfig;

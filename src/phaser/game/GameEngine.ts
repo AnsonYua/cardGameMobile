@@ -10,7 +10,6 @@ import { ActionRegistry, ActionContext, ActionDescriptor } from "./ActionRegistr
 import { ApiManager } from "../api/ApiManager";
 import type { CommandFlowController } from "../controllers/CommandFlowController";
 import type { UnitFlowController } from "../controllers/UnitFlowController";
-import type { PilotFlowController } from "../controllers/PilotFlowController";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -30,9 +29,8 @@ export class GameEngine {
   private pilotTargetUid?: string;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
-  private pilotFlow?: PilotFlowController;
 
-  constructor(private scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
+  constructor(scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
     this.resourceLoader = new CardResourceLoader(scene);
     this.api = new ApiManager(this.match.getApiBaseUrl());
     this.registerDefaultActions();
@@ -125,10 +123,9 @@ export class GameEngine {
     return this.selection.get();
   }
 
-  setFlowControllers(flows: { commandFlow?: CommandFlowController; unitFlow?: UnitFlowController; pilotFlow?: PilotFlowController }) {
+  setFlowControllers(flows: { commandFlow?: CommandFlowController; unitFlow?: UnitFlowController }) {
     this.commandFlow = flows.commandFlow;
     this.unitFlow = flows.unitFlow;
-    this.pilotFlow = flows.pilotFlow;
   }
 
   getAvailableActions(source: ActionSource = "neutral"): ActionDescriptor[] {

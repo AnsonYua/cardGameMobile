@@ -189,9 +189,11 @@ export class BattleAnimationManager {
     const releaseVisibility: Array<() => void> = [];
     const hideSlot = (seed?: BattleSpriteSeed) => {
       if (!seed?.slotId) return;
-      this.slotControls?.setSlotVisible?.(seed.owner, seed.slotId, false);
+      const { owner } = seed;
+      const slotId = seed.slotId;
+      this.slotControls?.setSlotVisible?.(owner, slotId, false);
       releaseVisibility.push(() => {
-        this.slotControls?.setSlotVisible?.(seed.owner, seed.slotId, true);
+        this.slotControls?.setSlotVisible?.(owner, slotId, true);
       });
     };
     hideSlot(attackerSeed);

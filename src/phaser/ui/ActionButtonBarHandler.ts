@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { BASE_H, INTERNAL_W } from "../../config/gameLayout";
-import { DrawHelpers } from "./HeaderHandler";
-import { Palette } from "./types";
+import { toColor } from "./types";
 
 type ActionButtonConfig = {
   label: string;
@@ -15,9 +14,6 @@ type ActionBarState = {
 
 export class ActionButtonBarHandler {
   private barHeight = 40;
-  private barPadding = 16;
-  private barWidth = INTERNAL_W - this.barPadding * 2;
-  private buttons: string[] = [];
   private state: ActionBarState = {
     descriptors: [],
   };
@@ -25,7 +21,6 @@ export class ActionButtonBarHandler {
   private elements: Phaser.GameObjects.GameObject[] = [];
   private onAction: (index: number) => void = () => {};
   private lastOffset: { x: number; y: number } = { x: 0, y: 0 };
-  private barBounds = { left: 0, right: 0, top: 0, bottom: 0 };
   private waitingLabel?: Phaser.GameObjects.Text;
   private waitingTween?: Phaser.Tweens.Tween;
   private waitingMode = false;
@@ -47,14 +42,14 @@ export class ActionButtonBarHandler {
     fontStyle: "bold" as const,
   };
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
+  constructor(private scene: Phaser.Scene) {}
 
   setActionHandler(handler: (index: number) => void) {
     this.onAction = handler;
   }
 
   setButtons(labels: string[]) {
-    this.buttons = [...labels];
+    void labels;
     this.draw(this.lastOffset);
   }
 
@@ -122,28 +117,19 @@ export class ActionButtonBarHandler {
     const btnGap = 12;
     const btnHeight = this.barHeight;
 
-    this.barBounds = {
-      left: 0,
-      right: INTERNAL_W,
-      top: barY - btnHeight / 2,
-      bottom: barY + btnHeight / 2,
-    };
-
     // Always draw the background bar.
-    const bg = this.drawHelpers
-      .drawRoundedRectOrigin({
-        x: 0,
-        y: barY - 23,
-        width: INTERNAL_W,
-        height: 300,
-        radius: 0,
-        fillColor: "#414242",
-        fillAlpha: 1,
-        strokeColor: 0x5e48f0,
-        strokeAlpha: 0,
-        strokeWidth: 0,
-      })
-      .setDepth(0);
+    const bg = this.drawRoundedRectOrigin({
+      x: 0,
+      y: barY - 23,
+      width: INTERNAL_W,
+      height: 300,
+      radius: 0,
+      fillColor: "#414242",
+      fillAlpha: 1,
+      strokeColor: 0x5e48f0,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    }).setDepth(0);
     this.elements.push(bg);
     this.waitingLabel?.destroy();
     this.waitingTween?.remove();
@@ -186,6 +172,74 @@ export class ActionButtonBarHandler {
     });
   }
 
+  private drawRoundedRect(config: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    radius: number;
+    fillColor: number | string;
+    fillAlpha?: number;
+    strokeColor?: number | string;
+    strokeAlpha?: number;
+    strokeWidth?: number;
+  }) {
+    const {
+      x,
+      y,
+      width,
+      height,
+      radius,
+      fillColor,
+      fillAlpha = 1,
+      strokeColor,
+      strokeAlpha = 1,
+      strokeWidth = 0,
+    } = config;
+    const g = this.scene.add.graphics({ x: x - width / 2, y: y - height / 2 });
+    g.fillStyle(toColor(fillColor), fillAlpha);
+    g.fillRoundedRect(0, 0, width, height, radius);
+    if (strokeWidth > 0 && strokeColor !== undefined) {
+      g.lineStyle(strokeWidth, toColor(strokeColor), strokeAlpha);
+      g.strokeRoundedRect(0, 0, width, height, radius);
+    }
+    return g;
+  }
+
+  private drawRoundedRectOrigin(config: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    radius: number;
+    fillColor: number | string;
+    fillAlpha?: number;
+    strokeColor?: number | string;
+    strokeAlpha?: number;
+    strokeWidth?: number;
+  }) {
+    const {
+      x,
+      y,
+      width,
+      height,
+      radius,
+      fillColor,
+      fillAlpha = 1,
+      strokeColor,
+      strokeAlpha = 1,
+      strokeWidth = 0,
+    } = config;
+    const g = this.scene.add.graphics({ x, y });
+    g.fillStyle(toColor(fillColor), fillAlpha);
+    g.fillRoundedRect(0, 0, width, height, radius);
+    if (strokeWidth > 0 && strokeColor !== undefined) {
+      g.lineStyle(strokeWidth, toColor(strokeColor), strokeAlpha);
+      g.strokeRoundedRect(0, 0, width, height, radius);
+    }
+    return g;
+  }
+
   private drawButton(
     x: number,
     y: number,
@@ -198,37 +252,33 @@ export class ActionButtonBarHandler {
   ) {
     const enabled = config.enabled !== false;
     // Outer pill
-    const outer = this.drawHelpers
-      .drawRoundedRect({
-        x,
-        y,
-        width: w,
-        height: h,
-        radius: h / 2,
-        fillColor,
-        fillAlpha: enabled ? 1 : 0.4,
-        strokeColor: this.buttonStyle.outerStroke,
-        strokeAlpha: 0.8,
-        strokeWidth: 2,
-      })
-      .setDepth(depth);
+    const outer = this.drawRoundedRect({
+      x,
+      y,
+      width: w,
+      height: h,
+      radius: h / 2,
+      fillColor,
+      fillAlpha: enabled ? 1 : 0.4,
+      strokeColor: this.buttonStyle.outerStroke,
+      strokeAlpha: 0.8,
+      strokeWidth: 2,
+    }).setDepth(depth);
     this.elements.push(outer);
 
     // Inner pill inset
-    const inner = this.drawHelpers
-      .drawRoundedRect({
-        x,
-        y,
-        width: w - 10,
-        height: h - 12,
-        radius: (h - 12) / 2,
-        fillColor: this.buttonStyle.innerColor,
-        fillAlpha: enabled ? 1 : 0.6,
-        strokeColor: this.buttonStyle.innerStroke,
-        strokeAlpha: 0.6,
-        strokeWidth: 1,
-      })
-      .setDepth(depth + 1);
+    const inner = this.drawRoundedRect({
+      x,
+      y,
+      width: w - 10,
+      height: h - 12,
+      radius: (h - 12) / 2,
+      fillColor: this.buttonStyle.innerColor,
+      fillAlpha: enabled ? 1 : 0.6,
+      strokeColor: this.buttonStyle.innerStroke,
+      strokeAlpha: 0.6,
+      strokeWidth: 1,
+    }).setDepth(depth + 1);
     this.elements.push(inner);
 
     const textStyle = {

@@ -4,7 +4,7 @@ import { GameEngine, type ActionSource } from "../game/GameEngine";
 import { ENGINE_EVENTS } from "../game/EngineEvents";
 import type { HandCardView } from "../ui/HandTypes";
 import { HandPresenter } from "../ui/HandPresenter";
-import type { SlotViewModel, SlotOwner, SlotPositionMap } from "../ui/SlotTypes";
+import type { SlotViewModel } from "../ui/SlotTypes";
 import { SlotPresenter } from "../ui/SlotPresenter";
 import { ApiManager } from "../api/ApiManager";
 import type { EffectTargetController } from "./EffectTargetController";
@@ -29,7 +29,6 @@ type HandControls = {
 
 export class SelectionActionController {
   private selectedHandCard?: HandCardView;
-  private selectedBaseCard?: any;
   private lastPhase?: string;
   private selectedSlot?: SlotViewModel;
   private lastBattleActive = false;
@@ -103,7 +102,6 @@ export class SelectionActionController {
     }
     this.selectedHandCard = card;
     this.selectedSlot = undefined;
-    this.selectedBaseCard = undefined;
     this.slotControls?.setSelectedSlot?.();
     this.deps.engine.select({
       kind: "hand",
@@ -155,7 +153,6 @@ export class SelectionActionController {
     // mark this slot as the current action source and refresh UI
     this.selectedSlot = slot;
     this.selectedHandCard = undefined;
-    this.selectedBaseCard = undefined;
     this.deps.handControls?.clearSelection?.();
     this.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
     this.deps.engine.select({ kind: "slot", slotId: slot.slotId, owner: slot.owner });
@@ -165,7 +162,6 @@ export class SelectionActionController {
   handleBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
     this.selectedHandCard = undefined;
     this.selectedSlot = undefined;
-    this.selectedBaseCard = payload?.card;
     this.slotControls?.setSelectedSlot?.();
     if (!payload?.card) return;
     if (this.isActionStepPhase() && !this.cardDataHasActionStepWindow(payload.card?.cardData)) {
@@ -289,7 +285,6 @@ export class SelectionActionController {
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
     this.selectedHandCard = undefined;
-    this.selectedBaseCard = undefined;
     this.selectedSlot = undefined;
     this.slotControls?.setSelectedSlot?.();
     this.deps.handControls?.clearSelection?.();
@@ -578,23 +573,6 @@ export class SelectionActionController {
     this.handleCancelSelection();
   }
 
-  private selectionHasActionStepWindow(selection: any) {
-    if (!selection) return false;
-    if (selection.kind === "hand") {
-      return this.cardDataHasActionStepWindow(this.getHandCardData(selection.uid));
-    }
-    if (selection.kind === "slot") {
-      const raw = this.deps.engine.getSnapshot().raw as any;
-      const slot = getSlotBySelection(selection, raw, this.deps.slotPresenter, this.deps.gameContext.playerId);
-      return this.slotHasActionStepWindow(slot);
-    }
-    if (selection.kind === "base") {
-      const baseCard = this.selectedBaseCard || this.getBaseCardData(selection.side === "opponent");
-      return this.cardDataHasActionStepWindow(baseCard?.cardData);
-    }
-    return false;
-  }
-
   private cardDataHasActionStepWindow(cardData: any) {
     const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
     return rules.some((r) => {
@@ -622,17 +600,6 @@ export class SelectionActionController {
     return found?.cardData;
   }
 
-
-  private getBaseCardData(isOpponent: boolean) {
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const players = raw?.gameEnv?.players || {};
-    const ids = Object.keys(players);
-    const selfId = this.deps.gameContext.playerId && players[this.deps.gameContext.playerId] ? this.deps.gameContext.playerId : ids[0];
-    const opponentId = ids.find((id) => id !== selfId);
-    const targetId = isOpponent ? opponentId : selfId;
-    const baseArr: any[] = players[targetId || ""]?.zones?.base || players[targetId || ""]?.base || [];
-    return baseArr && baseArr[0];
-  }
 
   private hasActiveBattle() {
     const raw: any = this.deps.engine.getSnapshot().raw;

@@ -1,4 +1,4 @@
-import { GameMode, GameStatus } from "./GameSessionService";
+import { GameMode } from "./GameSessionService";
 
 export type GameContext = {
   playerId: string;

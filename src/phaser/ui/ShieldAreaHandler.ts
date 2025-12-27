@@ -167,7 +167,7 @@ export class ShieldAreaHandler {
   }
 
   // Show or hide the full base + shield tower for a side.
-  setBaseTowerVisible(isOpponent: boolean, visible: boolean, fade = true) {
+  setBaseTowerVisible(isOpponent: boolean, visible: boolean) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const status = this.baseStatus[key];
     const elements: Phaser.GameObjects.GameObject[] = [];

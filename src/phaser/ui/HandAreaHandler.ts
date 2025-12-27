@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import {
   BASE_H,
   INTERNAL_W,
-  HAND_AREA_HEIGHT,
   HAND_CARD_ASPECT,
   HAND_GAP_X,
   HAND_GAP_Y,
@@ -40,7 +39,7 @@ export class HandAreaHandler {
   private onCardClick?: (card: HandCardView) => void;
   private selectedCardUid?: string;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
+  constructor(private scene: Phaser.Scene, palette: Palette, drawHelpers: DrawHelpers) {
     this.layout = new HandLayoutRenderer(scene, palette, drawHelpers);
   }
 
@@ -57,8 +56,6 @@ export class HandAreaHandler {
     const paddingX = HAND_PADDING_X;
     const targetCardW = HAND_TARGET_CARD_W;
     const aspect = HAND_CARD_ASPECT;
-    const areaHeight = HAND_AREA_HEIGHT;
-
     if (counts.length === 0) return;
 
     const maxCountPerRow = Math.max(...counts, 1);
@@ -160,7 +157,7 @@ export class HandAreaHandler {
     this.onCardClick = handler;
   }
 
-  fadeIn(duration = 200) {
+  fadeIn() {
     // Disable fade animation to prevent flashing during frequent updates.
     this.drawnObjects = this.drawnObjects.filter((obj: any) => obj && !obj.destroyed);
     this.drawnObjects.forEach((obj: any) => {

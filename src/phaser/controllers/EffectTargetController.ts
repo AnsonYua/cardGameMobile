@@ -124,17 +124,4 @@ export class EffectTargetController {
     });
   }
 
-  private computeCommandStartOverride(targetOwner: "player" | "opponent") {
-    // Launch commands from the player's hand side, toward the player's slot area.
-    const cam = this.deps.scene.cameras.main;
-    return { x: cam.centerX, y: cam.height - 60, isOpponent: false };
-  }
-
-  private computePlayerSlotCenter() {
-    const center = this.deps.getSlotAreaCenter?.("player");
-    if (center) return { ...center, isOpponent: false };
-    const cam = this.deps.scene.cameras.main;
-    return { x: cam.centerX, y: cam.centerY, isOpponent: false };
-  }
-
 }

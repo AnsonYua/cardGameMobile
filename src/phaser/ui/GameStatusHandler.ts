@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { Palette } from "./types";
 
 export type GameStatus = {
   shield: number;
@@ -13,7 +12,7 @@ export class GameStatusHandler {
   private status: GameStatus = { shield: 0, active: 0, rested: 0, extra: 0 };
   private visible = true;
 
-  constructor(private scene: Phaser.Scene, private palette: Palette) {}
+  constructor(private scene: Phaser.Scene) {}
 
   draw(centerX: number, baseY: number, barWidth: number, isOpponent: boolean, status?: Partial<GameStatus>) {
     if (status) this.status = { ...this.status, ...status };
@@ -39,7 +38,6 @@ export class GameStatusHandler {
   private computeLabelPositions(centerX: number, barWidth: number) {
     // Evenly spaced for now; adjust individually here if needed.
     const startX = centerX - barWidth / 2;
-    const step = barWidth / 3;
     return {
       shield: startX-30,
       active: startX +70,

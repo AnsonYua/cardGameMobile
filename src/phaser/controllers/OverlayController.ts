@@ -2,13 +2,11 @@ import Phaser from "phaser";
 
 export class OverlayController {
   private label?: Phaser.GameObjects.Text;
-  private currentMessage = "";
   private depth = 1200;
 
   constructor(private scene: Phaser.Scene) {}
 
   show(message: string, x: number, y: number) {
-    this.currentMessage = message;
     if (this.label) {
       this.label.setText(message).setPosition(x, y).setVisible(true);
       return;

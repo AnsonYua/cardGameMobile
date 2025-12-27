@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../config/gameLayout";
 import { BoardUI } from "./ui/BoardUI";
 import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
-import { DrawHelpers } from "./ui/HeaderHandler";
 import { ShieldAreaStatus } from "./ui/ShieldAreaHandler";
 import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
@@ -18,7 +17,6 @@ import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
-import { toPreviewKey } from "./ui/HandTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
@@ -84,8 +82,6 @@ export class BoardScene extends Phaser.Scene {
 
   private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
   private actionDispatcher = new ActionDispatcher();
-  private uiVisible = true;
-  private errorText?: Phaser.GameObjects.Text;
   private debugControls?: DebugControls;
   private loadingText?: Phaser.GameObjects.Text;
   private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
@@ -122,7 +118,7 @@ export class BoardScene extends Phaser.Scene {
       text: colors.text,
       bg: colors.bg,
     });
-    this.shuffleManager = new ShuffleAnimationManager(this, new DrawHelpers(this), this.offset);
+    this.shuffleManager = new ShuffleAnimationManager(this, this.offset);
     this.baseControls = this.ui.getBaseControls();
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
@@ -218,7 +214,7 @@ export class BoardScene extends Phaser.Scene {
     });
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
-    this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow, pilotFlow: this.pilotFlow });
+    this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow });
     this.debugControls.exposeTestHooks(this.buildTestHooks());
 
     this.setupActions();
@@ -262,7 +258,7 @@ export class BoardScene extends Phaser.Scene {
       console.warn("Effect target dialog is not open; cannot select target");
       return false;
     };
-    const selectPilotTarget = async (targetIndex = 0, actionId = "playPilotDesignationAsPilot") => {
+    const selectPilotTarget = async (targetIndex = 0) => {
       // Drive the real dialog callback; avoid snapshot/fallback logic to mirror UI flow.
       const selectedInDialog = await this.pilotTargetDialogUi?.selectTarget(targetIndex);
       if (selectedInDialog) {
@@ -335,8 +331,8 @@ export class BoardScene extends Phaser.Scene {
     this.showUI(!skipAnimation);
     this.updateHandArea({ skipAnimation });
     this.updateSlots({ skipAnimation, animation: animationPolicy });
-    this.updateBaseAndShield({ fade: !skipAnimation, animation: animationPolicy });
-    this.refreshActionBarState(raw, skipAnimation);
+    this.updateBaseAndShield();
+    this.refreshActionBarState(raw);
   }
 
   // Placeholder helpers so the flow is explicit; wire up to real UI show/hide logic later.
@@ -374,8 +370,8 @@ export class BoardScene extends Phaser.Scene {
     const status = this.statusControls;
     const hand = this.handControls;
     const actions = this.actionControls;
-    base?.setBaseTowerVisible(true, false, false);
-    base?.setBaseTowerVisible(false, false, false);
+    base?.setBaseTowerVisible(true, false);
+    base?.setBaseTowerVisible(false, false);
     energy?.setVisible(false);
     status?.setVisible(false);
     hand?.setVisible(false);
@@ -513,7 +509,7 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private refreshActionBarState(raw: any, skipAnimation: boolean) {
+  private refreshActionBarState(raw: any) {
     const playerId = this.gameContext.playerId;
     const isLocalTurn = this.turnController.update(raw, playerId);
     this.selectionAction?.updateActionBarForPhase(raw, { isLocalTurn });
@@ -650,12 +646,7 @@ export class BoardScene extends Phaser.Scene {
     await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
   }
 
-  private handleEndTurn() {
-    console.log("End Turn clicked");
-  }
-
-  private updateBaseAndShield(opts: { fade?: boolean; animation?: { allowAnimations: boolean } } = {}) {
-    const fade = opts.fade ?? true;
+  private updateBaseAndShield() {
     console.log("show base")
     const snapshot = this.engine.getSnapshot();
     const raw: any = snapshot.raw;
@@ -683,13 +674,13 @@ export class BoardScene extends Phaser.Scene {
         this.baseControls?.setBaseTexture?.(isOpponent, baseCard?.cardId);
         this.baseControls?.setBaseBadgeLabel(isOpponent, `${ap}|${hp}`);
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
-        this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
+        this.baseControls?.setBaseTowerVisible(isOpponent, true);
         this.baseControls?.setBaseVisible(isOpponent, true);
         // Base play animations are disabled for now; NotificationAnimationController owns entry effects.
         this.baseControls?.setBasePreviewData?.(isOpponent, baseCard, { allowAnimation: false });
       } else {
         // Hide only the base visuals; keep shields visible. Disable preview.
-        this.baseControls?.setBaseTowerVisible(isOpponent, true, fade);
+        this.baseControls?.setBaseTowerVisible(isOpponent, true);
         this.baseControls?.setBaseVisible(isOpponent, false);
         this.baseControls?.setBasePreviewData?.(isOpponent, null, { allowAnimation: false });
       }

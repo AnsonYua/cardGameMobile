@@ -1,6 +1,4 @@
 import Phaser from "phaser";
-import { BASE_W } from "../../config/gameLayout";
-import { DrawHelpers } from "../ui/HeaderHandler";
 import { FieldConfig, FieldHandler } from "../ui/FieldHandler";
 
 export class ShuffleAnimationManager {
@@ -20,7 +18,7 @@ export class ShuffleAnimationManager {
       .forEach((c: any) => c.setVisible(true));
   }
 
-  constructor(private scene: Phaser.Scene, private drawHelpers: DrawHelpers, private offset: { x: number; y: number }) {}
+  constructor(private scene: Phaser.Scene, private offset: { x: number; y: number }) {}
 
   play(onComplete?: () => void): Promise<void> {
     let resolvePromise: () => void;
