@@ -7,6 +7,7 @@ import type { ActionControls } from "./ControllerTypes";
 import { mapAvailableTargetsToSlotTargets, type SlotTarget } from "./TargetSlotMapper";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { SlotInteractionGate } from "./SlotInteractionGate";
+import { findLatestAttackNotification, getNotificationQueue } from "../utils/NotificationUtils";
 
 type BlockerDeps = {
   api: ApiManager;
@@ -178,16 +179,9 @@ export class BlockerFlowManager {
   }
 
   private extractNotificationId(raw: any) {
-    const notifications = raw?.gameEnv?.notificationQueue ?? [];
-    if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
-    for (let idx = notifications.length - 1; idx >= 0; idx--) {
-      const entry = notifications[idx];
-      if (!entry) continue;
-      const type = (entry.type || "").toString().toUpperCase();
-      if (type === "UNIT_ATTACK_DECLARED" && typeof entry.id === "string") {
-        return entry.id;
-      }
-    }
+    const notifications = getNotificationQueue(raw);
+    const attackNote = findLatestAttackNotification(notifications, { includeBattleEnd: true });
+    if (attackNote?.id) return attackNote.id;
     const last = notifications[notifications.length - 1];
     if (!last || typeof last?.id !== "string") return undefined;
     return last.id;

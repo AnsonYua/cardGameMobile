@@ -8,6 +8,7 @@ import {
   getSlotCenterFromMap,
   type TargetAnchorProviders,
 } from "../utils/AttackResolver";
+import { findActiveAttackNotification } from "../utils/NotificationUtils";
 
 type AttackIndicatorControllerConfig = {
   scene: Phaser.Scene;
@@ -30,7 +31,7 @@ export class AttackIndicatorController {
     positions?: SlotPositionMap | null,
     attackNote?: SlotNotification,
   ) {
-    const note = attackNote ?? this.findActiveAttackNotification(notifications);
+    const note = attackNote ?? findActiveAttackNotification(notifications);
     if (!note) {
       this.hideIndicator();
       return;
@@ -84,17 +85,4 @@ export class AttackIndicatorController {
     return `${attacker}|${target}|${slot}|${player}`;
   }
 
-  private findActiveAttackNotification(notifications: SlotNotification[]) {
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return undefined;
-    }
-    for (let i = notifications.length - 1; i >= 0; i -= 1) {
-      const note = notifications[i];
-      if (!note) continue;
-      if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
-      if (note.payload?.battleEnd === true) continue;
-      return note;
-    }
-    return undefined;
-  }
 }

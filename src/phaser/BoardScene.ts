@@ -32,6 +32,13 @@ import { NotificationAnimationController, type SlotNotification } from "./animat
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
+import {
+  findActiveAttackNotification,
+  findLatestAttackNotification,
+  getNotificationQueue,
+  getActiveAttackTargetSlotKey,
+  getUpcomingBattleSlotKeys,
+} from "./utils/NotificationUtils";
 
 const colors = {
   bg: "#ffffff",
@@ -446,14 +453,23 @@ export class BoardScene extends Phaser.Scene {
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animation?.allowAnimations ?? (!opts.skipAnimation && this.playAnimations);
 
-    const notificationQueue = this.getNotificationQueue(raw);
+    const notificationQueue = getNotificationQueue(raw);
     const positions = this.slotControls?.getSlotPositions?.();
-    const currentAttackNote = this.findActiveAttackNotification(notificationQueue);
-    const attackNoteForAnimation = this.findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
+    // We keep two attack references: one for indicator (ignore battleEnd), one for animation (allow battleEnd).
+    const currentAttackNote = findActiveAttackNotification(notificationQueue);
+    const attackNoteForAnimation = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
+    // Capture attack snapshots early so battle animation can run even if slots update immediately.
     this.battleAnimations?.setSlotControls(this.slotControls);
     this.battleAnimations?.captureAttackSnapshot(attackNoteForAnimation, slots, positions);
-    const attackTargetSlotKey = this.getActiveAttackTargetSlotKey(currentAttackNote);
-    const battleSlotKeys = this.getUpcomingBattleSlotKeys(notificationQueue);
+    const attackTargetSlotKey = getActiveAttackTargetSlotKey(
+      currentAttackNote,
+      this.resolveSlotOwnerByPlayer.bind(this),
+    );
+    const battleSlotKeys = getUpcomingBattleSlotKeys(
+      notificationQueue,
+      this.resolveSlotOwnerByPlayer.bind(this),
+    );
+    // Play card animations first; once complete, we trigger battle resolution animations.
     const notificationPromise = this.notificationAnimator?.process({
       notifications: notificationQueue,
       slots,
@@ -477,6 +493,7 @@ export class BoardScene extends Phaser.Scene {
     } else {
       processBattles();
     }
+    // Merge locked slot snapshots so animations don't flicker when the engine state advances.
     const mergedSlots = this.applyLockedSlotOverrides(slots);
     // eslint-disable-next-line no-console
     console.log("[BoardScene] setSlots", {
@@ -502,12 +519,6 @@ export class BoardScene extends Phaser.Scene {
     this.selectionAction?.updateActionBarForPhase(raw, { isLocalTurn });
   }
 
-  private getNotificationQueue(raw: any): SlotNotification[] {
-    const queue = raw?.notificationQueue ?? raw?.gameEnv?.notificationQueue;
-    if (!Array.isArray(queue)) return [];
-    return queue;
-  }
-
   private getTargetAnchorProviders(): TargetAnchorProviders {
     return {
       getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
@@ -524,83 +535,6 @@ export class BoardScene extends Phaser.Scene {
     this.attackIndicatorController?.updateFromNotifications(notifications, slots, positions, attackNote);
   }
 
-  private findActiveAttackNotification(notifications: SlotNotification[]) {
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return undefined;
-    }
-    for (let i = notifications.length - 1; i >= 0; i -= 1) {
-      const note = notifications[i];
-      if (!note) continue;
-      if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
-      if (note.payload?.battleEnd === true) {
-        // eslint-disable-next-line no-console
-        console.log("[BoardScene] skip attack note with battleEnd", note.id);
-        continue;
-      }
-      return note;
-    }
-    return undefined;
-  }
-
-  private findLatestAttackNotification(
-    notifications: SlotNotification[],
-    opts: { includeBattleEnd?: boolean } = {},
-  ) {
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return undefined;
-    }
-    for (let i = notifications.length - 1; i >= 0; i -= 1) {
-      const note = notifications[i];
-      if (!note) continue;
-      if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
-      if (!opts.includeBattleEnd && note.payload?.battleEnd === true) continue;
-      return note;
-    }
-    return undefined;
-  }
-
-  private getActiveAttackTargetSlotKey(note?: SlotNotification) {
-    if (!note) return undefined;
-    if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") return undefined;
-    const payload = note.payload || {};
-    const slotId =
-      payload.forcedTargetZone ||
-      payload.targetSlotName ||
-      payload.targetSlot ||
-      payload.slotId ||
-      payload.targetSlotId;
-    if (!slotId) return undefined;
-    const targetPlayerId = payload.forcedTargetPlayerId || payload.targetPlayerId || payload.defendingPlayerId;
-    const owner = this.resolveSlotOwnerByPlayer(targetPlayerId);
-    if (!owner) return undefined;
-    return `${owner}-${slotId}`;
-  }
-
-  private getUpcomingBattleSlotKeys(notifications: SlotNotification[]) {
-    const slots = new Set<string>();
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return slots;
-    }
-    for (const note of notifications) {
-      if (!note) continue;
-      if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") continue;
-      const payload = note.payload || {};
-      const attackerSlotId = payload.attacker?.slot;
-      const targetSlotId = payload.target?.slot;
-      const attackerPlayerId = payload.attacker?.playerId;
-      const targetPlayerId = payload.target?.playerId;
-      const attackerOwner = this.resolveSlotOwnerByPlayer(attackerPlayerId);
-      const targetOwner = this.resolveSlotOwnerByPlayer(targetPlayerId);
-      if (attackerOwner && attackerSlotId) {
-        slots.add(`${attackerOwner}-${attackerSlotId}`);
-      }
-      if (targetOwner && targetSlotId) {
-        slots.add(`${targetOwner}-${targetSlotId}`);
-      }
-    }
-    return slots;
-  }
-
   private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {
     if (!playerId) return undefined;
     if (playerId === this.gameContext.playerId) {
@@ -610,6 +544,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private collectLockedSlots(): Map<string, SlotViewModel> {
+    // Combine locks from play animations and battle animations.
     const locked = new Map<string, SlotViewModel>();
     const notificationLocked = this.notificationAnimator?.getLockedSlots();
     notificationLocked?.forEach((slot, key) => locked.set(key, slot));
@@ -621,6 +556,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private applyLockedSlotOverrides(slots: SlotViewModel[]): SlotViewModel[] {
+    // Merge the latest engine slots with any locked snapshots to prevent visual flicker.
     const locked = this.collectLockedSlots();
     if (!locked.size) return slots;
     const currentByKey = new Map<string, SlotViewModel>();

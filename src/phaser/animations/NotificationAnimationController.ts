@@ -55,6 +55,7 @@ export class NotificationAnimationController {
       return this.animationQueue;
     }
 
+    // Queue animations one-by-one so multiple notifications don't overlap visually.
     notifications.forEach((note) => {
       if (!note || !note.id || this.processedIds.has(note.id)) return;
       const type = (note.type || "").toUpperCase();
@@ -69,6 +70,7 @@ export class NotificationAnimationController {
   }
 
   private enqueueAnimation(id: string, task: () => Promise<void>) {
+    // Promise chaining guarantees FIFO ordering of animations.
     // eslint-disable-next-line no-console
     console.log("[NotificationAnimator] enqueue", id, Date.now());
     this.animationQueue = this.animationQueue
@@ -90,6 +92,7 @@ export class NotificationAnimationController {
     const reason = (payload.reason ?? "").toString().toLowerCase();
     if (reason && reason !== "hand") return null;
 
+    // Route based on play target (command/base/slot).
     const playAs = (payload.playAs ?? "").toString().toLowerCase();
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
@@ -132,6 +135,7 @@ export class NotificationAnimationController {
     const textureKey = card?.textureKey;
     const shouldHide = ctx.shouldHideSlot ? ctx.shouldHideSlot(slotKey) : true;
     if (shouldHide) {
+      // Lock a snapshot so the slot contents remain stable during the animation.
       this.lockSlotSnapshot(slotKey, slot);
     }
     return () =>
@@ -164,6 +168,7 @@ export class NotificationAnimationController {
     shouldHide: boolean;
   }) {
     if (spec.shouldHide) {
+      // Hide the slot while the flying card animates into it.
       this.hideSlot(spec.owner, spec.slotId);
     }
     this.deps.onSlotAnimationStart?.(spec.slotKey);
@@ -180,6 +185,7 @@ export class NotificationAnimationController {
     } finally {
       this.deps.onSlotAnimationEnd?.(spec.slotKey);
       if (spec.shouldHide) {
+        // Show slot again and release snapshot lock.
         this.showSlot(spec.owner, spec.slotId);
       }
       this.releaseSlotSnapshot(spec.slotKey);

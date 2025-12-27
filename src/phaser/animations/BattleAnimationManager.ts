@@ -70,6 +70,7 @@ export class BattleAnimationManager {
     const defenderOwner =
       this.config.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
     const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
+    // Resolve attacker and target positions using current slot state or payload fallback.
     const attackerSlot = findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
     const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
     const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
@@ -125,8 +126,10 @@ export class BattleAnimationManager {
       targetPoint,
     });
     if (replacedSnapshot) {
+      // Swap snapshots cleanly to avoid stale locks.
       this.releaseLockedSlotsForSnapshot(replacedSnapshot);
     }
+    // Lock involved slots so UI updates don't remove cards mid-animation.
     this.lockSlotSnapshot(attackerSlot);
     this.lockSlotSnapshot(targetSlot);
     this.snapshotCache.evictExpired();
@@ -141,6 +144,7 @@ export class BattleAnimationManager {
       if (!note) return;
       if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
       if (this.processedResolutions.has(note.id)) return;
+      // Prevent double-processing the same resolution during polling updates.
       this.processedResolutions.add(note.id);
       this.queueBattleResolution(note);
     });
@@ -154,6 +158,7 @@ export class BattleAnimationManager {
     if (!snapshot) {
       // eslint-disable-next-line no-console
       console.log("[BattleAnimation] missing snapshot for battle", attackId, note.id, payload?.battleType);
+      // No snapshot means no animation; ensure locks are still released.
       this.releaseLockedSlotsByPayload(payload);
       return;
     }
@@ -174,6 +179,7 @@ export class BattleAnimationManager {
     if (!attackerSeed) {
       return;
     }
+    // Create sprite clones so we can animate without mutating actual slot renderers.
     const attackerSprite = this.createBattleSprite(attackerSeed);
     if (!attackerSprite) {
       return;
@@ -191,6 +197,7 @@ export class BattleAnimationManager {
     hideSlot(attackerSeed);
     hideSlot(snapshot.target);
     try {
+      // Advance attacker to target, then play impact effects.
       await this.fx.runTween({
         targets: attackerSprite,
         x: targetPoint.x,
@@ -205,6 +212,7 @@ export class BattleAnimationManager {
       if (result.attackerDestroyed) {
         cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
       } else {
+        // Return attacker to origin if it survives.
         cleanupTasks.push(
           this.fx.runTween({
             targets: attackerSprite,
@@ -220,6 +228,7 @@ export class BattleAnimationManager {
         if (result.defenderDestroyed) {
           cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
         } else {
+          // Pulse target to show impact without removing it.
           cleanupTasks.push(this.pulseSprite(targetSprite));
         }
       }
@@ -255,6 +264,7 @@ export class BattleAnimationManager {
     position?: { x: number; y: number; w: number; h: number; isOpponent?: boolean },
   ): BattleSpriteSeed | undefined {
     if (!owner || !slotId || !position) return undefined;
+    // Build a sprite seed from payload when the slot card is already gone.
     const uid =
       role === "attacker"
         ? payload.attackerCarduid
@@ -294,6 +304,7 @@ export class BattleAnimationManager {
     if (!slot) return;
     const key = `${slot.owner}-${slot.slotId}`;
     if (!slot.slotId) return;
+    // Snapshot the slot so we can render a stable card during animations.
     const snapshot: SlotViewModel = {
       owner: slot.owner,
       slotId: slot.slotId,
