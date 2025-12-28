@@ -85,13 +85,24 @@ export class SlotDisplayHandler {
 
   setSlotVisible(owner: SlotOwner, slotId: string, visible: boolean) {
     const key = `${owner}-${slotId}`;
+    // eslint-disable-next-line no-console
+    console.log("[SlotDisplayHandler] setSlotVisible", key, visible);
     if (!visible) {
       this.hiddenSlots.add(key);
     } else {
       this.hiddenSlots.delete(key);
     }
     const container = this.slotContainers.get(key);
-    container?.setVisible(visible);
+    if (container) {
+      container.setVisible(visible);
+      // eslint-disable-next-line no-console
+      console.log("[SlotDisplayHandler] setSlotVisible applied", key, visible, {
+        hasContainer: true,
+      });
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn("[SlotDisplayHandler] setSlotVisible missing container", key, visible);
+    }
   }
 
   getSlotAreaCenter(owner: SlotOwner): { x: number; y: number } | undefined {
@@ -456,18 +467,15 @@ export class SlotDisplayHandler {
 
     if (slotKey) {
       const score = (ap ?? 0) + (hp ?? 0);
-      const previous = this.lastStatLabels.get(slotKey);
       this.lastStatLabels.set(slotKey, { label, score });
-      if (previous && previous.label !== label) {
-        const delta = score - previous.score;
-        if (!this.animatingSlots.has(slotKey)) {
-          this.triggerStatsPulse(statsText, pill, delta);
-        }
-      }
     }
   }
 
-  private triggerStatsPulse(statsText: Phaser.GameObjects.Text, pill: Phaser.GameObjects.GameObject, delta: number) {
+  private triggerStatsPulse(
+    statsText: Phaser.GameObjects.Text,
+    pill: Phaser.GameObjects.GameObject,
+    delta: number,
+  ): Promise<void> {
     const tint = delta > 0 ? 0x4de685 : delta < 0 ? 0xff6b6b : 0xffffff;
     if (delta !== 0) {
       statsText.setTint(tint);
@@ -476,22 +484,25 @@ export class SlotDisplayHandler {
     if (pill instanceof Phaser.GameObjects.GameObject) {
       tweenTargets.push(pill);
     }
-    this.scene.tweens.add({
-      targets: tweenTargets,
-      scaleX: 1.2,
-      scaleY: 1.2,
-      duration: 220,
-      ease: "Back.easeOut",
-      yoyo: true,
-      onComplete: () => {
-        statsText.setTint(0xffffff);
-        if (pill instanceof Phaser.GameObjects.GameObject && typeof (pill as any).setScale === "function") {
-          (pill as any).setScale(1, 1);
-        }
-      },
-    });
     const matrix = statsText.getWorldTransformMatrix();
     this.spawnStatSparks(matrix.tx, matrix.ty, tint);
+    return new Promise((resolve) => {
+      this.scene.tweens.add({
+        targets: tweenTargets,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        duration: 220,
+        ease: "Back.easeOut",
+        yoyo: true,
+        onComplete: () => {
+          statsText.setTint(0xffffff);
+          if (pill instanceof Phaser.GameObjects.GameObject && typeof (pill as any).setScale === "function") {
+            (pill as any).setScale(1, 1);
+          }
+          resolve();
+        },
+      });
+    });
   }
 
   private spawnStatSparks(x: number, y: number, color: number) {
@@ -517,19 +528,56 @@ export class SlotDisplayHandler {
   }
 
   releaseStatAnimation(slotKey: string) {
-    const previousLabel = this.animatingSlots.get(slotKey);
     this.animatingSlots.delete(slotKey);
-    const current = this.lastStatLabels.get(slotKey);
-    if (!current || current.label === previousLabel) return;
-    const nodes = this.statLabelNodes.get(slotKey);
-    if (nodes) {
-      const previous = previousLabel ?? "";
-      const prevParts = previous.split("|").map((v) => Number(v) || 0);
-      const currParts = current.label.split("|").map((v) => Number(v) || 0);
-      const prevScore = (prevParts[0] ?? 0) + (prevParts[1] ?? 0);
-      const currScore = (currParts[0] ?? 0) + (currParts[1] ?? 0);
-      this.triggerStatsPulse(nodes.text, nodes.pill, currScore - prevScore);
+  }
+
+  playStatPulse(slotKey: string, delta: number) {
+    // eslint-disable-next-line no-console
+    console.log("[SlotDisplayHandler] playStatPulse", slotKey, delta);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return Promise.resolve();
     }
+    // Ensure slot is visible before pulsing.
+    const [owner, slotId] = slotKey.split("-");
+    if (owner && slotId) {
+      this.setSlotVisible(owner as SlotOwner, slotId, true);
+      // eslint-disable-next-line no-console
+      console.log("[SlotDisplayHandler] forceVisibleForPulse", slotKey);
+    }
+    return this.getStatNodesWithRetry(slotKey).then((nodes) => {
+      if (!nodes) {
+        // eslint-disable-next-line no-console
+        console.warn("[SlotDisplayHandler] stat pulse skipped; nodes missing", slotKey);
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.log("[SlotDisplayHandler] stat pulse", slotKey, delta);
+      return this.triggerStatsPulse(nodes.text, nodes.pill, delta);
+    });
+  }
+
+  private getStatNodesWithRetry(
+    slotKey: string,
+    maxAttempts = 8,
+    delayMs = 16,
+  ): Promise<{ text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject } | null> {
+    return new Promise((resolve) => {
+      const attempt = (remaining: number) => {
+        const nodes = this.statLabelNodes.get(slotKey);
+        if (nodes) {
+          resolve(nodes);
+          return;
+        }
+        if (remaining <= 0) {
+          // eslint-disable-next-line no-console
+          console.warn("[SlotDisplayHandler] stat nodes missing after retries", slotKey);
+          resolve(null);
+          return;
+        }
+        this.scene.time.delayedCall(delayMs, () => attempt(remaining - 1));
+      };
+      attempt(maxAttempts);
+    });
   }
 
   private startPreviewTimer(slot: SlotViewModel) {

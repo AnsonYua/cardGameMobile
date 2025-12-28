@@ -14,6 +14,8 @@ export type SlotAnimationContext = {
   shouldHideSlot?: (slotKey: string) => boolean;
   attackSnapshotNote?: SlotNotification;
   slotControls?: Parameters<BattleAnimationManager["setSlotControls"]>[0] | null;
+  triggerStatPulse?: (slotKey: string, delta: number) => Promise<void> | void;
+  resolveSlotOwnerByPlayer?: (playerId?: string) => SlotOwner | undefined;
 };
 
 export interface AnimationHandler {
@@ -24,6 +26,7 @@ export interface AnimationHandler {
 
 export class AnimationOrchestrator {
   private handlers: AnimationHandler[];
+  private runQueue: Promise<void> = Promise.resolve();
 
   constructor(handlers: AnimationHandler[]) {
     this.handlers = handlers.filter(Boolean);
@@ -35,11 +38,21 @@ export class AnimationOrchestrator {
 
   run(ctx: SlotAnimationContext): Promise<void> {
     this.handlers.forEach((handler) => handler.prepare?.(ctx));
-    let chain = Promise.resolve();
-    this.handlers.forEach((handler) => {
-      chain = chain.then(() => handler.handle(ctx));
+    this.runQueue = this.runQueue.then(async () => {
+      let chain = Promise.resolve();
+      this.handlers.forEach((handler) => {
+        const handlerName = (handler as any)?.constructor?.name ?? "AnimationHandler";
+        chain = chain.then(async () => {
+          // eslint-disable-next-line no-console
+          console.log("[AnimationOrchestrator] start", handlerName, Date.now());
+          await handler.handle(ctx);
+          // eslint-disable-next-line no-console
+          console.log("[AnimationOrchestrator] complete", handlerName, Date.now());
+        });
+      });
+      return chain;
     });
-    return chain;
+    return this.runQueue;
   }
 
   getLockedSlots(): Map<string, SlotViewModel> {
@@ -82,7 +95,7 @@ export class BattleAnimationHandler implements AnimationHandler {
   }
 
   handle(ctx: SlotAnimationContext) {
-    this.battle.processBattleResolutionNotifications(ctx.notifications);
+    return this.battle.processBattleResolutionNotifications(ctx.notifications);
   }
 
   getLockedSlots() {

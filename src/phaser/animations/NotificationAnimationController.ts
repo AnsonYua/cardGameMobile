@@ -341,6 +341,8 @@ export class NotificationAnimationController {
     if (!owner || !slotId) return;
     const key = `${owner}-${slotId}`;
     if (this.hiddenSlots.has(key)) return;
+    // eslint-disable-next-line no-console
+    console.log("[NotificationAnimator] hideSlot", key);
     this.deps.setSlotVisible?.(owner, slotId, false);
     this.hiddenSlots.add(key);
   }
@@ -349,6 +351,8 @@ export class NotificationAnimationController {
     if (!owner || !slotId) return;
     const key = `${owner}-${slotId}`;
     if (!this.hiddenSlots.has(key)) return;
+    // eslint-disable-next-line no-console
+    console.log("[NotificationAnimator] showSlot", key);
     this.hiddenSlots.delete(key);
     this.deps.setSlotVisible?.(owner, slotId, true);
   }

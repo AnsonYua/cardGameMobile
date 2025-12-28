@@ -149,3 +149,31 @@ gameEnv.notificationQueue[
                 }
             }
 ]
+
+
+4.
+{
+                "id": "card_stat_modified_1766926053793_8hq4ayrsc",
+                "type": "CARD_STAT_MODIFIED",
+                "metadata": {
+                    "timestamp": 1766926053793,
+                    "expiresAt": 1766926056793,
+                    "requiresAcknowledgment": false,
+                    "frontendProcessed": false,
+                    "priority": "normal"
+                },
+                "payload": {
+                    "playerId": "playerId_1",
+                    "carduid": "ST01-009_d0276af7-b917-45ba-8e16-692d241a7360",
+                    "cardId": "ST01-009",
+                    "cardName": "Zowort",
+                    "zone": "slot3",
+                    "stat": "modifyAP",
+                    "delta": -3,
+                    "modifierValue": -3,
+                    "timestamp": 1766926053793
+                }
+            }
+When CARD_STAT_MODIFIED appears in notificationQueue, trigger AP/HP badge pulse animation on the target slot.
+Resolve slot by payload.playerId + payload.zone (slot id). If slot cannot be resolved, fallback by payload.carduid lookup.
+Do not auto-pulse on AP/HP changes without this notification.

@@ -32,6 +32,7 @@ type PendingBattleSnapshot = {
   attacker?: BattleSpriteSeed;
   target?: BattleSpriteSeed;
   targetPoint: { x: number; y: number };
+  attackId: string;
 };
 
 export class BattleAnimationManager {
@@ -45,6 +46,8 @@ export class BattleAnimationManager {
   private battleAnimationQueue: Promise<void> = Promise.resolve();
   private fx: FxToolkit;
   private lockedSlotSnapshots = new Map<string, SlotViewModel>();
+  private pendingLockSnapshots = new Map<string, SlotViewModel>();
+  private pendingLocksByAttackId = new Map<string, Set<string>>();
 
   constructor(private config: BattleAnimationManagerConfig) {
     this.slotControls = config.slotControls;
@@ -124,20 +127,22 @@ export class BattleAnimationManager {
       attacker: attackerSeed,
       target: targetSeed,
       targetPoint,
+      attackId: snapshotNote.id,
     });
     if (replacedSnapshot) {
       // Swap snapshots cleanly to avoid stale locks.
       this.releaseLockedSlotsForSnapshot(replacedSnapshot);
+      this.releasePendingLocksForAttack(replacedSnapshot.attackId);
     }
-    // Lock involved slots so UI updates don't remove cards mid-animation.
-    this.lockSlotSnapshot(attackerSlot);
-    this.lockSlotSnapshot(targetSlot);
+    // Defer locking until battle animation runs to avoid overriding fresh UI changes.
+    this.storePendingLock(snapshotNote.id, attackerSlot, attackerSeed);
+    this.storePendingLock(snapshotNote.id, targetSlot, targetSeed);
     this.snapshotCache.evictExpired();
   }
 
   processBattleResolutionNotifications(notifications: SlotNotification[]) {
     if (!Array.isArray(notifications) || notifications.length === 0) {
-      return;
+      return this.battleAnimationQueue;
     }
     this.snapshotCache.evictExpired();
     notifications.forEach((note) => {
@@ -148,6 +153,7 @@ export class BattleAnimationManager {
       this.processedResolutions.add(note.id);
       this.queueBattleResolution(note);
     });
+    return this.battleAnimationQueue;
   }
 
   private queueBattleResolution(note: SlotNotification) {
@@ -162,6 +168,7 @@ export class BattleAnimationManager {
       this.releaseLockedSlotsByPayload(payload);
       return;
     }
+    this.activatePendingLocksForAttack(attackId);
     this.battleAnimationQueue = this.battleAnimationQueue
       .then(() => this.playBattleResolutionAnimation(snapshot, payload))
       .then(() => {
@@ -170,6 +177,7 @@ export class BattleAnimationManager {
       .catch((err) => console.warn("battle animation failed", err))
       .finally(() => {
         this.releaseLockedSlotsForSnapshot(snapshot);
+        this.releasePendingLocksForAttack(attackId);
         this.snapshotCache.delete(attackId);
       });
   }
@@ -186,61 +194,45 @@ export class BattleAnimationManager {
     }
     const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
     const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
-    const releaseVisibility: Array<() => void> = [];
-    const hideSlot = (seed?: BattleSpriteSeed) => {
-      if (!seed?.slotId) return;
-      const { owner } = seed;
-      const slotId = seed.slotId;
-      this.slotControls?.setSlotVisible?.(owner, slotId, false);
-      releaseVisibility.push(() => {
-        this.slotControls?.setSlotVisible?.(owner, slotId, true);
-      });
-    };
-    hideSlot(attackerSeed);
-    hideSlot(snapshot.target);
-    try {
-      // Advance attacker to target, then play impact effects.
-      await this.fx.runTween({
-        targets: attackerSprite,
-        x: targetPoint.x,
-        y: targetPoint.y,
-        duration: 320,
-        ease: "Sine.easeIn",
-      });
-      await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
+    // Advance attacker to target, then play impact effects.
+    await this.fx.runTween({
+      targets: attackerSprite,
+      x: targetPoint.x,
+      y: targetPoint.y,
+      duration: 320,
+      ease: "Sine.easeIn",
+    });
+    await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
 
-      const result = payload?.result || {};
-      const cleanupTasks: Promise<void>[] = [];
-      if (result.attackerDestroyed) {
-        cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
-      } else {
-        // Return attacker to origin if it survives.
-        cleanupTasks.push(
-          this.fx.runTween({
-            targets: attackerSprite,
-            x: attackerSeed.position.x,
-            y: attackerSeed.position.y,
-            duration: 260,
-            ease: "Sine.easeOut",
-          }),
-        );
-      }
-
-      if (targetSprite) {
-        if (result.defenderDestroyed) {
-          cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
-        } else {
-          // Pulse target to show impact without removing it.
-          cleanupTasks.push(this.pulseSprite(targetSprite));
-        }
-      }
-
-      await Promise.all(cleanupTasks);
-      this.destroyBattleSprite(attackerSprite);
-      this.destroyBattleSprite(targetSprite);
-    } finally {
-      releaseVisibility.forEach((fn) => fn());
+    const result = payload?.result || {};
+    const cleanupTasks: Promise<void>[] = [];
+    if (result.attackerDestroyed) {
+      cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
+    } else {
+      // Return attacker to origin if it survives.
+      cleanupTasks.push(
+        this.fx.runTween({
+          targets: attackerSprite,
+          x: attackerSeed.position.x,
+          y: attackerSeed.position.y,
+          duration: 260,
+          ease: "Sine.easeOut",
+        }),
+      );
     }
+
+    if (targetSprite) {
+      if (result.defenderDestroyed) {
+        cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
+      } else {
+        // Pulse target to show impact without removing it.
+        cleanupTasks.push(this.pulseSprite(targetSprite));
+      }
+    }
+
+    await Promise.all(cleanupTasks);
+    this.destroyBattleSprite(attackerSprite);
+    this.destroyBattleSprite(targetSprite);
   }
 
   private buildBattleSpriteSeed(slot?: SlotViewModel, slotPosition?: { x: number; y: number; w: number; h: number; isOpponent?: boolean }): BattleSpriteSeed | undefined {
@@ -320,6 +312,52 @@ export class BattleAnimationManager {
     this.lockedSlotSnapshots.set(key, snapshot);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] lockSlot", key, snapshot.unit?.cardUid ?? snapshot.pilot?.cardUid ?? null);
+  }
+
+  private storePendingLock(attackId: string, slot?: SlotViewModel, seed?: BattleSpriteSeed) {
+    if (!slot && !seed) return;
+    const owner = slot?.owner ?? seed?.owner;
+    const slotId = slot?.slotId ?? seed?.slotId;
+    if (!owner || !slotId) return;
+    const key = `${owner}-${slotId}`;
+    const snapshot: SlotViewModel = {
+      owner,
+      slotId,
+      unit: slot?.unit ? { ...slot.unit } : seed?.card ? { ...seed.card } : undefined,
+      pilot: slot?.pilot ? { ...slot.pilot } : undefined,
+      isRested: slot?.isRested,
+      ap: slot?.ap,
+      hp: slot?.hp,
+      fieldCardValue: slot?.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
+    };
+    this.pendingLockSnapshots.set(key, snapshot);
+    const bucket = this.pendingLocksByAttackId.get(attackId) ?? new Set<string>();
+    bucket.add(key);
+    this.pendingLocksByAttackId.set(attackId, bucket);
+  }
+
+  private activatePendingLocksForAttack(attackId: string) {
+    const keys = this.pendingLocksByAttackId.get(attackId);
+    if (!keys) return;
+    keys.forEach((key) => {
+      const snap = this.pendingLockSnapshots.get(key);
+      if (snap) {
+        this.lockedSlotSnapshots.set(key, snap);
+        this.pendingLockSnapshots.delete(key);
+        // eslint-disable-next-line no-console
+        console.log("[BattleAnimation] activateLock", key);
+      }
+    });
+    this.pendingLocksByAttackId.delete(attackId);
+  }
+
+  private releasePendingLocksForAttack(attackId: string) {
+    const keys = this.pendingLocksByAttackId.get(attackId);
+    if (!keys) return;
+    keys.forEach((key) => {
+      this.pendingLockSnapshots.delete(key);
+    });
+    this.pendingLocksByAttackId.delete(attackId);
   }
 
   private ensureBattleAnimationLayer() {
@@ -420,7 +458,10 @@ export class BattleAnimationManager {
   }
 
   getLockedSlots() {
-    return new Map(this.lockedSlotSnapshots);
+    const merged = new Map<string, SlotViewModel>();
+    this.pendingLockSnapshots.forEach((slot, key) => merged.set(key, slot));
+    this.lockedSlotSnapshots.forEach((slot, key) => merged.set(key, slot));
+    return merged;
   }
 
   private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {

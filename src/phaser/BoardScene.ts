@@ -33,6 +33,7 @@ import {
   BattleAnimationHandler,
   NotificationAnimationHandler,
 } from "./animations/AnimationOrchestrator";
+import { StatChangeAnimationHandler } from "./animations/StatChangeAnimationHandler";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 import {
@@ -149,8 +150,9 @@ export class BoardScene extends Phaser.Scene {
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
     const animationHandlers = [];
+    animationHandlers.push(new StatChangeAnimationHandler());
     if (this.notificationAnimator) {
-      animationHandlers.push(new NotificationAnimationHandler(this.notificationAnimator));
+      animationHandlers.unshift(new NotificationAnimationHandler(this.notificationAnimator));
     }
     if (this.battleAnimations) {
       animationHandlers.push(new BattleAnimationHandler(this.battleAnimations));
@@ -494,6 +496,8 @@ export class BoardScene extends Phaser.Scene {
       },
       attackSnapshotNote: pendingAttackSnapshotNote,
       slotControls: this.slotControls,
+      triggerStatPulse: (slotKey, delta) => this.slotControls?.playStatPulse?.(slotKey, delta),
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
     });
     // Merge locked slot snapshots so animations don't flicker when the engine state advances.
     const mergedSlots = this.applyLockedSlotOverrides(slots);

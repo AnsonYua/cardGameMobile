@@ -20,6 +20,10 @@ This document explains how animation is triggered, queued, and rendered in the f
   - Runs animations serially via an internal promise queue.
   - Locks/hides slots while a play animation is in progress.
 
+- `src/phaser/animations/StatChangeAnimationHandler.ts`
+  - Handles `CARD_STAT_MODIFIED` notifications.
+  - Plays AP/HP pulse animation sequentially in the animation queue.
+
 - `src/phaser/animations/BattleAnimationManager.ts`
   - Handles battle snapshots (from `UNIT_ATTACK_DECLARED`) and resolution animations (from `BATTLE_RESOLVED`).
   - Maintains snapshot cache and processed id cache.
@@ -67,7 +71,7 @@ Inside `BoardScene.updateSlots()`:
   - `pendingAttackSnapshotNote`: latest attack note for animation snapshots (allows `battleEnd`).
 - `AnimationOrchestrator.run()` performs:
   1) Prepare phase for all handlers (battle snapshots captured here).
-  2) Notification handler first, then battle handler.
+  2) Notification handler, then stat-change handler, then battle handler.
 - This preserves the ordering: play animations before battle resolution when both exist.
 
 File reference: `src/phaser/BoardScene.ts`.
@@ -128,6 +132,50 @@ Behavior:
 
 Files:
 - `src/phaser/animations/BattleAnimationManager.ts`
+
+
+### 4) CARD_STAT_MODIFIED
+
+Trigger:
+- `notificationQueue` contains `CARD_STAT_MODIFIED`.
+
+Handler:
+- `StatChangeAnimationHandler.handle()`
+
+Behavior:
+- Resolves the slot key from payload `playerId` + `zone` (or card uid fallback).
+- Plays a pulse animation on the slot AP/HP badge using the handler queue.
+- Slot AP/HP badge no longer auto-pulses on value change without this notification.
+
+Example notification:
+```
+{
+  "id": "card_stat_modified_1766926053793_8hq4ayrsc",
+  "type": "CARD_STAT_MODIFIED",
+  "metadata": {
+    "timestamp": 1766926053793,
+    "expiresAt": 1766926056793,
+    "requiresAcknowledgment": false,
+    "frontendProcessed": false,
+    "priority": "normal"
+  },
+  "payload": {
+    "playerId": "playerId_1",
+    "carduid": "ST01-009_d0276af7-b917-45ba-8e16-692d241a7360",
+    "cardId": "ST01-009",
+    "cardName": "Zowort",
+    "zone": "slot3",
+    "stat": "modifyAP",
+    "delta": -3,
+    "modifierValue": -3,
+    "timestamp": 1766926053793
+  }
+}
+```
+
+Files:
+- `src/phaser/animations/StatChangeAnimationHandler.ts`
+- `src/phaser/ui/SlotDisplayHandler.ts`
 
 
 ## Slot Locking and Merge Rules

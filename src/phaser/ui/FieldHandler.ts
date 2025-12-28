@@ -209,6 +209,7 @@ export class FieldHandler {
       getSlotPositions: () => this.slotPositions,
       markStatAnimationPending: (slotKey: string) => this.slotDisplay.markStatAnimationPending(slotKey),
       releaseStatAnimation: (slotKey: string) => this.slotDisplay.releaseStatAnimation(slotKey),
+      playStatPulse: (slotKey: string, delta: number) => this.slotDisplay.playStatPulse(slotKey, delta),
       setSlotClickEnabled: (enabled: boolean) => this.slotDisplay.setSlotClickEnabled(enabled),
       setSlotVisible: (owner: SlotOwner, slotId: string, visible: boolean) =>
         this.slotDisplay.setSlotVisible(owner, slotId, visible),
