@@ -13,6 +13,7 @@ This document explains how animation is triggered, queued, and rendered in the f
 - `src/phaser/animations/AnimationOrchestrator.ts`
   - Centralized animation pipeline entry point.
   - Runs handler prepare hooks before any animations, then executes handlers in FIFO order.
+  - Maintains a run-level FIFO queue so consecutive `run()` calls never overlap.
   - Aggregates locked slots from handlers for `BoardScene.applyLockedSlotOverrides()`.
 
 - `src/phaser/animations/NotificationAnimationController.ts`
@@ -28,6 +29,7 @@ This document explains how animation is triggered, queued, and rendered in the f
   - Handles battle snapshots (from `UNIT_ATTACK_DECLARED`) and resolution animations (from `BATTLE_RESOLVED`).
   - Maintains snapshot cache and processed id cache.
   - Locks slots used in battle so the normal slot render does not fight with animations.
+  - Tracks pending locks (timestamped) to keep slots stable until resolution starts; resolved attacks are ignored to prevent re-locks during polling.
 
 - `src/phaser/animations/PlayCardAnimationManager.ts`
   - Low-level card flight animation utility used by `NotificationAnimationController`.
@@ -57,7 +59,7 @@ Flow overview:
 1) `GameEngine` fetches status and emits `MAIN_PHASE_UPDATE` or `MAIN_PHASE_UPDATE_SILENT`.
 2) `BoardScene.mainPhaseUpdate()` -> `BoardScene.updateSlots()`.
 3) `updateSlots()` parses `notificationQueue` and triggers:
-   - `AnimationOrchestrator.run()` to execute animation handlers
+   - `AnimationOrchestrator.run()` to execute animation handlers (queued, non-overlapping)
    - `AttackIndicatorController.updateFromNotifications()`
 4) `slotControls.setSlots()` receives merged slots with any animation locks applied.
 
@@ -73,6 +75,7 @@ Inside `BoardScene.updateSlots()`:
   1) Prepare phase for all handlers (battle snapshots captured here).
   2) Notification handler, then stat-change handler, then battle handler.
 - This preserves the ordering: play animations before battle resolution when both exist.
+- The orchestrator chains runs so a new `run()` call waits for the previous one to finish.
 
 File reference: `src/phaser/BoardScene.ts`.
 
@@ -105,6 +108,12 @@ Trigger:
 Handler:
 - `BattleAnimationManager.captureAttackSnapshot(snapshotNote)` via `BattleAnimationHandler.prepare()`
 
+Cache/lock details:
+- Snapshot cache key: `snapshotNote.id` (UNIT_ATTACK_DECLARED id).
+- Stored snapshot: attacker seed, target seed, target point, attackId (same as note id).
+- Pending locks: attacker/target slot snapshots stored with timestamp until battle resolution runs.
+- Resolved attack cache: prevents capturing/locking again for an attack already resolved (polling safety).
+
 Behavior:
 - Saves an attacker + target snapshot for later use by the battle resolution animation.
 - Uses slot positions if cards are still present.
@@ -129,6 +138,15 @@ Behavior:
 - Animates attacker sprite to the target point, plays impact effects, then returns or fades out.
 - Releases slot locks when done.
 - If snapshot is missing, it unlocks slots using payload `attacker.slot` / `target.slot` to prevent lock leaks.
+
+Queue/cache/lock details:
+- Resolution queue: `battleAnimationQueue` chains promises so battle animations run FIFO.
+- Processed resolution cache: `processedResolutions` prevents duplicate resolution handling.
+- Resolved attack cache: marks an attack as resolved after animation to ignore later duplicate snapshots.
+- Locks:
+  - Pending locks are promoted to active when battle animation starts.
+  - `getLockedSlots()` returns pending + active locks with timestamps.
+  - Expiration: pending/active locks are evicted after a short TTL to avoid stale cards persisting if a resolution never arrives.
 
 Files:
 - `src/phaser/animations/BattleAnimationManager.ts`

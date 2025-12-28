@@ -36,6 +36,7 @@ type PendingBattleSnapshot = {
 };
 
 export class BattleAnimationManager {
+  private static readonly LOCK_TTL_MS = 12000;
   private slotControls?: SlotVisibilityControls | null;
   private battleAnimationLayer?: Phaser.GameObjects.Container;
   private snapshotCache = new SnapshotCache<PendingBattleSnapshot>({
@@ -43,10 +44,11 @@ export class BattleAnimationManager {
     maxEntries: 24,
   });
   private processedResolutions = new ProcessedIdCache(200);
+  private resolvedAttacks = new ProcessedIdCache(300);
   private battleAnimationQueue: Promise<void> = Promise.resolve();
   private fx: FxToolkit;
-  private lockedSlotSnapshots = new Map<string, SlotViewModel>();
-  private pendingLockSnapshots = new Map<string, SlotViewModel>();
+  private lockedSlotSnapshots = new Map<string, { slot: SlotViewModel; savedAt: number }>();
+  private pendingLockSnapshots = new Map<string, { slot: SlotViewModel; savedAt: number }>();
   private pendingLocksByAttackId = new Map<string, Set<string>>();
 
   constructor(private config: BattleAnimationManagerConfig) {
@@ -60,6 +62,11 @@ export class BattleAnimationManager {
 
   captureAttackSnapshot(snapshotNote: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!snapshotNote || !positions) return;
+    if (this.resolvedAttacks.has(snapshotNote.id)) {
+      // eslint-disable-next-line no-console
+      console.log("[BattleAnimation] skip capture resolved attack", snapshotNote.id);
+      return;
+    }
     const payload = snapshotNote.payload || {};
     const previousSnapshot = this.snapshotCache.get(snapshotNote.id);
     // eslint-disable-next-line no-console
@@ -173,6 +180,7 @@ export class BattleAnimationManager {
       .then(() => this.playBattleResolutionAnimation(snapshot, payload))
       .then(() => {
         console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
+        this.resolvedAttacks.add(attackId);
       })
       .catch((err) => console.warn("battle animation failed", err))
       .finally(() => {
@@ -309,7 +317,7 @@ export class BattleAnimationManager {
       hp: slot.hp,
       fieldCardValue: slot.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
     };
-    this.lockedSlotSnapshots.set(key, snapshot);
+    this.lockedSlotSnapshots.set(key, { slot: snapshot, savedAt: Date.now() });
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] lockSlot", key, snapshot.unit?.cardUid ?? snapshot.pilot?.cardUid ?? null);
   }
@@ -330,19 +338,20 @@ export class BattleAnimationManager {
       hp: slot?.hp,
       fieldCardValue: slot?.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
     };
-    this.pendingLockSnapshots.set(key, snapshot);
+    this.pendingLockSnapshots.set(key, { slot: snapshot, savedAt: Date.now() });
     const bucket = this.pendingLocksByAttackId.get(attackId) ?? new Set<string>();
     bucket.add(key);
     this.pendingLocksByAttackId.set(attackId, bucket);
   }
 
   private activatePendingLocksForAttack(attackId: string) {
+    this.evictExpiredLocks();
     const keys = this.pendingLocksByAttackId.get(attackId);
     if (!keys) return;
     keys.forEach((key) => {
-      const snap = this.pendingLockSnapshots.get(key);
-      if (snap) {
-        this.lockedSlotSnapshots.set(key, snap);
+      const entry = this.pendingLockSnapshots.get(key);
+      if (entry) {
+        this.lockedSlotSnapshots.set(key, { slot: entry.slot, savedAt: Date.now() });
         this.pendingLockSnapshots.delete(key);
         // eslint-disable-next-line no-console
         console.log("[BattleAnimation] activateLock", key);
@@ -458,10 +467,45 @@ export class BattleAnimationManager {
   }
 
   getLockedSlots() {
+    this.evictExpiredLocks();
     const merged = new Map<string, SlotViewModel>();
-    this.pendingLockSnapshots.forEach((slot, key) => merged.set(key, slot));
-    this.lockedSlotSnapshots.forEach((slot, key) => merged.set(key, slot));
+    this.pendingLockSnapshots.forEach((entry, key) => merged.set(key, entry.slot));
+    this.lockedSlotSnapshots.forEach((entry, key) => merged.set(key, entry.slot));
     return merged;
+  }
+
+  private evictExpiredLocks(now = Date.now()) {
+    const ttl = BattleAnimationManager.LOCK_TTL_MS;
+    this.pendingLockSnapshots.forEach((_entry, key) => {
+      const entry = this.pendingLockSnapshots.get(key);
+      if (entry && now - entry.savedAt > ttl) {
+        this.pendingLockSnapshots.delete(key);
+        // eslint-disable-next-line no-console
+        console.log("[BattleAnimation] evictPendingLock", key);
+      }
+    });
+    this.lockedSlotSnapshots.forEach((_entry, key) => {
+      const entry = this.lockedSlotSnapshots.get(key);
+      if (entry && now - entry.savedAt > ttl) {
+        this.lockedSlotSnapshots.delete(key);
+        // eslint-disable-next-line no-console
+        console.log("[BattleAnimation] evictLocked", key);
+      }
+    });
+    // Clean up empty attack buckets.
+    Array.from(this.pendingLocksByAttackId.entries()).forEach(([attackId, keys]) => {
+      const remaining = new Set<string>();
+      keys.forEach((k) => {
+        if (this.pendingLockSnapshots.has(k)) {
+          remaining.add(k);
+        }
+      });
+      if (remaining.size === 0) {
+        this.pendingLocksByAttackId.delete(attackId);
+      } else {
+        this.pendingLocksByAttackId.set(attackId, remaining);
+      }
+    });
   }
 
   private fadeOutAndDestroy(target: Phaser.GameObjects.Container) {
