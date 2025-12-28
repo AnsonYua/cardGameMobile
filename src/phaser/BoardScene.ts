@@ -16,7 +16,7 @@ import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
-import type { SlotViewModel, SlotOwner, SlotPositionMap } from "./ui/SlotTypes";
+import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
@@ -26,7 +26,7 @@ import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
-import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
+import { NotificationAnimationController } from "./animations/NotificationAnimationController";
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
 import {
   AnimationOrchestrator,
@@ -34,15 +34,10 @@ import {
   NotificationAnimationHandler,
 } from "./animations/AnimationOrchestrator";
 import { StatChangeAnimationHandler } from "./animations/StatChangeAnimationHandler";
+import { AttackContextHandler } from "./animations/AttackContextHandler";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
-import {
-  findActiveAttackNotification,
-  findLatestAttackNotification,
-  getNotificationQueue,
-  getActiveAttackTargetSlotKey,
-  getUpcomingBattleSlotKeys,
-} from "./utils/NotificationUtils";
+import { getNotificationQueue } from "./utils/NotificationUtils";
 
 const colors = {
   bg: "#ffffff",
@@ -149,10 +144,9 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
-    const animationHandlers = [];
-    animationHandlers.push(new StatChangeAnimationHandler());
+    const animationHandlers = [new AttackContextHandler(), new StatChangeAnimationHandler()];
     if (this.notificationAnimator) {
-      animationHandlers.unshift(new NotificationAnimationHandler(this.notificationAnimator));
+      animationHandlers.splice(1, 0, new NotificationAnimationHandler(this.notificationAnimator));
     }
     if (this.battleAnimations) {
       animationHandlers.push(new BattleAnimationHandler(this.battleAnimations));
@@ -467,18 +461,6 @@ export class BoardScene extends Phaser.Scene {
 
     const notificationQueue = getNotificationQueue(raw);
     const positions = this.slotControls?.getSlotPositions?.();
-    // We keep two attack references: one for indicator (ignore battleEnd), one for animation (allow battleEnd).
-    const activeAttackNote = findActiveAttackNotification(notificationQueue);
-    const pendingAttackSnapshotNote = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
-    // Capture attack snapshots early so battle animation can run even if slots update immediately.
-    const attackTargetSlotKey = getActiveAttackTargetSlotKey(
-      activeAttackNote,
-      this.resolveSlotOwnerByPlayer.bind(this),
-    );
-    const battleSlotKeys = getUpcomingBattleSlotKeys(
-      notificationQueue,
-      this.resolveSlotOwnerByPlayer.bind(this),
-    );
     // Play card animations first; once complete, we trigger battle resolution animations.
     this.animationOrchestrator?.run({
       notifications: notificationQueue,
@@ -488,16 +470,11 @@ export class BoardScene extends Phaser.Scene {
       raw,
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,
-      shouldHideSlot: (slotKey) => {
-        const shouldHide =
-          !battleSlotKeys.has(slotKey) &&
-          !(attackTargetSlotKey && slotKey === attackTargetSlotKey);
-        return shouldHide;
-      },
-      attackSnapshotNote: pendingAttackSnapshotNote,
       slotControls: this.slotControls,
       triggerStatPulse: (slotKey, delta) => this.slotControls?.playStatPulse?.(slotKey, delta),
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      attackIndicatorUpdate: (notifications, slots, positions, attackNote) =>
+        this.attackIndicatorController?.updateFromNotifications(notifications, slots, positions, attackNote),
     });
     // Merge locked slot snapshots so animations don't flicker when the engine state advances.
     const mergedSlots = this.applyLockedSlotOverrides(slots);
@@ -509,7 +486,6 @@ export class BoardScene extends Phaser.Scene {
     });
     this.slotControls?.setSlots(mergedSlots);
     this.lastRenderedSlots = mergedSlots.map((slot) => ({ ...slot, unit: slot.unit ? { ...slot.unit } : undefined, pilot: slot.pilot ? { ...slot.pilot } : undefined }));
-    this.updateAttackIndicatorFromNotifications(notificationQueue, slots, positions, activeAttackNote);
   }
 
   private updateHeaderPhaseStatus(raw: any) {
@@ -530,15 +506,6 @@ export class BoardScene extends Phaser.Scene {
       getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
       getShieldAnchor: (isOpponent) => this.baseControls?.getShieldTopAnchor(isOpponent),
     };
-  }
-
-  private updateAttackIndicatorFromNotifications(
-    notifications: SlotNotification[],
-    slots: SlotViewModel[],
-    positions?: SlotPositionMap | null,
-    attackNote?: SlotNotification,
-  ) {
-    this.attackIndicatorController?.updateFromNotifications(notifications, slots, positions, attackNote);
   }
 
   private resolveSlotOwnerByPlayer(playerId?: string): SlotOwner | undefined {

@@ -12,10 +12,22 @@ export type SlotAnimationContext = {
   allowAnimations: boolean;
   currentPlayerId: string | null;
   shouldHideSlot?: (slotKey: string) => boolean;
+  attackContext?: {
+    activeAttackNote?: SlotNotification;
+    pendingAttackSnapshotNote?: SlotNotification;
+    attackTargetSlotKey?: string;
+    battleSlotKeys: Set<string>;
+  };
   attackSnapshotNote?: SlotNotification;
   slotControls?: Parameters<BattleAnimationManager["setSlotControls"]>[0] | null;
   triggerStatPulse?: (slotKey: string, delta: number) => Promise<void> | void;
   resolveSlotOwnerByPlayer?: (playerId?: string) => SlotOwner | undefined;
+  attackIndicatorUpdate?: (
+    notifications: SlotNotification[],
+    slots: SlotViewModel[],
+    positions?: SlotPositionMap | null,
+    attackNote?: SlotNotification,
+  ) => void;
 };
 
 export interface AnimationHandler {
@@ -69,6 +81,14 @@ export class NotificationAnimationHandler implements AnimationHandler {
   constructor(private animator: NotificationAnimationController) {}
 
   handle(ctx: SlotAnimationContext) {
+    const shouldHideSlot =
+      ctx.shouldHideSlot ??
+      ((slotKey: string) => {
+        const battleSlotKeys = ctx.attackContext?.battleSlotKeys;
+        if (!battleSlotKeys) return true;
+        const attackTargetSlotKey = ctx.attackContext?.attackTargetSlotKey;
+        return !battleSlotKeys.has(slotKey) && !(attackTargetSlotKey && slotKey === attackTargetSlotKey);
+      });
     return this.animator.process({
       notifications: ctx.notifications,
       slots: ctx.slots,
@@ -77,7 +97,7 @@ export class NotificationAnimationHandler implements AnimationHandler {
       raw: ctx.raw,
       allowAnimations: ctx.allowAnimations,
       currentPlayerId: ctx.currentPlayerId,
-      shouldHideSlot: ctx.shouldHideSlot,
+      shouldHideSlot,
     });
   }
 

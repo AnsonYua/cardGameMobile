@@ -16,6 +16,11 @@ This document explains how animation is triggered, queued, and rendered in the f
   - Maintains a run-level FIFO queue so consecutive `run()` calls never overlap.
   - Aggregates locked slots from handlers for `BoardScene.applyLockedSlotOverrides()`.
 
+- `src/phaser/animations/AttackContextHandler.ts`
+  - Computes attack context from `notificationQueue` (active/pending attack, target slot key, battle slot keys).
+  - Populates `attackSnapshotNote` for battle snapshots.
+  - Updates attack indicator through the orchestrator callback.
+
 - `src/phaser/animations/NotificationAnimationController.ts`
   - Handles non-battle animations (currently `CARD_PLAYED`).
   - Runs animations serially via an internal promise queue.
@@ -68,11 +73,8 @@ Flow overview:
 
 Inside `BoardScene.updateSlots()`:
 
-- Builds two references:
-  - `activeAttackNote`: latest attack note for UI/indicator (ignores `battleEnd`).
-  - `pendingAttackSnapshotNote`: latest attack note for animation snapshots (allows `battleEnd`).
 - `AnimationOrchestrator.run()` performs:
-  1) Prepare phase for all handlers (battle snapshots captured here).
+  1) Prepare phase for all handlers (attack context + battle snapshots captured here).
   2) Notification handler, then stat-change handler, then battle handler.
 - This preserves the ordering: play animations before battle resolution when both exist.
 - The orchestrator chains runs so a new `run()` call waits for the previous one to finish.
