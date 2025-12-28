@@ -148,10 +148,14 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
-    this.animationOrchestrator = new AnimationOrchestrator([
-      this.notificationAnimator ? new NotificationAnimationHandler(this.notificationAnimator) : undefined,
-      this.battleAnimations ? new BattleAnimationHandler(this.battleAnimations) : undefined,
-    ]);
+    const animationHandlers = [];
+    if (this.notificationAnimator) {
+      animationHandlers.push(new NotificationAnimationHandler(this.notificationAnimator));
+    }
+    if (this.battleAnimations) {
+      animationHandlers.push(new BattleAnimationHandler(this.battleAnimations));
+    }
+    this.animationOrchestrator = new AnimationOrchestrator(animationHandlers);
     this.attackIndicatorController = new AttackIndicatorController({
       scene: this,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
