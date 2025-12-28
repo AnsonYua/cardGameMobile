@@ -55,12 +55,12 @@ export class BattleAnimationManager {
     this.slotControls = slotControls;
   }
 
-  captureAttackSnapshot(note: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
-    if (!note || !positions) return;
-    const payload = note.payload || {};
-    const previousSnapshot = this.snapshotCache.get(note.id);
+  captureAttackSnapshot(snapshotNote: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
+    if (!snapshotNote || !positions) return;
+    const payload = snapshotNote.payload || {};
+    const previousSnapshot = this.snapshotCache.get(snapshotNote.id);
     // eslint-disable-next-line no-console
-    console.log("[BattleAnimation] captureAttackSnapshot", note.id, note.type, {
+    console.log("[BattleAnimation] captureAttackSnapshot", snapshotNote.id, snapshotNote.type, {
       battleEnd: payload?.battleEnd,
       attackerSlot: payload?.attackerSlot || payload?.attackerSlotName,
       targetSlot: payload?.targetSlotName || payload?.targetSlot,
@@ -97,10 +97,10 @@ export class BattleAnimationManager {
       this.buildPayloadSeed(payload, "attacker", attackerOwner, attackerSlotId, attackerPosition);
     if (!attackerSeed) {
       // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", note.id);
+      console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", snapshotNote.id);
       if (previousSnapshot) {
         this.releaseLockedSlotsForSnapshot(previousSnapshot);
-        this.snapshotCache.delete(note.id);
+        this.snapshotCache.delete(snapshotNote.id);
       }
       return;
     }
@@ -117,10 +117,10 @@ export class BattleAnimationManager {
     );
     if (previousSnapshot?.target && !targetSeed && expectsTargetSlot) {
       // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] captureAttackSnapshot keeping previous target", note.id);
+      console.log("[BattleAnimation] captureAttackSnapshot keeping previous target", snapshotNote.id);
       return;
     }
-    const replacedSnapshot = this.snapshotCache.set(note.id, {
+    const replacedSnapshot = this.snapshotCache.set(snapshotNote.id, {
       attacker: attackerSeed,
       target: targetSeed,
       targetPoint,

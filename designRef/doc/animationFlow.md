@@ -27,6 +27,9 @@ This document explains how animation is triggered, queued, and rendered in the f
 
 - `src/phaser/utils/AttackResolver.ts`
   - Normalizes attack payloads and resolves target positions (slot, base, or shield anchors).
+- `src/phaser/utils/NotificationUtils.ts`
+  - Central helpers for reading `notificationQueue`, selecting active/pending attack notes,
+    and computing slot keys for hiding/locking.
 
 - `src/phaser/ui/SlotDisplayHandler.ts`
   - Renders slots; can hide individual slots when told to by animation controllers.
@@ -55,7 +58,10 @@ Flow overview:
 
 Inside `BoardScene.updateSlots()`:
 
-- Finds the latest attack note (even if `battleEnd: true`) to build a battle snapshot.
+- Builds two references:
+  - `activeAttackNote`: latest attack note for UI/indicator (ignores `battleEnd`).
+  - `pendingAttackSnapshotNote`: latest attack note for animation snapshots (allows `battleEnd`).
+- Captures the snapshot from `pendingAttackSnapshotNote`.
 - Starts `NotificationAnimationController.process()` first.
 - After notification animations finish, it runs `BattleAnimationManager.processBattleResolutionNotifications()`.
 - This ensures play animations run before battle animations when both are in the same queue update.
@@ -89,7 +95,7 @@ Trigger:
 - `notificationQueue` contains `UNIT_ATTACK_DECLARED`.
 
 Handler:
-- `BattleAnimationManager.captureAttackSnapshot()`
+- `BattleAnimationManager.captureAttackSnapshot(snapshotNote)`
 
 Behavior:
 - Saves an attacker + target snapshot for later use by the battle resolution animation.
@@ -186,7 +192,7 @@ Notification queue (same update):
 - `BATTLE_RESOLVED`
 
 Flow:
-1) `captureAttackSnapshot()` runs first and creates a snapshot.
+1) `captureAttackSnapshot(pendingAttackSnapshotNote)` runs first and creates a snapshot.
 2) If slots already removed, payload-based fallback builds the attacker/target sprite.
 3) `processBattleResolutionNotifications()` plays the battle animation after play animations finish.
 

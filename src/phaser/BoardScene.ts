@@ -452,13 +452,13 @@ export class BoardScene extends Phaser.Scene {
     const notificationQueue = getNotificationQueue(raw);
     const positions = this.slotControls?.getSlotPositions?.();
     // We keep two attack references: one for indicator (ignore battleEnd), one for animation (allow battleEnd).
-    const currentAttackNote = findActiveAttackNotification(notificationQueue);
-    const attackNoteForAnimation = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
+    const activeAttackNote = findActiveAttackNotification(notificationQueue);
+    const pendingAttackSnapshotNote = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
     // Capture attack snapshots early so battle animation can run even if slots update immediately.
     this.battleAnimations?.setSlotControls(this.slotControls);
-    this.battleAnimations?.captureAttackSnapshot(attackNoteForAnimation, slots, positions);
+    this.battleAnimations?.captureAttackSnapshot(pendingAttackSnapshotNote, slots, positions);
     const attackTargetSlotKey = getActiveAttackTargetSlotKey(
-      currentAttackNote,
+      activeAttackNote,
       this.resolveSlotOwnerByPlayer.bind(this),
     );
     const battleSlotKeys = getUpcomingBattleSlotKeys(
@@ -499,7 +499,7 @@ export class BoardScene extends Phaser.Scene {
     });
     this.slotControls?.setSlots(mergedSlots);
     this.lastRenderedSlots = mergedSlots.map((slot) => ({ ...slot, unit: slot.unit ? { ...slot.unit } : undefined, pilot: slot.pilot ? { ...slot.pilot } : undefined }));
-    this.updateAttackIndicatorFromNotifications(notificationQueue, slots, positions, currentAttackNote);
+    this.updateAttackIndicatorFromNotifications(notificationQueue, slots, positions, activeAttackNote);
   }
 
   private updateHeaderPhaseStatus(raw: any) {
