@@ -28,6 +28,11 @@ import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController, type SlotNotification } from "./animations/NotificationAnimationController";
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
+import {
+  AnimationOrchestrator,
+  BattleAnimationHandler,
+  NotificationAnimationHandler,
+} from "./animations/AnimationOrchestrator";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 import {
@@ -99,6 +104,7 @@ export class BoardScene extends Phaser.Scene {
   private playAnimations = true;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
+  private animationOrchestrator?: AnimationOrchestrator;
   private lastRenderedSlots: SlotViewModel[] = [];
 
   create() {
@@ -142,6 +148,10 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
+    this.animationOrchestrator = new AnimationOrchestrator([
+      this.notificationAnimator ? new NotificationAnimationHandler(this.notificationAnimator) : undefined,
+      this.battleAnimations ? new BattleAnimationHandler(this.battleAnimations) : undefined,
+    ]);
     this.attackIndicatorController = new AttackIndicatorController({
       scene: this,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
@@ -455,8 +465,6 @@ export class BoardScene extends Phaser.Scene {
     const activeAttackNote = findActiveAttackNotification(notificationQueue);
     const pendingAttackSnapshotNote = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
     // Capture attack snapshots early so battle animation can run even if slots update immediately.
-    this.battleAnimations?.setSlotControls(this.slotControls);
-    this.battleAnimations?.captureAttackSnapshot(pendingAttackSnapshotNote, slots, positions);
     const attackTargetSlotKey = getActiveAttackTargetSlotKey(
       activeAttackNote,
       this.resolveSlotOwnerByPlayer.bind(this),
@@ -466,7 +474,7 @@ export class BoardScene extends Phaser.Scene {
       this.resolveSlotOwnerByPlayer.bind(this),
     );
     // Play card animations first; once complete, we trigger battle resolution animations.
-    const notificationPromise = this.notificationAnimator?.process({
+    this.animationOrchestrator?.run({
       notifications: notificationQueue,
       slots,
       slotPositions: positions,
@@ -480,15 +488,9 @@ export class BoardScene extends Phaser.Scene {
           !(attackTargetSlotKey && slotKey === attackTargetSlotKey);
         return shouldHide;
       },
+      attackSnapshotNote: pendingAttackSnapshotNote,
+      slotControls: this.slotControls,
     });
-    const processBattles = () => {
-      this.battleAnimations?.processBattleResolutionNotifications(notificationQueue);
-    };
-    if (notificationPromise) {
-      notificationPromise.then(processBattles);
-    } else {
-      processBattles();
-    }
     // Merge locked slot snapshots so animations don't flicker when the engine state advances.
     const mergedSlots = this.applyLockedSlotOverrides(slots);
     // eslint-disable-next-line no-console
@@ -540,12 +542,8 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private collectLockedSlots(): Map<string, SlotViewModel> {
-    // Combine locks from play animations and battle animations.
-    const locked = new Map<string, SlotViewModel>();
-    const notificationLocked = this.notificationAnimator?.getLockedSlots();
-    notificationLocked?.forEach((slot, key) => locked.set(key, slot));
-    const battleLocked = this.battleAnimations?.getLockedSlots();
-    battleLocked?.forEach((slot, key) => locked.set(key, slot));
+    // Combine locks from animation handlers.
+    const locked = this.animationOrchestrator?.getLockedSlots() ?? new Map<string, SlotViewModel>();
     // eslint-disable-next-line no-console
     console.log("[BoardScene] collectLockedSlots", Array.from(locked.keys()));
     return locked;

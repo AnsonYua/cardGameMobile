@@ -7,7 +7,13 @@ This document explains how animation is triggered, queued, and rendered in the f
 - `src/phaser/BoardScene.ts`
   - Central orchestration for UI updates on each engine snapshot.
   - Calls `updateSlots()` to parse `notificationQueue`, trigger animations, and update slot UI.
-  - Holds instances of `NotificationAnimationController`, `BattleAnimationManager`, `AttackIndicatorController`.
+  - Holds instances of `AnimationOrchestrator`, `NotificationAnimationController`,
+    `BattleAnimationManager`, `AttackIndicatorController`.
+
+- `src/phaser/animations/AnimationOrchestrator.ts`
+  - Centralized animation pipeline entry point.
+  - Runs handler prepare hooks before any animations, then executes handlers in FIFO order.
+  - Aggregates locked slots from handlers for `BoardScene.applyLockedSlotOverrides()`.
 
 - `src/phaser/animations/NotificationAnimationController.ts`
   - Handles non-battle animations (currently `CARD_PLAYED`).
@@ -47,9 +53,7 @@ Flow overview:
 1) `GameEngine` fetches status and emits `MAIN_PHASE_UPDATE` or `MAIN_PHASE_UPDATE_SILENT`.
 2) `BoardScene.mainPhaseUpdate()` -> `BoardScene.updateSlots()`.
 3) `updateSlots()` parses `notificationQueue` and triggers:
-   - `NotificationAnimationController.process()`
-   - `BattleAnimationManager.captureAttackSnapshot()`
-   - `BattleAnimationManager.processBattleResolutionNotifications()`
+   - `AnimationOrchestrator.run()` to execute animation handlers
    - `AttackIndicatorController.updateFromNotifications()`
 4) `slotControls.setSlots()` receives merged slots with any animation locks applied.
 
@@ -61,10 +65,10 @@ Inside `BoardScene.updateSlots()`:
 - Builds two references:
   - `activeAttackNote`: latest attack note for UI/indicator (ignores `battleEnd`).
   - `pendingAttackSnapshotNote`: latest attack note for animation snapshots (allows `battleEnd`).
-- Captures the snapshot from `pendingAttackSnapshotNote`.
-- Starts `NotificationAnimationController.process()` first.
-- After notification animations finish, it runs `BattleAnimationManager.processBattleResolutionNotifications()`.
-- This ensures play animations run before battle animations when both are in the same queue update.
+- `AnimationOrchestrator.run()` performs:
+  1) Prepare phase for all handlers (battle snapshots captured here).
+  2) Notification handler first, then battle handler.
+- This preserves the ordering: play animations before battle resolution when both exist.
 
 File reference: `src/phaser/BoardScene.ts`.
 
@@ -77,7 +81,7 @@ Trigger:
 - `notificationQueue` contains `CARD_PLAYED` with `payload.isCompleted === true`.
 
 Handler:
-- `NotificationAnimationController.process()`
+- `NotificationAnimationController.process()` via `NotificationAnimationHandler`
 
 Behavior:
 - Cards animate from hand to a slot or base area.
@@ -95,7 +99,7 @@ Trigger:
 - `notificationQueue` contains `UNIT_ATTACK_DECLARED`.
 
 Handler:
-- `BattleAnimationManager.captureAttackSnapshot(snapshotNote)`
+- `BattleAnimationManager.captureAttackSnapshot(snapshotNote)` via `BattleAnimationHandler.prepare()`
 
 Behavior:
 - Saves an attacker + target snapshot for later use by the battle resolution animation.
@@ -114,7 +118,7 @@ Trigger:
 - `notificationQueue` contains `BATTLE_RESOLVED`.
 
 Handler:
-- `BattleAnimationManager.processBattleResolutionNotifications()`
+- `BattleAnimationManager.processBattleResolutionNotifications()` via `BattleAnimationHandler.handle()`
 
 Behavior:
 - Looks up the snapshot captured from `UNIT_ATTACK_DECLARED`.
@@ -133,7 +137,8 @@ Both animation systems can lock slots:
 - `NotificationAnimationController` locks a slot while a card is flying in.
 - `BattleAnimationManager` locks attacker/target slots while a battle animation is running.
 
-`BoardScene.applyLockedSlotOverrides()` merges locked snapshots into the current slot list so the UI does not flicker.
+`BoardScene.applyLockedSlotOverrides()` merges locked snapshots collected from `AnimationOrchestrator.getLockedSlots()`
+so the UI does not flicker.
 
 File reference:
 - `src/phaser/BoardScene.ts`
