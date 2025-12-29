@@ -12,6 +12,8 @@ export class AnimationQueue {
   private processedIds = new Set<string>();
   private processedOrder: string[] = [];
   private onIdle?: () => void;
+  private onEventStart?: (event: AnimationEvent, ctx: AnimationContext) => void;
+  private onEventEnd?: (event: AnimationEvent, ctx: AnimationContext) => void;
 
   constructor(
     private executor: AnimationExecutor,
@@ -22,6 +24,14 @@ export class AnimationQueue {
 
   setOnIdle(handler?: () => void) {
     this.onIdle = handler;
+  }
+
+  setOnEventStart(handler?: (event: AnimationEvent, ctx: AnimationContext) => void) {
+    this.onEventStart = handler;
+  }
+
+  setOnEventEnd(handler?: (event: AnimationEvent, ctx: AnimationContext) => void) {
+    this.onEventEnd = handler;
   }
 
   isRunning() {
@@ -55,12 +65,14 @@ export class AnimationQueue {
       this.onIdle?.();
       return;
     }
+    this.onEventStart?.(item.event, item.ctx);
     try {
       await this.executor.run(item.event, item.ctx);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn("[AnimationQueue] event failed", item.event.type, item.event.id, err);
     } finally {
+      this.onEventEnd?.(item.event, item.ctx);
       this.runNext();
     }
   }

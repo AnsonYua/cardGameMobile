@@ -25,6 +25,7 @@ export class AnimationExecutor {
           boardSlotPositions: ctx.boardSlotPositions,
           currentPlayerId: ctx.currentPlayerId,
           cardLookup: ctx.cardLookup,
+          allowAnimations: ctx.allowAnimations,
         });
         return;
       case "UNIT_ATTACK_DECLARED":
