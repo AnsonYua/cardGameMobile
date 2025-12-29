@@ -90,3 +90,75 @@ important changes
 - remove lockedSlots usage in renderSlots
 - battle animations drive the visual state (last snapshot during animation, current snapshot after)
 - notification scanning determines whether to start the battle queue
+
+refactor goals (new)
+- centralize notification handling: UNIT_ATTACK_DECLARED, CARD_PLAYED, BATTLE_RESOLVED, CARD_STAT_MODIFIED
+- remove per-handler queues; NotificationAnimationController should not own a queue
+- keep AnimationOrchestrator thin (only dispatch/ordering, no queue logic)
+- remove AnimationCaches if possible (ProcessedIdCache usage eliminated by new centralized queue)
+
+new proposed structure (centerized + modular)
+- new class: AnimationEventRouter
+  - responsibility: interpret notificationQueue and map to domain events
+  - outputs a normalized list of AnimationEvents (type + payload + affected cardUids)
+  - owns dedupe rules (if needed) instead of per-handler caches
+
+- new class: AnimationQueue (single queue for all animations)
+  - FIFO queue, runs events sequentially
+  - no per-handler queues
+  - owns running state and lifecycle hooks (onStart/onComplete)
+
+- new class: AnimationExecutor
+  - takes one AnimationEvent and runs the corresponding animation
+  - uses small, focused helpers:
+    - CardPlayAnimator (play to slot/base/command)
+    - BattleAnimator (battle resolution / attack sequence)
+    - StatPulseAnimator (stat change effects)
+    - AttackIndicatorUpdater (attack arrow updates)
+
+- AnimationOrchestrator becomes a thin wrapper:
+  - build events via AnimationEventRouter
+  - enqueue into AnimationQueue
+  - no internal queue or per-handler chain logic
+
+data flow (high level)
+1) updateSlots() builds notificationQueue
+2) AnimationEventRouter parses notificationQueue -> AnimationEvents
+3) AnimationQueue runs events sequentially via AnimationExecutor
+4) updateSlots renders lastGameEnvRaw while queue is running, renders current raw after queue finishes
+
+event normalization (pseudo)
+```
+AnimationEvent = {
+  type: "CARD_PLAYED" | "UNIT_ATTACK_DECLARED" | "BATTLE_RESOLVED" | "CARD_STAT_MODIFIED",
+  payload: any,
+  cardUids: string[] // attacker/target/played card references
+}
+```
+
+event routing rules (examples)
+```
+if note.type == "CARD_PLAYED": event => CardPlayAnimator
+if note.type == "UNIT_ATTACK_DECLARED": event => AttackIndicatorUpdater
+if note.type == "BATTLE_RESOLVED": event => BattleAnimator
+if note.type == "CARD_STAT_MODIFIED": event => StatPulseAnimator
+```
+
+queue behavior (centralized)
+```
+class AnimationQueue {
+  enqueue(events) { ... }
+  runNext() { ... } // await executor.run(event)
+  isRunning() { ... }
+}
+```
+
+notification scan for battle gating
+- central router extracts cardUids for attacker/target/played card
+- if any event is battle-related -> start battle queue
+
+removals / simplifications
+- remove NotificationAnimationController internal queue and ProcessedIdCache usage
+- remove AnimationCaches if no other code depends on it
+- collapse handler classes if they only forward to another class
+- reduce AnimationOrchestrator to "route + enqueue" logic only
