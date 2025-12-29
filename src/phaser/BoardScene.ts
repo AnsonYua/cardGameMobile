@@ -98,7 +98,6 @@ export class BoardScene extends Phaser.Scene {
   private animationRouter = new AnimationEventRouter();
   private animationExecutor?: AnimationExecutor;
   private animationQueue?: AnimationQueue;
-  private pendingAnimationEvents: import("./animations/AnimationTypes").AnimationEvent[] = [];
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -459,8 +458,7 @@ export class BoardScene extends Phaser.Scene {
       findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
       findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
     };
-    const events = this.animationRouter.route(notificationQueue);
-    const combinedEvents = this.mergePendingEvents(this.pendingAnimationEvents, events);
+    const events = this.animationRouter.buildEvents(notificationQueue);
     const ctx = {
       notificationQueue,
       slots,
@@ -472,23 +470,19 @@ export class BoardScene extends Phaser.Scene {
       previousRaw,
       currentRaw: raw,
     };
-    
-    const queueRunning = this.animationQueue?.isRunning() ?? false;
-    if (allowAnimations) {
-      if (queueRunning) {
-        this.pendingAnimationEvents = combinedEvents;
-      } else {
-        this.animationQueue?.enqueue(events, ctx);
-      }
-    }
 
-    if (allowAnimations && (queueRunning || combinedEvents.length > 0)) {
-      if (queueRunning && combinedEvents.length === 0) {
-        return;
-      }
-      const affectedUids = this.collectAffectedUids(combinedEvents);
+    const queueRunning = this.animationQueue?.isRunning() ?? false;
+    const hasNewEvents = events.length > 0;
+
+    if (allowAnimations && hasNewEvents && !queueRunning) {
+      this.animationQueue?.enqueue(events, ctx);
+      const affectedUids = this.collectAffectedUids(events);
       const visibleSlots = this.filterUnaffectedSlots(slots, affectedUids);
       this.renderSlots(visibleSlots);
+      return;
+    }
+
+    if (allowAnimations && queueRunning) {
       return;
     }
 
@@ -529,16 +523,6 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls?.setSlots(slots);
   }
 
-  private mergePendingEvents(
-    pending: import("./animations/AnimationTypes").AnimationEvent[],
-    incoming: import("./animations/AnimationTypes").AnimationEvent[],
-  ) {
-    const merged = new Map<string, import("./animations/AnimationTypes").AnimationEvent>();
-    pending.forEach((event) => merged.set(event.id, event));
-    incoming.forEach((event) => merged.set(event.id, event));
-    return Array.from(merged.values());
-  }
-
   private collectAffectedUids(events: import("./animations/AnimationTypes").AnimationEvent[]) {
     const uids = new Set<string>();
     events.forEach((event) => {
@@ -559,35 +543,6 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private handleAnimationQueueIdle() {
-    if (this.pendingAnimationEvents.length > 0) {
-      const events = this.pendingAnimationEvents;
-      this.pendingAnimationEvents = [];
-      const snapshot = this.engine.getSnapshot();
-      const raw = snapshot.raw as any;
-      if (!raw) return;
-      const playerId = this.gameContext.playerId;
-      const slots = this.slotPresenter.toSlots(raw, playerId);
-      const notificationQueue = getNotificationQueue(raw);
-      const boardSlotPositions = this.slotControls?.getBoardSlotPositions?.();
-      const cardLookup = {
-        findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
-        findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
-      };
-      const ctx = {
-        notificationQueue,
-        slots,
-        boardSlotPositions,
-        allowAnimations: true,
-        currentPlayerId: this.gameContext.playerId,
-        resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-        cardLookup,
-        previousRaw: snapshot.previousRaw as any,
-        currentRaw: raw,
-      };
-      this.animationQueue?.enqueue(events, ctx);
-      return;
-    }
-
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;

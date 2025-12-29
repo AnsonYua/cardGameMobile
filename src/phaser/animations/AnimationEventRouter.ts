@@ -9,13 +9,17 @@ const SUPPORTED_TYPES: AnimationEventType[] = [
 ];
 
 export class AnimationEventRouter {
-  route(notificationQueue: SlotNotification[]): AnimationEvent[] {
+  private processedIds = new Set<string>();
+  private processedOrder: string[] = [];
+
+  buildEvents(notificationQueue: SlotNotification[]): AnimationEvent[] {
     if (!Array.isArray(notificationQueue) || notificationQueue.length === 0) {
       return [];
     }
     const events: AnimationEvent[] = [];
     notificationQueue.forEach((note) => {
       if (!note || !note.id) return;
+      if (this.processedIds.has(note.id)) return;
       const type = (note.type || "").toUpperCase() as AnimationEventType;
       if (!SUPPORTED_TYPES.includes(type)) return;
       events.push({
@@ -24,8 +28,21 @@ export class AnimationEventRouter {
         note,
         cardUids: this.extractCardUids(note),
       });
+      this.markProcessed(note.id);
     });
     return events;
+  }
+
+  private markProcessed(id: string) {
+    this.processedIds.add(id);
+    this.processedOrder.push(id);
+    const max = 1000;
+    while (this.processedOrder.length > max) {
+      const oldest = this.processedOrder.shift();
+      if (oldest) {
+        this.processedIds.delete(oldest);
+      }
+    }
   }
 
   hasBattleEvents(events: AnimationEvent[]): boolean {
