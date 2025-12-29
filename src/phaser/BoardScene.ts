@@ -95,7 +95,6 @@ export class BoardScene extends Phaser.Scene {
   private battleAnimations?: BattleAnimationManager;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
-  private lastGameEnvRaw?: any;
   private pendingBattleRaw?: any;
   private battleAnimationActive = false;
   private animationRouter = new AnimationEventRouter();
@@ -450,6 +449,7 @@ export class BoardScene extends Phaser.Scene {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
+    const previousRaw = snapshot.previousRaw as any;
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animate ?? true;
@@ -475,14 +475,13 @@ export class BoardScene extends Phaser.Scene {
     if (allowAnimations && (this.animationRouter.hasBattleEvents(events) || this.battleAnimationActive)) {
       this.battleAnimationActive = true;
       this.pendingBattleRaw = raw;
-      const lastRaw = this.lastGameEnvRaw ?? raw;
+      const lastRaw = previousRaw ?? raw;
       const lastSlots = this.slotPresenter.toSlots(lastRaw, playerId);
       this.renderSlots(lastSlots);
       return;
     }
 
     this.renderSlots(slots);
-    this.lastGameEnvRaw = raw;
   }
 
   private updateHeaderPhaseStatus(raw: any) {
@@ -529,7 +528,6 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     this.renderSlots(slots);
-    this.lastGameEnvRaw = raw;
     this.pendingBattleRaw = undefined;
     this.battleAnimationActive = false;
   }

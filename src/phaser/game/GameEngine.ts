@@ -14,6 +14,7 @@ import type { UnitFlowController } from "../controllers/UnitFlowController";
 export type GameStatusSnapshot = {
   status: any;
   raw: GameStatusResponse | null;
+  previousRaw: GameStatusResponse | null;
 };
 
 export type ActionSource = "hand" | "slot" | "base" | "neutral";
@@ -21,6 +22,7 @@ export type ActionSource = "hand" | "slot" | "base" | "neutral";
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private lastRaw: GameStatusResponse | null = null;
+  private previousRaw: GameStatusResponse | null = null;
   private pendingBattleTransition?: { prevBattle: any; nextBattle: any };
   private resourceLoader: CardResourceLoader;
   private selection = new SelectionStore();
@@ -61,6 +63,7 @@ export class GameEngine {
       const fallback = typeof response === "string" ? response : previousStatus;
       const derivedStatus = response?.status ?? response?.gameStatus ?? fallback;
       const nextPhase = response?.gameEnv?.phase ?? response?.phase ?? null;
+      this.previousRaw = this.lastRaw;
       this.lastRaw = response;
       const nextBattle = this.getBattle(this.lastRaw);
       this.pendingBattleTransition = { prevBattle: previousBattle, nextBattle };
@@ -100,7 +103,7 @@ export class GameEngine {
 
   getSnapshot(): GameStatusSnapshot {
     const ctx = this.contextStore.get();
-    return { status: ctx.lastStatus, raw: this.lastRaw };
+    return { status: ctx.lastStatus, raw: this.lastRaw, previousRaw: this.previousRaw };
   }
 
   getContext() {
