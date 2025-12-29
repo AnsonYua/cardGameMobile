@@ -32,14 +32,14 @@ export class StatChangeAnimationHandler implements AnimationHandler {
       if (!slotKey || delta === 0) return;
       this.processedIds.add(note.id);
       this.enqueueAnimation(note.id, () => {
-        if (!ctx.triggerStatPulse) {
+        if (!ctx.ui?.triggerStatPulse) {
           // eslint-disable-next-line no-console
           console.warn("[StatChangeAnimation] triggerStatPulse missing", note.id);
           return Promise.resolve();
         }
         // eslint-disable-next-line no-console
         console.log("[StatChangeAnimation] triggerStatPulse", slotKey, delta);
-        return Promise.resolve(ctx.triggerStatPulse(slotKey, delta)).then((result) => {
+        return Promise.resolve(ctx.ui.triggerStatPulse(slotKey, delta)).then((result) => {
           // eslint-disable-next-line no-console
           console.log("[StatChangeAnimation] triggerStatPulse result", slotKey, result);
         });

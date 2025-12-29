@@ -406,3 +406,10 @@ Main log tags:
 - `[BattleAnimation] captureAttackSnapshot ...`
 - `[BattleAnimation] completed resolution ...`
 - `[BattleAnimation] unlockSlot ...`
+
+
+
+   
+    const raw = this.engine.getSnapshot().raw as any;
+    const slots = this.slotPresenter.toSlots(raw, this.gameContext.playerId);
+    this.slotControls?.setSlots(slots);

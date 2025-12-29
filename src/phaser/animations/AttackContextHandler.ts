@@ -11,7 +11,7 @@ import type { AnimationHandler, SlotAnimationContext } from "./AnimationOrchestr
 export class AttackContextHandler implements AnimationHandler {
   prepare(ctx: SlotAnimationContext) {
     const notificationQueue = ctx.notifications;
-    const resolveOwner = ctx.resolveSlotOwnerByPlayer;
+    const resolveOwner = ctx.resolveSlotOwnerByPlayer ?? (() => undefined);
     const activeAttackNote = findActiveAttackNotification(notificationQueue);
     const pendingAttackSnapshotNote = findLatestAttackNotification(notificationQueue, { includeBattleEnd: true });
     const attackTargetSlotKey = getActiveAttackTargetSlotKey(activeAttackNote, resolveOwner);
@@ -30,7 +30,7 @@ export class AttackContextHandler implements AnimationHandler {
     ctx.attackIndicatorUpdate?.(
       ctx.notifications,
       ctx.slots,
-      ctx.slotPositions ?? undefined,
+      ctx.boardSlotPositions ?? undefined,
       activeAttackNote,
     );
   }

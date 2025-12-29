@@ -129,7 +129,7 @@ export class FieldHandler {
     player?: { x: number; y: number; width: number; isOpponent: boolean };
   } = {};
   private slotDisplay: SlotDisplayHandler;
-  private slotPositions: SlotPositionMap = { player: {}, opponent: {} };
+  private boardSlotPositions: SlotPositionMap = { player: {}, opponent: {} };
   private slotOrder = {
     opponent: ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"],
     player: ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"],
@@ -147,7 +147,7 @@ export class FieldHandler {
   }
 
   draw(offset: Offset) {
-    this.slotPositions = { player: {}, opponent: {} };
+    this.boardSlotPositions = { player: {}, opponent: {} };
     this.drawFieldSide(this.field.side.opponent, offset, true);
     this.drawFieldSide(this.field.side.player, offset, false);
   }
@@ -193,7 +193,7 @@ export class FieldHandler {
 
   getSlotControls() {
     return {
-      setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.slotPositions }),
+      setSlots: (slots: SlotViewModel[]) => this.slotDisplay.render(slots, { positions: this.boardSlotPositions }),
       clearSlots: () => this.slotDisplay.clear(),
       setSlotClickHandler: (handler?: (slot: SlotViewModel) => void) => this.slotDisplay.setSlotClickHandler(handler),
       setPlayAnimations: (enabled: boolean) => this.slotDisplay.setPlayAnimations(enabled),
@@ -206,7 +206,7 @@ export class FieldHandler {
         endOverride?: { x: number; y: number; isOpponent?: boolean },
       ) => this.slotDisplay.playCardAnimation(slot, card, startOverride, endOverride),
       getSlotAreaCenter: (owner: SlotOwner) => this.slotDisplay.getSlotAreaCenter(owner),
-      getSlotPositions: () => this.slotPositions,
+      getBoardSlotPositions: () => this.boardSlotPositions,
       markStatAnimationPending: (slotKey: string) => this.slotDisplay.markStatAnimationPending(slotKey),
       releaseStatAnimation: (slotKey: string) => this.slotDisplay.releaseStatAnimation(slotKey),
       playStatPulse: (slotKey: string, delta: number) => this.slotDisplay.playStatPulse(slotKey, delta),
@@ -236,7 +236,7 @@ export class FieldHandler {
         const orderIndex = r * cols + c;
         const orderList = isOpponent ? this.slotOrder.opponent : this.slotOrder.player;
         const slotId = orderList[orderIndex] || `slot${orderIndex + 1}`;
-        const bucket = isOpponent ? this.slotPositions.opponent : this.slotPositions.player;
+        const bucket = isOpponent ? this.boardSlotPositions.opponent : this.boardSlotPositions.player;
         bucket[slotId] = { id: slotId, x, y, w: slot, h: slot, isOpponent };
         this.drawHelpers.drawRoundedRect({
           x,

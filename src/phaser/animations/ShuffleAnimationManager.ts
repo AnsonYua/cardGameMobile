@@ -78,7 +78,7 @@ export class ShuffleAnimationManager {
 
   private shuffleSide(isOpponent: boolean, done: () => void) {
     const deckPos = this.getDeckPosition(isOpponent);
-    const slots = this.getSlotPositions(isOpponent);
+    const slots = this.getBoardSlotPositions(isOpponent);
     const cards = isOpponent ? this.opponentCards : this.playerCards;
     const deckSprite = isOpponent ? this.opponentDeckSprite : this.playerDeckSprite;
     const owner = isOpponent ? "opponent" : "player";
@@ -141,7 +141,7 @@ export class ShuffleAnimationManager {
     });
   }
 
-  private getSlotPositions(isOpponent: boolean) {
+  private getBoardSlotPositions(isOpponent: boolean) {
     const { slot, gap, cols, rows } = this.config;
     const centerX = this.config.side[isOpponent ? "opponent" : "player"].centerX + this.offset.x;
     const originY = this.config.side[isOpponent ? "opponent" : "player"].originY + this.offset.y;

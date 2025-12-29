@@ -1,14 +1,16 @@
 import type { SlotNotification } from "./NotificationAnimationController";
-import type { SlotViewModel, SlotOwner, SlotPositionMap } from "../ui/SlotTypes";
+import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "../ui/SlotTypes";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 
 export type SlotAnimationContext = {
   notifications: SlotNotification[];
   slots: SlotViewModel[];
-  slotPositions?: SlotPositionMap | null;
-  slotAreaCenter?: (owner: SlotOwner) => { x: number; y: number } | undefined;
-  raw: any;
+  boardSlotPositions?: SlotPositionMap | null;
+  cardLookup?: {
+    findBaseCard?: (playerId?: string) => any;
+    findCardByUid?: (cardUid?: string) => SlotCardView | undefined;
+  };
   allowAnimations: boolean;
   currentPlayerId: string | null;
   shouldHideSlot?: (slotKey: string) => boolean;
@@ -19,8 +21,11 @@ export type SlotAnimationContext = {
     battleSlotKeys: Set<string>;
   };
   attackSnapshotNote?: SlotNotification;
-  slotControls?: Parameters<BattleAnimationManager["setSlotControls"]>[0] | null;
-  triggerStatPulse?: (slotKey: string, delta: number) => Promise<void> | void;
+  ui?: {
+    slotControls?: Parameters<BattleAnimationManager["setSlotControls"]>[0] | null;
+    getSlotAreaCenter?: (owner: SlotOwner) => { x: number; y: number } | undefined;
+    triggerStatPulse?: (slotKey: string, delta: number) => Promise<void> | void;
+  };
   resolveSlotOwnerByPlayer?: (playerId?: string) => SlotOwner | undefined;
   attackIndicatorUpdate?: (
     notifications: SlotNotification[],
@@ -51,18 +56,15 @@ export class AnimationOrchestrator {
   run(ctx: SlotAnimationContext): Promise<void> {
     this.handlers.forEach((handler) => handler.prepare?.(ctx));
     this.runQueue = this.runQueue.then(async () => {
-      let chain = Promise.resolve();
-      this.handlers.forEach((handler) => {
-        const handlerName = (handler as any)?.constructor?.name ?? "AnimationHandler";
-        chain = chain.then(async () => {
-          // eslint-disable-next-line no-console
-          console.log("[AnimationOrchestrator] start", handlerName, Date.now());
-          await handler.handle(ctx);
-          // eslint-disable-next-line no-console
-          console.log("[AnimationOrchestrator] complete", handlerName, Date.now());
-        });
-      });
-      return chain;
+      // Serialize batches and run handlers in order to avoid overlapping animations.
+      for (const handler of this.handlers) {
+        const handlerName = handler.constructor?.name ?? "AnimationHandler";
+        // eslint-disable-next-line no-console
+        console.log("[AnimationOrchestrator] start", handlerName, Date.now());
+        await handler.handle(ctx);
+        // eslint-disable-next-line no-console
+        console.log("[AnimationOrchestrator] complete", handlerName, Date.now());
+      }
     });
     return this.runQueue;
   }
@@ -92,9 +94,9 @@ export class NotificationAnimationHandler implements AnimationHandler {
     return this.animator.process({
       notifications: ctx.notifications,
       slots: ctx.slots,
-      slotPositions: ctx.slotPositions ?? undefined,
-      slotAreaCenter: ctx.slotAreaCenter,
-      raw: ctx.raw,
+      boardSlotPositions: ctx.boardSlotPositions ?? undefined,
+      slotAreaCenter: ctx.ui?.getSlotAreaCenter,
+      cardLookup: ctx.cardLookup,
       allowAnimations: ctx.allowAnimations,
       currentPlayerId: ctx.currentPlayerId,
       shouldHideSlot,
@@ -110,8 +112,8 @@ export class BattleAnimationHandler implements AnimationHandler {
   constructor(private battle: BattleAnimationManager) {}
 
   prepare(ctx: SlotAnimationContext) {
-    this.battle.setSlotControls(ctx.slotControls ?? null);
-    this.battle.captureAttackSnapshot(ctx.attackSnapshotNote, ctx.slots, ctx.slotPositions ?? null);
+    this.battle.setSlotControls(ctx.ui?.slotControls ?? null);
+    this.battle.captureAttackSnapshot(ctx.attackSnapshotNote, ctx.slots, ctx.boardSlotPositions ?? null);
   }
 
   handle(ctx: SlotAnimationContext) {
