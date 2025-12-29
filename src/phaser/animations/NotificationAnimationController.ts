@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
 import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
 import { toPreviewKey } from "../ui/HandTypes";
-import { ProcessedIdCache } from "./AnimationCaches";
 
 export type SlotNotification = {
   id: string;
@@ -12,10 +11,8 @@ export type SlotNotification = {
 };
 
 type ProcessArgs = {
-  notifications: SlotNotification[];
   slots: SlotViewModel[];
   boardSlotPositions?: SlotPositionMap;
-  slotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
   cardLookup?: {
     findBaseCard?: (playerId?: string) => any;
     findCardByUid?: (cardUid?: string) => SlotCardView | undefined;
@@ -26,10 +23,7 @@ type ProcessArgs = {
 };
 
 export class NotificationAnimationController {
-  private processedIds = new ProcessedIdCache(Number.MAX_SAFE_INTEGER);
-  private animationQueue: Promise<void> = Promise.resolve();
   private hiddenSlots = new Set<string>();
-  private lockedSlotSnapshots = new Map<string, SlotViewModel>();
 
   constructor(
     private deps: {
@@ -45,49 +39,15 @@ export class NotificationAnimationController {
     },
   ) {}
 
-  resetProcessed() {
-    this.processedIds.clear();
-  }
-
-  process(args: ProcessArgs): Promise<void> {
-    const { notifications, allowAnimations } = args;
-
-    if (!notifications?.length) return this.animationQueue;
-
-    if (!allowAnimations) {
-      return this.animationQueue;
-    }
-
-    // Queue animations one-by-one so multiple notifications don't overlap visually.
-    notifications.forEach((note) => {
-      if (!note || !note.id || this.processedIds.has(note.id)) return;
-      const type = (note.type || "").toUpperCase();
-      if (type === "CARD_PLAYED") {
-        const task = this.buildCardPlayedTask(note.payload ?? {}, args);
-        if (!task) return;
-        this.processedIds.add(note.id);
-        this.enqueueAnimation(note.id, task);
-      }
-    });
-    return this.animationQueue;
-  }
-
-  private enqueueAnimation(id: string, task: () => Promise<void>) {
-    // Promise chaining guarantees FIFO ordering of animations.
-    // eslint-disable-next-line no-console
-    console.log("[NotificationAnimator] enqueue", id, Date.now());
-    this.animationQueue = this.animationQueue
-      .then(async () => {
-        // eslint-disable-next-line no-console
-        console.log("[NotificationAnimator] start", id, Date.now());
-        await task();
-        // eslint-disable-next-line no-console
-        console.log("[NotificationAnimator] complete", id, Date.now());
-      })
-      .catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn("[NotificationAnimator] animation task failed", err);
-      });
+  playCardPlayed(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "CARD_PLAYED") return Promise.resolve();
+    const task = this.buildCardPlayedTask(note.payload ?? {}, args);
+    if (!task) return Promise.resolve();
+    return task();
   }
 
   private buildCardPlayedTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
@@ -139,10 +99,6 @@ export class NotificationAnimationController {
     const fallbackLabel = card?.id ?? payload.carduid;
     const textureKey = card?.textureKey;
     const shouldHide = ctx.shouldHideSlot ? ctx.shouldHideSlot(slotKey) : true;
-    if (shouldHide) {
-      // Lock a snapshot so the slot contents remain stable during the animation.
-      this.lockSlotSnapshot(slotKey, slot);
-    }
     return () =>
       this.animateSlotCard({
         slotKey,
@@ -190,10 +146,9 @@ export class NotificationAnimationController {
     } finally {
       this.deps.onSlotAnimationEnd?.(spec.slotKey);
       if (spec.shouldHide) {
-        // Show slot again and release snapshot lock.
+        // Show slot again after the animation completes.
         this.showSlot(spec.owner, spec.slotId);
       }
-      this.releaseSlotSnapshot(spec.slotKey);
     }
   }
 
@@ -283,34 +238,6 @@ export class NotificationAnimationController {
     console.log("[NotificationAnimator] showSlot", key);
     this.hiddenSlots.delete(key);
     this.deps.setSlotVisible?.(owner, slotId, true);
-  }
-
-  private lockSlotSnapshot(slotKey: string, slot: SlotViewModel) {
-    if (!slotKey) return;
-    const snapshot: SlotViewModel = {
-      owner: slot.owner,
-      slotId: slot.slotId,
-      unit: slot.unit ? { ...slot.unit } : undefined,
-      pilot: slot.pilot ? { ...slot.pilot } : undefined,
-      isRested: slot.isRested,
-      ap: slot.ap,
-      hp: slot.hp,
-      fieldCardValue: slot.fieldCardValue ? { ...slot.fieldCardValue } : undefined,
-    };
-    this.lockedSlotSnapshots.set(slotKey, snapshot);
-    // eslint-disable-next-line no-console
-    console.log("[NotificationAnimator] lockSlot", slotKey, snapshot.unit?.cardUid ?? snapshot.pilot?.cardUid ?? null);
-  }
-
-  private releaseSlotSnapshot(slotKey: string) {
-    if (!slotKey) return;
-    this.lockedSlotSnapshots.delete(slotKey);
-    // eslint-disable-next-line no-console
-    console.log("[NotificationAnimator] unlockSlot", slotKey);
-  }
-
-  getLockedSlots() {
-    return new Map(this.lockedSlotSnapshots);
   }
 
   

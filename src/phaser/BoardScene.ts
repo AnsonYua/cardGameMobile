@@ -16,7 +16,7 @@ import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
-import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "./ui/SlotTypes";
+import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
@@ -28,13 +28,9 @@ import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController } from "./animations/NotificationAnimationController";
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
-import {
-  AnimationOrchestrator,
-  BattleAnimationHandler,
-  NotificationAnimationHandler,
-} from "./animations/AnimationOrchestrator";
-import { StatChangeAnimationHandler } from "./animations/StatChangeAnimationHandler";
-import { AttackContextHandler } from "./animations/AttackContextHandler";
+import { AnimationEventRouter } from "./animations/AnimationEventRouter";
+import { AnimationQueue } from "./animations/AnimationQueue";
+import { AnimationExecutor } from "./animations/AnimationExecutor";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
@@ -99,8 +95,12 @@ export class BoardScene extends Phaser.Scene {
   private battleAnimations?: BattleAnimationManager;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
-  private animationOrchestrator?: AnimationOrchestrator;
-  private lastRenderedSlots: SlotViewModel[] = [];
+  private lastGameEnvRaw?: any;
+  private pendingBattleRaw?: any;
+  private battleAnimationActive = false;
+  private animationRouter = new AnimationEventRouter();
+  private animationExecutor?: AnimationExecutor;
+  private animationQueue?: AnimationQueue;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -127,10 +127,8 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls = this.ui.getSlotControls();
     this.battleAnimations = new BattleAnimationManager({
       scene: this,
-      slotControls: this.slotControls,
       anchors: this.getTargetAnchorProviders(),
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      onSlotsUnlocked: () => this.refreshSlotsView(),
     });
     this.slotControls?.setPlayAnimations?.(false);
     this.cardFlightAnimator = new PlayCardAnimationManager(this);
@@ -143,22 +141,19 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
-    const animationHandlers: import("./animations/AnimationOrchestrator").AnimationHandler[] = [
-      new AttackContextHandler(),
-      new StatChangeAnimationHandler(),
-    ];
-    if (this.notificationAnimator) {
-      animationHandlers.splice(1, 0, new NotificationAnimationHandler(this.notificationAnimator));
-    }
-    if (this.battleAnimations) {
-      animationHandlers.push(new BattleAnimationHandler(this.battleAnimations));
-    }
-    this.animationOrchestrator = new AnimationOrchestrator(animationHandlers);
     this.attackIndicatorController = new AttackIndicatorController({
       scene: this,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       anchorsProvider: () => this.getTargetAnchorProviders(),
     });
+    this.animationExecutor = new AnimationExecutor({
+      cardPlayAnimator: this.notificationAnimator as NotificationAnimationController,
+      battleAnimator: this.battleAnimations as BattleAnimationManager,
+      attackIndicator: this.attackIndicatorController,
+      slotControls: this.slotControls,
+    });
+    this.animationQueue = new AnimationQueue(this.animationExecutor);
+    this.animationQueue.setOnIdle(() => this.handleAnimationQueueIdle());
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -465,14 +460,29 @@ export class BoardScene extends Phaser.Scene {
       findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
       findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
     };
-    this.runSlotAnimations({
+    const events = this.animationRouter.route(notificationQueue);
+    const ctx = {
       notificationQueue,
       slots,
       boardSlotPositions,
-      cardLookup,
       allowAnimations,
-    });
+      currentPlayerId: this.gameContext.playerId,
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      cardLookup,
+    };
+    this.animationQueue?.enqueue(events, ctx);
+
+    if (allowAnimations && (this.animationRouter.hasBattleEvents(events) || this.battleAnimationActive)) {
+      this.battleAnimationActive = true;
+      this.pendingBattleRaw = raw;
+      const lastRaw = this.lastGameEnvRaw ?? raw;
+      const lastSlots = this.slotPresenter.toSlots(lastRaw, playerId);
+      this.renderSlots(lastSlots);
+      return;
+    }
+
     this.renderSlots(slots);
+    this.lastGameEnvRaw = raw;
   }
 
   private updateHeaderPhaseStatus(raw: any) {
@@ -503,118 +513,25 @@ export class BoardScene extends Phaser.Scene {
     return "opponent";
   }
 
-  private collectLockedSlots(): Map<string, SlotViewModel> {
-    // Combine locks from animation handlers.
-    const locked = this.animationOrchestrator?.getLockedSlots() ?? new Map<string, SlotViewModel>();
+  private renderSlots(slots: SlotViewModel[]) {
     // eslint-disable-next-line no-console
-    console.log("[BoardScene] collectLockedSlots", Array.from(locked.keys()));
-    return locked;
+    console.log("[BoardScene] setSlots", { count: slots.length });
+    this.slotControls?.setSlots(slots);
   }
 
-  private applyLockedSlotOverrides(
-    slots: SlotViewModel[],
-    locked: Map<string, SlotViewModel>,
-  ): SlotViewModel[] {
-    // Merge the latest engine slots with any locked snapshots to prevent visual flicker.
-    if (!locked.size) return slots;
-    const currentByKey = new Map(slots.map((slot) => [this.getSlotKey(slot), slot]));
-    const lastByKey = new Map(this.lastRenderedSlots.map((slot) => [this.getSlotKey(slot), slot]));
-    const used = new Set<string>();
-    const merged: SlotViewModel[] = [];
-
-    const hasContent = (slot?: SlotViewModel) => !!(slot?.unit || slot?.pilot);
-    const pickSlotForKey = (key: string) => {
-      const lockedSlot = locked.get(key);
-      const last = lastByKey.get(key);
-      const current = currentByKey.get(key);
-      if (lockedSlot) {
-        if (hasContent(lockedSlot)) return lockedSlot;
-        if (last && hasContent(last)) return last;
-        return lockedSlot;
-      }
-      return current;
-    };
-    const pushKey = (key: string) => {
-      if (used.has(key)) return;
-      const picked = pickSlotForKey(key);
-      if (!picked) return;
-      if (locked.has(key)) {
-        // eslint-disable-next-line no-console
-        console.log("[BoardScene] overrideSlot", key);
-      }
-      merged.push(picked);
-      used.add(key);
-    };
-
-    this.lastRenderedSlots.forEach((slot) => pushKey(this.getSlotKey(slot)));
-    slots.forEach((slot) => pushKey(this.getSlotKey(slot)));
-    locked.forEach((_slot, key) => pushKey(key));
-
-    return merged;
-  }
-
-  private refreshSlotsView() {
-    const snapshot = this.engine.getSnapshot();
-    const raw = snapshot.raw as any;
-    if (!raw) return;
+  private handleAnimationQueueIdle() {
+    if (!this.battleAnimationActive) return;
+    const raw = this.pendingBattleRaw;
+    if (!raw) {
+      this.battleAnimationActive = false;
+      return;
+    }
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     this.renderSlots(slots);
-  }
-
-  private runSlotAnimations(opts: {
-    notificationQueue: ReturnType<typeof getNotificationQueue>;
-    slots: SlotViewModel[];
-    boardSlotPositions: SlotPositionMap | undefined;
-    cardLookup: {
-      findBaseCard: (playerId?: string) => any;
-      findCardByUid: (cardUid?: string) => SlotCardView | undefined;
-    };
-    allowAnimations: boolean;
-  }) {
-    // Play card animations first; once complete, we trigger battle resolution animations.
-    this.animationOrchestrator?.run({
-      notifications: opts.notificationQueue,
-      slots: opts.slots,
-      boardSlotPositions: opts.boardSlotPositions,
-      cardLookup: opts.cardLookup,
-      allowAnimations: opts.allowAnimations,
-      currentPlayerId: this.gameContext.playerId,
-      ui: {
-        slotControls: this.slotControls,
-        getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
-        triggerStatPulse: (slotKey, delta) => this.slotControls?.playStatPulse?.(slotKey, delta),
-      },
-      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      attackIndicatorUpdate: (notifications, slots, boardSlotPositions, attackNote) =>
-        this.attackIndicatorController?.updateFromNotifications(notifications, slots, boardSlotPositions, attackNote),
-    });
-  }
-
-  private renderSlots(slots: SlotViewModel[]) {
-    const locked = this.collectLockedSlots();
-    // Merge locked slot snapshots so animations don't flicker when the engine state advances.
-    const mergedSlots = this.applyLockedSlotOverrides(slots, locked);
-    // eslint-disable-next-line no-console
-    console.log("[BoardScene] setSlots", {
-      rawCount: slots.length,
-      mergedCount: mergedSlots.length,
-      lockedKeys: Array.from(locked.keys()),
-    });
-    this.slotControls?.setSlots(mergedSlots);
-    this.lastRenderedSlots = mergedSlots.map((slot) => this.cloneSlot(slot));
-  }
-
-  private getSlotKey(slot: SlotViewModel) {
-    return `${slot.owner}-${slot.slotId}`;
-  }
-
-  private cloneSlot(slot: SlotViewModel): SlotViewModel {
-    return {
-      ...slot,
-      unit: slot.unit ? { ...slot.unit } : undefined,
-      pilot: slot.pilot ? { ...slot.pilot } : undefined,
-    };
+    this.lastGameEnvRaw = raw;
+    this.pendingBattleRaw = undefined;
+    this.battleAnimationActive = false;
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
