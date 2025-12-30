@@ -10,6 +10,7 @@ type BattleAnimationManagerConfig = {
   scene: Phaser.Scene;
   anchors: TargetAnchorProviders;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
+  setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
 };
 
 type BattleSpriteSeed = {
@@ -125,22 +126,35 @@ export class BattleAnimationManager {
     if (!attackerSeed) {
       return;
     }
-    // Create sprite clones so we can animate without mutating actual slot renderers.
-    const attackerSprite = this.createBattleSprite(attackerSeed);
-    if (!attackerSprite) {
-      return;
-    }
-    const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
-    const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
-    // Advance attacker to target, then play impact effects.
-    await this.fx.runTween({
-      targets: attackerSprite,
-      x: targetPoint.x,
-      y: targetPoint.y,
-      duration: 320,
-      ease: "Sine.easeIn",
-    });
-    await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
+    // eslint-disable-next-line no-console
+    console.log("[BattleAnimation] start", snapshot.attackId, payload?.battleType, Date.now());
+    const hideSlot = (seed?: BattleSpriteSeed) => {
+      if (!seed?.slotId) return;
+      this.config.setSlotVisible?.(seed.owner, seed.slotId, false);
+    };
+    const showSlot = (seed?: BattleSpriteSeed) => {
+      if (!seed?.slotId) return;
+      this.config.setSlotVisible?.(seed.owner, seed.slotId, true);
+    };
+    try {
+      hideSlot(attackerSeed);
+      hideSlot(snapshot.target);
+      // Create sprite clones so we can animate without mutating actual slot renderers.
+      const attackerSprite = this.createBattleSprite(attackerSeed);
+      if (!attackerSprite) {
+        return;
+      }
+      const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
+      const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
+      // Advance attacker to target, then play impact effects.
+      await this.fx.runTween({
+        targets: attackerSprite,
+        x: targetPoint.x,
+        y: targetPoint.y,
+        duration: 320,
+        ease: "Sine.easeIn",
+      });
+      await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
 
     const result = payload?.result || {};
     const cleanupTasks: Promise<void>[] = [];
@@ -168,9 +182,15 @@ export class BattleAnimationManager {
       }
     }
 
-    await Promise.all(cleanupTasks);
-    this.destroyBattleSprite(attackerSprite);
-    this.destroyBattleSprite(targetSprite);
+      await Promise.all(cleanupTasks);
+      this.destroyBattleSprite(attackerSprite);
+      this.destroyBattleSprite(targetSprite);
+    } finally {
+      showSlot(attackerSeed);
+      showSlot(snapshot.target);
+    }
+    // eslint-disable-next-line no-console
+    console.log("[BattleAnimation] end", snapshot.attackId, payload?.battleType, Date.now());
   }
 
   private buildBattleSpriteSeed(slot?: SlotViewModel, slotPosition?: { x: number; y: number; w: number; h: number; isOpponent?: boolean }): BattleSpriteSeed | undefined {

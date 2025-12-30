@@ -124,6 +124,7 @@ export class BoardScene extends Phaser.Scene {
       scene: this,
       anchors: this.getTargetAnchorProviders(),
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
     this.slotControls?.setPlayAnimations?.(false);
     this.cardFlightAnimator = new PlayCardAnimationManager(this);
