@@ -213,6 +213,8 @@ export class FieldHandler {
       setSlotClickEnabled: (enabled: boolean) => this.slotDisplay.setSlotClickEnabled(enabled),
       setSlotVisible: (owner: SlotOwner, slotId: string, visible: boolean) =>
         this.slotDisplay.setSlotVisible(owner, slotId, visible),
+      createSlotSprite: (slot: SlotViewModel, size: { w: number; h: number }) =>
+        this.slotDisplay.createSlotSprite(slot, size),
     };
   }
 

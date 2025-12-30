@@ -11,12 +11,14 @@ type BattleAnimationManagerConfig = {
   anchors: TargetAnchorProviders;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
+  createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined;
 };
 
 type BattleSpriteSeed = {
   owner: SlotOwner;
   slotId?: string;
   card: SlotCardView;
+  slot?: SlotViewModel;
   position: { x: number; y: number };
   size: { w: number; h: number };
   isOpponent?: boolean;
@@ -197,13 +199,13 @@ export class BattleAnimationManager {
     if (!slot || !slotPosition) return undefined;
     const card = slot.unit ?? slot.pilot;
     if (!card) return undefined;
-    const base = Math.min(slotPosition.w, slotPosition.h) * 0.8;
     return {
       owner: slot.owner,
       slotId: slot.slotId,
       card,
+      slot,
       position: { x: slotPosition.x, y: slotPosition.y },
-      size: { w: base, h: base * 1.4 },
+      size: { w: slotPosition.w, h: slotPosition.h },
       isOpponent: slotPosition.isOpponent ?? slot.owner === "opponent",
     };
   }
@@ -232,13 +234,12 @@ export class BattleAnimationManager {
       cardType: role === "attacker" ? "unit" : undefined,
       cardData: label ? { name: label } : undefined,
     };
-    const base = Math.min(position.w, position.h) * 0.8;
     return {
       owner,
       slotId,
       card,
       position: { x: position.x, y: position.y },
-      size: { w: base, h: base * 1.4 },
+      size: { w: position.w, h: position.h },
       isOpponent: position.isOpponent ?? owner === "opponent",
     };
   }
@@ -263,12 +264,17 @@ export class BattleAnimationManager {
   private createBattleSprite(seed: BattleSpriteSeed) {
     const layer = this.ensureBattleAnimationLayer();
     if (!seed.card) return undefined;
-    const container = this.config.scene.add.container(seed.position.x, seed.position.y);
+    const slotSprite = seed.slot ? this.config.createSlotSprite?.(seed.slot, seed.size) : undefined;
+    const container = slotSprite ?? this.config.scene.add.container(0, 0);
+    container.setPosition(seed.position.x, seed.position.y);
     container.setDepth(seed.isOpponent ? 905 : 915);
     layer?.add(container);
 
     const width = seed.size.w;
     const height = seed.size.h;
+    if (slotSprite) {
+      return container;
+    }
     if (seed.card.textureKey && this.config.scene.textures.exists(seed.card.textureKey)) {
       const img = this.config.scene.add.image(0, 0, seed.card.textureKey);
       img.setDisplaySize(width, height);

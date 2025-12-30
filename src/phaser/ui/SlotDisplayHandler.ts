@@ -204,6 +204,54 @@ export class SlotDisplayHandler {
     });
   }
 
+  createSlotSprite(slot: SlotViewModel, size: { w: number; h: number }) {
+    const container = this.scene.add.container(0, 0);
+    if (slot.unit || slot.pilot) {
+      this.drawFrame(container, size.w, size.h);
+    }
+    const cardSize = this.computeCardSize(size.w, size.h);
+    const width = cardSize.w;
+    const unitHeight = size.w * 0.9;
+    const pilotHeight = size.w * 0.9;
+    const unitCenterY = 0;
+    const pilotCenterY = 0;
+
+    let unitRatio = 1;
+    let pilotRatio = 0;
+    if (slot.pilot) {
+      unitRatio = 0.75;
+      pilotRatio = 1 - unitRatio;
+    }
+    if (slot.unit) {
+      const unitLayer = this.scene.add.container(0, 0);
+      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, false);
+      container.add(unitLayer);
+    }
+
+    if (slot.pilot) {
+      const pilotObj = this.drawCard(
+        container,
+        slot.pilot.textureKey,
+        slot.pilot.id,
+        width,
+        pilotHeight,
+        pilotCenterY,
+        false,
+        true,
+        pilotRatio,
+      );
+      pilotObj?.setAlpha(this.config.slot.pilotAlpha);
+      this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, false);
+    }
+
+    const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
+    const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
+    this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6);
+    container.setAlpha(slot.isRested ? 0.75 : 1);
+    return container;
+  }
+
   clear() {
     this.slotContainers.forEach((c) => c.destroy());
     this.slotContainers.clear();
