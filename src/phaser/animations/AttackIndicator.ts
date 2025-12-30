@@ -21,10 +21,14 @@ export class AttackIndicator {
   private state = { progress: 0, pulse: 0, glowShift: 0 };
   private current?: ShowOpts;
   private currentStyle: AttackIndicatorStyle = "player";
+  private pendingResolve?: () => void;
 
   constructor(private scene: Phaser.Scene) {}
 
-  show(opts: ShowOpts) {
+  show(opts: ShowOpts): Promise<void> {
+    // Resolve any prior show call before resetting visuals.
+    this.pendingResolve?.();
+    this.pendingResolve = undefined;
     this.reset();
     this.current = opts;
     this.currentStyle = opts.style ?? "player";
@@ -47,13 +51,20 @@ export class AttackIndicator {
       duration: 150,
       ease: "Sine.easeOut",
     });
-    this.drawTween = this.scene.tweens.add({
-      targets: this.state,
-      progress: 1,
-      duration: 300,
-      ease: "Sine.easeOut",
-      onUpdate: () => this.renderArrow(),
-      onComplete: () => this.startPulse(),
+    return new Promise((resolve) => {
+      this.pendingResolve = resolve;
+      this.drawTween = this.scene.tweens.add({
+        targets: this.state,
+        progress: 1,
+        duration: 300,
+        ease: "Sine.easeOut",
+        onUpdate: () => this.renderArrow(),
+        onComplete: () => {
+          this.startPulse();
+          this.pendingResolve?.();
+          this.pendingResolve = undefined;
+        },
+      });
     });
     this.glowTween = this.scene.tweens.add({
       targets: this.state,
@@ -187,6 +198,8 @@ export class AttackIndicator {
   }
 
   private reset() {
+    this.pendingResolve?.();
+    this.pendingResolve = undefined;
     this.drawTween?.remove();
     this.pulseTween?.remove();
     this.fadeTween?.remove();

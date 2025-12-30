@@ -134,20 +134,14 @@ export class AnimationQueue {
         });
         return;
       case "UNIT_ATTACK_DECLARED":
-        this.deps.attackIndicator.updateFromNotification(
+        await this.deps.attackIndicator.updateFromNotification(
           event,
           ctx.slots,
           ctx.boardSlotPositions ?? undefined,
         );
-        /*
-        this.deps.battleAnimator.captureAttackSnapshot(
-          event,
-          ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-        );*/
         return;
       case "BATTLE_RESOLVED":
-        await this.deps.battleAnimator.playBattleResolution(event);
+        await this.deps.battleAnimator.playBattleResolution(event, ctx.slots, ctx.boardSlotPositions ?? undefined);
         this.deps.attackIndicator.clear();
         return;
       case "CARD_STAT_MODIFIED":

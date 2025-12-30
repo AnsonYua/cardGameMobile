@@ -31,86 +31,18 @@ type PendingBattleSnapshot = {
 export class BattleAnimationManager {
   private battleAnimationLayer?: Phaser.GameObjects.Container;
   private fx: FxToolkit;
-  private attackSnapshots = new Map<string, PendingBattleSnapshot>();
 
   constructor(private config: BattleAnimationManagerConfig) {
     this.fx = new FxToolkit(config.scene);
   }
 
-  captureAttackSnapshot(snapshotNote: SlotNotification | undefined, slots: SlotViewModel[], positions?: SlotPositionMap | null) {
-    if (!snapshotNote || !positions) return;
-    const payload = snapshotNote.payload || {};
-    // eslint-disable-next-line no-console
-    console.log("[BattleAnimation] captureAttackSnapshot", snapshotNote.id, snapshotNote.type, {
-      battleEnd: payload?.battleEnd,
-      attackerSlot: payload?.attackerSlot || payload?.attackerSlotName,
-      targetSlot: payload?.targetSlotName || payload?.targetSlot,
-      forcedTargetZone: payload?.forcedTargetZone,
-    });
-    const attackerOwner = this.config.resolveSlotOwnerByPlayer(payload.attackingPlayerId);
-    const defenderOwner =
-      this.config.resolveSlotOwnerByPlayer(payload.defendingPlayerId) || (attackerOwner === "player" ? "opponent" : "player");
-    const attackerSlotId = payload.attackerSlot || payload.attackerSlotName;
-    // Resolve attacker and target positions using current slot state or payload fallback.
-    const attackerSlot = findSlotForAttack(slots, payload.attackerCarduid, attackerOwner, attackerSlotId);
-    const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
-    const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
-      resolveSlotOwnerByPlayer: this.config.resolveSlotOwnerByPlayer,
-      anchors: this.config.anchors,
-    });
-    if (!attackerPosition || !targetPoint) {
-      // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] captureAttackSnapshot skipped", {
-        attackerPosition: !!attackerPosition,
-        targetPoint: !!targetPoint,
-      });
-      return;
-    }
-
-    const targetSlotId = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot;
-    const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
-    const targetSlot = findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
-    const targetPosition = getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
-
-    const attackerSeed =
-      this.buildBattleSpriteSeed(attackerSlot, attackerPosition) ||
-      this.buildPayloadSeed(payload, "attacker", attackerOwner, attackerSlotId, attackerPosition);
-    if (!attackerSeed) {
-      // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] captureAttackSnapshot missing attackerSeed", snapshotNote.id);
-      return;
-    }
-    const targetSeed =
-      this.buildBattleSpriteSeed(targetSlot, targetPosition) ||
-      this.buildPayloadSeed(payload, "target", defenderOwner, targetSlotId, targetPosition);
-    const expectsTargetSlot = Boolean(
-      payload.forcedTargetZone ||
-        payload.targetSlotName ||
-        payload.targetSlot ||
-        payload.forcedTargetCarduid ||
-        payload.targetCarduid ||
-        payload.targetUnitUid,
-    );
-    if (!targetSeed && expectsTargetSlot) {
-      // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] captureAttackSnapshot missing target", snapshotNote.id);
-      return;
-    }
-    this.attackSnapshots.set(snapshotNote.id, {
-      attacker: attackerSeed,
-      target: targetSeed,
-      targetPoint,
-      attackId: snapshotNote.id,
-    });
-  }
-
-  async playBattleResolution(note: SlotNotification) {
+  async playBattleResolution(note: SlotNotification, slots?: SlotViewModel[], positions?: SlotPositionMap | null) {
     if (!note) return;
     if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
     const payload = note.payload || {};
     const attackId = payload.attackNotificationId;
     if (!attackId) return;
-    const snapshot = this.attackSnapshots.get(attackId);
+    const snapshot = this.buildSnapshotFromResolution(note, slots, positions);
     if (!snapshot) {
       // eslint-disable-next-line no-console
       console.log("[BattleAnimation] missing snapshot for battle", attackId, note.id, payload?.battleType);
@@ -119,7 +51,51 @@ export class BattleAnimationManager {
     await this.playBattleResolutionAnimation(snapshot, payload);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
-    this.attackSnapshots.delete(attackId);
+  }
+
+  private buildSnapshotFromResolution(
+    note: SlotNotification,
+    slots?: SlotViewModel[],
+    positions?: SlotPositionMap | null,
+  ): PendingBattleSnapshot | undefined {
+    if (!slots || !positions) return undefined;
+    const payload = note.payload || {};
+    const attackerOwner =
+      this.config.resolveSlotOwnerByPlayer(payload.attacker?.playerId ?? payload.attackingPlayerId);
+    const defenderOwner =
+      this.config.resolveSlotOwnerByPlayer(payload.target?.playerId ?? payload.defendingPlayerId) ||
+      (attackerOwner === "player" ? "opponent" : "player");
+    const attackerSlotId = payload.attacker?.slot ?? payload.attackerSlot ?? payload.attackerSlotName;
+    const attackerCarduid = payload.attacker?.carduid ?? payload.attackerCarduid ?? payload.attackerUnitUid;
+    const attackerSlot = findSlotForAttack(slots, attackerCarduid, attackerOwner, attackerSlotId);
+    const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
+    const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
+      resolveSlotOwnerByPlayer: this.config.resolveSlotOwnerByPlayer,
+      anchors: this.config.anchors,
+    });
+    if (!attackerPosition || !targetPoint) return undefined;
+
+    const targetSlotId =
+      payload.forcedTargetZone ?? payload.target?.slot ?? payload.targetSlotName ?? payload.targetSlot;
+    const targetCarduid =
+      payload.forcedTargetCarduid ?? payload.target?.carduid ?? payload.targetCarduid ?? payload.targetUnitUid;
+    const targetSlot = findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
+    const targetPosition = getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
+
+    const attackerSeed =
+      this.buildBattleSpriteSeed(attackerSlot, attackerPosition) ||
+      this.buildPayloadSeed(payload, "attacker", attackerOwner, attackerSlotId, attackerPosition);
+    if (!attackerSeed) return undefined;
+    const targetSeed =
+      this.buildBattleSpriteSeed(targetSlot, targetPosition) ||
+      this.buildPayloadSeed(payload, "target", defenderOwner, targetSlotId, targetPosition);
+
+    return {
+      attacker: attackerSeed,
+      target: targetSeed,
+      targetPoint,
+      attackId: note.id,
+    };
   }
 
   private async playBattleResolutionAnimation(snapshot: PendingBattleSnapshot, payload: any): Promise<void> {

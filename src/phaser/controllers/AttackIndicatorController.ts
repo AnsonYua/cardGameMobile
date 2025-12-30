@@ -24,11 +24,11 @@ export class AttackIndicatorController {
     this.indicator = new AttackIndicator(config.scene);
   }
 
-  updateFromNotification(
+  async updateFromNotification(
     event: SlotNotification | undefined,
     slots: SlotViewModel[],
     positions?: SlotPositionMap | null,
-  ) {
+  ): Promise<void> {
     if (!event) {
       this.hideIndicator();
       return;
@@ -58,7 +58,7 @@ export class AttackIndicatorController {
       return;
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
-    this.indicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
+    await this.indicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
     this.activeAttackNotificationId = event.id;
     this.activeAttackTargetKey = targetKey;
   }
