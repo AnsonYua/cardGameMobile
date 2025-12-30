@@ -1,5 +1,7 @@
-import type { AnimationContext, AnimationEvent } from "./AnimationTypes";
+import type { AnimationContext } from "./AnimationTypes";
 import type { SlotViewModel } from "../ui/SlotTypes";
+import type { SlotNotification } from "./NotificationAnimationController";
+import { extractCardUidsFromNotification } from "./NotificationCardUids";
 
 export class SlotAnimationRenderController {
   // Snapshot of slot visuals used during animations; null means the slot is empty.
@@ -12,7 +14,7 @@ export class SlotAnimationRenderController {
   constructor(private getSlotsFromRaw: (raw: any) => SlotViewModel[]) {}
 
   startBatch(
-    events: AnimationEvent[],
+    events: SlotNotification[],
     previousSlots: SlotViewModel[],
     currentSlots: SlotViewModel[],
   ): SlotViewModel[] {
@@ -20,7 +22,7 @@ export class SlotAnimationRenderController {
     return this.buildSlotsForRender(currentSlots);
   }
 
-  handleEventStart(event: AnimationEvent, currentSlots: SlotViewModel[]): SlotViewModel[] {
+  handleEventStart(event: SlotNotification, currentSlots: SlotViewModel[]): SlotViewModel[] {
     const keys = this.eventSlots.get(event.id) ?? [];
     // Default: hide affected slots while this event animates.
     // TODO: override per event type when needed (some events may not hide).
@@ -28,7 +30,7 @@ export class SlotAnimationRenderController {
     return this.buildSlotsForRender(currentSlots);
   }
 
-  handleEventEnd(event: AnimationEvent, ctx: AnimationContext): SlotViewModel[] | null {
+  handleEventEnd(event: SlotNotification, ctx: AnimationContext): SlotViewModel[] | null {
     const keys = this.eventSlots.get(event.id) ?? [];
     const raw = ctx.currentRaw ?? ctx.previousRaw;
     if (!raw) return null;
@@ -51,7 +53,7 @@ export class SlotAnimationRenderController {
   }
 
   private initRenderSnapshots(
-    events: AnimationEvent[],
+    events: SlotNotification[],
     previousSlots: SlotViewModel[],
     currentSlots: SlotViewModel[],
   ) {
@@ -72,7 +74,7 @@ export class SlotAnimationRenderController {
 
     events.forEach((event) => {
       const keys = new Set<string>();
-      event.cardUids.forEach((uid) => {
+      extractCardUidsFromNotification(event).forEach((uid) => {
         const slot = byUid.get(uid);
         if (!slot) return;
         const key = slotKey(slot);

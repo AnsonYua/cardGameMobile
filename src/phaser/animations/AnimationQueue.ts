@@ -1,4 +1,4 @@
-import type { AnimationContext, AnimationEvent, AnimationEventType } from "./AnimationTypes";
+import type { AnimationContext } from "./AnimationTypes";
 import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
@@ -6,16 +6,16 @@ import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
 
 type QueueItem = {
-  event: AnimationEvent;
+  event: SlotNotification;
   ctx: AnimationContext;
 };
 
-const SUPPORTED_TYPES: AnimationEventType[] = [
+const SUPPORTED_TYPES = [
   "CARD_PLAYED",
   "UNIT_ATTACK_DECLARED",
   "BATTLE_RESOLVED",
   "CARD_STAT_MODIFIED",
-];
+] as const;
 
 export class AnimationQueue {
   private queue: QueueItem[] = [];
@@ -23,8 +23,8 @@ export class AnimationQueue {
   private processedIds = new Set<string>();
   private processedOrder: string[] = [];
   private onIdle?: () => void;
-  private onEventStart?: (event: AnimationEvent, ctx: AnimationContext) => void;
-  private onEventEnd?: (event: AnimationEvent, ctx: AnimationContext) => void;
+  private onEventStart?: (event: SlotNotification, ctx: AnimationContext) => void;
+  private onEventEnd?: (event: SlotNotification, ctx: AnimationContext) => void;
 
   constructor(
     private deps: {
@@ -42,11 +42,11 @@ export class AnimationQueue {
     this.onIdle = handler;
   }
 
-  setOnEventStart(handler?: (event: AnimationEvent, ctx: AnimationContext) => void) {
+  setOnEventStart(handler?: (event: SlotNotification, ctx: AnimationContext) => void) {
     this.onEventStart = handler;
   }
 
-  setOnEventEnd(handler?: (event: AnimationEvent, ctx: AnimationContext) => void) {
+  setOnEventEnd(handler?: (event: SlotNotification, ctx: AnimationContext) => void) {
     this.onEventEnd = handler;
   }
 
@@ -54,26 +54,21 @@ export class AnimationQueue {
     return this.running;
   }
 
-  buildEvents(notificationQueue: SlotNotification[]): AnimationEvent[] {
+  buildEvents(notificationQueue: SlotNotification[]): SlotNotification[] {
     if (!Array.isArray(notificationQueue) || notificationQueue.length === 0) {
       return [];
     }
-    const events: AnimationEvent[] = [];
+    const events: SlotNotification[] = [];
     notificationQueue.forEach((note) => {
       if (!note || !note.id) return;
-      const type = (note.type || "").toUpperCase() as AnimationEventType;
+      const type = (note.type || "").toUpperCase() as (typeof SUPPORTED_TYPES)[number];
       if (!SUPPORTED_TYPES.includes(type)) return;
-      events.push({
-        id: note.id,
-        type,
-        note,
-        cardUids: this.extractCardUids(note),
-      });
+      events.push(note);
     });
     return events;
   }
 
-  enqueue(events: AnimationEvent[], ctx: AnimationContext) {
+  enqueue(events: SlotNotification[], ctx: AnimationContext) {
     events.forEach((event) => {
       if (!event.id) return;
       if (this.processedIds.has(event.id)) return;
@@ -124,36 +119,13 @@ export class AnimationQueue {
     }
   }
 
-  private extractCardUids(note: SlotNotification): string[] {
-    const payload = note.payload || {};
-    const candidates = [
-      payload.carduid,
-      payload.cardUid,
-      payload.attackerCarduid,
-      payload.attackerUnitUid,
-      payload.targetCarduid,
-      payload.targetUnitUid,
-      payload.forcedTargetCarduid,
-      payload?.attacker?.carduid,
-      payload?.attacker?.cardUid,
-      payload?.target?.carduid,
-      payload?.target?.cardUid,
-    ];
-    const uids = new Set<string>();
-    candidates.forEach((value) => {
-      if (typeof value === "string" && value.trim()) {
-        uids.add(value);
-      }
-    });
-    return Array.from(uids);
-  }
-
-  private async runEvent(event: AnimationEvent, ctx: AnimationContext): Promise<void> {
+  private async runEvent(event: SlotNotification, ctx: AnimationContext): Promise<void> {
     if (!ctx.allowAnimations) return;
-    console.log("sequence of animation " , event.type)
-    switch (event.type) {
+    const type = (event.type || "").toUpperCase();
+    console.log("sequence of animation ", type);
+    switch (type) {
       case "CARD_PLAYED":
-        await this.deps.cardPlayAnimator.playCardPlayed(event.note, {
+        await this.deps.cardPlayAnimator.playCardPlayed(event, {
           slots: ctx.slots,
           boardSlotPositions: ctx.boardSlotPositions,
           currentPlayerId: ctx.currentPlayerId,
@@ -166,16 +138,16 @@ export class AnimationQueue {
           ctx.notificationQueue,
           ctx.slots,
           ctx.boardSlotPositions ?? undefined,
-          event.note,
+          event,
         );
         this.deps.battleAnimator.captureAttackSnapshot(
-          event.note,
+          event,
           ctx.slots,
           ctx.boardSlotPositions ?? undefined,
         );
         return;
       case "BATTLE_RESOLVED":
-        await this.deps.battleAnimator.playBattleResolution(event.note);
+        await this.deps.battleAnimator.playBattleResolution(event);
         this.deps.attackIndicator.updateFromNotifications(
           ctx.notificationQueue,
           ctx.slots,
@@ -191,8 +163,8 @@ export class AnimationQueue {
     }
   }
 
-  private async triggerStatPulse(event: AnimationEvent, ctx: AnimationContext) {
-    const payload = event.note.payload ?? {};
+  private async triggerStatPulse(event: SlotNotification, ctx: AnimationContext) {
+    const payload = event.payload ?? {};
     const delta = this.normalizeDelta(payload);
     if (delta === 0) return;
     const slotKey = this.resolveSlotKey(payload, ctx.slots, ctx.resolveSlotOwnerByPlayer);
