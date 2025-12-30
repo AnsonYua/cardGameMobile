@@ -8,7 +8,6 @@ import {
   getSlotCenterFromMap,
   type TargetAnchorProviders,
 } from "../utils/AttackResolver";
-import { findActiveAttackNotification } from "../utils/NotificationUtils";
 
 type AttackIndicatorControllerConfig = {
   scene: Phaser.Scene;
@@ -25,14 +24,12 @@ export class AttackIndicatorController {
     this.indicator = new AttackIndicator(config.scene);
   }
 
-  updateFromNotifications(
-    notifications: SlotNotification[],
+  updateFromNotification(
+    event: SlotNotification | undefined,
     slots: SlotViewModel[],
     positions?: SlotPositionMap | null,
-    attackNote?: SlotNotification,
   ) {
-    const note = attackNote ?? findActiveAttackNotification(notifications);
-    if (!note) {
+    if (!event) {
       this.hideIndicator();
       return;
     }
@@ -40,9 +37,9 @@ export class AttackIndicatorController {
       this.hideIndicator();
       return;
     }
-    const payload = note.payload || {};
+    const payload = event.payload || {};
     const targetKey = this.buildAttackTargetKey(payload);
-    if (this.activeAttackNotificationId === note.id && this.activeAttackTargetKey === targetKey) {
+    if (this.activeAttackNotificationId === event.id && this.activeAttackTargetKey === targetKey) {
       return;
     }
 
@@ -62,7 +59,7 @@ export class AttackIndicatorController {
     }
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
     this.indicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
-    this.activeAttackNotificationId = note.id;
+    this.activeAttackNotificationId = event.id;
     this.activeAttackTargetKey = targetKey;
   }
 

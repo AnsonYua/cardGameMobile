@@ -27,6 +27,7 @@ export class SlotAnimationRenderController {
     // Default: hide affected slots while this event animates.
     // TODO: override per event type when needed (some events may not hide).
     keys.forEach((key) => this.runningSlots.add(key));
+    console.log('handle event start ', JSON.stringify(keys))
     return this.buildSlotsForRender(currentSlots);
   }
 
