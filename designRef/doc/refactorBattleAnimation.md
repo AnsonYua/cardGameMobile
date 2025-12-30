@@ -5,85 +5,71 @@ goals
 - during battle animation: render all slots from last gameEnv snapshot
 - after the animation finishes: render the current gameEnv snapshot
 
-new architecture
-- new class: BattleAnimationQueue (or BattleAnimationGate)
-  - responsibility: detect battle-related notifications, manage a FIFO queue, track running state
-  - interface:
-    - needsBattleAnimation(notificationQueue): boolean
-    - enqueue(notificationQueue, lastGameEnvRaw, currentGameEnvRaw, ctx): void
-    - isRunning(): boolean
-    - onComplete(cb): void (optional)
+current architecture (refactor status)
+- centralized queue + render controller
+  - AnimationQueue
+    - builds events from notificationQueue
+    - dedupes by event id
+    - executes animations in FIFO order
+    - exposes event start/end hooks
+  - SlotAnimationRenderController
+    - snapshot map of previous slot visuals
+    - hides running slots while their event animates
+    - updates snapshot when event finishes
+    - composes the final slots to render
 - no lockedSlots or per-slot merge logic
-- lastGameEnvRaw stored in BoardScene and used for render while battle animation is running
+- BoardScene orchestrates:
+  - build events → start render snapshot → enqueue
+  - render snapshots on event start/end
 
 data requirements
-- lastGameEnvRaw: previous snapshot.raw (not current) so visuals match the pre-battle state
-- currentGameEnvRaw: current snapshot.raw for final render after animation completes
-- notificationQueue: used to detect if battle animation is required
-- affected cards: scan each notification.payload for cardUid references (attacker/target/etc)
+- previous snapshot raw: used to snapshot the pre-animation slot visuals
+- current snapshot raw: used to update snapshots when each event finishes
+- notificationQueue: parsed into AnimationEvent list
+- affected cards: extracted from notification payload (attacker/target/played card)
 
-new updateSlots flow (pseudo)
+current updateSlots flow (pseudo)
 ```
-updateSlots(opts = {}) {
-  const snapshot = engine.getSnapshot()
-  const raw = snapshot.raw
+updateSlots() {
+  snapshot = engine.getSnapshot()
+  raw = snapshot.raw
+  previousRaw = snapshot.previousRaw
   if (!raw) return
-  const notificationQueue = getNotificationQueue(raw)
-  const needsBattle = battleQueue.needsBattleAnimation(notificationQueue)
 
-  if (battleQueue.isRunning() || needsBattle) {
-    const lastRaw = this.lastGameEnvRaw ?? raw
-    const lastSlots = slotPresenter.toSlots(lastRaw, playerId)
-    renderSlots(lastSlots)
+  currentSlots = slotPresenter.toSlots(raw, playerId)
+  events = animationQueue.buildEvents(notificationQueue)
+  queueRunning = animationQueue.isRunning()
 
-    if (needsBattle && !battleQueue.isRunning()) {
-      battleQueue.enqueue({
-        notificationQueue,
-        lastRaw,
-        currentRaw: raw,
-        runAnimations: () => animationOrchestrator.run(...)
-      })
-      battleQueue.startIfIdle()
-    }
+  if (allowAnimations && events.length > 0 && !queueRunning) {
+    previousSlots = slotPresenter.toSlots(previousRaw ?? raw, playerId)
+    initialSlots = slotAnimationRender.startBatch(events, previousSlots, currentSlots)
+    renderSlots(initialSlots)         // render snapshot BEFORE enqueue
+    animationQueue.enqueue(events, ctx)
     return
   }
 
-  const currentSlots = slotPresenter.toSlots(raw, playerId)
+  if (allowAnimations && queueRunning) return
   renderSlots(currentSlots)
-  this.lastGameEnvRaw = raw
 }
 ```
 
-needsBattleAnimation (pseudo)
+animationQueue event build (pseudo)
 ```
-needsBattleAnimation(notificationQueue) {
-  if (!notificationQueue?.length) return false
-  for each note in notificationQueue:
-    const payload = note.payload || {}
-    if payload.attacker?.carduid or payload.target?.carduid: return true
-    if payload.attackingCardUid or payload.defendingCardUid: return true
-    if payload.attackingPlayerId or payload.defendingPlayerId: return true
-  return false
+buildEvents(notificationQueue) {
+  // map supported notifications into AnimationEvent[]
+  // extract cardUids from payload (attacker/target/played card)
 }
 ```
 
 queue behavior (pseudo)
 ```
-enqueue({ notificationQueue, lastRaw, currentRaw, runAnimations }) {
-  // store entries FIFO; each entry corresponds to one battle resolution
-  // battle animations must run sequentially
+enqueue(events, ctx) {
+  // FIFO queue, dedupe by event id
 }
 
-startIfIdle() {
-  if (running) return
-  running = true
-  while (queue not empty) {
-    const entry = queue.shift()
-    await runAnimations(entry)
-  }
-  running = false
-  // after completion: render current snapshot and update lastGameEnvRaw
-}
+onEventStart(event) -> hide affected slots (default)
+onEventEnd(event) -> copy current slot into snapshot (default)
+onIdle -> render current snapshot
 ```
 
 important changes
@@ -91,35 +77,23 @@ important changes
 - battle animations drive the visual state (last snapshot during animation, current snapshot after)
 - notification scanning determines whether to start the battle queue
 
-refactor goals (new)
+refactor goals (current state)
 - centralize notification handling: UNIT_ATTACK_DECLARED, CARD_PLAYED, BATTLE_RESOLVED, CARD_STAT_MODIFIED
-- remove per-handler queues; NotificationAnimationController should not own a queue
-- keep AnimationOrchestrator thin (only dispatch/ordering, no queue logic)
-- remove AnimationCaches if possible (ProcessedIdCache usage eliminated by new centralized queue)
+- NotificationAnimationController no longer owns a queue
+- AnimationQueue is the single FIFO queue and also builds events
+- AnimationCaches removed
 
-new proposed structure (centerized + modular)
-- new class: AnimationEventRouter
-  - responsibility: interpret notificationQueue and map to domain events
-  - outputs a normalized list of AnimationEvents (type + payload + affected cardUids)
-  - owns dedupe rules (if needed) instead of per-handler caches
-
-- new class: AnimationQueue (single queue for all animations)
+structure now (centerized + modular)
+- AnimationQueue (single queue + event builder + executor)
   - FIFO queue, runs events sequentially
-  - no per-handler queues
-  - owns running state and lifecycle hooks (onStart/onComplete)
+  - dedupe by event id
+  - triggers onEventStart/onEventEnd to update render snapshots
+  - executes card play, battle resolution, stat pulses, attack indicator updates
 
-- new class: AnimationExecutor
-  - takes one AnimationEvent and runs the corresponding animation
-  - uses small, focused helpers:
-    - CardPlayAnimator (play to slot/base/command)
-    - BattleAnimator (battle resolution / attack sequence)
-    - StatPulseAnimator (stat change effects)
-    - AttackIndicatorUpdater (attack arrow updates)
-
-- AnimationOrchestrator becomes a thin wrapper:
-  - build events via AnimationEventRouter
-  - enqueue into AnimationQueue
-  - no internal queue or per-handler chain logic
+- SlotAnimationRenderController
+  - owns snapshot map for pre-animation slot visuals
+  - hides running slots and updates snapshot when events finish
+  - composes final slot list for render
 
 data flow (high level)
 1) updateSlots() builds notificationQueue
@@ -136,12 +110,12 @@ AnimationEvent = {
 }
 ```
 
-event routing rules (examples)
+event routing rules (current)
 ```
-if note.type == "CARD_PLAYED": event => CardPlayAnimator
-if note.type == "UNIT_ATTACK_DECLARED": event => AttackIndicatorUpdater
-if note.type == "BATTLE_RESOLVED": event => BattleAnimator
-if note.type == "CARD_STAT_MODIFIED": event => StatPulseAnimator
+CARD_PLAYED -> NotificationAnimationController.playCardPlayed
+UNIT_ATTACK_DECLARED -> update attack indicator + capture snapshot
+BATTLE_RESOLVED -> BattleAnimationManager.playBattleResolution
+CARD_STAT_MODIFIED -> playStatPulse
 ```
 
 queue behavior (centralized)
@@ -158,7 +132,6 @@ notification scan for battle gating
 - if any event is battle-related -> start battle queue
 
 removals / simplifications
-- remove NotificationAnimationController internal queue and ProcessedIdCache usage
-- remove AnimationCaches if no other code depends on it
-- collapse handler classes if they only forward to another class
-- reduce AnimationOrchestrator to "route + enqueue" logic only
+- NotificationAnimationController queue removed
+- AnimationCaches removed
+- AnimationOrchestrator/handlers removed

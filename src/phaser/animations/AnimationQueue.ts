@@ -150,6 +150,7 @@ export class AnimationQueue {
 
   private async runEvent(event: AnimationEvent, ctx: AnimationContext): Promise<void> {
     if (!ctx.allowAnimations) return;
+    console.log("sequence of animation " , event.type)
     switch (event.type) {
       case "CARD_PLAYED":
         await this.deps.cardPlayAnimator.playCardPlayed(event.note, {
