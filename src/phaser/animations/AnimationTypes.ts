@@ -14,6 +14,7 @@ export type AnimationContext = {
   currentPlayerId: string | null;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   cardLookup: CardLookup;
+  getRenderSlots?: () => SlotViewModel[];
   previousRaw?: any;
   currentRaw?: any;
 };

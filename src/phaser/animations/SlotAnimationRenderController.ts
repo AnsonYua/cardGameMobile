@@ -28,7 +28,7 @@ export class SlotAnimationRenderController {
     // TODO: override per event type when needed (some events may not hide).
     
     //dont need to hide the target or attacker when UNIT_ATTACK_DECLARED
-    if(event.type != "UNIT_ATTACK_DECLARED"){
+    if(event.type != "UNIT_ATTACK_DECLARED" && event.type != "BATTLE_RESOLVED"){
       keys.forEach((key) => this.runningSlots.add(key));
     }
     return this.buildSlotsForRender(currentSlots);
@@ -39,11 +39,17 @@ export class SlotAnimationRenderController {
     const raw = ctx.currentRaw ?? ctx.previousRaw;
     if (!raw) return null;
     const currentSlots = this.getSlotsFromRaw(raw);
+    const type = (event.type || "").toUpperCase();
+    const releaseSlots = () => keys.forEach((key) => this.runningSlots.delete(key));
+    releaseSlots();
+    if (type === "UNIT_ATTACK_DECLARED") {
+      // Keep preview snapshot for this event; just unhide affected slots.
+      return this.buildSlotsForRender(currentSlots);
+    }
     const byKey = new Map(currentSlots.map((slot) => [`${slot.owner}-${slot.slotId}`, slot]));
     // Default: copy current slot state into the snapshot when the event finishes.
     // TODO: override per event type when we need custom slot label updates.
     keys.forEach((key) => {
-      this.runningSlots.delete(key);
       const slot = byKey.get(key);
       this.renderSnapshots.set(key, slot ? this.cloneSlot(slot) : null);
     });
@@ -54,6 +60,10 @@ export class SlotAnimationRenderController {
     this.renderSnapshots.clear();
     this.runningSlots.clear();
     this.eventSlots.clear();
+  }
+
+  getRenderSlots(currentSlots: SlotViewModel[]) {
+    return this.buildSlotsForRender(currentSlots);
   }
 
   private initRenderSnapshots(

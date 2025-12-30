@@ -482,6 +482,7 @@ export class BoardScene extends Phaser.Scene {
       currentPlayerId: this.gameContext.playerId,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       cardLookup,
+      getRenderSlots: () => this.slotAnimationRender?.getRenderSlots(currentSlots) ?? currentSlots,
       previousRaw,
       currentRaw: raw,
     };

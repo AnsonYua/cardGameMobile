@@ -66,14 +66,6 @@ export class AttackIndicator {
         },
       });
     });
-    this.glowTween = this.scene.tweens.add({
-      targets: this.state,
-      glowShift: 1,
-      duration: 900,
-      repeat: -1,
-      ease: "Linear",
-      onUpdate: () => this.renderArrow(),
-    });
   }
 
   hide(opts: { immediate?: boolean; fadeDuration?: number } = {}) {

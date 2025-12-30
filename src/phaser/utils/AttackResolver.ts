@@ -52,11 +52,25 @@ export function resolveAttackTargetPoint(
   defenderOwner: SlotOwner,
   context: TargetResolutionContext,
 ) {
-  const targetSlotId = payload.forcedTargetZone ?? payload.targetSlotName ?? payload.targetSlot ?? undefined;
+  const targetSlotId =
+    payload.forcedTargetZone ??
+    payload.targetSlotName ??
+    payload.targetSlot ??
+    payload.target?.slot ??
+    undefined;
   const normalizedSlot = (targetSlotId ?? "").toLowerCase();
-  const normalizedName = (payload.targetName ?? "").toLowerCase();
+  const normalizedName = (
+    payload.targetName ??
+    payload.target?.unit?.cardData?.name ??
+    payload.target?.unit?.cardId ??
+    ""
+  ).toLowerCase();
   const hasForcedTarget = Boolean(payload.forcedTargetCarduid || payload.forcedTargetZone || payload.forcedTargetPlayerId);
-  const targetPlayerId = payload.forcedTargetPlayerId ?? payload.targetPlayerId ?? payload.defendingPlayerId;
+  const targetPlayerId =
+    payload.forcedTargetPlayerId ??
+    payload.targetPlayerId ??
+    payload.defendingPlayerId ??
+    payload.target?.playerId;
   const targetOwner = context.resolveSlotOwnerByPlayer(targetPlayerId) ?? defenderOwner;
   const isOpponentTarget = targetOwner === "opponent";
 
@@ -78,7 +92,12 @@ export function resolveAttackTargetPoint(
     }
   }
 
-  const targetCarduid = payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
+  const targetCarduid =
+    payload.forcedTargetCarduid ??
+    payload.targetCarduid ??
+    payload.targetUnitUid ??
+    payload.target?.unit?.carduid ??
+    payload.target?.carduid;
   const slotVm = findSlotForAttack(slots, targetCarduid, targetOwner, targetSlotId);
   return getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
 }
