@@ -28,10 +28,8 @@ import { EffectTargetController } from "./controllers/EffectTargetController";
 import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
 import { NotificationAnimationController } from "./animations/NotificationAnimationController";
 import { BattleAnimationManager } from "./animations/BattleAnimationManager";
-import { AnimationEventRouter } from "./animations/AnimationEventRouter";
 import { AnimationQueue } from "./animations/AnimationQueue";
-import { AnimationExecutor } from "./animations/AnimationExecutor";
-import { SlotAnimationRenderState } from "./animations/SlotAnimationRenderState";
+import { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
@@ -96,10 +94,8 @@ export class BoardScene extends Phaser.Scene {
   private battleAnimations?: BattleAnimationManager;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
-  private animationRouter = new AnimationEventRouter();
-  private animationExecutor?: AnimationExecutor;
   private animationQueue?: AnimationQueue;
-  private animationRenderState?: SlotAnimationRenderState;
+  private slotAnimationRender?: SlotAnimationRenderController;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -145,26 +141,31 @@ export class BoardScene extends Phaser.Scene {
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       anchorsProvider: () => this.getTargetAnchorProviders(),
     });
-    this.animationExecutor = new AnimationExecutor({
+    this.animationQueue = new AnimationQueue({
       cardPlayAnimator: this.notificationAnimator as NotificationAnimationController,
       battleAnimator: this.battleAnimations as BattleAnimationManager,
       attackIndicator: this.attackIndicatorController,
       slotControls: this.slotControls,
     });
-    this.animationQueue = new AnimationQueue(this.animationExecutor);
     this.animationQueue.setOnIdle(() => this.handleAnimationQueueIdle());
     this.animationQueue.setOnEventStart((event, ctx) => {
-      const slots = this.animationRenderState?.handleEventStart(event, ctx);
+      const slots = this.slotAnimationRender?.handleEventStart(
+        event,
+        this.slotPresenter.toSlots(ctx.currentRaw ?? ctx.previousRaw, this.gameContext.playerId),
+      );
       if (slots) {
         this.renderSlots(slots);
       }
     });
     this.animationQueue.setOnEventEnd((event, ctx) => {
-      const slots = this.animationRenderState?.handleEventEnd(event, ctx);
+      const slots = this.slotAnimationRender?.handleEventEnd(event, ctx);
       if (slots) {
         this.renderSlots(slots);
       }
     });
+    this.slotAnimationRender = new SlotAnimationRenderController((data) =>
+      this.slotPresenter.toSlots(data, this.gameContext.playerId),
+    );
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -463,7 +464,7 @@ export class BoardScene extends Phaser.Scene {
     if (!raw) return;
     const previousRaw = snapshot.previousRaw as any;
     const playerId = this.gameContext.playerId;
-    const slots = this.slotPresenter.toSlots(raw, playerId);
+    const currentSlots = this.slotPresenter.toSlots(raw, playerId);
     const allowAnimations = opts.animate ?? true;
 
     const notificationQueue = getNotificationQueue(raw);
@@ -472,10 +473,10 @@ export class BoardScene extends Phaser.Scene {
       findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
       findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
     };
-    const events = this.animationRouter.buildEvents(notificationQueue);
+    const events = this.animationQueue?.buildEvents(notificationQueue) ?? [];
     const ctx = {
       notificationQueue,
-      slots,
+      slots: currentSlots,
       boardSlotPositions,
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,
@@ -490,14 +491,9 @@ export class BoardScene extends Phaser.Scene {
 
     if (allowAnimations && hasNewEvents && !queueRunning) {
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
-      this.animationRenderState = new SlotAnimationRenderState(
-        events,
-        previousSlots,
-        slots,
-        (data) => this.slotPresenter.toSlots(data, this.gameContext.playerId),
-      );
+      const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
+      this.renderSlots(initialSlots);
       this.animationQueue?.enqueue(events, ctx);
-      this.renderSlots(this.animationRenderState.buildSlotsForRender(slots));
       return;
     }
 
@@ -505,7 +501,7 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
 
-    this.renderSlots(slots);
+    this.renderSlots(currentSlots);
   }
 
   private updateHeaderPhaseStatus(raw: any) {
@@ -542,13 +538,14 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls?.setSlots(slots);
   }
 
+
   private handleAnimationQueueIdle() {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
-    this.animationRenderState = undefined;
+    this.slotAnimationRender?.clear();
     this.renderSlots(slots);
   }
 
