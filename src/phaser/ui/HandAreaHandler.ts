@@ -117,9 +117,9 @@ export class HandAreaHandler {
     this.layoutState = { cardW, cardH, gapX, viewW, viewH, viewX, viewY, centerY, minScrollX, maxScrollX };
 
     if (this.cardContainer) {
-      this.scrollX = Phaser.Math.Clamp(this.scrollX, minScrollX, maxScrollX);
+      this.applyScrollX(Phaser.Math.Clamp(this.scrollX, minScrollX, maxScrollX));
       this.scrollDriver.x = this.scrollX;
-      this.cardContainer.setPosition(viewX + this.scrollX, centerY);
+      this.cardContainer.setY(centerY);
     }
 
     this.updateMask();
@@ -166,6 +166,7 @@ export class HandAreaHandler {
     const signature = this.buildHandSignature(cards);
     // Skip redraw if nothing changed; prevents autopolls from killing previews/interaction.
     if (signature && signature === this.lastHandSignature) {
+      this.updateArrows();
       return;
     }
     this.lastHandSignature = signature;
@@ -434,7 +435,7 @@ export class HandAreaHandler {
     if (!this.layoutState || !this.leftArrow || !this.rightArrow) return;
     const { centerY, minScrollX, maxScrollX } = this.layoutState;
     const camW = this.scene.scale.width;
-    const leftX = 15;
+    const leftX = 14.5;
     const rightX = camW;
     this.leftArrow.setPosition(leftX, centerY);
     this.rightArrow.setPosition(rightX, centerY);
@@ -455,7 +456,7 @@ export class HandAreaHandler {
   }
 
   private setArrowState(arrow: Phaser.GameObjects.Container, active: boolean) {
-    arrow.setAlpha(active ? this.config.arrows.activeAlpha : this.config.arrows.inactiveAlpha);
+    arrow.setVisible(active);
     const hit = arrow.getByName("hit") as Phaser.GameObjects.Zone | undefined;
     if (!hit) return;
     if (active) {
@@ -489,11 +490,10 @@ export class HandAreaHandler {
       duration,
       ease: "Cubic.easeOut",
       onUpdate: () => {
-        this.scrollX = this.scrollDriver.x;
-        this.cardContainer?.setX(this.layoutState!.viewX + this.scrollX);
+        this.applyScrollX(this.scrollDriver.x);
       },
       onComplete: () => {
-        this.scrollX = clamped;
+        this.applyScrollX(clamped);
         this.updateArrows();
       },
     });
@@ -539,11 +539,10 @@ export class HandAreaHandler {
         this.cancelPreviewTimer();
       }
       const next = Phaser.Math.Clamp(this.scrollX + dx, this.layoutState.minScrollX, this.layoutState.maxScrollX);
-      this.scrollX = next;
+      this.applyScrollX(next);
       this.dragVelocity = dx / dt;
       this.dragLastX = pointer.x;
       this.dragLastTime = now;
-      this.cardContainer.setX(this.layoutState.viewX + this.scrollX);
       this.updateArrows();
     });
     this.scene.input.on("pointerup", () => {
@@ -572,8 +571,7 @@ export class HandAreaHandler {
       const dt = Math.max(1, delta);
       const next = this.scrollX + this.dragVelocity * dt;
       const clamped = Phaser.Math.Clamp(next, this.layoutState.minScrollX, this.layoutState.maxScrollX);
-      this.scrollX = clamped;
-      this.cardContainer.setX(this.layoutState.viewX + this.scrollX);
+      this.applyScrollX(clamped);
       const friction = Math.pow(0.92, dt / 16.67);
       this.dragVelocity *= friction;
       if (this.scrollX === this.layoutState.minScrollX || this.scrollX === 0) {
@@ -590,6 +588,12 @@ export class HandAreaHandler {
   private startInertia(speed: number) {
     this.inertiaActive = true;
     this.dragVelocity = speed;
+  }
+
+  private applyScrollX(next: number) {
+    if (!this.layoutState || !this.cardContainer) return;
+    this.scrollX = next;
+    this.cardContainer.setX(this.layoutState.viewX + this.scrollX);
   }
 
   private buildArrow(direction: -1 | 1) {
