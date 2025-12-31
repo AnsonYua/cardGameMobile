@@ -1,4 +1,4 @@
-1.when a new card is play in gameEnv.notificationQueue it will have  "type": "CARD_PLAYED" card is playAs pilot/unit,
+1.when a new card is play in gameEnv.notificationQueue it will have  "type": "CARD_PLAYED_COMPLETED" card is playAs pilot/unit,
  payload."isCompleted": true, if payload.playerId = {currentPlayer} and payload.playerId and reason = hand. use carduid search again the slot and play animation moving the card from hand to that slot with PlayCardAnimationManager.ts. if payload.playerId = {opponent}, just move from top to slot.
 
  if card is playAs base, just move to base area. 
@@ -90,8 +90,8 @@
                 }
             },
             {
-                "id": "card_played_1765964469749_x7551sjb2",
-                "type": "CARD_PLAYED",
+                "id": "CARD_PLAYED_COMPLETED_1765964469749_x7551sjb2",
+                "type": "CARD_PLAYED_COMPLETED",
                 "metadata": {
                     "timestamp": 1765964469749,
                     "expiresAt": 1765964472749,

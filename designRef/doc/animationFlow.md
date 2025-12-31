@@ -22,7 +22,7 @@ This document explains how animation is triggered, queued, and rendered in the f
   - Updates attack indicator through the orchestrator callback.
 
 - `src/phaser/animations/NotificationAnimationController.ts`
-  - Handles non-battle animations (currently `CARD_PLAYED`).
+  - Handles non-battle animations (currently `CARD_PLAYED_COMPLETED`).
   - Runs animations serially via an internal promise queue.
   - Locks/hides slots while a play animation is in progress.
 
@@ -84,10 +84,10 @@ File reference: `src/phaser/BoardScene.ts`.
 
 ## Animation Types
 
-### 1) CARD_PLAYED
+### 1) CARD_PLAYED_COMPLETED
 
 Trigger:
-- `notificationQueue` contains `CARD_PLAYED` with `payload.isCompleted === true`.
+- `notificationQueue` contains `CARD_PLAYED_COMPLETED` with `payload.isCompleted === true`.
 
 Handler:
 - `NotificationAnimationController.process()` via `NotificationAnimationHandler`
@@ -225,7 +225,7 @@ File reference:
 ### Scenario A: Play a unit from hand
 
 Notification queue:
-- `CARD_PLAYED` (playAs: "unit")
+- `CARD_PLAYED_COMPLETED` (playAs: "unit")
 
 Flow:
 1) `NotificationAnimationController.process()` creates a flight animation from hand to slot.
@@ -240,7 +240,7 @@ Sequence (simplified):
 ```
 Backend -> GameEngine: status (notificationQueue)
 GameEngine -> BoardScene: MAIN_PHASE_UPDATE
-BoardScene -> NotificationAnimationController: process(CARD_PLAYED)
+BoardScene -> NotificationAnimationController: process(CARD_PLAYED_COMPLETED)
 NotificationAnimationController -> PlayCardAnimationManager: play()
 NotificationAnimationController -> SlotDisplayHandler: hide slot
 PlayCardAnimationManager -> NotificationAnimationController: done
@@ -249,7 +249,7 @@ NotificationAnimationController -> SlotDisplayHandler: show slot + unlock
 
 Key snippet (slot play path):
 ```ts
-if (type === "CARD_PLAYED") {
+if (type === "CARD_PLAYED_COMPLETED") {
   const task = this.buildCardPlayedTask(note.payload ?? {}, args);
   if (!task) return;
   this.processedIds.add(note.id);
@@ -331,7 +331,7 @@ return getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
 ### Scenario D: Card play + battle resolved in same queue
 
 Notification queue order:
-- `CARD_PLAYED`
+- `CARD_PLAYED_COMPLETED`
 - `BATTLE_RESOLVED`
 
 Flow:

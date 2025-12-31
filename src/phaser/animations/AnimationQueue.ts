@@ -11,7 +11,7 @@ type QueueItem = {
 };
 
 const SUPPORTED_TYPES = [
-  "CARD_PLAYED",
+  "CARD_PLAYED_COMPLETED",
   "UNIT_ATTACK_DECLARED",
   "BATTLE_RESOLVED",
   "CARD_STAT_MODIFIED",
@@ -124,7 +124,7 @@ export class AnimationQueue {
     const type = (event.type || "").toUpperCase();
     console.log("sequence of animation ", type);
     switch (type) {
-      case "CARD_PLAYED":
+      case "CARD_PLAYED_COMPLETED":
         await this.deps.cardPlayAnimator.playCardPlayed(event, {
           slots: ctx.slots,
           boardSlotPositions: ctx.boardSlotPositions,

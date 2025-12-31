@@ -78,7 +78,7 @@ important changes
 - notification scanning determines whether to start the battle queue
 
 refactor goals (current state)
-- centralize notification handling: UNIT_ATTACK_DECLARED, CARD_PLAYED, BATTLE_RESOLVED, CARD_STAT_MODIFIED
+- centralize notification handling: UNIT_ATTACK_DECLARED, CARD_PLAYED_COMPLETED, BATTLE_RESOLVED, CARD_STAT_MODIFIED
 - NotificationAnimationController no longer owns a queue
 - AnimationQueue is the single FIFO queue and also builds events
 - AnimationCaches removed
@@ -104,7 +104,7 @@ data flow (high level)
 event normalization (pseudo)
 ```
 AnimationEvent = {
-  type: "CARD_PLAYED" | "UNIT_ATTACK_DECLARED" | "BATTLE_RESOLVED" | "CARD_STAT_MODIFIED",
+  type: "CARD_PLAYED_COMPLETED" | "UNIT_ATTACK_DECLARED" | "BATTLE_RESOLVED" | "CARD_STAT_MODIFIED",
   payload: any,
   cardUids: string[] // attacker/target/played card references
 }
@@ -112,7 +112,7 @@ AnimationEvent = {
 
 event routing rules (current)
 ```
-CARD_PLAYED -> NotificationAnimationController.playCardPlayed
+CARD_PLAYED_COMPLETED -> NotificationAnimationController.playCardPlayed
 UNIT_ATTACK_DECLARED -> update attack indicator + capture snapshot
 BATTLE_RESOLVED -> BattleAnimationManager.playBattleResolution
 CARD_STAT_MODIFIED -> playStatPulse
