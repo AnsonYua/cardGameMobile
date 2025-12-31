@@ -32,7 +32,7 @@ export class SlotDisplayHandler {
       defaultBorderAlpha: 0.75,
       selectedBorderAlpha: 1,
       pilotSliceRatio: 0.4,
-      showPilotInSlots: false,
+      showPilotInSlots: true,
       unitRatio: 0.75,
       pilotAlpha: 0.95,
       statsBadge: {
@@ -224,13 +224,6 @@ export class SlotDisplayHandler {
       unitRatio = 0.75;
       pilotRatio = 1 - unitRatio;
     }
-    if (slot.unit) {
-      const unitLayer = this.scene.add.container(0, 0);
-      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
-      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, false);
-      container.add(unitLayer);
-    }
-
     if (slot.pilot && this.config.slot.showPilotInSlots) {
       const pilotObj = this.drawCard(
         container,
@@ -245,6 +238,13 @@ export class SlotDisplayHandler {
       );
       pilotObj?.setAlpha(this.config.slot.pilotAlpha);
       this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, false);
+    }
+
+    if (slot.unit) {
+      const unitLayer = this.scene.add.container(0, 0);
+      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, false);
+      container.add(unitLayer);
     }
 
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
@@ -283,13 +283,6 @@ export class SlotDisplayHandler {
       unitRatio = 0.75;
       pilotRatio = 1 - unitRatio;
     }
-    if (slot.unit) {
-      const unitLayer = this.scene.add.container(0, 0);
-      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
-      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, isSelected);
-      container.add(unitLayer);
-    }
-
     if (slot.pilot && this.config.slot.showPilotInSlots) {
       const pilotObj = this.drawCard(
         container,
@@ -304,6 +297,13 @@ export class SlotDisplayHandler {
       );
       pilotObj?.setAlpha(0.95);
       this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, isSelected);
+    }
+
+    if (slot.unit) {
+      const unitLayer = this.scene.add.container(0, 0);
+      this.drawCard(unitLayer, slot.unit.textureKey, slot.unit.id, width, unitHeight, unitCenterY, true, false);
+      this.drawUnitBorder(unitLayer, width, unitHeight, unitCenterY, unitRatio, isSelected);
+      container.add(unitLayer);
     }
 
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
@@ -333,7 +333,13 @@ export class SlotDisplayHandler {
     const scale = isPilot ? pilotSliceRatio : 1;
     const fitted = this.fitCardSize(w * scale, h * scale);
     if (hasTexture && textureKey) {
-      const img = this.scene.add.image(0, offsetY, textureKey).setDisplaySize(fitted.w, fitted.h).setOrigin(0.5);
+      const img = this.scene.add.image(0, offsetY, textureKey).setOrigin(0.5);
+      if (isPilot) {
+        img.setDisplaySize(w, h);
+        this.applySquareCrop(textureKey, img, cropFromTop, w, h, pilotSliceRatio);
+      } else {
+        img.setDisplaySize(fitted.w, fitted.h);
+      }
       container.add(img);
       return img;
     }
@@ -375,6 +381,30 @@ export class SlotDisplayHandler {
       fitW = fitH * this.cardAspect;
     }
     return { w: fitW, h: fitH };
+  }
+
+  private applySquareCrop(
+    textureKey: string,
+    img: Phaser.GameObjects.Image,
+    cropFromTop: boolean,
+    targetW: number,
+    targetH: number,
+    pilotSliceRatio: number,
+  ) {
+    const tex = this.scene.textures.get(textureKey);
+    const source = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+    if (!source) return;
+    const tw = (source as any).width ?? 0;
+    const th = (source as any).height ?? 0;
+    if (!tw || !th) return;
+    const cropH = Math.min(th, (tw * targetH) / targetW);
+    const cropW = tw;
+    if (cropFromTop) {
+      img.setCrop(0, 0, cropW, cropH);
+      return;
+    }
+    const pilotH = Math.min(th * pilotSliceRatio, cropH);
+    img.setCrop(0, th - pilotH, cropW, pilotH);
   }
 
   private drawFrame(container: Phaser.GameObjects.Container, slotW: number, slotH: number) {

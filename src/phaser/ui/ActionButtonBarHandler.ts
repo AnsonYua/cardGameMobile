@@ -113,7 +113,8 @@ export class ActionButtonBarHandler {
     const totalHandHeight = rows * cardH + (rows - 1) * gap;
     const handTop = BASE_H - bottomPadding - totalHandHeight + offset.y;
     const barY = handTop - this.barHeight / 2 - 12;
-    const barX = INTERNAL_W / 2;
+    const camW = this.scene.scale.width;
+    const barX = camW / 2;
     const btnGap = 12;
     const btnHeight = this.barHeight;
     const bgHeight = HAND_AREA_HEIGHT + 120;
@@ -122,7 +123,7 @@ export class ActionButtonBarHandler {
     const bg = this.drawRoundedRectOrigin({
       x: 0,
       y: barY - 23,
-      width: INTERNAL_W,
+      width: camW,
       height: bgHeight,
       radius: 0,
       fillColor: "#414242",

@@ -44,6 +44,7 @@ export class HandAreaHandler {
     viewY: number;
     centerY: number;
     minScrollX: number;
+    maxScrollX: number;
   };
   private wheelBound = false;
   private dragBound = false;
@@ -68,12 +69,13 @@ export class HandAreaHandler {
       badgeFontSize: 20,
     },
     arrows: {
-      size: 22,
-      offset: 18,
+      size: 15,
+      edgeInset: 6,
+      overlap: 0,
       activeAlpha: 1,
       inactiveAlpha: 0.5,
       color: "#f5f6fb",
-      hitPad: 12,
+      hitPad: 18,
     },
     scroll: {
       duration: 220,
@@ -95,25 +97,27 @@ export class HandAreaHandler {
     const gapX = HAND_GAP_X;
     const paddingX = HAND_PADDING_X;
     const maxVisible = HAND_VISIBLE_COUNT;
-    const arrowPad = this.config.arrows.offset * 2;
-    const viewW = Math.max(80, INTERNAL_W - paddingX * 2 - arrowPad);
+    const camW = this.scene.scale.width;
+    const viewW = Math.max(120, camW * 0.95 - paddingX * 2);
     const cardW = Math.max(
       60,
       Math.min(HAND_TARGET_CARD_W, (viewW - gapX * (maxVisible - 1)) / maxVisible),
     );
     const cardH = cardW * HAND_CARD_ASPECT;
-    const viewH = Math.max(cardH + 10, HAND_AREA_HEIGHT);
-    const viewX = offset.x + (INTERNAL_W - viewW) / 2;
+    const viewH = Math.max(cardH + 6, HAND_AREA_HEIGHT);
+    const viewX = (camW - viewW) / 2;
     const viewY = BASE_H - viewH - 12 + offset.y;
     const centerY = viewY + viewH / 2;
     const totalW = this.handCards.length
       ? this.handCards.length * cardW + gapX * (this.handCards.length - 1)
       : 0;
-    const minScrollX = Math.min(0, viewW - totalW);
-    this.layoutState = { cardW, cardH, gapX, viewW, viewH, viewX, viewY, centerY, minScrollX };
+    const centeredX = totalW < viewW ? (viewW - totalW) / 2 : 0;
+    const minScrollX = totalW < viewW ? centeredX : Math.min(0, viewW - totalW);
+    const maxScrollX = totalW < viewW ? centeredX : 0;
+    this.layoutState = { cardW, cardH, gapX, viewW, viewH, viewX, viewY, centerY, minScrollX, maxScrollX };
 
     if (this.cardContainer) {
-      this.scrollX = Phaser.Math.Clamp(this.scrollX, minScrollX, 0);
+      this.scrollX = Phaser.Math.Clamp(this.scrollX, minScrollX, maxScrollX);
       this.scrollDriver.x = this.scrollX;
       this.cardContainer.setPosition(viewX + this.scrollX, centerY);
     }
@@ -428,11 +432,15 @@ export class HandAreaHandler {
 
   private updateArrows() {
     if (!this.layoutState || !this.leftArrow || !this.rightArrow) return;
-    const { viewX, viewW, centerY, minScrollX } = this.layoutState;
-    this.leftArrow.setPosition(viewX - this.config.arrows.offset, centerY);
-    this.rightArrow.setPosition(viewX + viewW + this.config.arrows.offset, centerY);
-    const canScrollLeft = this.scrollX < -1;
-    const canScrollRight = this.scrollX > minScrollX + 1;
+    const { centerY, minScrollX, maxScrollX } = this.layoutState;
+    const camW = this.scene.scale.width;
+    const leftX = 15;
+    const rightX = camW;
+    this.leftArrow.setPosition(leftX, centerY);
+    this.rightArrow.setPosition(rightX, centerY);
+    const canScroll = minScrollX !== maxScrollX;
+    const canScrollLeft = this.scrollX < maxScrollX - 1 && canScroll;
+    const canScrollRight = this.scrollX > minScrollX + 1 && canScroll;
     this.setArrowState(this.leftArrow, canScrollLeft);
     this.setArrowState(this.rightArrow, canScrollRight);
     if (this.debug) {
@@ -465,7 +473,7 @@ export class HandAreaHandler {
 
   private scrollTo(targetX: number) {
     if (!this.layoutState || !this.cardContainer) return;
-    const clamped = Phaser.Math.Clamp(targetX, this.layoutState.minScrollX, 0);
+    const clamped = Phaser.Math.Clamp(targetX, this.layoutState.minScrollX, this.layoutState.maxScrollX);
     if (Math.abs(clamped - this.scrollX) < 0.5) {
       this.updateArrows();
       return;
@@ -530,7 +538,7 @@ export class HandAreaHandler {
         this.dragSuppressClick = true;
         this.cancelPreviewTimer();
       }
-      const next = Phaser.Math.Clamp(this.scrollX + dx, this.layoutState.minScrollX, 0);
+      const next = Phaser.Math.Clamp(this.scrollX + dx, this.layoutState.minScrollX, this.layoutState.maxScrollX);
       this.scrollX = next;
       this.dragVelocity = dx / dt;
       this.dragLastX = pointer.x;
@@ -563,7 +571,7 @@ export class HandAreaHandler {
       if (!this.inertiaActive || !this.layoutState || !this.cardContainer) return;
       const dt = Math.max(1, delta);
       const next = this.scrollX + this.dragVelocity * dt;
-      const clamped = Phaser.Math.Clamp(next, this.layoutState.minScrollX, 0);
+      const clamped = Phaser.Math.Clamp(next, this.layoutState.minScrollX, this.layoutState.maxScrollX);
       this.scrollX = clamped;
       this.cardContainer.setX(this.layoutState.viewX + this.scrollX);
       const friction = Math.pow(0.92, dt / 16.67);
@@ -587,7 +595,7 @@ export class HandAreaHandler {
   private buildArrow(direction: -1 | 1) {
     const size = this.config.arrows.size;
     const color = this.config.arrows.color;
-    const container = this.scene.add.container(0, 0).setDepth(1210);
+    const arrow = this.scene.add.container(0, 0).setDepth(1210);
     const triangle = this.scene.add.triangle(
       0,
       0,
@@ -604,7 +612,7 @@ export class HandAreaHandler {
     const hitSize = size + this.config.arrows.hitPad;
     const hit = this.scene.add.zone(0, 0, hitSize, hitSize).setName("hit");
     hit.on("pointerup", () => this.scrollByStep(direction));
-    container.add([triangle, hit]);
-    return container;
+    arrow.add([triangle, hit]);
+    return arrow;
   }
 }
