@@ -12,8 +12,11 @@ type EffectTargetDialogShowOpts = {
 
 // Reuses PilotTargetDialog layout but keeps piloted slots visible for effect targeting.
 export class EffectTargetDialog extends PilotTargetDialog {
-  constructor(scene: Phaser.Scene) {
-    super(scene);
+  constructor(
+    scene: Phaser.Scene,
+    createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
+  ) {
+    super(scene, createSlotSprite);
   }
 
   show(opts: EffectTargetDialogShowOpts) {

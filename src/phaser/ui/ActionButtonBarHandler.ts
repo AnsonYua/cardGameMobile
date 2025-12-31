@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BASE_H, INTERNAL_W } from "../../config/gameLayout";
+import { BASE_H, HAND_AREA_HEIGHT, INTERNAL_W } from "../../config/gameLayout";
 import { toColor } from "./types";
 
 type ActionButtonConfig = {
@@ -27,7 +27,7 @@ export class ActionButtonBarHandler {
   private waitingOverride: ActionButtonConfig[] | null = null;
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
-  private handLayout = { cardH: 90, gap: 5, rows: 2, bottomPadding: 24 };
+  private handLayout = { cardH: HAND_AREA_HEIGHT - 20, gap: 0, rows: 1, bottomPadding: 16 };
   private buttonStyle = {
     outerColor: 0x2f6ad9,
     outerStroke: 0x1f4f9c,
@@ -116,13 +116,14 @@ export class ActionButtonBarHandler {
     const barX = INTERNAL_W / 2;
     const btnGap = 12;
     const btnHeight = this.barHeight;
+    const bgHeight = HAND_AREA_HEIGHT + 120;
 
     // Always draw the background bar.
     const bg = this.drawRoundedRectOrigin({
       x: 0,
       y: barY - 23,
       width: INTERNAL_W,
-      height: 300,
+      height: bgHeight,
       radius: 0,
       fillColor: "#414242",
       fillAlpha: 1,

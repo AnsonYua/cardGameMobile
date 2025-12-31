@@ -200,9 +200,15 @@ export class BoardScene extends Phaser.Scene {
     });
     this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
     this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
-    this.pilotTargetDialogUi = new PilotTargetDialog(this);
+    this.pilotTargetDialogUi = new PilotTargetDialog(
+      this,
+      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
+    );
     this.pilotDesignationDialogUi = new PilotDesignationDialog(this);
-    this.effectTargetDialogUi = new EffectTargetDialog(this);
+    this.effectTargetDialogUi = new EffectTargetDialog(
+      this,
+      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
+    );
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,

@@ -219,6 +219,7 @@ export class BattleAnimationManager {
   ): BattleSpriteSeed | undefined {
     if (!owner || !slotId || !position) return undefined;
     // Build a sprite seed from payload when the slot card is already gone.
+    const payloadSlot = this.buildSlotFromPayload(payload, role, owner, slotId);
     const uid =
       role === "attacker"
         ? payload.attackerCarduid
@@ -238,6 +239,7 @@ export class BattleAnimationManager {
       owner,
       slotId,
       card,
+      slot: payloadSlot,
       position: { x: position.x, y: position.y },
       size: { w: position.w, h: position.h },
       isOpponent: position.isOpponent ?? owner === "opponent",
@@ -263,16 +265,28 @@ export class BattleAnimationManager {
 
   private createBattleSprite(seed: BattleSpriteSeed) {
     const layer = this.ensureBattleAnimationLayer();
-    if (!seed.card) return undefined;
+    if (!seed.card && !seed.slot) return undefined;
     const slotSprite = seed.slot ? this.config.createSlotSprite?.(seed.slot, seed.size) : undefined;
-    const container = slotSprite ?? this.config.scene.add.container(0, 0);
+    const fallbackSlot =
+      seed.slot ??
+      (seed.card
+        ? {
+            owner: seed.owner,
+            slotId: seed.slotId ?? "slot",
+            unit: seed.card,
+            ap: seed.card?.cardData?.ap ?? 0,
+            hp: seed.card?.cardData?.hp ?? 0,
+          }
+        : undefined);
+    const fallbackSprite = fallbackSlot ? this.config.createSlotSprite?.(fallbackSlot, seed.size) : undefined;
+    const container = slotSprite ?? fallbackSprite ?? this.config.scene.add.container(0, 0);
     container.setPosition(seed.position.x, seed.position.y);
     container.setDepth(seed.isOpponent ? 905 : 915);
     layer?.add(container);
 
     const width = seed.size.w;
     const height = seed.size.h;
-    if (slotSprite) {
+    if (slotSprite || fallbackSprite) {
       return container;
     }
     if (seed.card.textureKey && this.config.scene.textures.exists(seed.card.textureKey)) {
@@ -352,6 +366,38 @@ export class BattleAnimationManager {
     const meta = target as any;
     if (meta?.destroyed) return;
     target.destroy(true);
+  }
+
+  private buildSlotFromPayload(
+    payload: any,
+    role: "attacker" | "target",
+    owner: SlotOwner,
+    slotId: string,
+  ): SlotViewModel | undefined {
+    const source = role === "attacker" ? payload.attacker : payload.target;
+    if (!source) return undefined;
+    const unit = this.toSlotCard(source.unit);
+    const pilot = this.toSlotCard(source.pilot);
+    if (!unit && !pilot) return undefined;
+    const fieldCardValue = source.fieldCardValue ?? {};
+    return {
+      owner,
+      slotId,
+      unit,
+      pilot,
+      isRested: source.unit?.isRested ?? fieldCardValue?.isRested ?? false,
+      ap: fieldCardValue.totalAP ?? unit?.cardData?.ap ?? 0,
+      hp: fieldCardValue.totalHP ?? unit?.cardData?.hp ?? 0,
+      fieldCardValue,
+    };
+  }
+
+  private toSlotCard(card: any): SlotCardView | undefined {
+    if (!card) return undefined;
+    const id = card.cardId ?? card.id;
+    const textureKey = id ? toPreviewKey(id) : undefined;
+    const cardUid = card.carduid ?? card.cardUid ?? card.uid ?? card.id;
+    return { id, textureKey, cardType: card.cardData?.cardType, isRested: card.isRested, cardData: card.cardData, cardUid };
   }
 
 }

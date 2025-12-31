@@ -58,7 +58,10 @@ export class PilotTargetDialog {
     },
   };
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(
+    private scene: Phaser.Scene,
+    private createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
+  ) {}
 
   async hide(): Promise<void> {
     console.log("hide PilotTargetDialog.ts");
@@ -189,7 +192,13 @@ export class PilotTargetDialog {
       });
       dialog.add(frame);
 
-      this.drawPreviewLike(dialog, slot, x, y, cardW, cardH);
+      const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
+      if (slotSprite) {
+        slotSprite.setPosition(x, y);
+        dialog.add(slotSprite);
+      } else {
+        this.drawPreviewLike(dialog, slot, x, y, cardW, cardH);
+      }
     }
 
     if (!targets.length) {

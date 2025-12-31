@@ -10,6 +10,8 @@ export type HandPreviewConfig = {
 };
 
 export class HandLayoutRenderer {
+  private cardAspect = 63 / 88;
+
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
   renderCard(x: number, y: number, w: number, h: number, card: HandCardView, isSelected: boolean) {
@@ -49,9 +51,10 @@ export class HandLayoutRenderer {
     drawn.push(inner);
 
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
+      const fitted = this.fitCardSize(w, h);
       const img = this.scene.add
         .image(x, y, card.textureKey)
-        .setDisplaySize(w, h)
+        .setDisplaySize(fitted.w, fitted.h)
         .setDepth((bg.depth || 0) + 1);
       drawn.push(img);
     }
@@ -77,13 +80,14 @@ export class HandLayoutRenderer {
     config: HandPreviewConfig,
   ) {
     const hasTex = textureKey && this.scene.textures.exists(textureKey);
+    const fitted = this.fitCardSize(w, h);
     const img = hasTex
-      ? this.scene.add.image(x, y, textureKey!).setDisplaySize(w, h).setOrigin(0.5)
+      ? this.scene.add.image(x, y, textureKey!).setDisplaySize(fitted.w, fitted.h).setOrigin(0.5)
       : this.drawHelpers.drawRoundedRect({
           x,
           y,
-          width: w,
-          height: h,
+          width: fitted.w,
+          height: fitted.h,
           radius: 12,
           fillColor: "#cbd3df",
           fillAlpha: 0.9,
@@ -106,8 +110,8 @@ export class HandLayoutRenderer {
     drawPreviewBadge({
       container,
       drawHelpers: this.drawHelpers,
-      x: x + w / 2 - badgeW / 2,
-      y: y + h / 2 - badgeH / 2 + extraSpace,
+      x: x + fitted.w / 2 - badgeW / 2,
+      y: y + fitted.h / 2 - badgeH / 2 + extraSpace,
       width: badgeW,
       height: badgeH,
       label,
@@ -125,6 +129,18 @@ export class HandLayoutRenderer {
         color: "#ffffff",
       },
     });
+  }
+
+  private fitCardSize(w: number, h: number) {
+    const maxW = Math.max(1, w);
+    const maxH = Math.max(1, h);
+    let fitW = Math.min(maxW, maxH * this.cardAspect);
+    let fitH = fitW / this.cardAspect;
+    if (fitH > maxH) {
+      fitH = maxH;
+      fitW = fitH * this.cardAspect;
+    }
+    return { w: fitW, h: fitH };
   }
 
   private drawCostBadge(x: number, y: number, w: number, h: number, cost: number | string, baseDepth: number) {

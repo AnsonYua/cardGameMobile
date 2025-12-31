@@ -10,6 +10,7 @@ type RenderOptions = {
 };
 
 export class SlotDisplayHandler {
+  private cardAspect = 63 / 88;
   private slotContainers = new Map<string, Phaser.GameObjects.Container>();
   private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
@@ -31,6 +32,7 @@ export class SlotDisplayHandler {
       defaultBorderAlpha: 0.75,
       selectedBorderAlpha: 1,
       pilotSliceRatio: 0.4,
+      showPilotInSlots: false,
       unitRatio: 0.75,
       pilotAlpha: 0.95,
       statsBadge: {
@@ -211,14 +213,14 @@ export class SlotDisplayHandler {
     }
     const cardSize = this.computeCardSize(size.w, size.h);
     const width = cardSize.w;
-    const unitHeight = size.w * 0.9;
-    const pilotHeight = size.w * 0.9;
+    const unitHeight = cardSize.h;
+    const pilotHeight = cardSize.h;
     const unitCenterY = 0;
     const pilotCenterY = 0;
 
     let unitRatio = 1;
     let pilotRatio = 0;
-    if (slot.pilot) {
+    if (slot.pilot && this.config.slot.showPilotInSlots) {
       unitRatio = 0.75;
       pilotRatio = 1 - unitRatio;
     }
@@ -229,7 +231,7 @@ export class SlotDisplayHandler {
       container.add(unitLayer);
     }
 
-    if (slot.pilot) {
+    if (slot.pilot && this.config.slot.showPilotInSlots) {
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
@@ -239,7 +241,7 @@ export class SlotDisplayHandler {
         pilotCenterY,
         false,
         true,
-        pilotRatio,
+        this.config.slot.pilotSliceRatio,
       );
       pilotObj?.setAlpha(this.config.slot.pilotAlpha);
       this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, false);
@@ -270,14 +272,14 @@ export class SlotDisplayHandler {
   ) {
     const cardSize = this.computeCardSize(slotSize, slotHeight);
     const width = cardSize.w;
-    const unitHeight = slotSize * 0.9;
-    const pilotHeight = slotSize * 0.9;
+    const unitHeight = cardSize.h;
+    const pilotHeight = cardSize.h;
     const unitCenterY = 0;
     const pilotCenterY = 0;
 
     let unitRatio = 1;
     let pilotRatio = 0;
-    if (slot.pilot) {
+    if (slot.pilot && this.config.slot.showPilotInSlots) {
       unitRatio = 0.75;
       pilotRatio = 1 - unitRatio;
     }
@@ -288,7 +290,7 @@ export class SlotDisplayHandler {
       container.add(unitLayer);
     }
 
-    if (slot.pilot) {
+    if (slot.pilot && this.config.slot.showPilotInSlots) {
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
@@ -298,7 +300,7 @@ export class SlotDisplayHandler {
         pilotCenterY,
         false, // cropFromTop
         true, // isPilot
-        pilotRatio, // pilotSliceRatio
+        this.config.slot.pilotSliceRatio, // pilotSliceRatio
       );
       pilotObj?.setAlpha(0.95);
       this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, isSelected);
@@ -311,8 +313,9 @@ export class SlotDisplayHandler {
   }
 
   private computeCardSize(slotW: number, slotH: number) {
-    const base = Math.min(slotW, slotH) * this.config.slot.cardScale;
-    return { w: base, h: base };
+    const maxW = slotW * this.config.slot.cardScale;
+    const maxH = slotH * this.config.slot.cardScale;
+    return this.fitCardSize(maxW, maxH);
   }
 
   private drawCard(
@@ -327,11 +330,10 @@ export class SlotDisplayHandler {
     pilotSliceRatio = this.config.slot.pilotSliceRatio
   ) {
     const hasTexture = textureKey && this.scene.textures.exists(textureKey);
+    const scale = isPilot ? pilotSliceRatio : 1;
+    const fitted = this.fitCardSize(w * scale, h * scale);
     if (hasTexture && textureKey) {
-      const img = this.scene.add.image(0, offsetY, textureKey).setDisplaySize(w, h).setOrigin(0.5);
-      if(isPilot){
-        this.applySquareCrop(textureKey, img, cropFromTop, w, h, isPilot, pilotSliceRatio);
-      }
+      const img = this.scene.add.image(0, offsetY, textureKey).setDisplaySize(fitted.w, fitted.h).setOrigin(0.5);
       container.add(img);
       return img;
     }
@@ -339,8 +341,8 @@ export class SlotDisplayHandler {
     const card = this.drawHelpers.drawRoundedRect({
       x: 0,
       y: offsetY,
-      width: w,
-      height: h,
+      width: fitted.w,
+      height: fitted.h,
       radius: 8,
       fillColor: "#cbd3df",
       fillAlpha: 0.9,
@@ -355,7 +357,7 @@ export class SlotDisplayHandler {
           fontSize: "12px",
           fontFamily: "Arial",
           color: this.palette.ink,
-          wordWrap: { width: w - 8 },
+          wordWrap: { width: fitted.w - 8 },
           align: "center",
         })
         .setOrigin(0.5);
@@ -365,35 +367,14 @@ export class SlotDisplayHandler {
     return card;
   }
 
-  private applySquareCrop(
-    textureKey: string,
-    img: Phaser.GameObjects.Image,
-    cropFromTop: boolean,
-    targetW: number,
-    targetH: number,
-    isPilot: boolean,
-    pilotSliceRatio: number
-  ) {
-    const tex = this.scene.textures.get(textureKey);
-    const source = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
-    if (!source) return;
-    const tw = (source as any).width ?? 0;
-    const th = (source as any).height ?? 0;
-    if (!tw || !th) return;
-    // Keep your height formula but clamp to the source to avoid overrun.
-    const cropH = Math.min(th, (tw * targetH) / targetW);
-    const cropW = tw;
-    if (cropFromTop) {
-      img.setCrop(0, 0, cropW, cropH);
-    } else if (isPilot) {
-      // Pilot shows the lower slice (ratio of source), preserving your intent.
-      const pilotH = Math.min(th * pilotSliceRatio, cropH);
-      img.setCrop(0, th - pilotH, cropW, pilotH);
-    } else {
-      // Default: center crop using the computed height.
-      const cropY = Math.max(0, (th - cropH) / 2);
-      img.setCrop(0, cropY, cropW, cropH);
+  private fitCardSize(maxW: number, maxH: number) {
+    let fitW = Math.min(maxW, maxH * this.cardAspect);
+    let fitH = fitW / this.cardAspect;
+    if (fitH > maxH) {
+      fitH = maxH;
+      fitW = fitH * this.cardAspect;
     }
+    return { w: fitW, h: fitH };
   }
 
   private drawFrame(container: Phaser.GameObjects.Container, slotW: number, slotH: number) {
