@@ -71,7 +71,7 @@ export class FieldHandler {
     gap: 5,
     cols: 3,
     rows: 2,
-    gridGap: 125,
+    gridGap: 115,
     deckW: 57,
     deckH: 80,
     towerWidth: 64,
@@ -91,7 +91,7 @@ export class FieldHandler {
     side: {
       opponent: {
         centerX: BASE_W / 2,
-        originY: 155,
+        originY: 170,
         towerOffsetX: 0,
         towerOffsetY: 0,
         baseCenterX: 0,
