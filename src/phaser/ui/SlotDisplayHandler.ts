@@ -677,7 +677,7 @@ export class SlotDisplayHandler {
     const cy = cam.centerY;
     const cardW = this.config.preview.cardWidth;
     const cardH = cardW * this.config.preview.cardAspect;
-    const depth = 1000;
+    const depth = 5000;
     const container = this.scene.add.container(cx, cy).setDepth(depth).setAlpha(0);
 
     const bg = this.scene.add.graphics();
