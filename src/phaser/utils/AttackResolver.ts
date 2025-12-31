@@ -58,7 +58,15 @@ export function resolveAttackTargetPoint(
     payload.targetSlot ??
     payload.target?.slot ??
     undefined;
-  const normalizedSlot = (targetSlotId ?? "").toLowerCase();
+  const battleType = (payload.battleType ?? "").toString().toLowerCase();
+  const targetZoneType = (payload.target?.zoneType ?? payload.targetZoneType ?? "").toString().toLowerCase();
+  const inferredSlot =
+    battleType.includes("shield") || targetZoneType.includes("shield")
+      ? "shield"
+      : battleType.includes("base") || targetZoneType.includes("base")
+      ? "base"
+      : "";
+  const normalizedSlot = (targetSlotId ?? inferredSlot).toLowerCase();
   const normalizedName = (
     payload.targetName ??
     payload.target?.unit?.cardData?.name ??
@@ -74,14 +82,35 @@ export function resolveAttackTargetPoint(
   const targetOwner = context.resolveSlotOwnerByPlayer(targetPlayerId) ?? defenderOwner;
   const isOpponentTarget = targetOwner === "opponent";
 
-  if (!hasForcedTarget && isBaseTarget(normalizedSlot, normalizedName)) {
+  const isBase = isBaseTarget(normalizedSlot, normalizedName);
+  const isShield = isShieldTarget(normalizedSlot, normalizedName);
+  // eslint-disable-next-line no-console
+  console.log("[AttackResolver] target resolution", {
+    targetSlotId,
+    normalizedSlot,
+    normalizedName,
+    battleType,
+    targetZoneType,
+    hasForcedTarget,
+    targetOwner,
+    isBase,
+    isShield,
+  });
+
+  if (isBase) {
     const anchor = context.anchors.getBaseAnchor?.(isOpponentTarget);
     if (anchor) {
       return { x: anchor.x, y: anchor.y };
     }
+    // eslint-disable-next-line no-console
+    console.log("[AttackResolver] base target without anchor", {
+      targetSlotId,
+      targetName: normalizedName,
+      targetOwner,
+    });
   }
 
-  if (!hasForcedTarget && isShieldTarget(normalizedSlot, normalizedName)) {
+  if (isShield) {
     const anchor = context.anchors.getShieldAnchor?.(isOpponentTarget);
     if (anchor) {
       return anchor;
@@ -90,6 +119,12 @@ export function resolveAttackTargetPoint(
     if (fallbackAnchor) {
       return { x: fallbackAnchor.x, y: fallbackAnchor.y };
     }
+    // eslint-disable-next-line no-console
+    console.log("[AttackResolver] shield target without anchor", {
+      targetSlotId,
+      targetName: normalizedName,
+      targetOwner,
+    });
   }
 
   const targetCarduid =
@@ -107,5 +142,5 @@ function isBaseTarget(normalizedSlot: string, normalizedName: string) {
 }
 
 function isShieldTarget(normalizedSlot: string, normalizedName: string) {
-  return normalizedSlot === "shield" || normalizedName.includes("shield");
+  return normalizedSlot.includes("shield") || normalizedName.includes("shield");
 }
