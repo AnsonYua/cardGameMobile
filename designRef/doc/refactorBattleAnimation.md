@@ -105,9 +105,143 @@ event routing rules (current)
 ```
 CARD_PLAYED_COMPLETED -> NotificationAnimationController.playCardPlayed
 UNIT_ATTACK_DECLARED -> update attack indicator + capture snapshot
+REFRESH_TARGET -> update attack indicator with forced target
 BATTLE_RESOLVED -> BattleAnimationManager.playBattleResolution
 CARD_STAT_MODIFIED -> playStatPulse
 ```
+
+expected payloads (minimum fields)
+
+CARD_PLAYED_COMPLETED
+```
+{
+  "id": "string",
+  "type": "CARD_PLAYED_COMPLETED",
+  "payload": {
+    "carduid": "string",
+    "playerId": "string",
+    "playAs": "command|base|unit|pilot",
+    "reason": "hand",
+    "isCompleted": true
+  }
+}
+```
+field usage
+- `carduid`: used to locate the card and slot destination.
+- `playerId`: determines self vs opponent for animation origin.
+- `playAs`: routes to command/base/slot animation path.
+- `reason`: must be `"hand"` for animation to run.
+- `isCompleted`: must be true before animation runs.
+
+UNIT_ATTACK_DECLARED
+```
+{
+  "id": "string",
+  "type": "UNIT_ATTACK_DECLARED",
+  "payload": {
+    "attackingPlayerId": "string",
+    "defendingPlayerId": "string",
+    "attackerCarduid": "string",
+    "attackerSlot": "slot1",
+    "targetCarduid": "string",
+    "targetSlotName": "slot3",
+    "forcedTargetCarduid": "string",
+    "forcedTargetZone": "slot3",
+    "forcedTargetPlayerId": "string"
+  }
+}
+```
+field usage
+- `attackingPlayerId` / `defendingPlayerId`: resolve attacker/defender owner side.
+- `attackerCarduid`: locate attacking slot for arrow start.
+- `attackerSlot`: fallback slot id if carduid lookup fails.
+- `targetCarduid`: locate target slot for arrow end.
+- `targetSlotName`: fallback slot id if carduid lookup fails.
+- `forcedTargetCarduid` / `forcedTargetZone` / `forcedTargetPlayerId`: overrides normal target resolution.
+
+REFRESH_TARGET
+```
+{
+  "id": "string",
+  "type": "REFRESH_TARGET",
+  "payload": {
+    "attackingPlayerId": "string",
+    "defendingPlayerId": "string",
+    "attackerCarduid": "string",
+    "attackerSlot": "slot1",
+    "forcedTargetCarduid": "string",
+    "forcedTargetZone": "slot3",
+    "forcedTargetPlayerId": "string",
+    "sourceNotificationId": "string"
+  }
+}
+```
+field usage
+- `attackingPlayerId` / `defendingPlayerId`: resolve attacker/defender owner side.
+- `attackerCarduid`: locate attacking slot for arrow start.
+- `attackerSlot`: fallback slot id if carduid lookup fails.
+- `forcedTargetCarduid` / `forcedTargetZone` / `forcedTargetPlayerId`: overrides target resolution for the arrow.
+- `sourceNotificationId`: link back to the original UNIT_ATTACK_DECLARED event.
+
+BATTLE_RESOLVED
+```
+{
+  "id": "string",
+  "type": "BATTLE_RESOLVED",
+  "payload": {
+    "battleType": "attackUnit",
+    "attackNotificationId": "string",
+    "attackingPlayerId": "string",
+    "defendingPlayerId": "string",
+    "forcedTargetCarduid": "string",
+    "forcedTargetZone": "slot3",
+    "forcedTargetPlayerId": "string",
+    "attacker": {
+      "playerId": "string",
+      "slot": "slot1",
+      "unit": { "carduid": "string" }
+    },
+    "target": {
+      "playerId": "string",
+      "slot": "slot3",
+      "unit": { "carduid": "string" }
+    },
+    "result": {
+      "attackerDestroyed": true,
+      "defenderDestroyed": true
+    }
+  }
+}
+```
+field usage
+- `battleType`: selects battle animation style if needed.
+- `attackNotificationId`: ties resolution back to the declared attack.
+- `attackingPlayerId` / `defendingPlayerId`: resolve sides for fallback target resolution.
+- `attacker.playerId` / `target.playerId`: preferred owner resolution.
+- `attacker.slot` / `target.slot`: slot fallback for sprite seed.
+- `attacker.unit.carduid` / `target.unit.carduid`: find attacker/target slot in current render snapshot.
+- `forcedTargetCarduid` / `forcedTargetZone` / `forcedTargetPlayerId`: overrides normal target resolution in AttackResolver and attack indicator.
+- `result.attackerDestroyed` / `result.defenderDestroyed`: decide fade out vs return/pulse.
+
+CARD_STAT_MODIFIED
+```
+{
+  "id": "string",
+  "type": "CARD_STAT_MODIFIED",
+  "payload": {
+    "playerId": "string",
+    "carduid": "string",
+    "zone": "slot2",
+    "stat": "modifyAP|modifyHP",
+    "delta": -3
+  }
+}
+```
+field usage
+- `playerId` + `zone`: preferred slot key for stat pulse.
+- `carduid`: fallback for resolving slot if zone missing.
+- `stat`: selects AP vs HP update in preview snapshot.
+- `delta`: value applied to preview snapshot and pulse intensity.
 
 queue behavior (centralized)
 ```
@@ -138,6 +272,3 @@ battle animation specifics (current)
 - Sprite uses slot visuals (unit + pilot + AP/HP) via SlotDisplayHandler.createSlotSprite
 - resolveAttackTargetPoint supports nested payloads (payload.target.*)
 - attack indicator is cleared on BATTLE_RESOLVED
-
-
-

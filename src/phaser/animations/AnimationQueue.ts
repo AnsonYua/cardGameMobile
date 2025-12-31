@@ -13,6 +13,7 @@ type QueueItem = {
 const SUPPORTED_TYPES = [
   "CARD_PLAYED_COMPLETED",
   "UNIT_ATTACK_DECLARED",
+  "REFRESH_TARGET",
   "BATTLE_RESOLVED",
   "CARD_STAT_MODIFIED",
 ] as const;
@@ -134,6 +135,7 @@ export class AnimationQueue {
         });
         return;
       case "UNIT_ATTACK_DECLARED":
+      case "REFRESH_TARGET":
         await this.deps.attackIndicator.updateFromNotification(
           event,
           ctx.slots,
