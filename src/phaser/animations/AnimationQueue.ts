@@ -141,12 +141,12 @@ export class AnimationQueue {
         );
         return;
       case "BATTLE_RESOLVED":
+        this.deps.attackIndicator.clear();
         await this.deps.battleAnimator.playBattleResolution(
           event,
           ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,
           ctx.boardSlotPositions ?? undefined,
         );
-        this.deps.attackIndicator.clear();
         return;
       case "CARD_STAT_MODIFIED":
         await this.triggerStatPulse(event, ctx);

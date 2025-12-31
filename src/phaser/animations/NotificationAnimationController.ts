@@ -60,8 +60,21 @@ export class NotificationAnimationController {
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     if (playAs === "command") {
+      // eslint-disable-next-line no-console
+      console.log("[CardPlayed] command animation", {
+        cardUid: payload.carduid,
+        playerId,
+        isSelf,
+      });
       const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
-      return () => this.animateCommand(payload, isSelf, card);
+      return () => {
+        // eslint-disable-next-line no-console
+        console.log("[CardPlayed] command animate start", {
+          cardUid: payload.carduid,
+          hasCard: Boolean(card),
+        });
+        return this.animateCommand(payload, isSelf, card);
+      };
     }
     if (playAs === "base") {
       const baseCard = ctx.cardLookup?.findBaseCard?.(payload.playerId);

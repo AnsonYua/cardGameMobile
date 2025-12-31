@@ -24,13 +24,6 @@ export class SlotAnimationRenderController {
 
   handleEventStart(event: SlotNotification, currentSlots: SlotViewModel[]): SlotViewModel[] {
     const keys = this.eventSlots.get(event.id) ?? [];
-    // Default: hide affected slots while this event animates.
-    // TODO: override per event type when needed (some events may not hide).
-    
-    //dont need to hide the target or attacker when UNIT_ATTACK_DECLARED
-    if(event.type != "UNIT_ATTACK_DECLARED" && event.type != "BATTLE_RESOLVED"){
-      keys.forEach((key) => this.runningSlots.add(key));
-    }
     return this.buildSlotsForRender(currentSlots);
   }
 
