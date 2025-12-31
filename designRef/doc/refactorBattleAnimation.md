@@ -1,9 +1,9 @@
 i want you help me refactor the updateSlot especially the logic for handling battle animation.
 
 goals
-- replace the current animation flow (lockedSlots + mixed render) with a new flow
-- during battle animation: render all slots from last gameEnv snapshot
-- after the animation finishes: render the current gameEnv snapshot
+- replace the old lockedSlots + mixed render flow with an event-driven snapshot flow
+- keep a preview snapshot for affected slots and update it as events finish
+- hide slots during the battle animation itself, then show them again when it finishes
 
 current architecture (refactor status)
 - centralized queue + render controller
@@ -13,9 +13,8 @@ current architecture (refactor status)
     - executes animations in FIFO order
     - exposes event start/end hooks
   - SlotAnimationRenderController
-    - snapshot map of previous slot visuals
-    - hides running slots while their event animates
-    - updates snapshot when event finishes
+    - snapshot map of pre-animation slot visuals (preview snapshot)
+    - updates snapshot for CARD_STAT_MODIFIED using preview slot as base
     - composes the final slots to render
 - no lockedSlots or per-slot merge logic
 - BoardScene orchestrates:
@@ -56,8 +55,7 @@ updateSlots() {
 animationQueue event build (pseudo)
 ```
 buildEvents(notificationQueue) {
-  // map supported notifications into AnimationEvent[]
-  // extract cardUids from payload (attacker/target/played card)
+  // map supported notifications into SlotNotification[]
 }
 ```
 
@@ -68,14 +66,15 @@ enqueue(events, ctx) {
 }
 
 onEventStart(event) -> hide affected slots (default)
+onEventStart(CARD_STAT_MODIFIED) -> update preview snapshot using delta
 onEventEnd(event) -> copy current slot into snapshot (default)
 onIdle -> render current snapshot
 ```
 
 important changes
 - remove lockedSlots usage in renderSlots
-- battle animations drive the visual state (last snapshot during animation, current snapshot after)
-- notification scanning determines whether to start the battle queue
+- preview snapshots drive visual state during animations
+- notification scanning determines whether to start the queue
 
 refactor goals (current state)
 - centralize notification handling: UNIT_ATTACK_DECLARED, CARD_PLAYED_COMPLETED, BATTLE_RESOLVED, CARD_STAT_MODIFIED
@@ -92,23 +91,15 @@ structure now (centerized + modular)
 
 - SlotAnimationRenderController
   - owns snapshot map for pre-animation slot visuals
-  - hides running slots and updates snapshot when events finish
+  - updates snapshot on CARD_STAT_MODIFIED based on preview snapshot
   - composes final slot list for render
 
 data flow (high level)
 1) updateSlots() builds notificationQueue
-2) AnimationEventRouter parses notificationQueue -> AnimationEvents
-3) AnimationQueue runs events sequentially via AnimationExecutor
-4) updateSlots renders lastGameEnvRaw while queue is running, renders current raw after queue finishes
-
-event normalization (pseudo)
-```
-AnimationEvent = {
-  type: "CARD_PLAYED_COMPLETED" | "UNIT_ATTACK_DECLARED" | "BATTLE_RESOLVED" | "CARD_STAT_MODIFIED",
-  payload: any,
-  cardUids: string[] // attacker/target/played card references
-}
-```
+2) AnimationQueue.buildEvents parses notificationQueue
+3) SlotAnimationRenderController.startBatch builds preview snapshots
+4) AnimationQueue runs events sequentially
+5) BoardScene renders snapshots on event start/end, current slots on idle
 
 event routing rules (current)
 ```
@@ -127,15 +118,26 @@ class AnimationQueue {
 }
 ```
 
-notification scan for battle gating
-- central router extracts cardUids for attacker/target/played card
-- if any event is battle-related -> start battle queue
+render snapshots (current)
+- snapshot is built once per batch (previousRaw → currentSlots)
+- CARD_STAT_MODIFIED:
+  - find affected slot keys
+  - apply delta to preview snapshot (AP/HP) so intermediate values show
+- on event end:
+  - UNIT_ATTACK_DECLARED keeps preview snapshot
+  - CARD_STAT_MODIFIED keeps preview snapshot
+  - others copy current slot into snapshot
 
 removals / simplifications
 - NotificationAnimationController queue removed
 - AnimationCaches removed
 - AnimationOrchestrator/handlers removed
 
+battle animation specifics (current)
+- BattleAnimationManager now hides attacker/target slots during animation
+- Sprite uses slot visuals (unit + pilot + AP/HP) via SlotDisplayHandler.createSlotSprite
+- resolveAttackTargetPoint supports nested payloads (payload.target.*)
+- attack indicator is cleared on BATTLE_RESOLVED
 
 
 

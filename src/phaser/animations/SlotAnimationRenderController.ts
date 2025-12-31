@@ -24,6 +24,34 @@ export class SlotAnimationRenderController {
 
   handleEventStart(event: SlotNotification, currentSlots: SlotViewModel[]): SlotViewModel[] {
     const keys = this.eventSlots.get(event.id) ?? [];
+    const type = (event.type || "").toUpperCase();
+    if (type === "CARD_STAT_MODIFIED") {
+      const delta = Number(event.payload?.delta ?? event.payload?.modifierValue ?? 0);
+      const stat = (event.payload?.stat ?? "").toString().toLowerCase();
+      keys.forEach((key) => {
+        const base = this.renderSnapshots.get(key);
+        if (!base) return;
+        const snapshot = this.cloneSlot(base);
+        if (stat.includes("ap")) {
+          snapshot.ap = (snapshot.ap ?? 0) + delta;
+          if (snapshot.fieldCardValue) {
+            snapshot.fieldCardValue = {
+              ...snapshot.fieldCardValue,
+              totalAP: (snapshot.fieldCardValue.totalAP ?? 0) + delta,
+            };
+          }
+        } else if (stat.includes("hp")) {
+          snapshot.hp = (snapshot.hp ?? 0) + delta;
+          if (snapshot.fieldCardValue) {
+            snapshot.fieldCardValue = {
+              ...snapshot.fieldCardValue,
+              totalHP: (snapshot.fieldCardValue.totalHP ?? 0) + delta,
+            };
+          }
+        }
+        this.renderSnapshots.set(key, snapshot);
+      });
+    }
     return this.buildSlotsForRender(currentSlots);
   }
 
@@ -35,7 +63,7 @@ export class SlotAnimationRenderController {
     const type = (event.type || "").toUpperCase();
     const releaseSlots = () => keys.forEach((key) => this.runningSlots.delete(key));
     releaseSlots();
-    if (type === "UNIT_ATTACK_DECLARED") {
+    if (type === "UNIT_ATTACK_DECLARED" || type === "CARD_STAT_MODIFIED") {
       // Keep preview snapshot for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }
