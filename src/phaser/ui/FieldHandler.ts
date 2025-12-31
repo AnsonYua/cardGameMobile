@@ -9,10 +9,12 @@ import { SlotDisplayHandler } from "./SlotDisplayHandler";
 import { SlotOwner, SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
 
 export type FieldConfig = {
-  slot: number;
+  slotW: number;
+  slotH: number;
   gap: number;
   cols: number;
   rows: number;
+  gridGap: number;
   deckW: number;
   deckH: number;
   towerWidth: number;
@@ -64,10 +66,12 @@ export type FieldConfig = {
 
 export class FieldHandler {
   static readonly DEFAULT_CONFIG: FieldConfig = {
-    slot: 90,
+    slotW: 85,
+    slotH: 110,
     gap: 5,
     cols: 3,
     rows: 2,
+    gridGap: 125,
     deckW: 57,
     deckH: 80,
     towerWidth: 64,
@@ -98,7 +102,7 @@ export class FieldHandler {
       },
       player: {
         centerX: BASE_W / 2,
-        originY: 155 + 195,
+        originY: 435,
         towerOffsetX: 0,
         towerOffsetY: 60,
         baseCenterX: 0,
@@ -149,7 +153,11 @@ export class FieldHandler {
   draw(offset: Offset) {
     this.boardSlotPositions = { player: {}, opponent: {} };
     this.drawFieldSide(this.field.side.opponent, offset, true);
-    this.drawFieldSide(this.field.side.player, offset, false);
+    const playerOriginY =
+      this.field.side.opponent.originY +
+      (this.field.rows - 1) * (this.field.slotH + this.field.gap) +
+      this.field.gridGap;
+    this.drawFieldSide({ ...this.field.side.player, originY: playerOriginY }, offset, false);
   }
 
   setStatusVisible(visible: boolean) {
@@ -223,28 +231,28 @@ export class FieldHandler {
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
-    const { slot, gap, cols, rows, deckW, deckH, columnGap, energy } = this.field;
+    const { slotW, slotH, gap, cols, rows, deckW, deckH, columnGap, energy } = this.field;
     const centerX = sideConfig.centerX + offset.x;
     const originY = sideConfig.originY + offset.y;
     const sideOffsets = sideConfig;
-    const gridTotalW = cols * slot + (cols - 1) * gap;
+    const gridTotalW = cols * slotW + (cols - 1) * gap;
     const gridStartX = centerX - gridTotalW / 2;
-    const rowY = (rowIndex: number) => originY + rowIndex * (slot + gap);
+    const rowY = (rowIndex: number) => originY + rowIndex * (slotH + gap);
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = gridStartX + c * (slot + gap) + slot / 2;
+        const x = gridStartX + c * (slotW + gap) + slotW / 2;
         const y = rowY(r);
         const orderIndex = r * cols + c;
         const orderList = isOpponent ? this.slotOrder.opponent : this.slotOrder.player;
         const slotId = orderList[orderIndex] || `slot${orderIndex + 1}`;
         const bucket = isOpponent ? this.boardSlotPositions.opponent : this.boardSlotPositions.player;
-        bucket[slotId] = { id: slotId, x, y, w: slot, h: slot, isOpponent };
+        bucket[slotId] = { id: slotId, x, y, w: slotW, h: slotH, isOpponent };
         this.drawHelpers.drawRoundedRect({
           x,
           y,
-          width: slot,
-          height: slot,
+          width: slotW,
+          height: slotH,
           radius: 6,
           fillColor: "#ffffff",
           fillAlpha: 0.35,
@@ -269,8 +277,8 @@ export class FieldHandler {
       }
     }
 
-    const leftX = gridStartX - slot / 2 - columnGap;
-    const rightX = gridStartX + gridTotalW + slot / 2 + columnGap;
+    const leftX = gridStartX - slotW / 2 - columnGap;
+    const rightX = gridStartX + gridTotalW + slotW / 2 + columnGap;
     const towerX = (isOpponent ? rightX : leftX) + sideOffsets.towerOffsetX;
     const opponentBaseCenterX =
       rightX + this.field.side.opponent.towerOffsetX + this.field.side.opponent.baseCenterX;
@@ -305,8 +313,8 @@ export class FieldHandler {
     const energyYOffset = isOpponent ? energy.offsetY.opponent : energy.offsetY.player;
     const energyY =
       (isOpponent
-        ? originY - slot / 2 - energy.offsetFromSlots
-        : originY + (rows - 1) * (slot + gap) + slot / 2 + energy.offsetFromSlots) + energyYOffset;
+        ? originY - slotH / 2 - energy.offsetFromSlots
+        : originY + (rows - 1) * (slotH + gap) + slotH / 2 + energy.offsetFromSlots) + energyYOffset;
     const energyX = centerX + (isOpponent ? energy.offsetX.opponent : energy.offsetX.player);
     const energyKey = isOpponent ? "opponent" : "player";
     this.energyAnchors[energyKey] = { x: energyX, y: energyY, width: gridTotalW, isOpponent };

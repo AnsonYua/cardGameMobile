@@ -23,7 +23,7 @@ export class SlotDisplayHandler {
   // Centralized tuning knobs so visuals stay consistent without hunting magic numbers.
   private config = {
     slot: {
-      cardScale: 0.8,
+      cardScale: 0.75,
       frameScale: 0.86,
       frameShadowOffset: 3,
       borderStroke: 3,
@@ -165,9 +165,7 @@ export class SlotDisplayHandler {
       container.on("pointerup", () => this.handlePointerUp(slot));
       container.on("pointerout", () => this.handlePointerOut());
 
-      if (slot.unit || slot.pilot) {
-        this.drawFrame(container, pos.w, pos.h);
-      }
+      // No background frame; rely on card art only.
       this.drawSlot(container, pos.w, pos.h, slot, isSelected);
       container.setAlpha(slot.isRested ? 0.75 : 1);
 
@@ -208,9 +206,7 @@ export class SlotDisplayHandler {
 
   createSlotSprite(slot: SlotViewModel, size: { w: number; h: number }) {
     const container = this.scene.add.container(0, 0);
-    if (slot.unit || slot.pilot) {
-      this.drawFrame(container, size.w, size.h);
-    }
+    // No background frame; rely on card art only.
     const cardSize = this.computeCardSize(size.w, size.h);
     const width = cardSize.w;
     const unitHeight = cardSize.h;
