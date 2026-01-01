@@ -10,6 +10,7 @@ export class SlotAnimationRenderController {
   private runningSlots = new Set<string>();
   // Map of event id -> affected slot keys.
   private eventSlots = new Map<string, string[]>();
+  private debug = true;
 
   constructor(private getSlotsFromRaw: (raw: any) => SlotViewModel[]) {}
 
@@ -25,6 +26,15 @@ export class SlotAnimationRenderController {
   handleEventStart(event: SlotNotification, currentSlots: SlotViewModel[]): SlotViewModel[] {
     const keys = this.eventSlots.get(event.id) ?? [];
     const type = (event.type || "").toUpperCase();
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.log("[SlotRender] event start", {
+        id: event.id,
+        type,
+        keys,
+        snapshots: keys.map((key) => ({ key, state: this.renderSnapshots.get(key) ? "set" : "null" })),
+      });
+    }
     if (type === "CARD_STAT_MODIFIED") {
       const delta = Number(event.payload?.delta ?? event.payload?.modifierValue ?? 0);
       const stat = (event.payload?.stat ?? "").toString().toLowerCase();
@@ -133,6 +143,13 @@ export class SlotAnimationRenderController {
     currentSlots.forEach((slot) => {
       const key = toKey(slot);
       const snapshot = this.renderSnapshots.get(key);
+      if (this.debug && (this.runningSlots.has(key) || snapshot === null)) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotRender] hide slot", {
+          key,
+          reason: this.runningSlots.has(key) ? "running" : "snapshot-null",
+        });
+      }
       if (isHidden(key, snapshot)) return;
       result.push(snapshot ?? slot);
       renderedKeys.add(key);

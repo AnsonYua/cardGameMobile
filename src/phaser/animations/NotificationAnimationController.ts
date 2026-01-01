@@ -111,7 +111,7 @@ export class NotificationAnimationController {
     const cardName = card?.cardData?.name ?? card?.id ?? payload.carduid;
     const fallbackLabel = card?.id ?? payload.carduid;
     const textureKey = card?.textureKey;
-    const shouldHide = ctx.shouldHideSlot ? ctx.shouldHideSlot(slotKey) : true;
+    const shouldHide = ctx.shouldHideSlot ? ctx.shouldHideSlot(slotKey) : false;
     return () =>
       this.animateSlotCard({
         slotKey,
