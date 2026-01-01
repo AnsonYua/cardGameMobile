@@ -58,10 +58,10 @@ export class HandRenderer {
     if (!this.layoutState) return;
     this.clearCards();
     this.ensureChrome();
-    const { cardW, cardH, gapX } = this.layoutState;
+    const { cardW, cardH, gapX, innerPaddingX } = this.layoutState;
 
     cards.forEach((card, index) => {
-      const x = cardW / 2 + index * (cardW + gapX);
+      const x = innerPaddingX + cardW / 2 + index * (cardW + gapX);
       const y = 0;
       const isSelected = card.uid && card.uid === selectedUid;
       const drawn = this.layout.renderCard(x, y, cardW, cardH, card, !!isSelected);
