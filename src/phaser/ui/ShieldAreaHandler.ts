@@ -29,6 +29,8 @@ type ShieldAreaConfig = {
   shieldGap: number;
   towerGap: number;
   cornerRadius: number;
+  restedAnglePlayer: number;
+  restedAngleOpponent: number;
 };
 
 type BaseSide = "opponent" | "player";
@@ -59,12 +61,13 @@ export class ShieldAreaHandler {
     shieldGap: -65,
     towerGap: -5,
     cornerRadius: 5,
+    restedAnglePlayer: 30,
+    restedAngleOpponent: 30,
   };
   private baseStatus: Record<BaseSide, ShieldAreaStatus> = { opponent: "normal", player: "normal" };
-  private baseOverlays: Partial<Record<BaseSide, Phaser.GameObjects.Graphics>> = {};
-  private baseMasks: Partial<Record<BaseSide, { mask: Phaser.Display.Masks.GeometryMask; shape: Phaser.GameObjects.Graphics }>> = {};
   private baseCards: Partial<Record<BaseSide, BaseCardObject>> = {};
   private badges: Partial<Record<BaseSide, BadgePair>> = {};
+  private baseContainers: Partial<Record<BaseSide, Phaser.GameObjects.Container>> = {};
   private shieldCounts: Record<BaseSide, number>;
   private lastStackParams: Partial<Record<BaseSide, StackParams>> = {};
   private shieldCards: Record<BaseSide, Phaser.GameObjects.GameObject[]>;
@@ -171,10 +174,7 @@ export class ShieldAreaHandler {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const status = this.baseStatus[key];
     const elements: Phaser.GameObjects.GameObject[] = [];
-    if (this.baseCards[key]) elements.push(this.baseCards[key] as any);
-    if (this.baseOverlays[key]) elements.push(this.baseOverlays[key] as any);
-    const badge = this.badges[key];
-    if (badge) elements.push(badge.box, badge.label);
+    if (this.baseContainers[key]) elements.push(this.baseContainers[key] as any);
     elements.push(...this.shieldCards[key]);
     const hit = this.baseHits[key];
     if (hit) elements.push(hit);
@@ -182,9 +182,7 @@ export class ShieldAreaHandler {
     // Toggle visibility immediately; no fades to avoid flashing on frequent updates.
     elements.forEach((el: any) => {
       if (!el) return;
-      const shouldShow =
-        visible &&
-        !((el === this.baseOverlays[key] && status !== "rested") || (badge && (el === badge.box || el === badge.label) && status === "destroyed"));
+      const shouldShow = visible && !(el === this.baseContainers[key] && status === "destroyed");
       el.setVisible(shouldShow);
       if (typeof el.setAlpha === "function") el.setAlpha(1);
     });
@@ -194,10 +192,7 @@ export class ShieldAreaHandler {
   setBaseVisible(isOpponent: boolean, visible: boolean) {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const elements: Phaser.GameObjects.GameObject[] = [];
-    if (this.baseCards[key]) elements.push(this.baseCards[key] as any);
-    if (this.baseOverlays[key]) elements.push(this.baseOverlays[key] as any);
-    const badge = this.badges[key];
-    if (badge) elements.push(badge.box, badge.label);
+    if (this.baseContainers[key]) elements.push(this.baseContainers[key] as any);
     const hit = this.baseHits[key];
     if (hit) elements.push(hit);
     elements.forEach((el: any) => {
@@ -332,13 +327,12 @@ export class ShieldAreaHandler {
     const angle = isOpponent ? 180 : 0;
     const overlayKey = isOpponent ? "opponent" : "player";
     const radius = this.config.cornerRadius;
+    // eslint-disable-next-line no-console
+    console.log("[ShieldArea] drawBaseCard", { overlayKey, x, y, w, h, angle });
     this.baseAnchors[overlayKey] = { x, y, isOpponent, w, h };
-    // Clean up any previous overlay for this side before drawing anew.
-    this.baseOverlays[overlayKey]?.destroy();
-    this.baseOverlays[overlayKey] = undefined;
-    this.baseMasks[overlayKey]?.shape.destroy();
-    this.baseMasks[overlayKey]?.mask.destroy();
-    this.baseMasks[overlayKey] = undefined;
+    // Clean up any previous base visuals for this side before drawing anew.
+    this.baseContainers[overlayKey]?.destroy();
+    this.baseContainers[overlayKey] = undefined;
     this.baseCards[overlayKey]?.destroy();
     this.baseCards[overlayKey] = undefined;
     this.badges[overlayKey]?.box.destroy();
@@ -347,40 +341,31 @@ export class ShieldAreaHandler {
     this.baseHits[overlayKey]?.destroy();
     this.baseHits[overlayKey] = undefined;
 
-    if (this.scene.textures.exists("baseCard")) {
-      const baseImg = this.scene.add.image(x, y, "baseCard").setDisplaySize(w, h).setOrigin(0.5).setAngle(angle).setDepth(490);
-      // Rounded corner mask so the transparent PNG keeps its soft edges.
-      const shape = this.scene.add.graphics({ x: x - w / 2, y: y - h / 2 });
-      shape.fillStyle(0xffffff, 1);
-      shape.fillRoundedRect(0, 0, w, h, radius);
-      shape.setVisible(false);
-      const mask = shape.createGeometryMask();
-      baseImg.setMask(mask);
-      this.baseMasks[overlayKey] = { mask, shape };
-      this.baseCards[overlayKey] = baseImg;
-    } else {
-      const card = this.drawHandStyleCard(x, y, w, h, this.drawHelpers.toColor("#c9d5e0"), radius).setAngle(angle);
-      card.setDepth(490);
-      this.baseCards[overlayKey] = card;
-      this.scene
-        .add.text(x, y, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
-        .setOrigin(0.5)
-        .setAngle(angle)
-        .setDepth(491);
-    }
+    const container = this.scene.add.container(x, y).setDepth(490);
+    this.baseContainers[overlayKey] = container;
+    container.setAngle(this.getBaseAngle(overlayKey, this.baseStatus[overlayKey], angle));
 
-    // Grey transparent overlay as rested indicator; draw centered so rotation pivots correctly.
-    const restedOverlay = this.scene.add.graphics({ x, y });
-    restedOverlay.fillStyle(0x666666, 0.25);
-    restedOverlay.fillRoundedRect(-w / 2, -h / 2, w, h, radius);
-    restedOverlay.setDepth(495).setAngle(angle).setVisible(this.baseStatus[overlayKey] === "rested");
-    this.baseOverlays[overlayKey] = restedOverlay;
+    const hasTexture = this.scene.textures.exists("baseCard");
+    // eslint-disable-next-line no-console
+    console.log("[ShieldArea] base texture", { overlayKey, hasTexture });
+    if (hasTexture) {
+      const baseImg = this.scene.add.image(0, 0, "baseCard").setDisplaySize(w, h).setOrigin(0.5);
+      this.baseCards[overlayKey] = baseImg;
+      container.add(baseImg);
+    } else {
+      const card = this.drawHandStyleCard(0, 0, w, h, this.drawHelpers.toColor("#c9d5e0"), radius);
+      this.baseCards[overlayKey] = card;
+      const label = this.scene
+        .add.text(0, 0, "base", { fontSize: "14px", fontFamily: "Arial", color: this.palette.ink })
+        .setOrigin(0.5);
+      container.add([card, label]);
+    }
 
     // Bottom-right count badge
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
-    const badgeX = isOpponent ? x - w * 0.34 + 5 : x + w * 0.34 - 5;
-    const badgeY = isOpponent ? y - h * 0.36 : y + h * 0.36;
+    const badgeX = isOpponent ? -w * 0.34 + 5 : w * 0.34 - 5;
+    const badgeY = isOpponent ? -h * 0.36 : h * 0.36;
 
     const badgeRectX = badgeX;
     const badgeRectY = badgeY;
@@ -405,9 +390,9 @@ export class ShieldAreaHandler {
         fontStyle: "bold",
       })
       .setOrigin(0.5)
-      .setAngle(angle)
       .setDepth(501);
     this.badges[overlayKey] = { box: badge, label: badgeLabel };
+    container.add([badge, badgeLabel]);
 
     // Interactive zone for long-press preview.
     const hit = this.scene.add.zone(x, y, w * 1.2, h * 1.2).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -420,25 +405,31 @@ export class ShieldAreaHandler {
 
     // Apply any previously-set status now that visuals exist.
     this.applyBaseStatus(overlayKey);
+    // eslint-disable-next-line no-console
+    console.log("[ShieldArea] base children", {
+      overlayKey,
+      childCount: container.list.length,
+      visible: container.visible,
+    });
   }
 
   private applyBaseStatus(side: BaseSide) {
     const status = this.baseStatus[side];
-    const overlay = this.baseOverlays[side];
-    const card = this.baseCards[side];
-    const badge = this.badges[side];
+    const container = this.baseContainers[side];
 
-    if (!overlay && !card && !badge) {
+    if (!container) {
       return;
     }
 
-    // Rested overlay visibility
-    overlay?.setVisible(status === "rested");
     // Base visibility (hidden if destroyed)
-    card?.setVisible(status !== "destroyed");
-    // Badge visibility mirrors base visibility.
-    badge?.box.setVisible(status !== "destroyed");
-    badge?.label.setVisible(status !== "destroyed");
+    container.setVisible(status !== "destroyed");
+    container.setAngle(this.getBaseAngle(side, status));
+  }
+
+  private getBaseAngle(side: BaseSide, status: ShieldAreaStatus, baseAngle: number = side === "opponent" ? 180 : 0) {
+    if (status !== "rested") return baseAngle;
+    const restAngle = side === "opponent" ? this.config.restedAngleOpponent : this.config.restedAnglePlayer;
+    return baseAngle + restAngle;
   }
 
   private drawHandStyleCard(x: number, y: number, w: number, h: number, fill: number, cornerRadius: number) {
