@@ -30,11 +30,20 @@ export class BlockerFlowManager {
 
   handleSnapshot(raw: any) {
     const entry = this.getActiveQueueEntry(raw);
+    // eslint-disable-next-line no-console
+    console.log("[BlockerFlow] handleSnapshot", {
+      hasEntry: !!entry,
+      entryId: entry?.id,
+      entryType: entry?.type,
+      playerId: entry?.playerId,
+    });
     if (!entry || !this.isBlockerChoiceEntry(entry)) {
       this.clear();
       return null;
     }
     if (this.queueEntry?.id === entry.id) {
+      // eslint-disable-next-line no-console
+      console.log("[BlockerFlow] same entry", { entryId: entry.id });
       return entry;
     }
     this.queueEntry = entry;
@@ -46,6 +55,12 @@ export class BlockerFlowManager {
     );
     this.notificationId = this.extractNotificationId(raw);
     this.requestPending = false;
+    // eslint-disable-next-line no-console
+    console.log("[BlockerFlow] new entry", {
+      entryId: entry.id,
+      targets: this.slotTargets.length,
+      notificationId: this.notificationId,
+    });
     return entry;
   }
 
@@ -53,6 +68,13 @@ export class BlockerFlowManager {
     if (!this.queueEntry) return false;
     const selfId = this.deps.gameContext.playerId;
     const isDefender = this.queueEntry.playerId === selfId;
+    // eslint-disable-next-line no-console
+    console.log("[BlockerFlow] applyActionBar", {
+      entryId: this.queueEntry.id,
+      isDefender,
+      targets: this.slotTargets.length,
+      requestPending: this.requestPending,
+    });
     this.deps.slotGate.disable("blocker-choice");
     if (!isDefender) {
       this.deps.actionControls?.setWaitingForOpponent?.(true);

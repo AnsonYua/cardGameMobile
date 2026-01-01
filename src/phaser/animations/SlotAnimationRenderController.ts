@@ -19,6 +19,10 @@ export class SlotAnimationRenderController {
     previousSlots: SlotViewModel[],
     currentSlots: SlotViewModel[],
   ): SlotViewModel[] {
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.log("[SlotRender] startBatch", { eventCount: events.length });
+    }
     this.initRenderSnapshots(events, previousSlots, currentSlots);
     return this.buildSlotsForRender(currentSlots);
   }
@@ -62,6 +66,38 @@ export class SlotAnimationRenderController {
         this.renderSnapshots.set(key, snapshot);
       });
     }
+    
+    if (type === "UNIT_ATTACK_DECLARED") {
+      const attackerUid = event.payload?.attackerCarduid;
+      if (this.debug) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotRender] attack declared", { attackerUid });
+      }
+      if (attackerUid) {
+        const attackerSlot = currentSlots.find(
+          (slot) => slot.unit?.cardUid === attackerUid || slot.pilot?.cardUid === attackerUid,
+        );
+        if (this.debug) {
+          // eslint-disable-next-line no-console
+          console.log("[SlotRender] attack resolved", {
+            attackerUid,
+            found: !!attackerSlot,
+            key: attackerSlot ? `${attackerSlot.owner}-${attackerSlot.slotId}` : null,
+          });
+        }
+        if (attackerSlot) {
+          const key = `${attackerSlot.owner}-${attackerSlot.slotId}`;
+          const base = this.renderSnapshots.get(key) ?? this.cloneSlot(attackerSlot);
+          if (base) {
+            const snapshot = this.cloneSlot(base);
+            snapshot.isRested = true;
+            if (snapshot.unit) snapshot.unit.isRested = true;
+            if (snapshot.pilot) snapshot.pilot.isRested = true;
+            this.renderSnapshots.set(key, snapshot);
+          }
+        }
+      }
+    }
     return this.buildSlotsForRender(currentSlots);
   }
 
@@ -73,8 +109,12 @@ export class SlotAnimationRenderController {
     const type = (event.type || "").toUpperCase();
     const releaseSlots = () => keys.forEach((key) => this.runningSlots.delete(key));
     releaseSlots();
-    if (type === "UNIT_ATTACK_DECLARED" || type === "CARD_STAT_MODIFIED") {
+    if (type === "CARD_STAT_MODIFIED") {
       // Keep preview snapshot for this event; just unhide affected slots.
+      return this.buildSlotsForRender(currentSlots);
+    }
+    if (type === "UNIT_ATTACK_DECLARED") {
+      // Keep preview snapshot (rested) for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }
     const byKey = new Map(currentSlots.map((slot) => [`${slot.owner}-${slot.slotId}`, slot]));
@@ -82,6 +122,16 @@ export class SlotAnimationRenderController {
     // TODO: override per event type when we need custom slot label updates.
     keys.forEach((key) => {
       const slot = byKey.get(key);
+      if (this.debug) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotRender] event end slot", {
+          type,
+          key,
+          slotRested: slot?.isRested,
+          unitRested: slot?.unit?.isRested,
+          pilotRested: slot?.pilot?.isRested,
+        });
+      }
       this.renderSnapshots.set(key, slot ? this.cloneSlot(slot) : null);
     });
     return this.buildSlotsForRender(currentSlots);
@@ -102,6 +152,12 @@ export class SlotAnimationRenderController {
     previousSlots: SlotViewModel[],
     currentSlots: SlotViewModel[],
   ) {
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.log("[SlotRender] init snapshots", {
+        events: events.map((e) => ({ id: e.id, type: e.type })),
+      });
+    }
     this.renderSnapshots.clear();
     this.runningSlots.clear();
     this.eventSlots.clear();
@@ -129,6 +185,10 @@ export class SlotAnimationRenderController {
         }
       });
       this.eventSlots.set(event.id, Array.from(keys));
+      if (this.debug) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotRender] init event", { id: event.id, type: event.type, keys: Array.from(keys) });
+      }
     });
 
   }
@@ -144,6 +204,16 @@ export class SlotAnimationRenderController {
     currentSlots.forEach((slot) => {
       const key = toKey(slot);
       const snapshot = this.renderSnapshots.get(key);
+      if (this.debug) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotRender] build", {
+          key,
+          currentRested: slot.isRested,
+          snapshotRested: snapshot?.isRested,
+          usingSnapshot: !!snapshot,
+          hidden: isHidden(key, snapshot),
+        });
+      }
       if (this.debug && (this.runningSlots.has(key) || snapshot === null)) {
         // eslint-disable-next-line no-console
         console.log("[SlotRender] hide slot", {
