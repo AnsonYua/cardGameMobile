@@ -138,6 +138,8 @@ export class BlockerFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
+    // eslint-disable-next-line no-console
+    console.log("[BlockerFlow] postBlockChoice", { entryId: this.queueEntry.id, targets });
     this.requestPending = true;
     this.deps.refreshActions();
     try {

@@ -57,6 +57,13 @@ export class GameEngine {
         : fromScenario && this.lastRaw
         ? this.lastRaw
         : await this.match.getGameStatus(gameId, playerId);
+      // eslint-disable-next-line no-console
+      console.log("[GameEngine] status poll", {
+        gameId,
+        playerId,
+        phase: response?.gameEnv?.phase,
+        version: response?.gameEnv?.version,
+      });
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
       // Only fall back to the full response if it's a string; otherwise use the previous status.

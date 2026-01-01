@@ -499,6 +499,8 @@ export class BoardScene extends Phaser.Scene {
     const hasNewEvents = events.length > 0;
 
     if (allowAnimations && hasNewEvents && !queueRunning) {
+      // eslint-disable-next-line no-console
+      console.log("[BoardScene] updateSlots startBatch", { eventCount: events.length });
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
       const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
       this.renderSlots(initialSlots);
@@ -507,9 +509,13 @@ export class BoardScene extends Phaser.Scene {
     }
 
     if (allowAnimations && queueRunning) {
+      // eslint-disable-next-line no-console
+      console.log("[BoardScene] updateSlots skip render (queue running)");
       return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log("[BoardScene] updateSlots render current", { hasNewEvents, queueRunning });
     this.renderSlots(currentSlots);
   }
 

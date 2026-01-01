@@ -92,7 +92,6 @@ export class SlotAnimationRenderController {
             const snapshot = this.cloneSlot(base);
             snapshot.isRested = true;
             if (snapshot.unit) snapshot.unit.isRested = true;
-            if (snapshot.pilot) snapshot.pilot.isRested = true;
             this.renderSnapshots.set(key, snapshot);
           }
         }
@@ -113,6 +112,7 @@ export class SlotAnimationRenderController {
       // Keep preview snapshot for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }
+    
     if (type === "UNIT_ATTACK_DECLARED") {
       // Keep preview snapshot (rested) for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
