@@ -205,26 +205,22 @@ export class SlotDisplayHandler {
     const unitCenterY = 0;
     const pilotCenterY = 0;
 
-    let unitRatio = 1;
-    let pilotRatio = 0;
+    const unitRatio = 1;
     if (slot.pilot && this.config.slot.showPilotInSlots) {
-      unitRatio = 0.75;
-      pilotRatio = 1 - unitRatio;
-    }
-    if (slot.pilot && this.config.slot.showPilotInSlots) {
+      const pilotOffsetY = this.getPilotOffsetY(unitCenterY, unitHeight, pilotHeight);
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
         slot.pilot.id,
         width,
         pilotHeight,
-        pilotCenterY,
+        pilotOffsetY,
         false,
         true,
         this.config.slot.pilotSliceRatio,
       );
       pilotObj?.setAlpha(this.config.slot.pilotAlpha);
-      this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, false);
+      this.drawUnitBorder(container, width, pilotHeight, pilotOffsetY, 1, false);
     }
 
     if (slot.unit) {
@@ -270,26 +266,22 @@ export class SlotDisplayHandler {
     const unitCenterY = 0;
     const pilotCenterY = 0;
 
-    let unitRatio = 1;
-    let pilotRatio = 0;
+    const unitRatio = 1;
     if (slot.pilot && this.config.slot.showPilotInSlots) {
-      unitRatio = 0.75;
-      pilotRatio = 1 - unitRatio;
-    }
-    if (slot.pilot && this.config.slot.showPilotInSlots) {
+      const pilotOffsetY = this.getPilotOffsetY(unitCenterY, unitHeight, pilotHeight);
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
         slot.pilot.id,
         width,
         pilotHeight,
-        pilotCenterY,
+        pilotOffsetY,
         false, // cropFromTop
         true, // isPilot
         this.config.slot.pilotSliceRatio, // pilotSliceRatio
       );
       pilotObj?.setAlpha(0.95);
-      this.drawUnitBorder(container, width, pilotHeight, pilotHeight * (1 - pilotRatio), pilotRatio, isSelected);
+      this.drawUnitBorder(container, width, pilotHeight, pilotOffsetY, 1, isSelected);
     }
 
     if (slot.unit) {
@@ -309,6 +301,10 @@ export class SlotDisplayHandler {
     const maxW = slotW * this.config.slot.cardScale;
     const maxH = slotH * this.config.slot.cardScale;
     return this.fitCardSize(maxW, maxH);
+  }
+
+  private getPilotOffsetY(unitCenterY: number, unitHeight: number, pilotHeight: number) {
+    return unitCenterY + unitHeight / 2 - pilotHeight * 0.2 - 10;
   }
 
   private drawCard(
