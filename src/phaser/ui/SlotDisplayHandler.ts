@@ -25,12 +25,15 @@ export class SlotDisplayHandler {
   private config = {
     slot: {
       cardScale: 0.75,
+      cardScaleWithPilot: 0.7,
+      restedAngle: -90,
+      restedAlpha: 0.75,
       borderStroke: 3,
       defaultBorderColor: 0xffffff,
       selectedBorderColor: 0x18c56c,
       defaultBorderAlpha: 0.75,
       selectedBorderAlpha: 1,
-      pilotSliceRatio: 0.2,
+      pilotSliceRatio: 0.15,
       showPilotInSlots: true,
       unitRatio: 0.75,
       pilotAlpha: 0.95,
@@ -158,7 +161,8 @@ export class SlotDisplayHandler {
 
       // No background frame; rely on card art only.
       this.drawSlot(container, pos.w, pos.h, slot, isSelected);
-      container.setAlpha(slot.isRested ? 0.75 : 1);
+      container.setAlpha(slot.isRested ? this.config.slot.restedAlpha : 1);
+      container.setAngle(slot.isRested ? this.config.slot.restedAngle : 0);
 
       this.slotContainers.set(key, container);
       if (this.hiddenSlots.has(key)) {
@@ -198,7 +202,8 @@ export class SlotDisplayHandler {
   createSlotSprite(slot: SlotViewModel, size: { w: number; h: number }) {
     const container = this.scene.add.container(0, 0);
     // No background frame; rely on card art only.
-    const cardSize = this.computeCardSize(size.w, size.h);
+    const cardScale = slot.pilot ? this.config.slot.cardScaleWithPilot : this.config.slot.cardScale;
+    const cardSize = this.computeCardSize(size.w, size.h, cardScale);
     const width = cardSize.w;
     const unitHeight = cardSize.h;
     const pilotHeight = cardSize.h;
@@ -236,7 +241,8 @@ export class SlotDisplayHandler {
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
     const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
     this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6);
-    container.setAlpha(slot.isRested ? 0.75 : 1);
+    container.setAlpha(slot.isRested ? this.config.slot.restedAlpha : 1);
+    container.setAngle(slot.isRested ? this.config.slot.restedAngle : 0);
     return container;
   }
 
@@ -262,7 +268,8 @@ export class SlotDisplayHandler {
     slot: SlotViewModel,
     isSelected: boolean,
   ) {
-    const cardSize = this.computeCardSize(slotSize, slotHeight);
+    const cardScale = slot.pilot ? this.config.slot.cardScaleWithPilot : this.config.slot.cardScale;
+    const cardSize = this.computeCardSize(slotSize, slotHeight, cardScale);
     const width = cardSize.w;
     const unitHeight = cardSize.h;
     const pilotHeight = cardSize.h;
@@ -303,9 +310,9 @@ export class SlotDisplayHandler {
     this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6, slotKey);
   }
 
-  private computeCardSize(slotW: number, slotH: number) {
-    const maxW = slotW * this.config.slot.cardScale;
-    const maxH = slotH * this.config.slot.cardScale;
+  private computeCardSize(slotW: number, slotH: number, cardScale: number) {
+    const maxW = slotW * cardScale;
+    const maxH = slotH * cardScale;
     return this.fitCardSize(maxW, maxH);
   }
 
