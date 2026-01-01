@@ -130,6 +130,7 @@ export class SlotAnimationRenderController {
       });
       this.eventSlots.set(event.id, Array.from(keys));
     });
+
   }
 
   private buildSlotsForRender(currentSlots: SlotViewModel[]) {

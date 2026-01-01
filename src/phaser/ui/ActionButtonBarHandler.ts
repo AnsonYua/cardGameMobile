@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BASE_H, HAND_AREA_HEIGHT } from "../../config/gameLayout";
+import { BASE_H, HAND_AREA_HEIGHT, INTERNAL_W } from "../../config/gameLayout";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { toColor } from "./types";
 
@@ -116,9 +116,9 @@ export class ActionButtonBarHandler {
 
     // Geometry and positioning.
     const { cardH, gap, rows, bottomPadding } = this.handLayout;
-    const totalHandHeight = rows * cardH + (rows - 1) * gap;
+    const totalHandHeight = rows * cardH + (rows - 1) * gap ;
     const handTop = BASE_H - bottomPadding - totalHandHeight + offset.y;
-    const barY = handTop - this.barHeight / 2 - 12;
+    const barY = handTop - this.barHeight / 2 - 3 ;
     const camW = this.scene.scale.width;
     const barX = camW / 2;
     const btnGap = 12;
@@ -128,7 +128,7 @@ export class ActionButtonBarHandler {
     // Always draw the background bar.
     const bg = this.drawRoundedRectOrigin({
       x: 0,
-      y: barY - 23,
+      y: barY - 25,
       width: camW,
       height: bgHeight,
       radius: 0,
