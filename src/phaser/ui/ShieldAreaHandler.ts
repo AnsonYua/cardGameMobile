@@ -61,8 +61,8 @@ export class ShieldAreaHandler {
     shieldGap: -65,
     towerGap: -5,
     cornerRadius: 5,
-    restedAnglePlayer: 30,
-    restedAngleOpponent: 30,
+    restedAnglePlayer: -90,
+    restedAngleOpponent: -90,
   };
   private baseStatus: Record<BaseSide, ShieldAreaStatus> = { opponent: "normal", player: "normal" };
   private baseCards: Partial<Record<BaseSide, BaseCardObject>> = {};
@@ -343,7 +343,7 @@ export class ShieldAreaHandler {
 
     const container = this.scene.add.container(x, y).setDepth(490);
     this.baseContainers[overlayKey] = container;
-    container.setAngle(this.getBaseAngle(overlayKey, this.baseStatus[overlayKey], angle));
+    container.setAngle(this.getBaseAngle(overlayKey, this.baseStatus[overlayKey]));
 
     const hasTexture = this.scene.textures.exists("baseCard");
     // eslint-disable-next-line no-console
@@ -364,8 +364,8 @@ export class ShieldAreaHandler {
     // Bottom-right count badge
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
-    const badgeX = isOpponent ? -w * 0.34 + 5 : w * 0.34 - 5;
-    const badgeY = isOpponent ? -h * 0.36 : h * 0.36;
+    const badgeX = isOpponent ? w * 0.34 - 5 : w * 0.34 - 5;
+    const badgeY = isOpponent ? h * 0.36 : h * 0.36;
 
     const badgeRectX = badgeX;
     const badgeRectY = badgeY;
@@ -424,9 +424,12 @@ export class ShieldAreaHandler {
     // Base visibility (hidden if destroyed)
     container.setVisible(status !== "destroyed");
     container.setAngle(this.getBaseAngle(side, status));
+    // eslint-disable-next-line no-console
+    console.log("[ShieldArea] applyBaseStatus", { side, status, angle: container.angle });
   }
 
-  private getBaseAngle(side: BaseSide, status: ShieldAreaStatus, baseAngle: number = side === "opponent" ? 180 : 0) {
+  private getBaseAngle(side: BaseSide, status: ShieldAreaStatus) {
+    const baseAngle = side === "opponent" ? 180 : 0;
     if (status !== "rested") return baseAngle;
     const restAngle = side === "opponent" ? this.config.restedAngleOpponent : this.config.restedAnglePlayer;
     return baseAngle + restAngle;

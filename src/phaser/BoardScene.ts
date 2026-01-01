@@ -584,7 +584,9 @@ export class BoardScene extends Phaser.Scene {
       const hasBase = Boolean(baseCard);
       const ap = baseCard?.fieldCardValue?.totalAP ?? 0;
       const hp = baseCard?.fieldCardValue?.totalHP ?? 0;
-      const rested = baseCard?.fieldCardValue?.isRested ?? false;
+      const rested = baseCard?.isRested ?? baseCard?.fieldCardValue?.isRested ?? false;
+      // eslint-disable-next-line no-console
+      console.log("[Base] status", { isOpponent, cardId: baseCard?.cardId, rested });
       this.baseControls?.setShieldCount(isOpponent, shieldCount);
       if (hasBase) {
         this.baseControls?.setBaseTexture?.(isOpponent, baseCard?.cardId);

@@ -35,7 +35,7 @@ export class SlotPresenter {
         slotId,
         unit,
         pilot,
-        isRested: slot.unit?.isRested ?? slot.fieldCardValue?.isRested ?? false,
+        isRested: slot.unit?.isRested ?? false,
         ap: fieldCardValue.totalAP ?? 0,
         hp: fieldCardValue.totalHP ?? 0,
         fieldCardValue,
