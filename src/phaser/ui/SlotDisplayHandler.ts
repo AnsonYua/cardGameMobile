@@ -4,6 +4,8 @@ import { Palette } from "./types";
 import { SlotPositionMap, SlotViewModel, SlotCardView, SlotOwner } from "./SlotTypes";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
+import { CardPreviewOverlay } from "./CardPreviewOverlay";
+import { UI_LAYOUT } from "./UiLayoutConfig";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -12,7 +14,6 @@ type RenderOptions = {
 export class SlotDisplayHandler {
   private cardAspect = 63 / 88;
   private slotContainers = new Map<string, Phaser.GameObjects.Container>();
-  private previewContainer?: Phaser.GameObjects.Container;
   private previewTimer?: any;
   private previewActive = false;
   private selectedKey?: string;
@@ -24,8 +25,6 @@ export class SlotDisplayHandler {
   private config = {
     slot: {
       cardScale: 0.75,
-      frameScale: 0.86,
-      frameShadowOffset: 3,
       borderStroke: 3,
       defaultBorderColor: 0xffffff,
       selectedBorderColor: 0x18c56c,
@@ -44,22 +43,7 @@ export class SlotDisplayHandler {
         fontMax: 16,
       },
     },
-    preview: {
-      badgeSize: { w: 70, h: 45 },
-      badgeFontSize: 20,
-      totalBadgeColor: 0x284cfc,
-      totalBadgeGap: 10,
-      pilotOffsetRatio: 0.2,
-      pilotCommandOffsetRatio: 0.1,
-      pilotCommandLift: 65,
-      unitYOffsetFactor: -0.4,
-      cardWidth: 300,
-      cardAspect: 88 / 64,
-      overlayAlpha: 0.65,
-      fadeIn: 180,
-      fadeOut: 150,
-      holdDelay: 400,
-    },
+    preview: UI_LAYOUT.slot.preview,
   };
   private previewBadgeSize = this.config.preview.badgeSize;
   private lastStatLabels = new Map<string, { label: string; score: number }>();
@@ -67,8 +51,15 @@ export class SlotDisplayHandler {
   private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
   private hiddenSlots = new Set<string>();
 
+  private previewOverlay: CardPreviewOverlay;
+
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene);
+    this.previewOverlay = new CardPreviewOverlay(scene, {
+      overlayAlpha: this.config.preview.overlayAlpha,
+      fadeIn: this.config.preview.fadeIn,
+      fadeOut: this.config.preview.fadeOut,
+    });
   }
   private onSlotClick?: (slot: SlotViewModel) => void;
   private slotClicksEnabled = true;
@@ -259,6 +250,12 @@ export class SlotDisplayHandler {
     this.hidePreview();
   }
 
+  destroy() {
+    this.cancelPreviewTimer();
+    this.previewOverlay.destroy();
+    this.clear();
+  }
+
   private drawSlot(
     container: Phaser.GameObjects.Container,
     slotSize: number,
@@ -401,61 +398,6 @@ export class SlotDisplayHandler {
     }
     const pilotH = Math.min(th * pilotSliceRatio, cropH);
     img.setCrop(0, th - pilotH, cropW, pilotH);
-  }
-
-  private drawFrame(container: Phaser.GameObjects.Container, slotW: number, slotH: number) {
-    const w = slotW * this.config.slot.frameScale;
-    const h = slotH * this.config.slot.frameScale;
-    const shadow = this.drawHelpers.drawRoundedRect({
-      x: this.config.slot.frameShadowOffset,
-      y: this.config.slot.frameShadowOffset,
-      width: w + 14,
-      height: h + 14,
-      radius: 16,
-      fillColor: "#000000",
-      fillAlpha: 0.35,
-      strokeWidth: 0,
-    });
-    const outer = this.drawHelpers.drawRoundedRect({
-      x: 0,
-      y: 0,
-      width: w + 12,
-      height: h + 12,
-      radius: 15,
-      fillColor: "#111926",
-      fillAlpha: 1,
-      strokeColor: "#0a0d14",
-      strokeAlpha: 0.9,
-      strokeWidth: 2.2,
-    });
-    const mid = this.drawHelpers.drawRoundedRect({
-      x: 0,
-      y: 0,
-      width: w + 8,
-      height: h + 8,
-      radius: 13,
-      fillColor: "#2f3a4c",
-      fillAlpha: 0.85,
-      strokeColor: "#4b5668",
-      strokeAlpha: 0.7,
-      strokeWidth: 2,
-    });
-    const inner = this.drawHelpers.drawRoundedRect({
-      x: 0,
-      y: 0,
-      width: w + 4,
-      height: h + 4,
-      radius: 11,
-      fillColor: "#0f1118",
-      fillAlpha: 0.9,
-      strokeColor: "#1c2330",
-      strokeAlpha: 0.7,
-      strokeWidth: 1.4,
-    });
-    container.add(shadow);
-    container.add(outer);
-    container.add(mid);
-    container.add(inner);
   }
 
   private drawUnitBorder(
@@ -672,61 +614,18 @@ export class SlotDisplayHandler {
 
   private showPreview(slot: SlotViewModel) {
     this.hidePreview(true);
-    const cam = this.scene.cameras.main;
-    const cx = cam.centerX;
-    const cy = cam.centerY;
     const cardW = this.config.preview.cardWidth;
     const cardH = cardW * this.config.preview.cardAspect;
     const depth = 5000;
-    const container = this.scene.add.container(cx, cy).setDepth(depth).setAlpha(0);
-
-    const bg = this.scene.add.graphics();
-    bg.fillStyle(0x000000, this.config.preview.overlayAlpha);
-    bg.fillRect(-cam.width / 2, -cam.height / 2, cam.width, cam.height);
-    bg.setInteractive(new Phaser.Geom.Rectangle(-cam.width / 2, -cam.height / 2, cam.width, cam.height), Phaser.Geom.Rectangle.Contains);
-    bg.on("pointerdown", () => this.hidePreview());
-    container.add(bg);
-    /*
-    it should call drawPreviewCard
-     all slot data will put to it , 
-     it will have logic
-        if (ispliot){
-          draw pilot and draw black label 
-        }
-        if (istunit){
-          draw unit and draw black label 
-        }
-        draw black label for fieldValue
-    */
-    this.drawPreviewCard(container, 0, 0, cardW, cardH, slot, depth);
-
-    this.previewContainer = container;
+    this.previewOverlay.show((container) => {
+      this.drawPreviewCard(container, 0, 0, cardW, cardH, slot, depth);
+    }, { depth });
     this.previewActive = true;
-    this.scene.tweens.add({
-      targets: container,
-      alpha: 1,
-      duration: this.config.preview.fadeIn,
-      ease: "Quad.easeOut",
-    });
   }
 
   private hidePreview(skipTween = false) {
     this.cancelPreviewTimer();
-    if (this.previewContainer) {
-      const target = this.previewContainer;
-      this.previewContainer = undefined;
-      if (skipTween) {
-        target.destroy();
-      } else {
-        this.scene.tweens.add({
-          targets: target,
-          alpha: 0,
-          duration: this.config.preview.fadeOut,
-          ease: "Quad.easeIn",
-          onComplete: () => target.destroy(),
-        });
-      }
-    }
+    this.previewOverlay.hide(skipTween);
     this.previewActive = false;
   }
 

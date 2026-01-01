@@ -6,6 +6,7 @@ import { GameStatus, GameStatusHandler } from "./GameStatusHandler";
 import { ShieldAreaControls, ShieldAreaHandler } from "./ShieldAreaHandler";
 import { EnergyBarHandler, EnergyCounts } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
+import { UI_LAYOUT } from "./UiLayoutConfig";
 import { SlotOwner, SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
 
 export type FieldConfig = {
@@ -66,12 +67,12 @@ export type FieldConfig = {
 
 export class FieldHandler {
   static readonly DEFAULT_CONFIG: FieldConfig = {
-    slotW: 85,
-    slotH: 110,
-    gap: 5,
+    slotW: UI_LAYOUT.field.slotW,
+    slotH: UI_LAYOUT.field.slotH,
+    gap: UI_LAYOUT.field.gap,
     cols: 3,
     rows: 2,
-    gridGap: 115,
+    gridGap: UI_LAYOUT.field.gridGap,
     deckW: 57,
     deckH: 80,
     towerWidth: 64,

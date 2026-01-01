@@ -1,0 +1,56 @@
+export const UI_LAYOUT = {
+  hand: {
+    preview: {
+      holdDelay: 400,
+      overlayAlpha: 0.65,
+      cardWidth: 350,
+      cardAspect: 88 / 63,
+      fadeIn: 180,
+      fadeOut: 150,
+      badgeSize: { w: 70, h: 45 },
+      badgeFontSize: 20,
+    },
+    arrows: {
+      size: 15,
+      edgeInset: 6,
+      overlap: 0,
+      activeAlpha: 1,
+      inactiveAlpha: 0.5,
+      color: "#f5f6fb",
+      hitPad: 18,
+    },
+    scroll: {
+      duration: 220,
+    },
+    bar: {
+      cardHOffset: 20,
+      gap: 0,
+      rows: 1,
+      bottomPadding: 16,
+    },
+  },
+  slot: {
+    preview: {
+      badgeSize: { w: 70, h: 45 },
+      badgeFontSize: 20,
+      totalBadgeColor: 0x284cfc,
+      totalBadgeGap: 10,
+      pilotOffsetRatio: 0.2,
+      pilotCommandOffsetRatio: 0.1,
+      pilotCommandLift: 65,
+      unitYOffsetFactor: -0.4,
+      cardWidth: 300,
+      cardAspect: 88 / 64,
+      overlayAlpha: 0.65,
+      fadeIn: 180,
+      fadeOut: 150,
+      holdDelay: 400,
+    },
+  },
+  field: {
+    slotW: 85,
+    slotH: 110,
+    gap: 5,
+    gridGap: 115,
+  },
+} as const;
