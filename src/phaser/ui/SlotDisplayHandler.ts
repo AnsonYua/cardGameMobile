@@ -25,9 +25,9 @@ export class SlotDisplayHandler {
   private config = {
     slot: {
       cardScale: 0.75,
-      cardScaleWithPilot: 0.7,
+      restedScale: 0.65,
       restedAngle: -90,
-      restedAlpha: 0.75,
+      restedAlpha: 1,
       borderStroke: 3,
       defaultBorderColor: 0xffffff,
       selectedBorderColor: 0x18c56c,
@@ -202,7 +202,7 @@ export class SlotDisplayHandler {
   createSlotSprite(slot: SlotViewModel, size: { w: number; h: number }) {
     const container = this.scene.add.container(0, 0);
     // No background frame; rely on card art only.
-    const cardScale = slot.pilot ? this.config.slot.cardScaleWithPilot : this.config.slot.cardScale;
+    const cardScale = slot.isRested ? this.config.slot.restedScale : this.config.slot.cardScale;
     const cardSize = this.computeCardSize(size.w, size.h, cardScale);
     const width = cardSize.w;
     const unitHeight = cardSize.h;
@@ -268,7 +268,7 @@ export class SlotDisplayHandler {
     slot: SlotViewModel,
     isSelected: boolean,
   ) {
-    const cardScale = slot.pilot ? this.config.slot.cardScaleWithPilot : this.config.slot.cardScale;
+    const cardScale = slot.isRested ? this.config.slot.restedScale : this.config.slot.cardScale;
     const cardSize = this.computeCardSize(slotSize, slotHeight, cardScale);
     const width = cardSize.w;
     const unitHeight = cardSize.h;
@@ -422,6 +422,7 @@ export class SlotDisplayHandler {
     ratio: number,
     isSelected: boolean,
   ) {
+    //if (!isSelected) return;
     const graphics = this.scene.add.graphics();
     const color = isSelected ? this.config.slot.selectedBorderColor : this.config.slot.defaultBorderColor;
     const alpha = isSelected ? this.config.slot.selectedBorderAlpha : this.config.slot.defaultBorderAlpha;
