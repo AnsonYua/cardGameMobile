@@ -30,7 +30,7 @@ export class SlotDisplayHandler {
       selectedBorderColor: 0x18c56c,
       defaultBorderAlpha: 0.75,
       selectedBorderAlpha: 1,
-      pilotSliceRatio: 0.4,
+      pilotSliceRatio: 0.2,
       showPilotInSlots: true,
       unitRatio: 0.75,
       pilotAlpha: 0.95,
@@ -202,12 +202,15 @@ export class SlotDisplayHandler {
     const width = cardSize.w;
     const unitHeight = cardSize.h;
     const pilotHeight = cardSize.h;
-    const unitCenterY = 0;
+    let unitCenterY = 0;
     const pilotCenterY = 0;
 
     const unitRatio = 1;
+    let pilotOffsetY = pilotCenterY;
     if (slot.pilot && this.config.slot.showPilotInSlots) {
-      const pilotOffsetY = this.getPilotOffsetY(unitCenterY, unitHeight, pilotHeight);
+      const layout = this.getPilotLayout(unitHeight, pilotHeight);
+      unitCenterY = layout.unitCenterY;
+      pilotOffsetY = layout.pilotOffsetY;
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
@@ -263,12 +266,15 @@ export class SlotDisplayHandler {
     const width = cardSize.w;
     const unitHeight = cardSize.h;
     const pilotHeight = cardSize.h;
-    const unitCenterY = 0;
+    let unitCenterY = 0;
     const pilotCenterY = 0;
 
     const unitRatio = 1;
+    let pilotOffsetY = pilotCenterY;
     if (slot.pilot && this.config.slot.showPilotInSlots) {
-      const pilotOffsetY = this.getPilotOffsetY(unitCenterY, unitHeight, pilotHeight);
+      const layout = this.getPilotLayout(unitHeight, pilotHeight);
+      unitCenterY = layout.unitCenterY;
+      pilotOffsetY = layout.pilotOffsetY;
       const pilotObj = this.drawCard(
         container,
         slot.pilot.textureKey,
@@ -303,8 +309,13 @@ export class SlotDisplayHandler {
     return this.fitCardSize(maxW, maxH);
   }
 
-  private getPilotOffsetY(unitCenterY: number, unitHeight: number, pilotHeight: number) {
-    return unitCenterY + unitHeight / 2 - pilotHeight * 0.2 - 10;
+  private getPilotLayout(unitHeight: number, pilotHeight: number) {
+    const pilotVisibleH = pilotHeight * this.config.slot.pilotSliceRatio;
+    // Center the combined stack: full unit + visible pilot slice below it.
+    const unitCenterY = -pilotVisibleH / 2;
+    // Place the pilot image so its visible bottom slice starts at the unit bottom.
+    const pilotOffsetY = unitCenterY + unitHeight / 2 - pilotHeight / 2 + pilotVisibleH;
+    return { unitCenterY, pilotOffsetY };
   }
 
   private drawCard(
