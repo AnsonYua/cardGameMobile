@@ -55,8 +55,9 @@ export class AttackTargetCoordinator {
           label: "Cancel Attack",
           enabled: true,
           onClick: () => {
+            const cancel = this.onCancel;
             this.reset();
-            this.onCancel?.();
+            cancel?.();
           },
         },
       ],
