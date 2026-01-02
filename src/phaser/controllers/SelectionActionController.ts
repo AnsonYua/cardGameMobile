@@ -188,20 +188,23 @@ export class SelectionActionController {
       return;
     }
     if (source === "slot" && selection?.kind === "slot" && selection.owner === "player") {
-      const opponentHasUnit = this.checkOpponentHasUnit();
+      const opponentHasUnit = this.checkOpponentHasRestedUnit();
+      // Use unit.isRested for attack gating; fieldCardValue no longer carries isRested.
+      const attackerRested = !!this.selectedSlot?.unit?.isRested;
+      const attackerReady = !!this.selectedSlot?.unit?.cardUid && !attackerRested;
       const slotDescriptors: ActionDescriptor[] = [];
       if (opponentHasUnit) {
         slotDescriptors.push({
           id: "attackUnit",
           label: "Attack Unit",
-          enabled: true,
+          enabled: attackerReady,
           primary: true,
         });
       }
       slotDescriptors.push({
         id: "attackShieldArea",
         label: "Attack Shield",
-        enabled: true,
+        enabled: attackerReady,
         primary: !slotDescriptors.some((d) => d.primary),
       });
       slotDescriptors.push({
@@ -316,7 +319,11 @@ export class SelectionActionController {
       console.warn("No attacker selected");
       return;
     }
-    const targets = this.getOpponentUnitSlots();
+    if (attacker.unit?.isRested) {
+      console.warn("Attacker is rested and cannot attack");
+      return;
+    }
+    const targets = this.getOpponentRestedUnitSlots();
     if (!targets.length) {
       console.warn("No opponent units to target");
       return;
@@ -329,6 +336,10 @@ export class SelectionActionController {
   private async handleAttackShieldArea() {
     if (!this.selectedSlot?.unit?.cardUid) {
       console.warn("No attacker selected for shield attack");
+      return;
+    }
+    if (this.selectedSlot.unit?.isRested) {
+      console.warn("Attacker is rested and cannot attack shield");
       return;
     }
     const attackerCarduid = this.selectedSlot.unit.cardUid;
@@ -653,6 +664,10 @@ export class SelectionActionController {
     this.lastPhase = phase;
   }
 
+  private checkOpponentHasRestedUnit() {
+    return this.getOpponentRestedUnitSlots().length > 0;
+  }
+
   private checkOpponentHasUnit() {
     const snapshot = this.deps.engine.getSnapshot();
     const raw: any = snapshot.raw;
@@ -660,6 +675,10 @@ export class SelectionActionController {
     const playerId = this.deps.gameContext.playerId;
     const slots = this.deps.slotPresenter.toSlots(raw, playerId);
     return slots.some((s) => s.owner === "opponent" && !!s.unit);
+  }
+
+  private getOpponentRestedUnitSlots(): SlotViewModel[] {
+    return this.getOpponentUnitSlots().filter((slot) => !!slot.unit?.isRested);
   }
 
   private getOpponentUnitSlots(): SlotViewModel[] {
