@@ -51,6 +51,7 @@ export class SelectionActionController {
       effectTargetController?: EffectTargetController | null;
       gameContext: GameContext;
       refreshPhase: (skipFade: boolean) => void;
+      showOverlay?: (message: string, slot?: SlotViewModel) => void;
     },
   ) {
     // React to battle state changes emitted by the engine instead of re-parsing snapshots everywhere.
@@ -118,6 +119,10 @@ export class SelectionActionController {
     this.blockerFlow.handleSnapshot(raw);
     // let blocker flow inspect latest queue before acting on the slot click
     if (await this.attackCoordinator.handleSlot(slot)) {
+      return;
+    }
+    if (this.attackCoordinator.isActive() && !this.attackCoordinator.isAllowed(slot)) {
+      this.deps.showOverlay?.("Unit cannot be attacked", slot);
       return;
     }
     if (this.blockerFlow.isActive()) {

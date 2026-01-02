@@ -32,6 +32,7 @@ import { AnimationQueue } from "./animations/AnimationQueue";
 import { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
+import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 
@@ -91,6 +92,7 @@ export class BoardScene extends Phaser.Scene {
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
   private attackIndicatorController?: AttackIndicatorController;
+  private overlay?: OverlayController;
   private battleAnimations?: BattleAnimationManager;
   private cardFlightAnimator: PlayCardAnimationManager | null = null;
   private notificationAnimator: NotificationAnimationController | null = null;
@@ -229,6 +231,18 @@ export class BoardScene extends Phaser.Scene {
       effectTargetController: this.effectTargetController,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
+      showOverlay: (message, slot) => {
+        if (!this.overlay) {
+          this.overlay = new OverlayController(this);
+        }
+        const positions = this.slotControls?.getBoardSlotPositions?.();
+        const target = slot ? positions?.[slot.owner]?.[slot.slotId] : undefined;
+        const fallback = slot ? this.slotControls?.getSlotAreaCenter?.(slot.owner) : undefined;
+        const x = target?.x ?? fallback?.x ?? this.scale.width * 0.5;
+        const y = target?.y ?? fallback?.y ?? this.scale.height * 0.5;
+        this.overlay.show(message, x, y);
+        this.time.delayedCall(2000, () => this.overlay?.hide());
+      },
     });
     this.pilotFlow = new PilotFlowController({
       scene: this,

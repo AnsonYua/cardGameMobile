@@ -24,23 +24,23 @@ export class PilotTargetDialog {
     dialog: {
       cols: 3,
       rows: 2,
-      margin: 30,
-      gap: 60,
-      widthFactor: 0.75,
+      margin: 12,
+      gap: 16,
+      widthFactor: 0.92,
       minWidth: 360,
       minHeight: 260,
       panelRadius: 18,
-      extraHeight: 120,
-      headerOffset: 38,
+      extraHeight: 90,
+      headerOffset: 34,
       closeSize: 22,
       closeOffset: 12,
       headerWrapPad: 80,
     },
     card: {
       aspect: 88 / 64,
-      widthFactor: 1,
-      framePadding: 12,
-      frameExtra: { w: 5, h: 55 },
+      widthFactor: 1.04,
+      framePadding: 4,
+      frameExtra: { w: 0, h: 36 },
       frameStroke: 0,
       frameColor: 0xffffff,
       extraCellHeight: 20,
@@ -163,7 +163,7 @@ export class PilotTargetDialog {
     }).setOrigin(0.5);
 
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
-    const startY = -dialogHeight / 2 + 70 + cellHeight / 2;
+    const startY = -dialogHeight / 2 + headerOffset + 40 + cellHeight / 2;
 
     const maxCells = cols * rowCount;
     for (let i = 0; i < maxCells; i++) {
