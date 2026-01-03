@@ -49,6 +49,7 @@ export type ShieldAreaControls = Pick<
   | "setBaseVisible"
   | "setBasePreviewData"
   | "setBaseClickHandler"
+  | "setBaseInputEnabled"
   | "getBaseAnchor"
   | "getShieldTopAnchor"
 >;
@@ -110,6 +111,17 @@ export class ShieldAreaHandler {
 
   setBaseClickHandler(handler?: (payload: { side: BaseSide; card?: any }) => void) {
     this.baseClickHandler = handler;
+  }
+
+  setBaseInputEnabled(enabled: boolean) {
+    (Object.values(this.baseHits) as Phaser.GameObjects.Zone[]).forEach((hit) => {
+      if (!hit) return;
+      if (enabled) {
+        hit.setInteractive({ useHandCursor: true });
+      } else {
+        hit.disableInteractive();
+      }
+    });
   }
 
   getShieldCount(isOpponent?: boolean) {

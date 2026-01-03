@@ -20,6 +20,7 @@ import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
 import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
+import { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -64,6 +65,7 @@ export class BoardScene extends Phaser.Scene {
   private playerShieldCount = 6;
   private offlineFallback = false;
   private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
+  private trashControls: ReturnType<BoardUI["getTrashControls"]> | null = null;
   private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
   private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
   private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
@@ -88,6 +90,7 @@ export class BoardScene extends Phaser.Scene {
   private pilotTargetDialogUi?: PilotTargetDialog;
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
+  private trashAreaDialogUi?: TrashAreaDialog;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -118,6 +121,7 @@ export class BoardScene extends Phaser.Scene {
     });
     this.shuffleManager = new ShuffleAnimationManager(this, this.offset);
     this.baseControls = this.ui.getBaseControls();
+    this.trashControls = this.ui.getTrashControls();
     this.energyControls = this.ui.getEnergyControls();
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
@@ -211,6 +215,7 @@ export class BoardScene extends Phaser.Scene {
       this,
       (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
     );
+    this.trashAreaDialogUi = new TrashAreaDialog(this);
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,
@@ -656,7 +661,23 @@ export class BoardScene extends Phaser.Scene {
     this.handControls?.setCardClickHandler?.((card) => this.selectionAction?.handleHandCardSelected(card));
     this.slotControls?.setSlotClickHandler?.((slot) => this.selectionAction?.handleSlotCardSelected(slot));
     this.baseControls?.setBaseClickHandler?.((payload) => this.selectionAction?.handleBaseCardSelected(payload));
+    this.trashControls?.setTrashClickHandler?.((owner) => this.showTrashArea(owner));
     this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
+  }
+
+  private showTrashArea(_owner: "opponent" | "player") {
+    const raw = this.engine.getSnapshot().raw as any;
+    const currentPlayer = raw?.gameEnv?.currentPlayer || this.gameContext.playerId;
+    const players = raw?.gameEnv?.players || {};
+    const trash = players?.[currentPlayer]?.zones?.trashArea || [];
+    this.baseControls?.setBaseInputEnabled?.(false);
+    this.trashAreaDialogUi?.show({
+      cards: trash,
+      header: "Trash Area",
+      onClose: () => {
+        this.baseControls?.setBaseInputEnabled?.(true);
+      },
+    });
   }
   private async initSession() {
     try {

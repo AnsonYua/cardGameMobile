@@ -129,6 +129,8 @@ export class FieldHandler {
   private energyBarPlayer: EnergyBarHandler;
   private statusVisible = true;
   private energyVisible = true;
+  private trashClickHandler?: (owner: "opponent" | "player") => void;
+  private trashHits: Partial<Record<"opponent" | "player", Phaser.GameObjects.Zone>> = {};
   private energyAnchors: {
     opponent?: { x: number; y: number; width: number; isOpponent: boolean };
     player?: { x: number; y: number; width: number; isOpponent: boolean };
@@ -229,6 +231,14 @@ export class FieldHandler {
 
   getBaseControls(): ShieldAreaControls {
     return this.baseControls;
+  }
+
+  getTrashControls() {
+    return {
+      setTrashClickHandler: (handler?: (owner: "opponent" | "player") => void) => {
+        this.trashClickHandler = handler;
+      },
+    };
   }
 
   private drawFieldSide(sideConfig: FieldConfig["side"]["opponent"], offset: Offset, isOpponent: boolean) {
@@ -367,13 +377,13 @@ export class FieldHandler {
           .setOrigin(0.5)
           .setName(`deck-pile-text-${owner}`);
       }
-    }if(label === 'trash') {
-      this.drawTrashBox(x, y, w, h, label);
-    }else {
+    } else if (label === "trash") {
+      this.drawTrashBox(x, y, w, h, label, owner);
+    } else {
       this.drawCardBox(x, y, w, h, label);
     }
   }
-  private drawTrashBox(x: number, y: number, w: number, h: number, label: string) {
+  private drawTrashBox(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
     this.drawHelpers.drawRoundedRect({
       x,
       y,
@@ -389,6 +399,11 @@ export class FieldHandler {
     if (label) {
       this.scene.add.text(x, y, label, { fontSize: "13px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
     }
+    this.trashHits[owner]?.destroy();
+    const hit = this.scene.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    hit.setDepth(30);
+    hit.on("pointerup", () => this.trashClickHandler?.(owner));
+    this.trashHits[owner] = hit;
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {

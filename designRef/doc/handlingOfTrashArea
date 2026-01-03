@@ -1,0 +1,5 @@
+in the deck, below there is a shield area. when click that it should show a dialog with close button. the dialog is like other dialog show a list of card in 
+
+gameEnv.players.{currentPlayer}.zones.trashArea
+
+there will be a vertical scrollarea and there is a scrollbar in right side , each row should have 3 card . the card size and layout is similar to other dialog
