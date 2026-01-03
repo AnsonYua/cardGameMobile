@@ -69,6 +69,8 @@ export class DrawHelpers {
 type HeaderLayout = { height: number; padding: number; avatar: number };
 type HeaderState = { handCount: number; name: string; opponentHand?: number | string };
 
+const HEADER_BG_ALPHA = 1;
+
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
   private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
@@ -100,7 +102,7 @@ export class HeaderHandler {
       height,
       radius: 0,
       fillColor: "#153ae0",
-      fillAlpha: 0.5,
+      fillAlpha: HEADER_BG_ALPHA,
       strokeColor: this.palette.ink,
       strokeAlpha: 0,
       strokeWidth: 0,
