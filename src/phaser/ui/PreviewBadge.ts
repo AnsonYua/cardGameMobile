@@ -3,7 +3,7 @@ import { DrawHelpers } from "./HeaderHandler";
 
 export type PreviewBadgeOptions = {
   container: Phaser.GameObjects.Container;
-  drawHelpers: DrawHelpers;
+  drawHelpers?: DrawHelpers;
   x: number;
   y: number;
   width: number;
@@ -39,17 +39,19 @@ export function drawPreviewBadge(opts: PreviewBadgeOptions) {
     textStyle,
   } = opts;
 
-  const pill = drawHelpers.drawRoundedRect({
-    x,
-    y,
-    width: width + widthPad,
-    height,
-    radius,
-    fillColor,
-    fillAlpha,
-    strokeAlpha: 0,
-    strokeWidth: 0,
-  });
+  const pill = drawHelpers
+    ? drawHelpers.drawRoundedRect({
+        x,
+        y,
+        width: width + widthPad,
+        height,
+        radius,
+        fillColor,
+        fillAlpha,
+        strokeAlpha: 0,
+        strokeWidth: 0,
+      })
+    : container.scene.add.rectangle(x, y, width + widthPad, height, fillColor, fillAlpha).setOrigin(0.5);
   pill.setDepth(baseDepth + depthPillOffset);
 
   const text = container.scene.add

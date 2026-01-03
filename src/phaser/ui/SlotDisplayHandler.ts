@@ -2,10 +2,10 @@ import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { SlotPositionMap, SlotViewModel, SlotCardView, SlotOwner } from "./SlotTypes";
-import { drawPreviewBadge } from "./PreviewBadge";
 import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
-import { CardPreviewOverlay } from "./CardPreviewOverlay";
 import { UI_LAYOUT } from "./UiLayoutConfig";
+import { PreviewController } from "./PreviewController";
+import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -14,8 +14,6 @@ type RenderOptions = {
 export class SlotDisplayHandler {
   private cardAspect = 63 / 88;
   private slotContainers = new Map<string, Phaser.GameObjects.Container>();
-  private previewTimer?: any;
-  private previewActive = false;
   private selectedKey?: string;
   private lastSlots: SlotViewModel[] = [];
   private playAnimator: PlayCardAnimationManager;
@@ -48,20 +46,21 @@ export class SlotDisplayHandler {
     },
     preview: UI_LAYOUT.slot.preview,
   };
-  private previewBadgeSize = this.config.preview.badgeSize;
   private lastStatLabels = new Map<string, { label: string; score: number }>();
   private animatingSlots = new Map<string, string | null>();
   private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
   private hiddenSlots = new Set<string>();
 
-  private previewOverlay: CardPreviewOverlay;
+  private previewController: PreviewController;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene);
-    this.previewOverlay = new CardPreviewOverlay(scene, {
+    this.previewController = new PreviewController(scene, {
       overlayAlpha: this.config.preview.overlayAlpha,
       fadeIn: this.config.preview.fadeIn,
       fadeOut: this.config.preview.fadeOut,
+      holdDelay: this.config.preview.holdDelay,
+      depth: 5000,
     });
   }
   private onSlotClick?: (slot: SlotViewModel) => void;
@@ -256,8 +255,7 @@ export class SlotDisplayHandler {
   }
 
   destroy() {
-    this.cancelPreviewTimer();
-    this.previewOverlay.destroy();
+    this.previewController.destroy();
     this.clear();
   }
 
@@ -593,16 +591,26 @@ export class SlotDisplayHandler {
   }
 
   private startPreviewTimer(slot: SlotViewModel) {
-    this.hidePreview();
-    this.previewTimer = setTimeout(() => {
-      this.previewTimer = undefined;
-      this.showPreview(slot);
-    }, this.config.preview.holdDelay);
+    const cardW = this.config.preview.cardWidth;
+    const cardH = cardW * this.config.preview.cardAspect;
+    this.previewController.start((container) => {
+      renderSlotPreviewCard({
+        scene: this.scene,
+        drawHelpers: this.drawHelpers,
+        container,
+        slot,
+        x: 0,
+        y: 0,
+        w: cardW,
+        h: cardH,
+        depthOffset: 0,
+      });
+    });
   }
 
   private handlePointerUp(slot?: SlotViewModel) {
-    if (this.previewActive) return;
-    this.cancelPreviewTimer();
+    if (this.previewController.isActive()) return;
+    this.previewController.cancelPending();
     if (slot) {
       if (this.slotClicksEnabled) {
         this.onSlotClick?.(slot);
@@ -611,15 +619,8 @@ export class SlotDisplayHandler {
   }
 
   private handlePointerOut() {
-    if (this.previewActive) return;
-    this.cancelPreviewTimer();
-  }
-
-  private cancelPreviewTimer() {
-    if (this.previewTimer) {
-      clearTimeout(this.previewTimer);
-      this.previewTimer = undefined;
-    }
+    if (this.previewController.isActive()) return;
+    this.previewController.cancelPending();
   }
 
   private rerenderLast() {
@@ -627,195 +628,8 @@ export class SlotDisplayHandler {
     this.render(this.lastSlots, { positions: this.lastPositions });
   }
 
-  private showPreview(slot: SlotViewModel) {
-    this.hidePreview(true);
-    const cardW = this.config.preview.cardWidth;
-    const cardH = cardW * this.config.preview.cardAspect;
-    const depth = 5000;
-    this.previewOverlay.show((container) => {
-      this.drawPreviewCard(container, 0, 0, cardW, cardH, slot, depth);
-    }, { depth });
-    this.previewActive = true;
-  }
-
   private hidePreview(skipTween = false) {
-    this.cancelPreviewTimer();
-    this.previewOverlay.hide(skipTween);
-    this.previewActive = false;
-  }
-
-  private drawPreviewCard(
-    container: Phaser.GameObjects.Container,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    slot: SlotViewModel,
-    depthOffset = 0,
-  ) {
-    // Pilot sits slightly lower; unit sits slightly higher. Both share the same base size and are centered.
-    let pilotOffsetY = h * this.config.preview.pilotOffsetRatio;
-    const pilotScale = 1;
-
-    let slotCardEnd = -1;
-
-    if (slot.pilot) {
-      if(slot.pilot.cardType == "command"){
-        pilotOffsetY = h * this.config.preview.pilotCommandOffsetRatio;
-      }
-      const pW = w * pilotScale;
-      const pH = h * pilotScale;
-      const pilotTex = this.toTextureKey(slot.pilot);
-      const pilotImg =
-        pilotTex && this.scene.textures.exists(pilotTex)
-          ? this.scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(pW, pH).setOrigin(0.5)
-          : this.drawHelpers.drawRoundedRect({
-              x: x,
-              y: y + pilotOffsetY,
-              width: pW,
-              height: pH,
-              radius: 12,
-              fillColor: "#cbd3df",
-              fillAlpha: 1,
-              strokeColor: "#0f1118",
-              strokeAlpha: 0.8,
-              strokeWidth: 2,
-            });
-      pilotImg.setDepth(depthOffset + 1);
-      container.add(pilotImg);
-
-      const pilotLabel = this.getPilotBadgeLabel(slot.pilot);
-
-      let positionofPilotLabel = (y  + pilotOffsetY) + h/2 - this.previewBadgeSize.h/2 
-      if(slot.pilot.cardType != "command"){
-        positionofPilotLabel = (y  + pilotOffsetY) + h/2 - this.previewBadgeSize.h/2 - this.config.preview.pilotCommandLift
-      }
-      this.drawPreviewBadge(
-        container,
-        x  + w/2 - this.previewBadgeSize.w/2 ,
-        positionofPilotLabel ,
-        this.previewBadgeSize.w,
-        this.previewBadgeSize.h,
-        pilotLabel,
-        depthOffset + 2,
-      );
-      slotCardEnd = positionofPilotLabel;
-      if(slot.pilot.cardType != "command"){
-        slotCardEnd =  slotCardEnd+ this.config.preview.pilotCommandLift
-      }
-    }
-
-    if (slot.unit) {
-      const unitTex = this.toTextureKey(slot.unit);
-      const unitImg =
-        unitTex && this.scene.textures.exists(unitTex)
-          ? this.scene.add.image(x, y + pilotOffsetY * this.config.preview.unitYOffsetFactor, unitTex).setDisplaySize(w, h).setOrigin(0.5)
-          : this.drawHelpers.drawRoundedRect({
-              x: x,
-              y: y + pilotOffsetY * this.config.preview.unitYOffsetFactor,
-              width: w,
-              height: h,
-              radius: 12,
-              fillColor: "#cbd3df",
-              fillAlpha: 0.9,
-              strokeColor: "#0f1118",
-              strokeAlpha: 0.8,
-              strokeWidth: 2,
-            });
-      unitImg.setDepth(depthOffset + 2);
-      container.add(unitImg);
-
-      const unitLabel = this.getUnitBadgeLabel(slot.unit);
-      this.drawPreviewBadge(
-        container,
-        x + w / 2 - this.previewBadgeSize.w / 2,
-        y - pilotOffsetY * 0.4 + h / 2 - this.previewBadgeSize.h / 2,
-        // keep center alignment; offsets driven by pilotOffsetY factor
-        this.previewBadgeSize.w,
-        this.previewBadgeSize.h,
-        unitLabel,
-        depthOffset + 3,
-      );
-      if(slotCardEnd == -1){
-        slotCardEnd = y + pilotOffsetY * this.config.preview.unitYOffsetFactor + h / 2 - this.previewBadgeSize.h / 2;
-      }
-
-      const field = slot.fieldCardValue;
-      
-      if (field) {
-        const outAp = field.totalAP ?? 0;
-        const outHp = field.totalHP ?? 0;
-        this.drawPreviewBadge(
-          container,
-          x  + w/2 - this.previewBadgeSize.w/2,
-          slotCardEnd + this.previewBadgeSize.h + this.config.preview.totalBadgeGap ,
-          this.previewBadgeSize.w,
-          this.previewBadgeSize.h,
-          `${outAp}|${outHp}`,
-          depthOffset + 3,
-          this.config.preview.totalBadgeColor,
-        );
-      }
-    }
-  }
-
-  private drawPreviewBadge(
-    container: Phaser.GameObjects.Container,
-    badgeX: number,
-    badgeY: number,
-    w: number,
-    h: number,
-    label: string,
-    baseDepth: number,
-    fillColor: number = 0x000000,
-  ) {
-    drawPreviewBadge({
-      container,
-      drawHelpers: this.drawHelpers,
-      x: badgeX,
-      y: badgeY,
-      width: w,
-      height: h,
-      label,
-      baseDepth,
-      fillColor,
-      fillAlpha: 1,
-      radius: 6,
-      widthPad: 5,
-      depthPillOffset: 3,
-      depthTextOffset: 4,
-      textStyle: {
-        fontSize: `${this.config.preview.badgeFontSize}px`,
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#ffffff",
-      },
-    });
-  }
-
-  private toTextureKey(card?: SlotCardView) {
-    if (!card?.textureKey) return undefined;
-    return card.textureKey.replaceAll("-preview", "");
-  }
-
-  private getUnitBadgeLabel(card: SlotCardView) {
-    const ap = card.cardData?.ap ?? 0;
-    const hp = card.cardData?.hp ?? 0;
-    return `${ap}|${hp}`;
-  }
-
-  private getPilotBadgeLabel(card: SlotCardView) {
-    const type = (card.cardType || card.cardData?.cardType || "").toLowerCase();
-    if (type === "command") {
-      const rules: any[] = card.cardData?.effects?.rules || [];
-      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
-      const ap = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
-      const hp = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
-      return `${ap}|${hp}`;
-    }
-    const ap = card.cardData?.ap ?? 0;
-    const hp = card.cardData?.hp ?? 0;
-    return `${ap}|${hp}`;
+    this.previewController.hide(skipTween);
   }
 
   private animateCardEntry(

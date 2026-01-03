@@ -5,7 +5,7 @@ import type { Offset, Palette } from "./types";
 import { buildHandLayout, type HandLayoutState } from "./HandLayout";
 import { HandRenderer } from "./HandRenderer";
 import { HandScrollController } from "./HandScrollController";
-import { CardPreviewOverlay } from "./CardPreviewOverlay";
+import { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import type { DrawHelpers } from "./HeaderHandler";
 
@@ -14,8 +14,6 @@ export class HandAreaHandler {
   private lastOffset: Offset = { x: 0, y: 0 };
   private lastHandSignature?: string;
   private selectedCardUid?: string;
-  private previewTimer?: any;
-  private previewActive = false;
   private previewCardUid?: string;
   private layoutState?: HandLayoutState;
   private onCardClick?: (card: HandCardView) => void;
@@ -24,7 +22,7 @@ export class HandAreaHandler {
   private layout: HandLayoutRenderer;
   private renderer: HandRenderer;
   private scroll: HandScrollController;
-  private previewOverlay: CardPreviewOverlay;
+  private previewController: PreviewController;
 
   constructor(private scene: Phaser.Scene, palette: Palette, drawHelpers: DrawHelpers) {
     this.layout = new HandLayoutRenderer(scene, palette, drawHelpers);
@@ -35,10 +33,12 @@ export class HandAreaHandler {
       updateArrows: (scrollX, minScrollX, maxScrollX) => this.renderer.updateArrows(scrollX, minScrollX, maxScrollX),
       onDragSuppress: () => this.cancelPreviewTimer(),
     });
-    this.previewOverlay = new CardPreviewOverlay(scene, {
+    this.previewController = new PreviewController(scene, {
       overlayAlpha: UI_LAYOUT.hand.preview.overlayAlpha,
       fadeIn: UI_LAYOUT.hand.preview.fadeIn,
       fadeOut: UI_LAYOUT.hand.preview.fadeOut,
+      holdDelay: UI_LAYOUT.hand.preview.holdDelay,
+      depth: 2000,
     });
     this.renderer.setArrowHandlers(() => this.scroll.scrollByStep(-1), () => this.scroll.scrollByStep(1));
     this.scroll.bind();
@@ -85,7 +85,7 @@ export class HandAreaHandler {
     }
     this.lastHandSignature = signature;
     this.handCards = cards;
-    if (this.previewActive && this.previewCardUid) {
+    if (this.previewController.isActive() && this.previewCardUid) {
       const stillPresent = cards.find((c) => c.uid === this.previewCardUid);
       if (!stillPresent) {
         this.hidePreview(true);
@@ -129,18 +129,23 @@ export class HandAreaHandler {
   }
 
   destroy() {
-    this.cancelPreviewTimer();
-    this.previewOverlay.destroy();
+    this.previewController.destroy();
     this.scroll.destroy();
     this.renderer.destroy();
   }
 
   private startPreviewTimer(card: HandCardView) {
-    this.hidePreview();
-    this.previewTimer = setTimeout(() => {
-      this.previewTimer = undefined;
-      this.showPreview(card);
-    }, UI_LAYOUT.hand.preview.holdDelay);
+    const cardW = UI_LAYOUT.hand.preview.cardWidth;
+    const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
+    this.previewController.start((container) => {
+      this.previewCardUid = card.uid;
+      const texKey = this.toTextureKey(card.textureKey);
+      const insideLabel = this.getBadgeLabel(card);
+      this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, insideLabel, card, {
+        badgeSize: UI_LAYOUT.hand.preview.badgeSize,
+        badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
+      });
+    });
   }
 
   private handlePointerUp(card?: HandCardView) {
@@ -148,48 +153,22 @@ export class HandAreaHandler {
       this.scroll.resetDragSuppressClick();
       return;
     }
-    if (this.previewActive) return;
+    if (this.previewController.isActive()) return;
     if (card && this.onCardClick) {
       this.selectedCardUid = card.uid || undefined;
       this.onCardClick(card);
       this.draw(this.lastOffset);
     }
-    this.cancelPreviewTimer();
+    this.previewController.cancelPending();
   }
 
   private handlePointerOut() {
-    if (this.previewActive) return;
-    this.cancelPreviewTimer();
-  }
-
-  private cancelPreviewTimer() {
-    if (this.previewTimer) {
-      clearTimeout(this.previewTimer);
-      this.previewTimer = undefined;
-    }
-  }
-
-  private showPreview(card: HandCardView) {
-    const cardW = UI_LAYOUT.hand.preview.cardWidth;
-    const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
-    this.previewOverlay.show(
-      (container) => {
-        const texKey = this.toTextureKey(card.textureKey);
-        const insideLabel = this.getBadgeLabel(card);
-        this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, insideLabel, card, {
-          badgeSize: UI_LAYOUT.hand.preview.badgeSize,
-          badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
-        });
-      },
-      { depth: 2000 },
-    );
-    this.previewActive = true;
-    this.previewCardUid = card.uid;
+    if (this.previewController.isActive()) return;
+    this.previewController.cancelPending();
   }
 
   private hidePreview(skipTween = false) {
-    this.previewOverlay.hide(skipTween);
-    this.previewActive = false;
+    this.previewController.hide(skipTween);
     this.previewCardUid = undefined;
   }
 

@@ -4,6 +4,7 @@ export type CardPreviewConfig = {
   overlayAlpha: number;
   fadeIn: number;
   fadeOut: number;
+  onHide?: () => void;
 };
 
 export class CardPreviewOverlay {
@@ -47,6 +48,7 @@ export class CardPreviewOverlay {
     this.container = undefined;
     if (skipTween) {
       target.destroy();
+      this.config.onHide?.();
       return;
     }
     this.scene.tweens.add({
@@ -54,7 +56,10 @@ export class CardPreviewOverlay {
       alpha: 0,
       duration: this.config.fadeOut,
       ease: "Quad.easeIn",
-      onComplete: () => target.destroy(),
+      onComplete: () => {
+        target.destroy();
+        this.config.onHide?.();
+      },
     });
   }
 

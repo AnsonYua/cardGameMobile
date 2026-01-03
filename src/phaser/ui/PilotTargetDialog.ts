@@ -1,7 +1,9 @@
 import Phaser from "phaser";
-import type { SlotViewModel, SlotCardView } from "./SlotTypes";
-import { CardPreviewOverlay } from "./CardPreviewOverlay";
+import type { SlotViewModel } from "./SlotTypes";
 import { UI_LAYOUT } from "./UiLayoutConfig";
+import { PreviewController } from "./PreviewController";
+import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
+import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -20,9 +22,7 @@ export class PilotTargetDialog {
   private lastTargets: SlotViewModel[] = [];
   private lastOnSelect?: (slot: SlotViewModel) => Promise<void> | void;
   private lastOnClose?: (() => void) | undefined;
-  private previewOverlay: CardPreviewOverlay;
-  private previewTimer?: any;
-  private previewActive = false;
+  private previewController: PreviewController;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -67,18 +67,18 @@ export class PilotTargetDialog {
     private scene: Phaser.Scene,
     private createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
   ) {
-    this.previewOverlay = new CardPreviewOverlay(scene, {
+    this.previewController = new PreviewController(scene, {
       overlayAlpha: UI_LAYOUT.slot.preview.overlayAlpha,
       fadeIn: UI_LAYOUT.slot.preview.fadeIn,
       fadeOut: UI_LAYOUT.slot.preview.fadeOut,
+      holdDelay: UI_LAYOUT.slot.preview.holdDelay,
+      depth: 5000,
     });
   }
 
   async hide(): Promise<void> {
     console.log("hide PilotTargetDialog.ts");
-    this.cancelPreviewTimer();
-    this.previewOverlay.hide(true);
-    this.previewActive = false;
+    this.previewController.hide(true);
     this.overlay?.destroy();
     this.dialog?.destroy();
     this.overlay = undefined;
@@ -204,15 +204,15 @@ export class PilotTargetDialog {
         this.startPreviewTimer(slot);
       });
       frame.on("pointerup", async () => {
-        if (this.previewActive) return;
-        this.cancelPreviewTimer();
+        if (this.previewController.isActive()) return;
+        this.previewController.cancelPending();
         if (!slot?.unit) return;
         await opts.onSelect(slot);
         await this.hide();
       });
       frame.on("pointerout", () => {
-        if (this.previewActive) return;
-        this.cancelPreviewTimer();
+        if (this.previewController.isActive()) return;
+        this.previewController.cancelPending();
       });
       dialog.add(frame);
 
@@ -221,7 +221,16 @@ export class PilotTargetDialog {
         slotSprite.setPosition(x, y);
         dialog.add(slotSprite);
       } else {
-        this.drawPreviewLike(dialog, slot, x, y, cardW, cardH);
+        renderTargetDialogSlot({
+          scene: this.scene,
+          container: dialog,
+          slot,
+          x,
+          y,
+          cardW,
+          cardH,
+          badges: this.cfg.badges,
+        });
       }
     }
 
@@ -251,268 +260,20 @@ export class PilotTargetDialog {
     return true;
   }
 
-  private toTex(tex?: string) {
-    //return tex ? tex.replace(/-preview$/, "") : undefined;
-    return tex
-  }
-
-  private getPilotBadge(card?: SlotCardView) {
-    const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-    if (type === "command") {
-      const rules: any[] = card?.cardData?.effects?.rules || [];
-      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation");
-      const apVal = pilotRule?.parameters?.AP ?? pilotRule?.parameters?.ap ?? 0;
-      const hpVal = pilotRule?.parameters?.HP ?? pilotRule?.parameters?.hp ?? 0;
-      return `${apVal}|${hpVal}`;
-    }
-    const apVal = card?.cardData?.ap ?? 0;
-    const hpVal = card?.cardData?.hp ?? 0;
-    return `${apVal}|${hpVal}`;
-  }
-
-  private getUnitBadge(card?: SlotCardView) {
-    const apVal = card?.cardData?.ap ?? 0;
-    const hpVal = card?.cardData?.hp ?? 0;
-    return `${apVal}|${hpVal}`;
-  }
-
   private startPreviewTimer(slot: SlotViewModel) {
-    this.hidePreview();
-    this.previewTimer = setTimeout(() => {
-      this.previewTimer = undefined;
-      this.showPreview(slot);
-    }, UI_LAYOUT.slot.preview.holdDelay);
-  }
-
-  private cancelPreviewTimer() {
-    if (this.previewTimer) {
-      clearTimeout(this.previewTimer);
-      this.previewTimer = undefined;
-    }
-  }
-
-  private showPreview(slot: SlotViewModel) {
-    this.hidePreview(true);
     const cardW = UI_LAYOUT.slot.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.slot.preview.cardAspect;
-    this.previewOverlay.show((container) => {
-      this.drawPreviewCard(container, 0, 0, cardW, cardH, slot);
-    }, { depth: 5000 });
-    this.previewActive = true;
-  }
-
-  private hidePreview(skipTween = false) {
-    this.cancelPreviewTimer();
-    this.previewOverlay.hide(skipTween);
-    this.previewActive = false;
-  }
-
-  private drawPreviewCard(
-    container: Phaser.GameObjects.Container,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    slot: SlotViewModel,
-  ) {
-    const badgeW = UI_LAYOUT.slot.preview.badgeSize.w;
-    const badgeH = UI_LAYOUT.slot.preview.badgeSize.h;
-    const totalGap = UI_LAYOUT.slot.preview.totalBadgeGap;
-    const pilotOffsetRatio = UI_LAYOUT.slot.preview.pilotOffsetRatio;
-    const pilotCommandOffsetRatio = UI_LAYOUT.slot.preview.pilotCommandOffsetRatio;
-    const pilotCommandLift = UI_LAYOUT.slot.preview.pilotCommandLift;
-    const unitYOffsetFactor = UI_LAYOUT.slot.preview.unitYOffsetFactor;
-
-    let pilotOffsetY = h * pilotOffsetRatio;
-    if ((slot.pilot?.cardType || "").toLowerCase() === "command") {
-      pilotOffsetY = h * pilotCommandOffsetRatio;
-    }
-
-    let slotCardEnd = -1;
-
-    if (slot.pilot) {
-      const pilotTex = this.toTex(slot.pilot.textureKey);
-      const pilotImg =
-        pilotTex && this.scene.textures.exists(pilotTex)
-          ? this.scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(w, h).setOrigin(0.5)
-          : this.scene.add.rectangle(x, y + pilotOffsetY, w, h, 0xcbd3df, 1).setOrigin(0.5);
-      container.add(pilotImg);
-
-      let badgeY = y + pilotOffsetY + h / 2 - badgeH / 2;
-      if ((slot.pilot.cardType || "").toLowerCase() !== "command") {
-        badgeY -= pilotCommandLift;
-      }
-      const pilotBadgeRect = this.scene.add.rectangle(x + w / 2 - badgeW / 2, badgeY, badgeW, badgeH, 0x000000, 0.9);
-      const pilotBadgeText = this.scene.add.text(pilotBadgeRect.x, pilotBadgeRect.y, this.getPilotBadge(slot.pilot), {
-        fontSize: `${UI_LAYOUT.slot.preview.badgeFontSize}px`,
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      container.add(pilotBadgeRect);
-      container.add(pilotBadgeText);
-      slotCardEnd = badgeY;
-      if ((slot.pilot.cardType || "").toLowerCase() !== "command") {
-        slotCardEnd += pilotCommandLift;
-      }
-    }
-
-    if (slot.unit) {
-      const unitTex = this.toTex(slot.unit.textureKey);
-      const unitImg =
-        unitTex && this.scene.textures.exists(unitTex)
-          ? this.scene.add.image(x, y + pilotOffsetY * unitYOffsetFactor, unitTex).setDisplaySize(w, h).setOrigin(0.5)
-          : this.scene.add.rectangle(x, y + pilotOffsetY * unitYOffsetFactor, w, h, 0xcbd3df, 0.9).setOrigin(0.5);
-      container.add(unitImg);
-
-      const unitBadgeRect = this.scene.add.rectangle(
-        x + w / 2 - badgeW / 2,
-        y - pilotOffsetY * 0.4 + h / 2 - badgeH / 2,
-        badgeW,
-        badgeH,
-        0x000000,
-        0.9,
-      );
-      const unitBadgeText = this.scene.add.text(unitBadgeRect.x, unitBadgeRect.y, this.getUnitBadge(slot.unit), {
-        fontSize: `${UI_LAYOUT.slot.preview.badgeFontSize}px`,
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      container.add(unitBadgeRect);
-      container.add(unitBadgeText);
-
-      if (slotCardEnd === -1) {
-        slotCardEnd = y + pilotOffsetY * unitYOffsetFactor + h / 2 - badgeH / 2;
-      }
-
-      if (slot.fieldCardValue) {
-        const totalRect = this.scene.add.rectangle(
-          x + w / 2 - badgeW / 2,
-          slotCardEnd + badgeH + totalGap,
-          badgeW,
-          badgeH,
-          UI_LAYOUT.slot.preview.totalBadgeColor,
-          0.95,
-        );
-        const totalText = this.scene.add.text(
-          totalRect.x,
-          totalRect.y,
-          `${slot.fieldCardValue.totalAP ?? 0}|${slot.fieldCardValue.totalHP ?? 0}`,
-          {
-            fontSize: `${UI_LAYOUT.slot.preview.badgeFontSize}px`,
-            fontFamily: "Arial",
-            color: "#ffffff",
-            fontStyle: "bold",
-          },
-        ).setOrigin(0.5);
-        container.add(totalRect);
-        container.add(totalText);
-      }
-    }
-  }
-
-  // Mirrors drawPreviewCard layout for pilot/unit/total badges.
-  private drawPreviewLike(
-    dialog: Phaser.GameObjects.Container,
-    slot: SlotViewModel | undefined,
-    x: number,
-    y: number,
-    cardW: number,
-    cardH: number,
-  ) {
-    if (!slot) return;
-    const badgeW = this.cfg.badges.size.w;
-    const badgeH = this.cfg.badges.size.h;
-    const totalGap = this.cfg.badges.totalGap;
-    const pilotOffsetRatio = this.cfg.badges.pilotOffsetRatio;
-    const pilotCommandOffsetRatio = this.cfg.badges.pilotCommandOffsetRatio;
-    const pilotCommandLift = this.cfg.badges.pilotCommandLift;
-    const unitYOffsetFactor = this.cfg.badges.unitYOffsetFactor;
-
-    let pilotOffsetY = cardH * pilotOffsetRatio;
-    if ((slot.pilot?.cardType || "").toLowerCase() === "command") {
-      pilotOffsetY = cardH * pilotCommandOffsetRatio;
-    }
-
-    let slotCardEnd = -1;
-
-    // Pilot layer
-    if (slot.pilot) {
-      const pilotTex = this.toTex(slot.pilot.textureKey);
-      const pilotImg =
-        pilotTex && this.scene.textures.exists(pilotTex)
-          ? this.scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
-          : this.scene.add.rectangle(x, y + pilotOffsetY, cardW, cardH, 0xcbd3df, 1).setOrigin(0.5);
-      dialog.add(pilotImg);
-
-      let badgeY = y + pilotOffsetY + cardH / 2 - badgeH / 2;
-      if ((slot.pilot.cardType || "").toLowerCase() !== "command") {
-        badgeY -= pilotCommandLift;
-      }
-      const pilotBadgeRect = this.scene.add.rectangle(x + cardW / 2 - badgeW / 2, badgeY, badgeW, badgeH, 0x000000, 0.9);
-      const pilotBadgeText = this.scene.add.text(pilotBadgeRect.x, pilotBadgeRect.y, this.getPilotBadge(slot.pilot), {
-        fontSize: `${this.cfg.badges.pilotFontSize}px`,
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      dialog.add(pilotBadgeRect);
-      dialog.add(pilotBadgeText);
-      slotCardEnd = badgeY;
-      if ((slot.pilot.cardType || "").toLowerCase() !== "command") {
-        slotCardEnd += pilotCommandLift;
-      }
-    }
-
-    // Unit layer
-    if (slot.unit) {
-      const unitTex = this.toTex(slot.unit.textureKey);
-      const unitImg =
-        unitTex && this.scene.textures.exists(unitTex)
-          ? this.scene.add.image(x, y + pilotOffsetY * unitYOffsetFactor, unitTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
-          : this.scene.add.rectangle(x, y + pilotOffsetY * unitYOffsetFactor, cardW, cardH, 0xcbd3df, 0.9).setOrigin(0.5);
-      dialog.add(unitImg);
-
-      const unitBadgeRect = this.scene.add.rectangle(
-        x + cardW / 2 - badgeW / 2,
-        y - pilotOffsetY * 0.4 + cardH / 2 - badgeH / 2,
-        badgeW,
-        badgeH,
-        0x000000,
-        0.9,
-      );
-      const unitBadgeText = this.scene.add.text(unitBadgeRect.x, unitBadgeRect.y, this.getUnitBadge(slot.unit), {
-        fontSize: `${this.cfg.badges.fontSize}px`,
-        fontFamily: "Arial",
-        color: "#ffffff",
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-      dialog.add(unitBadgeRect);
-      dialog.add(unitBadgeText);
-
-      if (slotCardEnd === -1) {
-        slotCardEnd = y + pilotOffsetY * unitYOffsetFactor + cardH / 2 - badgeH / 2;
-      }
-
-      if (slot.fieldCardValue) {
-        const totalRect = this.scene.add.rectangle(
-          x + cardW / 2 - badgeW / 2,
-          slotCardEnd + badgeH + totalGap,
-          badgeW,
-          badgeH,
-          0x284cfc,
-          0.95,
-        );
-          const totalText = this.scene.add.text(totalRect.x, totalRect.y, `${slot.fieldCardValue.totalAP ?? 0}|${slot.fieldCardValue.totalHP ?? 0}`, {
-            fontSize: `${this.cfg.badges.fontSize}px`,
-            fontFamily: "Arial",
-            color: "#ffffff",
-            fontStyle: "bold",
-          }).setOrigin(0.5);
-        dialog.add(totalRect);
-        dialog.add(totalText);
-      }
-    }
+    this.previewController.start((container) => {
+      renderSlotPreviewCard({
+        scene: this.scene,
+        container,
+        slot,
+        x: 0,
+        y: 0,
+        w: cardW,
+        h: cardH,
+        depthOffset: 0,
+      });
+    });
   }
 }
