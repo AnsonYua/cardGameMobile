@@ -18,11 +18,22 @@ body,
 .page {
   min-height: 100%;
   display: grid;
-  place-items: center;
+  align-items: start;
+  justify-items: center;
+  padding: 0 env(safe-area-inset-right) calc(env(safe-area-inset-bottom)) env(safe-area-inset-left);
 }
 
 .game-container {
-  width: min(600px, 100%);
-  aspect-ratio: 620 / 700;
+  width: 100%;
+  height: 95%;
+  aspect-ratio: 320/640 ;
   overflow: hidden;
+  align-self: start;
+}
+
+@media (orientation: landscape) {
+  .game-container {
+     max-width: 420px;
+     aspect-ratio: 420/720 ;
+  }
 }

@@ -18,7 +18,7 @@ export function GameView() {
       backgroundColor: "#4765d2ff",
       scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
       },
       scene: [BoardScene],
     });

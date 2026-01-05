@@ -243,6 +243,7 @@ export class GameEngine {
       gameId: ctx.gameId,
       playerId: ctx.playerId,
       runPlayCard: (payload) => this.api.playCard(payload as any),
+      runEndTurn: (payload) => this.api.endTurn(payload as any),
       refreshStatus: () => this.updateGameStatus(ctx.gameId ?? undefined, ctx.playerId ?? undefined),
       pilotTargetUid: this.pilotTargetUid,
       clearSelection: () => this.clearSelection(),
@@ -417,8 +418,11 @@ export class GameEngine {
     });
 
     // End turn placeholder
-    this.actions.register("endTurn", async () => {
-      console.log("End Turn triggered (stub)");
+    this.actions.register("endTurn", async (ctx: ActionContext) => {
+      if (!ctx.gameId || !ctx.playerId || !ctx.runEndTurn) return;
+      await ctx.runEndTurn({ gameId: ctx.gameId, playerId: ctx.playerId });
+      await ctx.refreshStatus?.();
+      ctx.clearSelection?.();
     });
   }
 

@@ -142,6 +142,7 @@ export class BoardScene extends Phaser.Scene {
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
       onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
+      renderHandPreview: (container, card) => this.handControls?.renderPreviewCard?.(container, card),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
     this.attackIndicatorController = new AttackIndicatorController({
@@ -169,6 +170,10 @@ export class BoardScene extends Phaser.Scene {
       const slots = this.slotAnimationRender?.handleEventEnd(event, ctx);
       if (slots) {
         this.renderSlots(slots);
+      }
+      if (this.shouldRefreshHandForEvent(event)) {
+        this.updateHandArea({ skipAnimation: true });
+        this.handControls?.scrollToEnd?.(true);
       }
     });
     this.slotAnimationRender = new SlotAnimationRenderController((data) =>
@@ -373,7 +378,8 @@ export class BoardScene extends Phaser.Scene {
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
     this.showUI(!skipAnimation);
-    this.updateHandArea({ skipAnimation });
+    const deferHand = this.shouldDeferHandUpdate(raw, skipAnimation);
+    this.updateHandArea({ skipAnimation, deferForAnimation: deferHand });
     this.updateSlots({ animate: !skipAnimation });
     this.updateBaseAndShield();
     this.refreshActionBarState(raw);
@@ -468,7 +474,8 @@ export class BoardScene extends Phaser.Scene {
     this.energyControls?.update?.(true, oppStatus);
   }
 
-  private updateHandArea(opts: { skipAnimation?: boolean } = {}) {
+  private updateHandArea(opts: { skipAnimation?: boolean; deferForAnimation?: boolean } = {}) {
+    if (opts.deferForAnimation) return;
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -483,6 +490,28 @@ export class BoardScene extends Phaser.Scene {
     if (!opts.skipAnimation) {
       this.handControls?.fadeIn();
     }
+  }
+
+  private shouldDeferHandUpdate(raw: any, skipAnimation: boolean) {
+    if (skipAnimation) return false;
+    if (!this.animationQueue) return false;
+    const playerId = this.gameContext.playerId;
+    if (!playerId) return false;
+    const notifications = getNotificationQueue(raw);
+    if (!notifications.length) return false;
+    return notifications.some((note) => {
+      if (!note?.id) return false;
+      if ((note.type || "").toUpperCase() !== "CARD_DRAWN") return false;
+      if (note.payload?.playerId !== playerId) return false;
+      return !this.animationQueue?.isProcessed(note.id);
+    });
+  }
+
+  private shouldRefreshHandForEvent(event: { type?: string; payload?: any }) {
+    if (!event) return false;
+    if ((event.type || "").toUpperCase() !== "CARD_DRAWN") return false;
+    const playerId = event.payload?.playerId;
+    return !!playerId && playerId === this.gameContext.playerId;
   }
 
   private updateSlots(opts: { animate?: boolean } = {}) {

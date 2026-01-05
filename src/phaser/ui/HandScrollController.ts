@@ -68,6 +68,19 @@ export class HandScrollController {
     this.scrollTo(this.scrollX - step);
   }
 
+  scrollToEnd(animate = true) {
+    if (!this.layoutState) return;
+    const target = this.layoutState.minScrollX;
+    if (!animate) {
+      this.scrollTween?.stop();
+      this.inertiaActive = false;
+      this.applyScrollX(target);
+      this.updateArrows();
+      return;
+    }
+    this.scrollTo(target);
+  }
+
   scrollTo(targetX: number) {
     if (!this.layoutState) return;
     const clamped = Phaser.Math.Clamp(targetX, this.layoutState.minScrollX, this.layoutState.maxScrollX);

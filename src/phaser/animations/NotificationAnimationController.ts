@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
 import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
-import { toPreviewKey } from "../ui/HandTypes";
+import { toPreviewKey, type HandCardView } from "../ui/HandTypes";
+import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 
 export type SlotNotification = {
   id: string;
@@ -19,11 +20,17 @@ type ProcessArgs = {
   };
   allowAnimations: boolean;
   currentPlayerId: string | null;
+  resolveSlotOwnerByPlayer?: (playerId?: string) => SlotOwner | undefined;
   shouldHideSlot?: (slotKey: string) => boolean;
 };
 
 export class NotificationAnimationController {
   private hiddenSlots = new Set<string>();
+  private drawPopupTimings = {
+    fadeInMs: 160,
+    holdMs: 1500,
+    fadeOutMs: 220,
+  };
 
   constructor(
     private deps: {
@@ -33,6 +40,8 @@ export class NotificationAnimationController {
         | { x: number; y: number; isOpponent: boolean; w?: number; h?: number }
         | undefined;
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
+      getDeckAnchor?: (owner: SlotOwner) => { x: number; y: number; w?: number; h?: number } | undefined;
+      renderHandPreview?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
       onSlotAnimationStart?: (slotKey: string) => void;
       onSlotAnimationEnd?: (slotKey: string) => void;
       setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -48,6 +57,33 @@ export class NotificationAnimationController {
     const task = this.buildCardPlayedTask(note.payload ?? {}, args);
     if (!task) return Promise.resolve();
     return task();
+  }
+
+  playCardDrawn(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "CARD_DRAWN") return Promise.resolve();
+    const task = this.buildCardDrawnTask(note.payload ?? {}, args);
+    if (!task) return Promise.resolve();
+    return task();
+  }
+
+  private buildCardDrawnTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
+    const playerId = payload?.playerId ?? "";
+    if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
+    const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
+    const previewCard = this.buildPreviewCard(card);
+    return () =>
+      this.showDrawPopup(
+        previewCard ?? {
+          color: 0x2a2d38,
+          cardType: "command",
+          textureKey: card?.textureKey,
+          cardId: card?.id ?? payload.carduid,
+        },
+      );
   }
 
   private buildCardPlayedTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
@@ -216,6 +252,90 @@ export class NotificationAnimationController {
     const cam = this.deps.scene.cameras.main;
     const y = isSelf ? cam.height - 60 : cam.height * 0.12;
     return { x: cam.centerX, y, isOpponent: !isSelf };
+  }
+
+  private showDrawPopup(card: HandCardView) {
+    const cam = this.deps.scene.cameras.main;
+    const centerX = cam.centerX;
+    const centerY = cam.centerY ;
+    const container = this.deps.scene.add.container(centerX, centerY).setDepth(2100);
+    const bg = this.deps.scene.add.rectangle(0, 0, 220, 200, 0x0f1118, 0.92);
+    bg.setStrokeStyle(2, 0xffffff, 0.8);
+    const title = this.deps.scene.add
+      .text(0, -70, "Card Drawn", { fontSize: "18px", fontFamily: "Arial", color: "#ffffff" })
+      .setOrigin(0.5);
+    const cardContainer = this.deps.scene.add.container(0, 6);
+    if (this.deps.renderHandPreview) {
+      this.deps.renderHandPreview(cardContainer, card);
+    } else {
+      const texKey = card.textureKey ?? toPreviewKey(card.cardId);
+      const hasTexture = texKey && this.deps.scene.textures.exists(texKey);
+      const fallback = hasTexture
+        ? this.deps.scene.add.image(0, 0, texKey!).setDisplaySize(80, 112)
+        : (this.deps.scene.add.rectangle(0, 0, 70, 96, 0x5e48f0, 0.95) as Phaser.GameObjects.Rectangle);
+      cardContainer.add(fallback);
+    }
+    const previewW = UI_LAYOUT.hand.preview.cardWidth;
+    const previewH = previewW * UI_LAYOUT.hand.preview.cardAspect;
+    const maxCardW = 120;
+    const maxCardH = 110;
+    const scale = Math.min(maxCardW / previewW, maxCardH / previewH, 1);
+    cardContainer.setScale(scale);
+    container.add([bg, title, cardContainer]);
+    container.setAlpha(0).setScale(0.88);
+
+    return new Promise<void>((resolve) => {
+      this.deps.scene.tweens.add({
+        targets: container,
+        alpha: 1,
+        scale: 1,
+        duration: this.drawPopupTimings.fadeInMs,
+        ease: "Back.easeOut",
+        onComplete: () => {
+          this.deps.scene.time.delayedCall(this.drawPopupTimings.holdMs, () => {
+            this.deps.scene.tweens.add({
+              targets: container,
+              alpha: 0,
+              scale: 1.05,
+              duration: this.drawPopupTimings.fadeOutMs,
+              ease: "Sine.easeIn",
+              onComplete: () => {
+                container.destroy();
+                resolve();
+              },
+            });
+          });
+        },
+      });
+    });
+  }
+
+  private buildPreviewCard(card?: SlotCardView): HandCardView | null {
+    if (!card) return null;
+    const data = card.cardData ?? {};
+    const rules: any[] = Array.isArray(data?.effects?.rules) ? data.effects.rules : [];
+    const pilotRule = rules.find(
+      (rule) => rule?.effectId === "pilot_designation" || rule?.effectId === "pilotDesignation",
+    );
+    const pilotParams = pilotRule?.parameters || {};
+    const pilotAp = pilotParams.AP ?? pilotParams.ap ?? null;
+    const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;
+    const cardType = data?.cardType ?? card.cardType;
+    const isPilotCommand = cardType === "command" && pilotRule;
+    const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap ?? card.cardData?.ap;
+    const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp ?? card.cardData?.hp;
+    const cardId = data?.cardId ?? data?.id ?? card.id;
+    const textureKey = card.textureKey ?? toPreviewKey(cardId);
+    return {
+      color: 0x2a2d38,
+      textureKey,
+      cost: data?.cost,
+      ap,
+      hp,
+      cardType,
+      cardId,
+      fromPilotDesignation: isPilotCommand || data?.fromPilotDesignation,
+    };
   }
 
   private findSlot(slots: SlotViewModel[], cardUid?: string) {

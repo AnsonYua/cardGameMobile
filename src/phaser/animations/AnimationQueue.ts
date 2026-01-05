@@ -12,6 +12,7 @@ type QueueItem = {
 
 const SUPPORTED_TYPES = [
   "CARD_PLAYED_COMPLETED",
+  "CARD_DRAWN",
   "UNIT_ATTACK_DECLARED",
   "REFRESH_TARGET",
   "BATTLE_RESOLVED",
@@ -53,6 +54,10 @@ export class AnimationQueue {
 
   isRunning() {
     return this.running;
+  }
+
+  isProcessed(id: string) {
+    return this.processedIds.has(id);
   }
 
   buildEvents(notificationQueue: SlotNotification[]): SlotNotification[] {
@@ -132,6 +137,15 @@ export class AnimationQueue {
           currentPlayerId: ctx.currentPlayerId,
           cardLookup: ctx.cardLookup,
           allowAnimations: ctx.allowAnimations,
+        });
+        return;
+      case "CARD_DRAWN":
+        await this.deps.cardPlayAnimator.playCardDrawn(event, {
+          slots: ctx.slots,
+          currentPlayerId: ctx.currentPlayerId,
+          allowAnimations: ctx.allowAnimations,
+          cardLookup: ctx.cardLookup,
+          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
         });
         return;
       case "UNIT_ATTACK_DECLARED":

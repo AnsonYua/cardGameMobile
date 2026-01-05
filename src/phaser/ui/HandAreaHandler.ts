@@ -128,6 +128,21 @@ export class HandAreaHandler {
     this.renderer.setVisible(true);
   }
 
+  renderPreviewCard(container: Phaser.GameObjects.Container, card: HandCardView) {
+    const cardW = UI_LAYOUT.hand.preview.cardWidth;
+    const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
+    const texKey = this.toTextureKey(card.textureKey);
+    const badgeLabel = this.getBadgeLabel(card);
+    this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, badgeLabel, card, {
+      badgeSize: UI_LAYOUT.hand.preview.badgeSize,
+      badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
+    });
+  }
+
+  scrollToEnd(animate = true) {
+    this.scroll.scrollToEnd(animate);
+  }
+
   destroy() {
     this.previewController.destroy();
     this.scroll.destroy();

@@ -17,6 +17,8 @@ type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearHand: () => void;
   clearSelection?: () => void;
+  scrollToEnd?: (animate?: boolean) => void;
+  renderPreviewCard?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
   setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
 };
 type HeaderControls = {
@@ -55,6 +57,8 @@ export class BoardUI {
       setHand: (cards, opts) => this.hand.setHand(cards, opts),
       clearHand: () => this.hand.clearHand(),
       clearSelection: () => this.hand.clearSelection(),
+      scrollToEnd: (animate?: boolean) => this.hand.scrollToEnd(animate),
+      renderPreviewCard: (container, card) => this.hand.renderPreviewCard(container, card),
       setCardClickHandler: (handler) => this.hand.setCardClickHandler?.(handler),
     };
     this.actions = new ActionButtonBarHandler(scene);

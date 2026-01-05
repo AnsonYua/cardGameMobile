@@ -52,6 +52,11 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
+  endTurn(payload: { playerId: string; gameId: string }) {
+    const url = this.buildUrl("/api/game/player/endTurn");
+    return this.requestWithFallback(url, payload);
+  }
+
   confirmTargetChoice(payload: {
     gameId: string;
     playerId: string;
