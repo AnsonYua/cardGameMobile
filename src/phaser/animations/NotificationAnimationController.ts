@@ -263,7 +263,7 @@ export class NotificationAnimationController {
   private showDrawPopup(card: HandCardView, popupCard?: any) {
     const cam = this.deps.scene.cameras.main;
     const centerX = cam.centerX;
-    const centerY = cam.centerY - cam.height * 0.18;
+    const centerY = cam.centerY;
     if (this.deps.showCardPopup) {
       return this.deps.showCardPopup(popupCard ?? card, {
         header: "Card Drawn",

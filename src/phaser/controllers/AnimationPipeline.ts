@@ -11,7 +11,7 @@ import type { TargetAnchorProviders } from "../utils/AttackResolver";
 
 type SlotControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
-  createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | null | undefined;
+  createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined;
   setPlayAnimations?: (enabled: boolean) => void;
   getSlotAreaCenter?: (owner: SlotOwner) => { x: number; y: number } | undefined;
   markStatAnimationPending?: (slotKey: string) => void;
@@ -49,7 +49,7 @@ export function createAnimationPipeline(deps: {
     anchors: deps.getTargetAnchorProviders(),
     resolveSlotOwnerByPlayer: deps.resolveSlotOwnerByPlayer,
     setSlotVisible: (owner, slotId, visible) => deps.slotControls?.setSlotVisible?.(owner, slotId, visible),
-    createSlotSprite: (slot, size) => deps.slotControls?.createSlotSprite?.(slot, size),
+    createSlotSprite: (slot, size) => deps.slotControls?.createSlotSprite?.(slot, size) ?? undefined,
   });
   deps.slotControls?.setPlayAnimations?.(false);
   const cardFlightAnimator = new PlayCardAnimationManager(deps.scene);
