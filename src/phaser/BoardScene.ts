@@ -21,6 +21,7 @@ import { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import { TrashAreaDialog } from "./ui/TrashAreaDialog";
+import { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -91,6 +92,7 @@ export class BoardScene extends Phaser.Scene {
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
   private trashAreaDialogUi?: TrashAreaDialog;
+  private drawPopupDialogUi?: DrawPopupDialog;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -143,6 +145,16 @@ export class BoardScene extends Phaser.Scene {
       onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
       onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
       renderHandPreview: (container, card) => this.handControls?.renderPreviewCard?.(container, card),
+      showCardPopup: (card, opts) =>
+        this.drawPopupDialogUi?.showDrawPopup({
+          card,
+          header: opts.header,
+          fadeInMs: opts.fadeInMs,
+          holdMs: opts.holdMs,
+          fadeOutMs: opts.fadeOutMs,
+          centerY: opts.centerY,
+          showOverlay: false,
+        }) ?? Promise.resolve(),
       setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
     });
     this.attackIndicatorController = new AttackIndicatorController({
@@ -221,6 +233,7 @@ export class BoardScene extends Phaser.Scene {
       (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
     );
     this.trashAreaDialogUi = new TrashAreaDialog(this);
+    this.drawPopupDialogUi = new DrawPopupDialog(this);
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,

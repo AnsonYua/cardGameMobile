@@ -16,17 +16,17 @@ type TrashAreaDialogShowOpts = {
 };
 
 export class TrashAreaDialog {
-  private overlay?: Phaser.GameObjects.Rectangle;
-  private dialog?: Phaser.GameObjects.Container;
-  private content?: Phaser.GameObjects.Container;
-  private open = false;
-  private previewController: PreviewController;
-  private previewLayout: HandLayoutRenderer;
-  private scrollList?: ScrollList;
-  private gridRenderer: TrashCardGridRenderer;
-  private lastOnClose?: (() => void) | undefined;
+  protected overlay?: Phaser.GameObjects.Rectangle;
+  protected dialog?: Phaser.GameObjects.Container;
+  protected content?: Phaser.GameObjects.Container;
+  protected open = false;
+  protected previewController: PreviewController;
+  protected previewLayout: HandLayoutRenderer;
+  protected scrollList?: ScrollList;
+  protected gridRenderer: TrashCardGridRenderer;
+  protected lastOnClose?: (() => void) | undefined;
 
-  private cfg = {
+  protected cfg = {
     z: { overlay: 12000, dialog: 12001 },
     overlayAlpha: 0.45,
     dialog: {
@@ -81,7 +81,7 @@ export class TrashAreaDialog {
     },
   };
 
-  constructor(private scene: Phaser.Scene) {
+  constructor(protected scene: Phaser.Scene) {
     this.previewController = new PreviewController(scene, {
       overlayAlpha: UI_LAYOUT.hand.preview.overlayAlpha,
       fadeIn: UI_LAYOUT.hand.preview.fadeIn,
