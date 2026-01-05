@@ -4,20 +4,12 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
+import { buildNotificationHandlers, type NotificationHandler } from "./NotificationHandlers";
 
 type QueueItem = {
   event: SlotNotification;
   ctx: AnimationContext;
 };
-
-const SUPPORTED_TYPES = [
-  "CARD_PLAYED_COMPLETED",
-  "CARD_DRAWN",
-  "UNIT_ATTACK_DECLARED",
-  "REFRESH_TARGET",
-  "BATTLE_RESOLVED",
-  "CARD_STAT_MODIFIED",
-] as const;
 
 export class AnimationQueue {
   private queue: QueueItem[] = [];
@@ -27,6 +19,7 @@ export class AnimationQueue {
   private onIdle?: () => void;
   private onEventStart?: (event: SlotNotification, ctx: AnimationContext) => void;
   private onEventEnd?: (event: SlotNotification, ctx: AnimationContext) => void;
+  private handlers: Map<string, NotificationHandler>;
 
   constructor(
     private deps: {
@@ -38,7 +31,11 @@ export class AnimationQueue {
     private opts: {
       maxProcessed?: number;
     } = {},
-  ) {}
+  ) {
+    this.handlers = buildNotificationHandlers(this.deps, {
+      triggerStatPulse: this.triggerStatPulse.bind(this),
+    });
+  }
 
   setOnIdle(handler?: () => void) {
     this.onIdle = handler;
@@ -67,8 +64,8 @@ export class AnimationQueue {
     const events: SlotNotification[] = [];
     notificationQueue.forEach((note) => {
       if (!note || !note.id) return;
-      const type = (note.type || "").toUpperCase() as (typeof SUPPORTED_TYPES)[number];
-      if (!SUPPORTED_TYPES.includes(type)) return;
+      const type = (note.type || "").toUpperCase();
+      if (!this.handlers.has(type)) return;
       events.push(note);
     });
     return events;
@@ -129,47 +126,9 @@ export class AnimationQueue {
     if (!ctx.allowAnimations) return;
     const type = (event.type || "").toUpperCase();
     console.log("sequence of animation ", type);
-    switch (type) {
-      case "CARD_PLAYED_COMPLETED":
-        await this.deps.cardPlayAnimator.playCardPlayed(event, {
-          slots: ctx.slots,
-          boardSlotPositions: ctx.boardSlotPositions,
-          currentPlayerId: ctx.currentPlayerId,
-          cardLookup: ctx.cardLookup,
-          allowAnimations: ctx.allowAnimations,
-        });
-        return;
-      case "CARD_DRAWN":
-        await this.deps.cardPlayAnimator.playCardDrawn(event, {
-          slots: ctx.slots,
-          currentPlayerId: ctx.currentPlayerId,
-          allowAnimations: ctx.allowAnimations,
-          cardLookup: ctx.cardLookup,
-          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
-        });
-        return;
-      case "UNIT_ATTACK_DECLARED":
-      case "REFRESH_TARGET":
-        await this.deps.attackIndicator.updateFromNotification(
-          event,
-          ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-        );
-        return;
-      case "BATTLE_RESOLVED":
-        this.deps.attackIndicator.clear();
-        await this.deps.battleAnimator.playBattleResolution(
-          event,
-          ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-        );
-        return;
-      case "CARD_STAT_MODIFIED":
-        await this.triggerStatPulse(event, ctx);
-        return;
-      default:
-        return;
-    }
+    const handler = this.handlers.get(type);
+    if (!handler) return;
+    await handler(event, ctx);
   }
 
   private async triggerStatPulse(event: SlotNotification, ctx: AnimationContext) {

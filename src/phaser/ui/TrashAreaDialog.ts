@@ -6,6 +6,7 @@ import { HandLayoutRenderer } from "./HandLayoutRenderer";
 import type { Palette } from "./types";
 import { ScrollList } from "./ScrollList";
 import { TrashCardGridRenderer } from "./TrashCardGridRenderer";
+import { DEFAULT_CARD_DIALOG_CONFIG, computeDialogLayout, createDialogShell } from "./CardDialogLayout";
 
 type TrashAreaDialogShowOpts = {
   cards: any[];
@@ -26,60 +27,7 @@ export class TrashAreaDialog {
   protected gridRenderer: TrashCardGridRenderer;
   protected lastOnClose?: (() => void) | undefined;
 
-  protected cfg = {
-    z: { overlay: 12000, dialog: 12001 },
-    overlayAlpha: 0.45,
-    dialog: {
-      cols: 3,
-      visibleRows: 2,
-      margin: 20,
-      gap: 20,
-      widthFactor: 0.82,
-      minWidth: 360,
-      minHeight: 260,
-      panelRadius: 18,
-      extraHeight: 110,
-      headerOffset: 36,
-      closeSize: 22,
-      closeOffset: 12,
-      headerWrapPad: 80,
-      scrollbarWidth: 8,
-      scrollbarPad: 6,
-      scrollbarMinThumb: 24,
-    },
-    card: {
-      aspect: 88 / 64,
-      widthFactor: 1,
-      framePadding: 8,
-      frameExtra: { w: 0, h: 36 },
-      frameStroke: 0,
-      frameColor: 0xffffff,
-      extraCellHeight: 20,
-    },
-    badge: {
-      size: { w: 30, h: 15 },
-      fontSize: 12,
-      insetX: 4,
-      insetY: 4,
-      fill: 0x000000,
-      alpha: 0.9,
-      offsets: {
-        default: { x: 0, y: 0 },
-        unit: { x: 0, y: 0 },
-        pilot: { x: 0, y: -6 },
-        base: { x: 0, y: 0 },
-        command: { x: 0, y: -2 },
-        pilotCommand: { x: 0, y: -10 },
-      },
-    },
-    cardTypeOverrides: {
-      unit: { size: { w: 30, h: 15 }, fontSize: 12, insetX: 0, insetY: 0 },
-      pilot: { size: { w: 30, h: 15 }, fontSize: 12, insetX: -5, insetY: 10 },
-      base: { size: { w: 30, h: 15 }, fontSize: 12, insetX: 0, insetY: 0 },
-      pilotCommand: { size: { w: 30, h: 15 }, fontSize: 12, insetX: -3, insetY: -10 },
-      default: { size: { w: 30, h: 15 }, fontSize: 12, insetX: 0, insetY: 0},
-    },
-  };
+  protected cfg = DEFAULT_CARD_DIALOG_CONFIG;
 
   constructor(protected scene: Phaser.Scene) {
     this.previewController = new PreviewController(scene, {
@@ -129,106 +77,37 @@ export class TrashAreaDialog {
     const cards = Array.isArray(opts.cards) ? opts.cards : [];
     const headerText = opts.header || "Trash Area";
 
-    const {
-      cols,
-      visibleRows,
-      margin,
-      gap,
-      widthFactor,
-      minWidth,
-      minHeight,
-      extraHeight,
-      panelRadius,
-      headerOffset,
-      closeSize,
-      closeOffset,
-      headerWrapPad,
-      scrollbarWidth,
-      scrollbarPad,
-      scrollbarMinThumb,
-    } = this.cfg.dialog;
-    const { aspect, extraCellHeight } = this.cfg.card;
-
-    const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
-    const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
-    const cardHeight = cellWidth * aspect;
-    const cellHeight = cardHeight + extraCellHeight;
-    const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
-    const dialogHeight = Math.max(minHeight, gridVisibleHeight + extraHeight);
-    const gridWidth = dialogWidth - margin * 2;
-
-    const dialog = this.scene.add.container(cam.centerX, cam.centerY);
-    dialog.setDepth(this.cfg.z.dialog);
+    const layout = computeDialogLayout(cam, this.cfg, {
+      cols: this.cfg.dialog.cols,
+      visibleRows: this.cfg.dialog.visibleRows,
+    });
+    const { dialog, overlay, content } = createDialogShell(this.scene, this.cfg, layout, {
+      centerX: cam.centerX,
+      centerY: cam.centerY,
+      headerText,
+      showOverlay: true,
+      closeOnBackdrop,
+      showCloseButton,
+      onClose: () => {
+        void this.hide();
+      },
+    });
     this.dialog = dialog;
-
-    const overlay = this.scene.add
-      .rectangle(0, 0, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
-      .setInteractive({ useHandCursor: closeOnBackdrop });
-    if (closeOnBackdrop) {
-      overlay.on("pointerup", () => {
-        void this.hide();
-      });
-    }
-    dialog.add(overlay);
     this.overlay = overlay;
-
-    const panel = this.scene.add.graphics({ x: 0, y: 0 });
-    panel.fillStyle(0x3a3d42, 0.95);
-    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    panel.lineStyle(2, 0x5b6068, 1);
-    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    dialog.add(panel);
-
-    let closeButton: Phaser.GameObjects.Rectangle | undefined;
-    let closeLabel: Phaser.GameObjects.Text | undefined;
-    if (showCloseButton) {
-      closeButton = this.scene.add.rectangle(
-        dialogWidth / 2 - closeSize - closeOffset,
-        -dialogHeight / 2 + closeSize + closeOffset,
-        closeSize,
-        closeSize,
-        0xffffff,
-        0.12,
-      );
-      closeButton.setStrokeStyle(2, 0xffffff, 0.5);
-      closeButton.setInteractive({ useHandCursor: true });
-      closeButton.on("pointerup", () => {
-        void this.hide();
-      });
-      closeLabel = this.scene.add
-        .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
-        .setOrigin(0.5);
-      closeLabel.setInteractive({ useHandCursor: true });
-      closeLabel.on("pointerup", () => {
-        void this.hide();
-      });
-    }
-
-    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset, headerText, {
-      fontSize: "20px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: "#f5f6f7",
-      align: "center",
-      wordWrap: { width: dialogWidth - headerWrapPad },
-    }).setOrigin(0.5);
-
-    const startX = -dialogWidth / 2 + margin + cellWidth / 2;
-    const startY = -dialogHeight / 2 + headerOffset + 40 + cellHeight / 2;
-
-    const content = this.scene.add.container(0, 0);
     this.content = content;
-    dialog.add(content);
+
+    const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2;
+    const startY = -layout.dialogHeight / 2 + layout.headerOffset + 40 + layout.cellHeight / 2;
 
     const { contentHeight } = this.gridRenderer.render({
       container: content,
       cards,
-      cols,
-      gap,
+      cols: layout.cols,
+      gap: layout.gap,
       startX,
       startY,
-      cellWidth,
-      cellHeight,
+      cellWidth: layout.cellWidth,
+      cellHeight: layout.cellHeight,
       cardConfig: this.cfg.card,
       badgeConfig: this.cfg.badge,
       typeOverrides: this.cfg.cardTypeOverrides,
@@ -253,28 +132,23 @@ export class TrashAreaDialog {
       dialog.add(empty);
     }
 
+    const gridWidth = layout.dialogWidth - layout.margin * 2;
     const scrollBounds = {
-      x: -dialogWidth / 2 + margin,
-      y: startY - cellHeight / 2,
+      x: -layout.dialogWidth / 2 + layout.margin,
+      y: startY - layout.cellHeight / 2,
       width: gridWidth,
-      height: gridVisibleHeight,
+      height: layout.gridVisibleHeight,
     };
-    const trackX = dialogWidth / 2 - scrollbarWidth / 2 - scrollbarPad;
+    const trackX = layout.dialogWidth / 2 - this.cfg.dialog.scrollbarWidth / 2 - this.cfg.dialog.scrollbarPad;
     this.scrollList = new ScrollList(this.scene, dialog, content, scrollBounds, {
-      width: scrollbarWidth,
-      pad: scrollbarPad,
-      minThumb: scrollbarMinThumb,
+      width: this.cfg.dialog.scrollbarWidth,
+      pad: this.cfg.dialog.scrollbarPad,
+      minThumb: this.cfg.dialog.scrollbarMinThumb,
       trackX,
     });
     this.scrollList.setContentHeight(contentHeight);
     this.scrollList.attach();
 
-    dialog.add([header]);
-    if (showCloseButton && closeButton && closeLabel) {
-      dialog.add([closeButton, closeLabel]);
-    }
-    dialog.setDepth(this.cfg.z.dialog);
-    this.scene.add.existing(dialog);
     this.open = true;
   }
 

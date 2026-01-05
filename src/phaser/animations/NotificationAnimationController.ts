@@ -38,10 +38,9 @@ export class NotificationAnimationController {
       scene: Phaser.Scene;
       playAnimator: PlayCardAnimationManager;
       getBaseAnchor?: (isOpponent: boolean) =>
-        | { x: number; y: number; isOpponent: boolean; w?: number; h?: number }
+        | { x: number; y: number; isOpponent?: boolean; w?: number; h?: number }
         | undefined;
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
-      getDeckAnchor?: (owner: SlotOwner) => { x: number; y: number; w?: number; h?: number } | undefined;
       renderHandPreview?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
       showCardPopup?: (
         card: any,
@@ -227,7 +226,7 @@ export class NotificationAnimationController {
       cardName: baseCard?.cardData?.name ?? baseCard?.cardId ?? "Base",
       stats,
       size: anchor.w && anchor.h ? { w: anchor.w, h: anchor.h } : undefined,
-      angle: anchor.isOpponent ? 180 : 0,
+      angle: !isSelf ? 180 : 0,
     });
   }
 

@@ -1,4 +1,5 @@
 import { TrashAreaDialog } from "./TrashAreaDialog";
+import { computeDialogLayout, createDialogShell } from "./CardDialogLayout";
 
 export type DrawPopupOpts = {
   card: any;
@@ -21,74 +22,36 @@ export class DrawPopupDialog extends TrashAreaDialog {
     const fadeOutMs = opts.fadeOutMs ?? 220;
     const centerY = opts.centerY ?? cam.centerY;
 
-    const {
-      margin,
-      gap,
-      widthFactor,
-      minWidth,
-      minHeight,
-      extraHeight,
-      panelRadius,
-      headerOffset,
-      headerWrapPad,
-    } = this.cfg.dialog;
-    const { aspect, extraCellHeight } = this.cfg.card;
     const cols = this.cfg.dialog.cols;
     const visibleRows = 1;
 
-    const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
-    const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
-    const cardHeight = cellWidth * aspect;
-    const cellHeight = cardHeight + extraCellHeight;
-    const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
-    const dialogHeight = Math.max(minHeight, gridVisibleHeight + extraHeight);
-
-    const dialog = this.scene.add.container(cam.centerX, centerY);
-    dialog.setDepth(this.cfg.z.dialog);
+    const layout = computeDialogLayout(cam, this.cfg, { cols, visibleRows });
+    const { dialog, overlay, content } = createDialogShell(this.scene, this.cfg, layout, {
+      centerX: cam.centerX,
+      centerY,
+      headerText,
+      showOverlay,
+      closeOnBackdrop: false,
+      showCloseButton: false,
+    });
     this.dialog = dialog;
+    this.overlay = overlay;
+    this.content = content;
     this.open = true;
 
-    if (showOverlay) {
-      const overlay = this.scene.add
-        .rectangle(0, 0, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
-        .setInteractive({ useHandCursor: false });
-      dialog.add(overlay);
-      this.overlay = overlay;
-    }
-
-    const panel = this.scene.add.graphics({ x: 0, y: 0 });
-    panel.fillStyle(0x3a3d42, 0.95);
-    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    panel.lineStyle(2, 0x5b6068, 1);
-    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    dialog.add(panel);
-
-    const header = this.scene.add.text(0, -dialogHeight / 2 + headerOffset, headerText, {
-      fontSize: "20px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: "#f5f6f7",
-      align: "center",
-      wordWrap: { width: dialogWidth - headerWrapPad },
-    }).setOrigin(0.5);
-    dialog.add(header);
-
     const colIndex = Math.floor(cols / 2);
-    const startX = -dialogWidth / 2 + margin + cellWidth / 2 + colIndex * (cellWidth + gap);
-    const startY = -dialogHeight / 2 + headerOffset + 40 + cellHeight / 2;
-    const content = this.scene.add.container(0, 0);
-    this.content = content;
-    dialog.add(content);
+    const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2 + colIndex * (layout.cellWidth + layout.gap);
+    const startY = -layout.dialogHeight / 2 + layout.headerOffset + 40 + layout.cellHeight / 2;
 
     this.gridRenderer.render({
       container: content,
       cards: [opts.card],
       cols,
-      gap,
+      gap: layout.gap,
       startX,
       startY,
-      cellWidth,
-      cellHeight,
+      cellWidth: layout.cellWidth,
+      cellHeight: layout.cellHeight,
       cardConfig: this.cfg.card,
       badgeConfig: this.cfg.badge,
       typeOverrides: this.cfg.cardTypeOverrides,

@@ -27,13 +27,10 @@ import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
 import { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
-import { PlayCardAnimationManager } from "./animations/PlayCardAnimationManager";
-import { NotificationAnimationController } from "./animations/NotificationAnimationController";
-import { BattleAnimationManager } from "./animations/BattleAnimationManager";
-import { AnimationQueue } from "./animations/AnimationQueue";
-import { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
+import type { AnimationQueue } from "./animations/AnimationQueue";
+import type { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
+import { createAnimationPipeline } from "./controllers/AnimationPipeline";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
-import { AttackIndicatorController } from "./controllers/AttackIndicatorController";
 import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
@@ -96,11 +93,7 @@ export class BoardScene extends Phaser.Scene {
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
-  private attackIndicatorController?: AttackIndicatorController;
   private overlay?: OverlayController;
-  private battleAnimations?: BattleAnimationManager;
-  private cardFlightAnimator: PlayCardAnimationManager | null = null;
-  private notificationAnimator: NotificationAnimationController | null = null;
   private animationQueue?: AnimationQueue;
   private slotAnimationRender?: SlotAnimationRenderController;
 
@@ -128,46 +121,18 @@ export class BoardScene extends Phaser.Scene {
     this.statusControls = this.ui.getStatusControls();
     this.handControls = this.ui.getHandControls();
     this.slotControls = this.ui.getSlotControls();
-    this.battleAnimations = new BattleAnimationManager({
+    this.drawPopupDialogUi = new DrawPopupDialog(this);
+    const animationPipeline = createAnimationPipeline({
       scene: this,
-      anchors: this.getTargetAnchorProviders(),
-      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
-      createSlotSprite: (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
-    });
-    this.slotControls?.setPlayAnimations?.(false);
-    this.cardFlightAnimator = new PlayCardAnimationManager(this);
-    this.notificationAnimator = new NotificationAnimationController({
-      scene: this,
-      playAnimator: this.cardFlightAnimator,
-      getBaseAnchor: (isOpponent) => this.baseControls?.getBaseAnchor(isOpponent),
-      getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
-      onSlotAnimationStart: (slotKey) => this.slotControls?.markStatAnimationPending?.(slotKey),
-      onSlotAnimationEnd: (slotKey) => this.slotControls?.releaseStatAnimation?.(slotKey),
-      renderHandPreview: (container, card) => this.handControls?.renderPreviewCard?.(container, card),
-      showCardPopup: (card, opts) =>
-        this.drawPopupDialogUi?.showDrawPopup({
-          card,
-          header: opts.header,
-          fadeInMs: opts.fadeInMs,
-          holdMs: opts.holdMs,
-          fadeOutMs: opts.fadeOutMs,
-          centerY: opts.centerY,
-          showOverlay: false,
-        }) ?? Promise.resolve(),
-      setSlotVisible: (owner, slotId, visible) => this.slotControls?.setSlotVisible?.(owner, slotId, visible),
-    });
-    this.attackIndicatorController = new AttackIndicatorController({
-      scene: this,
-      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      anchorsProvider: () => this.getTargetAnchorProviders(),
-    });
-    this.animationQueue = new AnimationQueue({
-      cardPlayAnimator: this.notificationAnimator as NotificationAnimationController,
-      battleAnimator: this.battleAnimations as BattleAnimationManager,
-      attackIndicator: this.attackIndicatorController,
       slotControls: this.slotControls,
+      handControls: this.handControls,
+      drawPopupDialog: this.drawPopupDialogUi,
+      resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
+      getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
+      getSlotsFromRaw: (data) => this.slotPresenter.toSlots(data, this.gameContext.playerId),
     });
+    this.animationQueue = animationPipeline.animationQueue;
+    this.slotAnimationRender = animationPipeline.slotAnimationRender;
     this.animationQueue.setOnIdle(() => this.handleAnimationQueueIdle());
     this.animationQueue.setOnEventStart((event, ctx) => {
       const slots = this.slotAnimationRender?.handleEventStart(
@@ -188,9 +153,6 @@ export class BoardScene extends Phaser.Scene {
         this.handControls?.scrollToEnd?.(true);
       }
     });
-    this.slotAnimationRender = new SlotAnimationRenderController((data) =>
-      this.slotPresenter.toSlots(data, this.gameContext.playerId),
-    );
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
@@ -233,7 +195,6 @@ export class BoardScene extends Phaser.Scene {
       (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
     );
     this.trashAreaDialogUi = new TrashAreaDialog(this);
-    this.drawPopupDialogUi = new DrawPopupDialog(this);
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,

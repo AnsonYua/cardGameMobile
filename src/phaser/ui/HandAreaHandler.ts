@@ -7,6 +7,7 @@ import { HandRenderer } from "./HandRenderer";
 import { HandScrollController } from "./HandScrollController";
 import { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
+import { getBadgeLabel, toTextureKey } from "./HandPreviewHelper";
 import type { DrawHelpers } from "./HeaderHandler";
 
 export class HandAreaHandler {
@@ -131,8 +132,8 @@ export class HandAreaHandler {
   renderPreviewCard(container: Phaser.GameObjects.Container, card: HandCardView) {
     const cardW = UI_LAYOUT.hand.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
-    const texKey = this.toTextureKey(card.textureKey);
-    const badgeLabel = this.getBadgeLabel(card);
+    const texKey = toTextureKey(card.textureKey);
+    const badgeLabel = getBadgeLabel(card);
     this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, badgeLabel, card, {
       badgeSize: UI_LAYOUT.hand.preview.badgeSize,
       badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
@@ -187,27 +188,7 @@ export class HandAreaHandler {
     this.previewCardUid = undefined;
   }
 
-  private toTextureKey(textureKey?: string) {
-    if (!textureKey) return undefined;
-    return textureKey.replace(/-preview$/, "");
-  }
-
-  private getBadgeLabel(card: HandCardView) {
-    if (!card) return undefined;
-    const type = (card.cardType || "").toLowerCase();
-    if (type === "command") {
-      if (!card.fromPilotDesignation) return undefined;
-      const ap = Number(card.ap ?? 0);
-      const hp = Number(card.hp ?? 0);
-      return `${ap}|${hp}`;
-    }
-    if (type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation) {
-      const ap = Number(card.ap ?? 0);
-      const hp = Number(card.hp ?? 0);
-      return `${ap}|${hp}`;
-    }
-    return undefined;
-  }
+  
 
   private buildHandSignature(cards: HandCardView[]) {
     if (!cards || cards.length === 0) return "empty";
