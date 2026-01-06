@@ -64,7 +64,6 @@ export class ActionBarCoordinator {
     // Step 1: Blocker flow (always wins, regardless of phase/turn).
     if (this.deps.blockerFlow.isActive() || phase === "BLOCKER_PHASE") {
       if (this.deps.blockerFlow.applyActionBar()) {
-        actions.setWaitingForOpponent?.(false);
         return;
       }
     }
