@@ -131,8 +131,12 @@ export class ActionBarCoordinator {
         this.lastPhase = phase;
         return;
       }
-      // If a selection exists, keep its action bar alive instead of resetting to End Turn.
-      this.deps.onRefreshActions(selection.kind as ActionSource);
+      // If a selection exists, refresh the action bar directly without re-entering update loops.
+      const selectedSource = selection.kind as ActionSource;
+      const selectedActions = this.deps.engine.getAvailableActions(selectedSource);
+      actions.setState?.({
+        descriptors: this.deps.buildActionDescriptors(selectedActions),
+      });
       this.lastPhase = phase;
       return;
     }
