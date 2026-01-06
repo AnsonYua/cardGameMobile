@@ -26,7 +26,8 @@ import { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
-import { SelectionActionController } from "./controllers/SelectionActionController";
+import { createSelectionActionController } from "./controllers/SelectionActionControllerFactory";
+import type { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import type { AnimationQueue } from "./animations/AnimationQueue";
 import type { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
@@ -208,7 +209,7 @@ export class BoardScene extends Phaser.Scene {
       scene: this,
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
     });
-    this.selectionAction = new SelectionActionController({
+    this.selectionAction = createSelectionActionController({
       engine: this.engine,
       api: this.api,
       slotPresenter: this.slotPresenter,

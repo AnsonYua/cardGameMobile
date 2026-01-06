@@ -26,6 +26,7 @@ export class ActionButtonBarHandler {
   private waitingTween?: Phaser.Tweens.Tween;
   private waitingMode = false;
   private waitingOverride: ActionButtonConfig[] | null = null;
+  private waitingOverrideKey = "";
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = {
@@ -74,7 +75,7 @@ export class ActionButtonBarHandler {
 
   setDescriptors(buttons: ActionButtonConfig[]) {
     const normalized = buttons.map((b, idx) => ({
-      label: b?.label ?? `Action ${idx + 1}`,
+      label: String(b?.label ?? `Action ${idx + 1}`),
       onClick: b?.onClick ?? (() => {}),
       enabled: b?.enabled ?? true,
       primary: (b as any)?.primary ?? false,
@@ -83,8 +84,18 @@ export class ActionButtonBarHandler {
   }
 
   setWaitingForOpponent(waiting: boolean, overrideButtons?: ActionButtonConfig[]) {
+    const nextOverride = overrideButtons?.length ? overrideButtons : null;
+    const nextOverrideKey = nextOverride
+      ? nextOverride
+          .map((btn) => `${String(btn?.label ?? "")}:${btn?.enabled ?? true}:${(btn as any)?.primary ?? false}`)
+          .join("|")
+      : "";
+    if (this.waitingMode === waiting && this.waitingOverrideKey === nextOverrideKey) {
+      return;
+    }
     this.waitingMode = waiting;
-    this.waitingOverride = overrideButtons?.length ? overrideButtons : null;
+    this.waitingOverride = nextOverride;
+    this.waitingOverrideKey = nextOverrideKey;
     // eslint-disable-next-line no-console
     console.log("[ActionBar] waiting", { waiting, overrideCount: this.waitingOverride?.length ?? 0 });
     this.draw(this.lastOffset);
@@ -306,7 +317,10 @@ export class ActionButtonBarHandler {
       ...this.buttonTextStyle,
       color: enabled ? this.buttonStyle.textColor : "#8a9abf",
     };
-    const text = this.scene.add.text(x, y, config.label || "", textStyle).setOrigin(0.5).setDepth(depth + 2);
+    const text = this.scene
+      .add.text(x, y, String(config.label || ""), textStyle)
+      .setOrigin(0.5)
+      .setDepth(depth + 2);
     this.elements.push(text);
 
     const hit = this.scene.add

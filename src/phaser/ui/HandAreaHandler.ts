@@ -155,8 +155,8 @@ export class HandAreaHandler {
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
     this.previewController.start((container) => {
       this.previewCardUid = card.uid;
-      const texKey = this.toTextureKey(card.textureKey);
-      const insideLabel = this.getBadgeLabel(card);
+      const texKey = toTextureKey(card.textureKey);
+      const insideLabel = getBadgeLabel(card);
       this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, insideLabel, card, {
         badgeSize: UI_LAYOUT.hand.preview.badgeSize,
         badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
@@ -186,6 +186,10 @@ export class HandAreaHandler {
   private hidePreview(skipTween = false) {
     this.previewController.hide(skipTween);
     this.previewCardUid = undefined;
+  }
+
+  private cancelPreviewTimer() {
+    this.hidePreview(true);
   }
 
   

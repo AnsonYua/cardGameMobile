@@ -10,172 +10,96 @@ import { ApiManager } from "../api/ApiManager";
 import type { EffectTargetController } from "./EffectTargetController";
 import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { BlockerFlowManager } from "./BlockerFlowManager";
+import { ActionBarCoordinator } from "./ActionBarCoordinator";
+import { SelectionHandler } from "./SelectionHandler";
+import { ActionExecutor } from "./ActionExecutor";
+import { TurnStateCoordinator } from "./TurnStateCoordinator";
+import { OpponentResolver } from "./OpponentResolver";
+import { ActionStepTriggerHandler } from "./ActionStepTriggerHandler";
 import type { ActionControls, SlotControls } from "./ControllerTypes";
 import { SlotInteractionGate } from "./SlotInteractionGate";
-import {
-  ActionTargetEntry,
-  getActionTargetsForPlayer,
-  getBattleFromRaw,
-  getSlotBySelection,
-  handCardMatchesActionTarget,
-  selectionMatchesActionTarget,
-  slotMatchesActionTarget,
-} from "./ActionStepUtils";
+import { ActionStepCoordinator } from "./ActionStepCoordinator";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearSelection?: () => void;
 };
 
+export type SelectionActionControllerDeps = {
+  engine: GameEngine;
+  slotPresenter: SlotPresenter;
+  handPresenter: HandPresenter;
+  api: ApiManager;
+  handControls?: HandControls | null;
+  slotControls?: SlotControls | null;
+  actionControls?: ActionControls | null;
+  effectTargetController?: EffectTargetController | null;
+  gameContext: GameContext;
+  refreshPhase: (skipFade: boolean) => void;
+  showOverlay?: (message: string, slot?: SlotViewModel) => void;
+};
+
+export type SelectionActionControllerModules = {
+  slotGate: SlotInteractionGate;
+  attackCoordinator: AttackTargetCoordinator;
+  blockerFlow: BlockerFlowManager;
+  actionStepCoordinator: ActionStepCoordinator;
+  selectionHandler: SelectionHandler;
+  opponentResolver: OpponentResolver;
+  actionExecutor: ActionExecutor;
+  actionStepTriggerHandler: ActionStepTriggerHandler;
+  turnStateCoordinator: TurnStateCoordinator;
+  actionBarCoordinator: ActionBarCoordinator;
+};
+
 export class SelectionActionController {
-  private selectedHandCard?: HandCardView;
-  private lastPhase?: string;
-  private selectedSlot?: SlotViewModel;
-  private lastBattleActive = false;
-  private lastBattleStatus?: string;
-  private actionControls?: ActionControls | null;
   private slotControls?: SlotControls | null;
   private slotGate: SlotInteractionGate;
   private attackCoordinator: AttackTargetCoordinator;
   private blockerFlow: BlockerFlowManager;
+  private actionStepCoordinator: ActionStepCoordinator;
+  private actionBarCoordinator: ActionBarCoordinator;
+  private selectionHandler: SelectionHandler;
+  private actionExecutor: ActionExecutor;
+  private turnStateCoordinator: TurnStateCoordinator;
+  private opponentResolver: OpponentResolver;
+  private actionStepTriggerHandler: ActionStepTriggerHandler;
 
   constructor(
-    private deps: {
-      engine: GameEngine;
-      slotPresenter: SlotPresenter;
-      handPresenter: HandPresenter;
-      api: ApiManager;
-      handControls?: HandControls | null;
-      slotControls?: SlotControls | null;
-      actionControls?: ActionControls | null;
-      effectTargetController?: EffectTargetController | null;
-      gameContext: GameContext;
-      refreshPhase: (skipFade: boolean) => void;
-      showOverlay?: (message: string, slot?: SlotViewModel) => void;
-    },
+    private deps: SelectionActionControllerDeps,
+    modules: SelectionActionControllerModules,
   ) {
     // React to battle state changes emitted by the engine instead of re-parsing snapshots everywhere.
     this.deps.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
       this.handleBattleStateChanged(payload);
     });
-    this.actionControls = this.deps.actionControls;
     this.slotControls = this.deps.slotControls;
-    this.slotGate = new SlotInteractionGate(this.slotControls ?? null);
-    this.attackCoordinator = new AttackTargetCoordinator(this.actionControls ?? null);
-    this.blockerFlow = new BlockerFlowManager({
-      api: this.deps.api,
-      engine: this.deps.engine,
-      gameContext: this.deps.gameContext,
-      slotPresenter: this.deps.slotPresenter,
-      actionControls: this.actionControls,
-      effectTargetController: this.deps.effectTargetController,
-      refreshActions: () => this.refreshActions("neutral"),
-      slotGate: this.slotGate,
-    });
+    this.slotGate = modules.slotGate;
+    this.attackCoordinator = modules.attackCoordinator;
+    this.blockerFlow = modules.blockerFlow;
+    this.actionStepCoordinator = modules.actionStepCoordinator;
+    this.selectionHandler = modules.selectionHandler;
+    this.opponentResolver = modules.opponentResolver;
+    this.actionExecutor = modules.actionExecutor;
+    this.actionStepTriggerHandler = modules.actionStepTriggerHandler;
+    this.turnStateCoordinator = modules.turnStateCoordinator;
+    this.actionBarCoordinator = modules.actionBarCoordinator;
   }
 
   getSelectedHandCard() {
-    return this.selectedHandCard;
+    return this.selectionHandler.getSelectedHandCard();
   }
 
   handleHandCardSelected(card: HandCardView) {
-    if (!this.isPlayersTurn()) {
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    if (this.isActionStepPhase()) {
-      const raw = this.deps.engine.getSnapshot().raw as any;
-      const battle = getBattleFromRaw(raw);
-      if (battle) {
-        const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
-        if (!handCardMatchesActionTarget(card.uid, targets)) {
-          this.clearSelectionUI({ clearEngine: true });
-          this.refreshActions("neutral");
-          return;
-        }
-      }
-      if (!this.cardDataHasActionStepWindow(this.getHandCardData(card.uid))) {
-        this.clearSelectionUI({ clearEngine: true });
-        this.refreshActions("neutral");
-        return;
-      }
-    }
-    this.selectedHandCard = card;
-    this.selectedSlot = undefined;
-    this.slotControls?.setSelectedSlot?.();
-    this.deps.engine.select({
-      kind: "hand",
-      uid: card.uid || "",
-      cardType: card.cardType,
-      fromPilotDesignation: card.fromPilotDesignation,
-      cardId: card.cardId,
-    });
-    this.refreshActions("hand");
+    this.selectionHandler.handleHandCardSelected(card);
   }
 
   async handleSlotCardSelected(slot: SlotViewModel) {
-    const raw = this.deps.engine.getSnapshot().raw as any;
-    this.blockerFlow.handleSnapshot(raw);
-    // let blocker flow inspect latest queue before acting on the slot click
-    if (await this.attackCoordinator.handleSlot(slot)) {
-      return;
-    }
-    if (this.attackCoordinator.isActive() && !this.attackCoordinator.isAllowed(slot)) {
-      this.deps.showOverlay?.("Unit cannot be attacked", slot);
-      return;
-    }
-    if (this.blockerFlow.isActive()) {
-      // Block slot selection while blocker choice is in progress.
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    if (this.isActionStepPhase()) {
-      const battle = getBattleFromRaw(raw);
-      if (battle) {
-        const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
-        if (!slotMatchesActionTarget(slot, targets)) {
-          // Gate slot interactions to only allow cards that appear in the action-step targets list.
-          this.clearSelectionUI({ clearEngine: true });
-          this.refreshActions("neutral");
-          return;
-        }
-      }
-    }
-    if (!this.isPlayersTurn() || slot.owner !== "player" || !slot.unit) {
-      // disallow selecting opponent cards or empty slots when not in player turn
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    if (this.isActionStepPhase() && !this.slotHasActionStepWindow(slot)) {
-      // block selecting slots outside current action-step window
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    // mark this slot as the current action source and refresh UI
-    this.selectedSlot = slot;
-    this.selectedHandCard = undefined;
-    this.deps.handControls?.clearSelection?.();
-    this.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
-    this.deps.engine.select({ kind: "slot", slotId: slot.slotId, owner: slot.owner });
-    this.refreshActions("slot");
+    await this.selectionHandler.handleSlotCardSelected(slot);
   }
 
   handleBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
-    this.selectedHandCard = undefined;
-    this.selectedSlot = undefined;
-    this.slotControls?.setSelectedSlot?.();
-    if (!payload?.card) return;
-    if (this.isActionStepPhase() && !this.cardDataHasActionStepWindow(payload.card?.cardData)) {
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-      return;
-    }
-    this.deps.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
-    this.refreshActions("base");
+    this.selectionHandler.handleBaseCardSelected(payload);
   }
 
   refreshActions(source: ActionSource = "neutral") {
@@ -190,19 +114,19 @@ export class SelectionActionController {
   async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     // Slot-specific actions are handled directly to avoid engine placeholders.
     if (actionId === "attackUnit") {
-      await this.handleAttackUnit();
+      await this.actionExecutor.handleAttackUnit();
       return;
     }
     if (actionId === "attackShieldArea") {
-      await this.handleAttackShieldArea();
+      await this.actionExecutor.handleAttackShieldArea();
       return;
     }
     if (actionId === "skipAction") {
-      await this.handleSkipAction();
+      await this.actionExecutor.handleSkipAction();
       return;
     }
     if (actionId === "cancelSelection") {
-      this.handleCancelSelection();
+      this.actionExecutor.cancelSelection();
       return;
     }
     console.log("print commend action")
@@ -216,16 +140,10 @@ export class SelectionActionController {
   }
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
-    this.selectedHandCard = undefined;
-    this.selectedSlot = undefined;
-    this.slotControls?.setSelectedSlot?.();
-    this.deps.handControls?.clearSelection?.();
-    if (opts.clearEngine) {
-      this.deps.engine.clearSelection();
-    }
+    this.selectionHandler.clearSelectionUI(opts);
   }
 
-  private buildActionDescriptors(descriptors: ActionDescriptor[]) {
+  buildActionDescriptors(descriptors: ActionDescriptor[]) {
     return descriptors.map((d) => ({
       label: d.label,
       enabled: d.enabled,
@@ -236,519 +154,31 @@ export class SelectionActionController {
     }));
   }
 
-  private isPlayersTurn() {
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.deps.gameContext.playerId;
-  }
-
-  private async handleAttackUnit() {
-    const attacker = this.selectedSlot;
-    if (!attacker) {
-      console.warn("No attacker selected");
-      return;
-    }
-    if (attacker.unit?.isRested) {
-      console.warn("Attacker is rested and cannot attack");
-      return;
-    }
-    const targets = this.getOpponentRestedUnitSlots();
-    if (!targets.length) {
-      console.warn("No opponent units to target");
-      return;
-    }
-    this.attackCoordinator.enter(targets, async (slot) => {
-      await this.performAttackUnit(slot);
-    }, () => this.handleCancelSelection());
-  }
-
-  private async handleAttackShieldArea() {
-    if (!this.selectedSlot?.unit?.cardUid) {
-      console.warn("No attacker selected for shield attack");
-      return;
-    }
-    if (this.selectedSlot.unit?.isRested) {
-      console.warn("Attacker is rested and cannot attack shield");
-      return;
-    }
-    const attackerCarduid = this.selectedSlot.unit.cardUid;
-    const targetPlayerId = this.getOpponentPlayerId();
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId || !targetPlayerId) {
-      console.warn("Missing data for attackShieldArea", { gameId, playerId, targetPlayerId });
-      return;
-    }
-    const payload = {
-      playerId,
-      gameId,
-      actionType: "attackShieldArea",
-      attackerCarduid,
-      targetType: "shield",
-      targetPlayerId,
-      targetPilotUid: null as string | null,
-    };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      console.warn("attackShieldArea request failed", err);
-    }
-  }
-
-  private handleCancelSelection() {
-    this.attackCoordinator.reset();
-    this.clearSelectionUI({ clearEngine: true });
-    this.refreshActions("neutral");
-  }
-
-  private async handleSkipAction() {
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId) return;
-    const payload = {
-      playerId,
-      gameId,
-      actionType: "confirmBattle",
-    };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.clearSelectionUI({ clearEngine: true });
-      this.refreshActions("neutral");
-    } catch (err) {
-      console.warn("confirmBattle request failed", err);
-    }
-  }
-
-  private applyBattleActionBar(selection: any) {
-    const raw = this.deps.engine.getSnapshot().raw as any;
-    const battleState = this.getBattleState(raw);
-    console.log("[applyBattleActionBar] battleState", battleState, "selection", selection);
-    if (battleState === "none") return false;
-    const battle = getBattleFromRaw(raw);
-    if (!battle) return false;
-    const targets = getActionTargetsForPlayer(battle, this.deps.gameContext.playerId);
-
-    if (battleState === "confirmed") {
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      this.deps.actionControls?.setState?.({ descriptors: [] });
-      return true;
-    }
-
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    const matchesTarget = selectionMatchesActionTarget(
-      selection,
-      targets,
-      raw,
-      this.deps.slotPresenter,
-      this.deps.gameContext.playerId,
-    );
-    if (matchesTarget) {
-      const descriptors = this.buildActionStepDescriptorsForSelection(selection, targets);
-      this.deps.actionControls?.setState?.({ descriptors });
-    } else {
-      this.deps.actionControls?.setState?.({
-        descriptors: [
-          {
-            label: "Skip Action-Step",
-            enabled: true,
-            primary: true,
-            onClick: async () => {
-              await this.handleSkipAction();
-            },
-          },
-        ],
-      });
-    }
-    return true;
-  }
-
-  private getBattleState(raw?: any): "awaiting" | "confirmed" | "none" {
-    const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
-    const battle = snapshotRaw?.gameEnv?.currentBattle ?? snapshotRaw?.gameEnv?.currentbattle;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const self = this.deps.gameContext.playerId;
-    console.log("[getBattleState] battle", battle, "currentPlayer", currentPlayer, "self", self);
-    if (!battle || !currentPlayer || currentPlayer !== self) return "none";
-    const status = (battle.status || "").toString().toUpperCase();
-    const confirmations = battle.confirmations || {};
-    const confirmed = confirmations[currentPlayer];
-    if (status === "ACTION_STEP") {
-      if (confirmed === false) return "awaiting";
-      if (confirmed === true) return "confirmed";
-    }
-    return "none";
-  }
-
-  private isActionStepPhase() {
-    const raw = this.deps.engine.getSnapshot().raw as any;
-    return this.getBattleState(raw) !== "none";
-  }
-
   private handleBattleStateChanged(payload: { active: boolean; status: string }) {
-    const status = (payload.status || "").toUpperCase();
-    // No-op if nothing changed; avoids resetting actions on every poll.
-    if (payload.active === this.lastBattleActive && status === (this.lastBattleStatus || "").toUpperCase()) {
-      return;
-    }
-    const wasActive = this.lastBattleActive;
-    this.lastBattleActive = payload.active;
-    this.lastBattleStatus = payload.status;
-    if (payload.active && status === "ACTION_STEP") {
-      // When entering action step, recompute the action bar based on current selection.
-      this.syncAndUpdateActionBar("neutral");
-    } else if (wasActive && !payload.active) {
-      // On exit, restore neutral actions.
-      this.refreshActions("neutral");
-    }
+    this.actionBarCoordinator.handleBattleStateChanged(payload);
   }
 
   private async handleActionStepTrigger(selection: any) {
-    if (!selection) {
-      console.warn("No selection to activate");
-      return;
-    }
-    if (selection.kind === "hand") {
-      const cardType = (this.selectedHandCard?.cardType || "").toLowerCase();
-      console.log("[handleActionStepTrigger] hand cardType", cardType);
-      if (cardType === "command") {
-        await this.runActionThenRefresh("playCommandFromHand", "hand");
-        return;
-      }
-      console.warn("Hand card activation unsupported for type", cardType);
-      return;
-    }
-    if (selection.kind === "slot") {
-      console.log("Activate effect from slot (placeholder)");
-      this.handleCancelSelection();
-      return;
-    }
-    if (selection.kind === "base") {
-      console.log("Activate effect from base (placeholder)");
-      this.handleCancelSelection();
-    }
-  }
-
-  private buildActionStepDescriptorsForSelection(selection: any, targets: ActionTargetEntry[]) {
-    const descriptors: Array<{ label: string; enabled?: boolean; primary?: boolean; onClick?: () => Promise<void> | void }> = [];
-    const raw = this.deps.engine.getSnapshot().raw as any;
-    if (
-      !selection ||
-      !selectionMatchesActionTarget(selection, targets, raw, this.deps.slotPresenter, this.deps.gameContext.playerId)
-    )
-      return descriptors;
-    if (selection.kind === "hand") {
-      descriptors.push({
-        label: "Trigger Card Effect",
-        primary: true,
-        enabled: true,
-        onClick: async () => {
-          await this.handleActionStepTrigger(selection);
-        },
-      });
-    } else if (selection.kind === "slot") {
-      const raw = this.deps.engine.getSnapshot().raw as any;
-      const slot = getSlotBySelection(selection, raw, this.deps.slotPresenter, this.deps.gameContext.playerId);
-      const pilotHasEffect = this.cardDataHasActionStepWindow(slot?.pilot?.cardData);
-      const unitHasEffect = this.cardDataHasActionStepWindow(slot?.unit?.cardData);
-      if (pilotHasEffect) {
-        descriptors.push({
-          label: "Trigger Pilot Effect",
-          enabled: true,
-          primary: true,
-          onClick: async () => {
-            await this.handlePilotEffectTrigger(slot);
-          },
-        });
-      }
-      if (unitHasEffect) {
-        descriptors.push({
-          label: "Trigger Unit Effect",
-          enabled: true,
-          primary: pilotHasEffect ? false : true,
-          onClick: async () => {
-            await this.handleUnitEffectTrigger(slot);
-          },
-        });
-      }
-      if (!pilotHasEffect && !unitHasEffect) {
-        descriptors.push({
-          label: "Trigger Card Effect",
-          enabled: true,
-          primary: true,
-          onClick: async () => {
-            await this.handleActionStepTrigger(selection);
-          },
-        });
-      }
-    } else {
-      descriptors.push({
-        label: "Trigger Card Effect",
-        primary: true,
-        enabled: true,
-        onClick: async () => {
-          await this.handleActionStepTrigger(selection);
-        },
-      });
-    }
-    descriptors.push({
-      label: "Cancel",
-      enabled: true,
-      onClick: () => {
-        this.handleCancelSelection();
-      },
-    });
-    return descriptors;
+    await this.actionStepTriggerHandler.handleActionStepTrigger(selection);
   }
 
   private async handlePilotEffectTrigger(slot?: SlotViewModel) {
-    console.log("Trigger pilot effect placeholder", slot?.slotId);
-    this.handleCancelSelection();
+    await this.actionStepTriggerHandler.handlePilotEffectTrigger(slot);
   }
 
   private async handleUnitEffectTrigger(slot?: SlotViewModel) {
-    console.log("Trigger unit effect placeholder", slot?.slotId);
-    this.handleCancelSelection();
+    await this.actionStepTriggerHandler.handleUnitEffectTrigger(slot);
   }
 
-  private cardDataHasActionStepWindow(cardData: any) {
-    const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-    return rules.some((r) => {
-      const wins: any[] = Array.isArray(r?.timing?.windows) ? r.timing.windows : [];
-      return wins.some((w) => (w || "").toString().toUpperCase() === "ACTION_STEP");
-    });
-  }
-
-  private slotHasActionStepWindow(slot?: SlotViewModel) {
-    if (!slot) return false;
-    const unitHas = this.cardDataHasActionStepWindow(slot.unit?.cardData);
-    const pilotHas = this.cardDataHasActionStepWindow(slot.pilot?.cardData);
-    return unitHas || pilotHas;
-  }
-
-  private getHandCardData(uid?: string | null) {
-    if (!uid) return null;
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const selfId = this.deps.gameContext.playerId;
-    const hand: any[] = raw?.gameEnv?.players?.[selfId]?.deck?.hand || [];
-    const found = hand.find((c) => {
-      const cid = c?.carduid ?? c?.uid ?? c?.id ?? c?.cardId;
-      return cid === uid;
-    });
-    return found?.cardData;
-  }
-
-
-  private hasActiveBattle() {
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
-    return !!battle;
-  }
-
-  private applyMainPhaseDefaults(raw: any, selection: any, source: ActionSource) {
-    const actions = this.deps.actionControls;
-    if (!raw || !actions) return;
-    const phase = raw?.gameEnv?.phase;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const self = this.deps.gameContext.playerId;
-    const inMainPhase = phase === "MAIN_PHASE" && currentPlayer === self;
-    if (!inMainPhase) {
-      this.lastPhase = phase;
-      this.lastBattleActive = false;
-      return;
-    }
-    const battleActive = this.hasActiveBattle();
-    this.lastBattleActive = battleActive;
-    if (!battleActive && this.lastPhase === "MAIN_PHASE") {
-      if (!selection) {
-        const defaults = this.deps.engine.getAvailableActions("neutral");
-        actions.setState?.({
-          descriptors: this.buildActionDescriptors(defaults),
-        });
-        this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
-        this.lastPhase = phase;
-        return;
-      }
-      // If a selection exists, keep its action bar alive instead of resetting to End Turn.
-      this.refreshActions(selection.kind as ActionSource);
-      this.lastPhase = phase;
-      return;
-    }
-    if (this.lastPhase !== "MAIN_PHASE") {
-      const defaults = this.deps.engine.getAvailableActions(source);
-      actions.setState?.({
-        descriptors: this.buildActionDescriptors(defaults),
-      });
-      this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
-    }
-    this.lastPhase = phase;
-  }
-
-  private updateActionBarState(
-    raw: any,
-    opts: { source: ActionSource; selection?: any } = { source: "neutral" },
-  ) {
-    const actions = this.deps.actionControls;
-    if (!raw || !actions) return;
-    const selection = opts.selection ?? this.deps.engine.getSelection();
-    const isSelfTurn = this.isPlayersTurnFromRaw(raw);
-
-    // Step 0: Action bar waiting indicator (opponent turn disables actions).
-    if (isSelfTurn) {
-      actions.setWaitingForOpponent?.(false);
-    } else {
-      actions.setWaitingForOpponent?.(true);
-    }
-
-    // Step 1: High-priority flows (blocker/attack/battle) override the bar.
-    if (this.blockerFlow.applyActionBar()) return;
-    if (this.attackCoordinator.applyActionBar()) return;
-    if (this.applyBattleActionBar(selection)) return;
-
-    // Step 2: Slot selection actions (attack/cancel) when a player slot is selected.
-    if (this.tryApplySlotActions(selection)) return;
-
-    // Step 3: Main-phase defaults for the current context.
-    this.applyMainPhaseDefaults(raw, selection, opts.source);
-  }
 
   private syncSnapshotState(raw: any, opts: { isSelfTurn?: boolean } = {}) {
-    if (!raw) return;
-    const isSelfTurn = opts.isSelfTurn ?? this.isPlayersTurnFromRaw(raw);
-    if (isSelfTurn) {
-      this.slotGate.enable("phase-turn");
-    } else {
-      this.slotGate.disable("phase-turn");
-    }
-    this.blockerFlow.handleSnapshot(raw);
+    this.turnStateCoordinator.syncSnapshotState(raw, opts);
   }
 
-  private syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
+  syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
     this.syncSnapshotState(snapshotRaw, opts);
-    this.updateActionBarState(snapshotRaw, { source });
+    this.actionBarCoordinator.updateActionBarState(snapshotRaw, { source });
   }
 
-  private isPlayersTurnFromRaw(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.deps.gameContext.playerId;
-  }
-
-  private tryApplySlotActions(selection?: any) {
-    if (selection?.kind !== "slot" || selection.owner !== "player") return false;
-    const opponentHasUnit = this.checkOpponentHasRestedUnit();
-    // Use unit.isRested for attack gating; fieldCardValue no longer carries isRested.
-    const attackerRested = !!this.selectedSlot?.unit?.isRested;
-    const attackerReady = !!this.selectedSlot?.unit?.cardUid && !attackerRested;
-    const slotDescriptors: ActionDescriptor[] = [];
-    if (opponentHasUnit) {
-      slotDescriptors.push({
-        id: "attackUnit",
-        label: "Attack Unit",
-        enabled: attackerReady,
-        primary: true,
-      });
-    }
-    slotDescriptors.push({
-      id: "attackShieldArea",
-      label: "Attack Shield",
-      enabled: attackerReady,
-      primary: !slotDescriptors.some((d) => d.primary),
-    });
-    slotDescriptors.push({
-      id: "cancelSelection",
-      label: "Cancel",
-      enabled: true,
-    });
-    const mapped = slotDescriptors.map((d) => ({
-      label: d.label,
-      enabled: d.enabled,
-      primary: d.primary,
-      onClick: async () => {
-        if (d.id === "attackUnit") {
-          await this.handleAttackUnit();
-          return;
-        }
-        if (d.id === "attackShieldArea") {
-          await this.handleAttackShieldArea();
-          return;
-        }
-        if (d.id === "cancelSelection") {
-          this.handleCancelSelection();
-        }
-      },
-    }));
-    this.deps.actionControls?.setState?.({ descriptors: mapped });
-    return true;
-  }
-
-  private checkOpponentHasRestedUnit() {
-    return this.getOpponentRestedUnitSlots().length > 0;
-  }
-
-  private checkOpponentHasUnit() {
-    const snapshot = this.deps.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    if (!raw) return false;
-    const playerId = this.deps.gameContext.playerId;
-    const slots = this.deps.slotPresenter.toSlots(raw, playerId);
-    return slots.some((s) => s.owner === "opponent" && !!s.unit);
-  }
-
-  private getOpponentRestedUnitSlots(): SlotViewModel[] {
-    return this.getOpponentUnitSlots().filter((slot) => !!slot.unit?.isRested);
-  }
-
-  private getOpponentUnitSlots(): SlotViewModel[] {
-    const snapshot = this.deps.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    if (!raw) return [];
-    const playerId = this.deps.gameContext.playerId;
-    const slots = this.deps.slotPresenter.toSlots(raw, playerId);
-    return slots.filter((s) => s.owner === "opponent" && !!s.unit);
-  }
-
-  private getOpponentPlayerId() {
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const players = raw?.gameEnv?.players || {};
-    const allIds = Object.keys(players);
-    const selfId = this.deps.gameContext.playerId;
-    return allIds.find((id) => id !== selfId);
-  }
-
-  private async performAttackUnit(target: SlotViewModel) {
-    if (!this.selectedSlot?.unit?.cardUid) {
-      console.warn("No attacker selected");
-      return;
-    }
-    const attackerCarduid = this.selectedSlot.unit.cardUid;
-    const targetUnitUid = target.unit?.cardUid;
-    const targetPlayerId = this.getOpponentPlayerId();
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId || !targetUnitUid || !targetPlayerId) {
-      console.warn("Missing data for attackUnit", { gameId, playerId, targetUnitUid, targetPlayerId });
-      return;
-    }
-    const payload = {
-      playerId,
-      gameId,
-      actionType: "attackUnit",
-      attackerCarduid,
-      targetType: "unit",
-      targetUnitUid,
-      targetPlayerId,
-      targetPilotUid: null,
-    };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      console.warn("attackUnit request failed", err);
-      this.handleCancelSelection();
-    }
-  }
 }

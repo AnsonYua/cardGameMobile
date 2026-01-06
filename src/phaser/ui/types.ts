@@ -16,5 +16,11 @@ export type RoundedRectConfig = {
   strokeWidth?: number;
 };
 
-export const toColor = (value: number | string) =>
-  typeof value === "number" ? value : Phaser.Display.Color.HexStringToColor(value).color;
+export const toColor = (value: number | string) => {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Phaser.Display.Color.HexStringToColor(value).color;
+  if (value && typeof value === "object" && "color" in value && typeof (value as any).color === "number") {
+    return (value as any).color;
+  }
+  return 0xffffff;
+};
