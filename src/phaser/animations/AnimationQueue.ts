@@ -26,6 +26,7 @@ export class AnimationQueue {
       cardPlayAnimator: NotificationAnimationController;
       battleAnimator: BattleAnimationManager;
       attackIndicator: AttackIndicatorController;
+      phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
       slotControls?: { playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void } | null;
     },
     private opts: {

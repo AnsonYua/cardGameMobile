@@ -40,6 +40,7 @@ export function createAnimationPipeline(deps: {
   slotControls: SlotControls | null;
   handControls: HandControls | null;
   drawPopupDialog?: DrawPopupDialog;
+  phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   getSlotsFromRaw: (raw: any) => SlotViewModel[];
@@ -82,6 +83,9 @@ export function createAnimationPipeline(deps: {
     cardPlayAnimator: notificationAnimator,
     battleAnimator: battleAnimations,
     attackIndicator: attackIndicatorController,
+    phasePopup: deps.phaseChangeDialog
+      ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
+      : undefined,
     slotControls: deps.slotControls,
   });
   const slotAnimationRender = new SlotAnimationRenderController(deps.getSlotsFromRaw);

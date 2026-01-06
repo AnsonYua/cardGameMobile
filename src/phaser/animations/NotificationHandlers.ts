@@ -11,6 +11,7 @@ export function buildNotificationHandlers(
     cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
   },
   helpers: {
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -76,6 +77,14 @@ export function buildNotificationHandlers(
       "CARD_STAT_MODIFIED",
       async (event, ctx) => {
         await helpers.triggerStatPulse(event, ctx);
+      },
+    ],
+    [
+      "PHASE_CHANGED",
+      async (event) => {
+        const nextPhase = event?.payload?.nextPhase;
+        if (!nextPhase) return;
+        await Promise.resolve(deps.phasePopup?.showPhaseChange(nextPhase));
       },
     ],
   ]);
