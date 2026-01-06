@@ -554,8 +554,8 @@ export class BoardScene extends Phaser.Scene {
 
   private refreshActionBarState(raw: any) {
     const playerId = this.gameContext.playerId;
-    const isLocalTurn = this.turnController.update(raw, playerId);
-    this.selectionAction?.updateActionBarForPhase(raw, { isLocalTurn });
+    const isSelfTurn = this.turnController.update(raw, playerId);
+    this.selectionAction?.updateActionBarForPhase(raw, { isSelfTurn });
   }
 
   private getTargetAnchorProviders(): TargetAnchorProviders {

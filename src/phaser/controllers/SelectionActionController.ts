@@ -179,68 +179,7 @@ export class SelectionActionController {
   }
 
   refreshActions(source: ActionSource = "neutral") {
-    console.log("[refreshActions] source", source, "selection", this.deps.engine.getSelection());
-    const raw = this.deps.engine.getSnapshot().raw as any;
-    this.blockerFlow.handleSnapshot(raw);
-    if (this.blockerFlow.applyActionBar()) {
-      return;
-    }
-    if (this.attackCoordinator.applyActionBar()) {
-      return;
-    }
-    const selection = this.deps.engine.getSelection();
-    if (this.applyBattleActionBar(selection)) {
-      return;
-    }
-    if (source === "slot" && selection?.kind === "slot" && selection.owner === "player") {
-      const opponentHasUnit = this.checkOpponentHasRestedUnit();
-      // Use unit.isRested for attack gating; fieldCardValue no longer carries isRested.
-      const attackerRested = !!this.selectedSlot?.unit?.isRested;
-      const attackerReady = !!this.selectedSlot?.unit?.cardUid && !attackerRested;
-      const slotDescriptors: ActionDescriptor[] = [];
-      if (opponentHasUnit) {
-        slotDescriptors.push({
-          id: "attackUnit",
-          label: "Attack Unit",
-          enabled: attackerReady,
-          primary: true,
-        });
-      }
-      slotDescriptors.push({
-        id: "attackShieldArea",
-        label: "Attack Shield",
-        enabled: attackerReady,
-        primary: !slotDescriptors.some((d) => d.primary),
-      });
-      slotDescriptors.push({
-        id: "cancelSelection",
-        label: "Cancel",
-        enabled: true,
-      });
-      const mapped = slotDescriptors.map((d) => ({
-        label: d.label,
-        enabled: d.enabled,
-        primary: d.primary,
-        onClick: async () => {
-          if (d.id === "attackUnit") {
-            await this.handleAttackUnit();
-            return;
-          }
-          if (d.id === "attackShieldArea") {
-            await this.handleAttackShieldArea();
-            return;
-          }
-          if (d.id === "cancelSelection") {
-            this.handleCancelSelection();
-          }
-        },
-      }));
-      this.deps.actionControls?.setState?.({ descriptors: mapped });
-      return;
-    }
-    const descriptors = this.deps.engine.getAvailableActions(source);
-    const mapped = this.buildActionDescriptors(descriptors);
-    this.deps.actionControls?.setState?.({ descriptors: mapped });
+    this.syncAndUpdateActionBar(source);
   }
 
   refreshAfterStateChange(actionSource: ActionSource = "neutral") {
@@ -272,8 +211,8 @@ export class SelectionActionController {
     this.refreshAfterStateChange(actionSource);
   }
 
-  updateActionBarForPhase(raw: any, opts: { isLocalTurn: boolean }) {
-    this.applyMainPhaseDefaults(raw, opts);
+  updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {
+    this.syncAndUpdateActionBar("neutral", raw, { isSelfTurn: opts.isSelfTurn });
   }
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
@@ -459,7 +398,7 @@ export class SelectionActionController {
     this.lastBattleStatus = payload.status;
     if (payload.active && status === "ACTION_STEP") {
       // When entering action step, recompute the action bar based on current selection.
-      this.applyBattleActionBar(this.deps.engine.getSelection());
+      this.syncAndUpdateActionBar("neutral");
     } else if (wasActive && !payload.active) {
       // On exit, restore neutral actions.
       this.refreshActions("neutral");
@@ -608,26 +547,9 @@ export class SelectionActionController {
     return !!battle;
   }
 
-  private applyMainPhaseDefaults(raw: any, opts: { isLocalTurn: boolean }) {
+  private applyMainPhaseDefaults(raw: any, selection: any, source: ActionSource) {
     const actions = this.deps.actionControls;
     if (!raw || !actions) return;
-    // Turn gating: local turn enables slot actions and clears waiting state.
-    if (opts.isLocalTurn) {
-      this.slotGate.enable("phase-turn");
-      this.deps.actionControls?.setWaitingForOpponent?.(false);
-    } else {
-      this.slotGate.disable("phase-turn");
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-    }
-    // Battle/response flows take priority over main-phase defaults.
-    this.blockerFlow.handleSnapshot(raw);
-    if (this.blockerFlow.applyActionBar()) {
-      return;
-    }
-    if (this.attackCoordinator.applyActionBar()) {
-      return;
-    }
-    // Fall back to main-phase actions when no other flow owns the bar.
     const phase = raw?.gameEnv?.phase;
     const currentPlayer = raw?.gameEnv?.currentPlayer;
     const self = this.deps.gameContext.playerId;
@@ -639,13 +561,7 @@ export class SelectionActionController {
     }
     const battleActive = this.hasActiveBattle();
     this.lastBattleActive = battleActive;
-    // Always reevaluate battle UI while in MAIN_PHASE so ACTION_STEP updates the bar even without a phase change.
-    if (this.applyBattleActionBar(this.deps.engine.getSelection())) {
-      this.lastPhase = phase;
-      return;
-    }
     if (!battleActive && this.lastPhase === "MAIN_PHASE") {
-      const selection = this.deps.engine.getSelection();
       if (!selection) {
         const defaults = this.deps.engine.getAvailableActions("neutral");
         actions.setState?.({
@@ -661,13 +577,111 @@ export class SelectionActionController {
       return;
     }
     if (this.lastPhase !== "MAIN_PHASE") {
-      const defaults = this.deps.engine.getAvailableActions("neutral");
+      const defaults = this.deps.engine.getAvailableActions(source);
       actions.setState?.({
         descriptors: this.buildActionDescriptors(defaults),
       });
       this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
     }
     this.lastPhase = phase;
+  }
+
+  private updateActionBarState(
+    raw: any,
+    opts: { source: ActionSource; selection?: any } = { source: "neutral" },
+  ) {
+    const actions = this.deps.actionControls;
+    if (!raw || !actions) return;
+    const selection = opts.selection ?? this.deps.engine.getSelection();
+    const isSelfTurn = this.isPlayersTurnFromRaw(raw);
+
+    // Step 0: Action bar waiting indicator (opponent turn disables actions).
+    if (isSelfTurn) {
+      actions.setWaitingForOpponent?.(false);
+    } else {
+      actions.setWaitingForOpponent?.(true);
+    }
+
+    // Step 1: High-priority flows (blocker/attack/battle) override the bar.
+    if (this.blockerFlow.applyActionBar()) return;
+    if (this.attackCoordinator.applyActionBar()) return;
+    if (this.applyBattleActionBar(selection)) return;
+
+    // Step 2: Slot selection actions (attack/cancel) when a player slot is selected.
+    if (this.tryApplySlotActions(selection)) return;
+
+    // Step 3: Main-phase defaults for the current context.
+    this.applyMainPhaseDefaults(raw, selection, opts.source);
+  }
+
+  private syncSnapshotState(raw: any, opts: { isSelfTurn?: boolean } = {}) {
+    if (!raw) return;
+    const isSelfTurn = opts.isSelfTurn ?? this.isPlayersTurnFromRaw(raw);
+    if (isSelfTurn) {
+      this.slotGate.enable("phase-turn");
+    } else {
+      this.slotGate.disable("phase-turn");
+    }
+    this.blockerFlow.handleSnapshot(raw);
+  }
+
+  private syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
+    const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
+    this.syncSnapshotState(snapshotRaw, opts);
+    this.updateActionBarState(snapshotRaw, { source });
+  }
+
+  private isPlayersTurnFromRaw(raw: any) {
+    const currentPlayer = raw?.gameEnv?.currentPlayer;
+    return currentPlayer === this.deps.gameContext.playerId;
+  }
+
+  private tryApplySlotActions(selection?: any) {
+    if (selection?.kind !== "slot" || selection.owner !== "player") return false;
+    const opponentHasUnit = this.checkOpponentHasRestedUnit();
+    // Use unit.isRested for attack gating; fieldCardValue no longer carries isRested.
+    const attackerRested = !!this.selectedSlot?.unit?.isRested;
+    const attackerReady = !!this.selectedSlot?.unit?.cardUid && !attackerRested;
+    const slotDescriptors: ActionDescriptor[] = [];
+    if (opponentHasUnit) {
+      slotDescriptors.push({
+        id: "attackUnit",
+        label: "Attack Unit",
+        enabled: attackerReady,
+        primary: true,
+      });
+    }
+    slotDescriptors.push({
+      id: "attackShieldArea",
+      label: "Attack Shield",
+      enabled: attackerReady,
+      primary: !slotDescriptors.some((d) => d.primary),
+    });
+    slotDescriptors.push({
+      id: "cancelSelection",
+      label: "Cancel",
+      enabled: true,
+    });
+    const mapped = slotDescriptors.map((d) => ({
+      label: d.label,
+      enabled: d.enabled,
+      primary: d.primary,
+      onClick: async () => {
+        if (d.id === "attackUnit") {
+          await this.handleAttackUnit();
+          return;
+        }
+        if (d.id === "attackShieldArea") {
+          await this.handleAttackShieldArea();
+          return;
+        }
+        if (d.id === "cancelSelection") {
+          this.handleCancelSelection();
+        }
+      },
+    }));
+    this.deps.actionControls?.setState?.({ descriptors: mapped });
+    return true;
   }
 
   private checkOpponentHasRestedUnit() {

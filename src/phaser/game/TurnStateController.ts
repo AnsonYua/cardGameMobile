@@ -1,14 +1,14 @@
 export class TurnStateController {
-  private lastLocalTurn = true;
+  private lastSelfTurn = true;
 
   update(raw: any, localPlayerId: string) {
     const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const isLocalTurn = !!currentPlayer && currentPlayer === localPlayerId;
-    this.lastLocalTurn = isLocalTurn;
-    return isLocalTurn;
+    const isSelfTurn = !!currentPlayer && currentPlayer === localPlayerId;
+    this.lastSelfTurn = isSelfTurn;
+    return isSelfTurn;
   }
 
-  isLocalTurn() {
-    return this.lastLocalTurn;
+  isSelfTurn() {
+    return this.lastSelfTurn;
   }
 }
