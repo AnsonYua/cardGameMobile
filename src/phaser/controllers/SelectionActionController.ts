@@ -273,22 +273,7 @@ export class SelectionActionController {
   }
 
   updateActionBarForPhase(raw: any, opts: { isLocalTurn: boolean }) {
-    console.log("[updateActionBarForPhase] entry", "isLocalTurn", opts.isLocalTurn);
-    if (opts.isLocalTurn) {
-      this.slotGate.enable("phase-turn");
-      this.deps.actionControls?.setWaitingForOpponent?.(false);
-    } else {
-      this.slotGate.disable("phase-turn");
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-    }
-    this.blockerFlow.handleSnapshot(raw);
-    if (this.blockerFlow.applyActionBar()) {
-      return;
-    }
-    if (this.attackCoordinator.applyActionBar()) {
-      return;
-    }
-    this.applyMainPhaseDefaults(raw);
+    this.applyMainPhaseDefaults(raw, opts);
   }
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
@@ -623,14 +608,30 @@ export class SelectionActionController {
     return !!battle;
   }
 
-  private applyMainPhaseDefaults(raw: any) {
+  private applyMainPhaseDefaults(raw: any, opts: { isLocalTurn: boolean }) {
     const actions = this.deps.actionControls;
     if (!raw || !actions) return;
+    // Turn gating: local turn enables slot actions and clears waiting state.
+    if (opts.isLocalTurn) {
+      this.slotGate.enable("phase-turn");
+      this.deps.actionControls?.setWaitingForOpponent?.(false);
+    } else {
+      this.slotGate.disable("phase-turn");
+      this.deps.actionControls?.setWaitingForOpponent?.(true);
+    }
+    // Battle/response flows take priority over main-phase defaults.
+    this.blockerFlow.handleSnapshot(raw);
+    if (this.blockerFlow.applyActionBar()) {
+      return;
+    }
+    if (this.attackCoordinator.applyActionBar()) {
+      return;
+    }
+    // Fall back to main-phase actions when no other flow owns the bar.
     const phase = raw?.gameEnv?.phase;
     const currentPlayer = raw?.gameEnv?.currentPlayer;
     const self = this.deps.gameContext.playerId;
     const inMainPhase = phase === "MAIN_PHASE" && currentPlayer === self;
-    console.log("[applyMainPhaseDefaults] phase", phase, "currentPlayer", currentPlayer, "self", self, "inMainPhase", inMainPhase);
     if (!inMainPhase) {
       this.lastPhase = phase;
       this.lastBattleActive = false;

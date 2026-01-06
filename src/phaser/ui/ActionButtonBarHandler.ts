@@ -67,6 +67,8 @@ export class ActionButtonBarHandler {
     this.state = {
       descriptors: next.descriptors ?? this.state.descriptors,
     };
+    // eslint-disable-next-line no-console
+    console.log("[ActionBar] setState", { count: this.state.descriptors.length });
     this.draw(this.lastOffset);
   }
 
@@ -83,6 +85,8 @@ export class ActionButtonBarHandler {
   setWaitingForOpponent(waiting: boolean, overrideButtons?: ActionButtonConfig[]) {
     this.waitingMode = waiting;
     this.waitingOverride = overrideButtons?.length ? overrideButtons : null;
+    // eslint-disable-next-line no-console
+    console.log("[ActionBar] waiting", { waiting, overrideCount: this.waitingOverride?.length ?? 0 });
     this.draw(this.lastOffset);
   }
 
@@ -156,6 +160,15 @@ export class ActionButtonBarHandler {
     });
 
     if (!renderButtons.length) {
+      // eslint-disable-next-line no-console
+      console.warn("[ActionBar] no renderable buttons", {
+        waitingMode: this.waitingMode,
+        descriptors: sourceDescriptors.map((btn) => ({
+          label: btn.label,
+          enabled: btn.enabled,
+          primary: btn.primary,
+        })),
+      });
       return;
     }
 
