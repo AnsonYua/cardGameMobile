@@ -68,13 +68,14 @@ export class NotificationAnimationController {
     if (!allowAnimations) return Promise.resolve();
     if (!note || !note.id) return Promise.resolve();
     const type = (note.type || "").toUpperCase();
-    if (type !== "CARD_DRAWN") return Promise.resolve();
-    const task = this.buildCardDrawnTask(note.payload ?? {}, args);
+    if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return Promise.resolve();
+    const header = type === "CARD_ADDED_TO_HAND" ? "Card Added to Hand" : "Card Drawn";
+    const task = this.buildCardDrawnTask(note.payload ?? {}, args, header);
     if (!task) return Promise.resolve();
     return task();
   }
 
-  private buildCardDrawnTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
+  private buildCardDrawnTask(payload: any, ctx: ProcessArgs, header: string): (() => Promise<void>) | null {
     const playerId = payload?.playerId ?? "";
     if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
     const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
@@ -89,6 +90,7 @@ export class NotificationAnimationController {
           cardId: card?.id ?? payload.carduid,
         },
         popupCard,
+        header,
       );
   }
 
@@ -260,13 +262,13 @@ export class NotificationAnimationController {
     return { x: cam.centerX, y, isOpponent: !isSelf };
   }
 
-  private showDrawPopup(card: HandCardView, popupCard?: any) {
+  private showDrawPopup(card: HandCardView, popupCard?: any, header?: string) {
     const cam = this.deps.scene.cameras.main;
     const centerX = cam.centerX;
     const centerY = cam.centerY;
     if (this.deps.showCardPopup) {
       return this.deps.showCardPopup(popupCard ?? card, {
-        header: "Card Drawn",
+        header: header ?? "Card Drawn",
         fadeInMs: this.drawPopupTimings.fadeInMs,
         holdMs: this.drawPopupTimings.holdMs,
         fadeOutMs: this.drawPopupTimings.fadeOutMs,
@@ -277,7 +279,7 @@ export class NotificationAnimationController {
     const bg = this.deps.scene.add.rectangle(0, 0, 220, 200, 0x0f1118, 0.92);
     bg.setStrokeStyle(2, 0xffffff, 0.8);
     const title = this.deps.scene.add
-      .text(0, -70, "Card Drawn", { fontSize: "18px", fontFamily: "Arial", color: "#ffffff" })
+      .text(0, -70, header ?? "Card Drawn", { fontSize: "18px", fontFamily: "Arial", color: "#ffffff" })
       .setOrigin(0.5);
     const cardContainer = this.deps.scene.add.container(0, 6);
     if (this.deps.renderHandPreview) {

@@ -43,6 +43,18 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "CARD_ADDED_TO_HAND",
+      async (event, ctx) => {
+        await deps.cardPlayAnimator.playCardDrawn(event, {
+          slots: ctx.slots,
+          currentPlayerId: ctx.currentPlayerId,
+          allowAnimations: ctx.allowAnimations,
+          cardLookup: ctx.cardLookup,
+          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
+        });
+      },
+    ],
+    [
       "UNIT_ATTACK_DECLARED",
       async (event, ctx) => {
         await deps.attackIndicator.updateFromNotification(

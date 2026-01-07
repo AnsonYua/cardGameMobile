@@ -480,7 +480,8 @@ export class BoardScene extends Phaser.Scene {
     if (!notifications.length) return false;
     return notifications.some((note) => {
       if (!note?.id) return false;
-      if ((note.type || "").toUpperCase() !== "CARD_DRAWN") return false;
+      const type = (note.type || "").toUpperCase();
+      if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return false;
       if (note.payload?.playerId !== playerId) return false;
       return !this.animationQueue?.isProcessed(note.id);
     });
@@ -488,7 +489,8 @@ export class BoardScene extends Phaser.Scene {
 
   private shouldRefreshHandForEvent(event: { type?: string; payload?: any }) {
     if (!event) return false;
-    if ((event.type || "").toUpperCase() !== "CARD_DRAWN") return false;
+    const type = (event.type || "").toUpperCase();
+    if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return false;
     const playerId = event.payload?.playerId;
     return !!playerId && playerId === this.gameContext.playerId;
   }
