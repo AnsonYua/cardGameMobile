@@ -70,6 +70,7 @@ export function buildNotificationHandlers(
           event,
           ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,
           ctx.boardSlotPositions ?? undefined,
+          ctx.currentRaw,
         );
       },
     ],

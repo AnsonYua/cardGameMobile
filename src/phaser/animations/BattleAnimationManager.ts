@@ -12,6 +12,7 @@ type BattleAnimationManagerConfig = {
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
   createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined;
+  getSlotsFromRaw?: (raw: any) => SlotViewModel[];
 };
 
 type BattleSpriteSeed = {
@@ -39,7 +40,12 @@ export class BattleAnimationManager {
     this.fx = new FxToolkit(config.scene);
   }
 
-  async playBattleResolution(event: SlotNotification, slots?: SlotViewModel[], positions?: SlotPositionMap | null) {
+  async playBattleResolution(
+    event: SlotNotification,
+    slots?: SlotViewModel[],
+    positions?: SlotPositionMap | null,
+    raw?: any,
+  ) {
     if (!event) return;
     if ((event.type || "").toUpperCase() !== "BATTLE_RESOLVED") return;
     const payload = event.payload || {};
@@ -51,7 +57,8 @@ export class BattleAnimationManager {
       console.log("[BattleAnimation] missing snapshot for battle", attackId, event.id, payload?.battleType);
       return;
     }
-    await this.playBattleResolutionAnimation(snapshot, payload);
+    const rawSlots = raw && this.config.getSlotsFromRaw ? this.config.getSlotsFromRaw(raw) : undefined;
+    await this.playBattleResolutionAnimation(snapshot, payload, rawSlots);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
   }
@@ -123,11 +130,16 @@ export class BattleAnimationManager {
     };
   }
 
-  private async playBattleResolutionAnimation(snapshot: PendingBattleSnapshot, payload: any): Promise<void> {
+  private async playBattleResolutionAnimation(
+    snapshot: PendingBattleSnapshot,
+    payload: any,
+    rawSlots?: SlotViewModel[],
+  ): Promise<void> {
     const attackerSeed = snapshot.attacker;
     if (!attackerSeed) {
       return;
     }
+    const resolved = this.resolveBattleResult(snapshot, payload, rawSlots);
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] start", snapshot.attackId, payload?.battleType, Date.now());
     const hideSlot = (seed?: BattleSpriteSeed) => {
@@ -158,9 +170,8 @@ export class BattleAnimationManager {
       });
       await this.playImpactEffects(attackerSprite, targetSprite, targetPoint);
 
-    const result = payload?.result || {};
     const cleanupTasks: Promise<void>[] = [];
-    if (result.attackerDestroyed) {
+    if (resolved.attackerDestroyed) {
       cleanupTasks.push(this.fadeOutAndDestroy(attackerSprite));
     } else {
       // Return attacker to origin if it survives.
@@ -176,7 +187,7 @@ export class BattleAnimationManager {
     }
 
     if (targetSprite) {
-      if (result.defenderDestroyed) {
+      if (resolved.defenderDestroyed) {
         cleanupTasks.push(this.fadeOutAndDestroy(targetSprite));
       } else {
         // Pulse target to show impact without removing it.
@@ -188,8 +199,12 @@ export class BattleAnimationManager {
       this.destroyBattleSprite(attackerSprite);
       this.destroyBattleSprite(targetSprite);
     } finally {
-      showSlot(attackerSeed);
-      showSlot(snapshot.target);
+      if (!resolved.attackerDestroyed) {
+        showSlot(attackerSeed);
+      }
+      if (!resolved.defenderDestroyed) {
+        showSlot(snapshot.target);
+      }
     }
     // eslint-disable-next-line no-console
     console.log("[BattleAnimation] end", snapshot.attackId, payload?.battleType, Date.now());
@@ -400,4 +415,75 @@ export class BattleAnimationManager {
     return { id, textureKey, cardType: card.cardData?.cardType, isRested: card.isRested, cardData: card.cardData, cardUid };
   }
 
+  private resolveBattleResult(
+    snapshot: PendingBattleSnapshot,
+    payload: any,
+    rawSlots?: SlotViewModel[],
+  ): { attackerDestroyed: boolean; defenderDestroyed: boolean } {
+    const result = payload?.result ?? {};
+    let attackerDestroyed = this.coerceOptionalBool(result.attackerDestroyed);
+    let defenderDestroyed = this.coerceOptionalBool(result.defenderDestroyed);
+
+    if (attackerDestroyed == null || defenderDestroyed == null) {
+      const attackerAp = this.getSeedStat(snapshot.attacker, "ap");
+      const attackerHp = this.getSeedStat(snapshot.attacker, "hp");
+      const targetAp = this.getSeedStat(snapshot.target, "ap");
+      const targetHp = this.getSeedStat(snapshot.target, "hp");
+      if (defenderDestroyed == null && attackerAp != null && targetHp != null) {
+        defenderDestroyed = attackerAp >= targetHp;
+      }
+      if (attackerDestroyed == null && targetAp != null && attackerHp != null) {
+        attackerDestroyed = targetAp >= attackerHp;
+      }
+    }
+
+    if (rawSlots?.length) {
+      const attackerUid = this.resolveSeedUid(snapshot.attacker, payload, "attacker");
+      const targetUid = this.resolveSeedUid(snapshot.target, payload, "target");
+      if (attackerUid && !this.isUidInSlots(rawSlots, attackerUid)) {
+        attackerDestroyed = true;
+      }
+      if (targetUid && !this.isUidInSlots(rawSlots, targetUid)) {
+        defenderDestroyed = true;
+      }
+    }
+
+    return {
+      attackerDestroyed: !!attackerDestroyed,
+      defenderDestroyed: !!defenderDestroyed,
+    };
+  }
+
+  private getSeedStat(seed: BattleSpriteSeed | undefined, stat: "ap" | "hp"): number | undefined {
+    const slotValue =
+      stat === "ap"
+        ? seed?.slot?.fieldCardValue?.totalAP ?? seed?.slot?.ap
+        : seed?.slot?.fieldCardValue?.totalHP ?? seed?.slot?.hp;
+    if (typeof slotValue === "number") return slotValue;
+    const cardValue = stat === "ap" ? seed?.card?.cardData?.ap : seed?.card?.cardData?.hp;
+    return typeof cardValue === "number" ? cardValue : undefined;
+  }
+
+  private resolveSeedUid(seed: BattleSpriteSeed | undefined, payload: any, role: "attacker" | "target") {
+    if (seed?.card?.cardUid) return seed.card.cardUid;
+    if (role === "attacker") {
+      return payload?.attacker?.carduid ?? payload?.attackerCarduid ?? payload?.attackerUnitUid;
+    }
+    return (
+      payload?.forcedTargetCarduid ??
+      payload?.target?.carduid ??
+      payload?.targetCarduid ??
+      payload?.targetUnitUid
+    );
+  }
+
+  private isUidInSlots(slots: SlotViewModel[], uid: string) {
+    return slots.some((slot) => slot.unit?.cardUid === uid || slot.pilot?.cardUid === uid);
+  }
+
+  private coerceOptionalBool(value: unknown) {
+    if (value === true) return true;
+    if (value === false) return false;
+    return null;
+  }
 }

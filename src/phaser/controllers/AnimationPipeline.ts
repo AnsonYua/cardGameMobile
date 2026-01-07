@@ -51,6 +51,7 @@ export function createAnimationPipeline(deps: {
     resolveSlotOwnerByPlayer: deps.resolveSlotOwnerByPlayer,
     setSlotVisible: (owner, slotId, visible) => deps.slotControls?.setSlotVisible?.(owner, slotId, visible),
     createSlotSprite: (slot, size) => deps.slotControls?.createSlotSprite?.(slot, size) ?? undefined,
+    getSlotsFromRaw: deps.getSlotsFromRaw,
   });
   deps.slotControls?.setPlayAnimations?.(false);
   const cardFlightAnimator = new PlayCardAnimationManager(deps.scene);
