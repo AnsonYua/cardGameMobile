@@ -24,14 +24,15 @@ export class AnimationQueue {
   constructor(
     private deps: {
       cardPlayAnimator: NotificationAnimationController;
-      battleAnimator: BattleAnimationManager;
-      attackIndicator: AttackIndicatorController;
-      phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
-      mulliganDialog?: {
-        showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
-      };
-      slotControls?: { playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void } | null;
-    },
+    battleAnimator: BattleAnimationManager;
+    attackIndicator: AttackIndicatorController;
+    phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
+    mulliganDialog?: {
+      showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
+    };
+    startGame?: () => void;
+    slotControls?: { playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void } | null;
+  },
     private opts: {
       maxProcessed?: number;
     } = {},

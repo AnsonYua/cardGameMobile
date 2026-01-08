@@ -15,6 +15,7 @@ export function buildNotificationHandlers(
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
     };
+    startGame?: () => void;
   },
   helpers: {
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;

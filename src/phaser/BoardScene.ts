@@ -136,6 +136,7 @@ export class BoardScene extends Phaser.Scene {
       drawPopupDialog: this.drawPopupDialogUi,
       mulliganDialog: this.mulliganDialogUi,
       phaseChangeDialog: this.phaseChangeDialogUi,
+      startGame: () => this.startGame(),
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
       getSlotsFromRaw: (data) => this.slotPresenter.toSlots(data, this.gameContext.playerId),
@@ -170,9 +171,6 @@ export class BoardScene extends Phaser.Scene {
       if (payload.active && status === "ACTION_STEP") {
         this.headerControls?.setStatusFromEngine?.("Action Step", { offlineFallback: this.offlineFallback });
       }
-    });
-    this.engine.events.on(ENGINE_EVENTS.PHASE_REDRAW, () => {
-      this.startGame();
     });
     this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, (snapshot: GameStatusSnapshot) => {
       this.mainPhaseUpdate(false, snapshot);
