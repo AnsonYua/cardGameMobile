@@ -1,12 +1,18 @@
 import Phaser from "phaser";
 import { FieldConfig, FieldHandler } from "../ui/FieldHandler";
+import { SlotPositionMap } from "../ui/SlotTypes";
 
 export class ShuffleAnimationManager {
   private playerCards: Phaser.GameObjects.Image[] = [];
   private opponentCards: Phaser.GameObjects.Image[] = [];
   private config: FieldConfig = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
-  private playerDeckSprite: Phaser.GameObjects.Image | null = null;
-  private opponentDeckSprite: Phaser.GameObjects.Image | null = null;
+  private playerDeckSprite: Phaser.GameObjects.GameObject | null = null;
+  private opponentDeckSprite: Phaser.GameObjects.GameObject | null = null;
+  private slotOrder = {
+    opponent: ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"],
+    player: ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"],
+  };
+  private getSlotPositions?: () => SlotPositionMap | undefined;
   private hideDeckVisual(owner: "opponent" | "player") {
     this.scene.children.list
       .filter((c: any) => typeof c.name === "string" && (c.name === `deck-pile-${owner}` || c.name === `deck-pile-text-${owner}`))
@@ -18,7 +24,13 @@ export class ShuffleAnimationManager {
       .forEach((c: any) => c.setVisible(true));
   }
 
-  constructor(private scene: Phaser.Scene, private offset: { x: number; y: number }) {}
+  constructor(
+    private scene: Phaser.Scene,
+    private offset: { x: number; y: number },
+    opts?: { getSlotPositions?: () => SlotPositionMap | undefined },
+  ) {
+    this.getSlotPositions = opts?.getSlotPositions;
+  }
 
   play(onComplete?: () => void): Promise<void> {
     let resolvePromise: () => void;
@@ -51,12 +63,12 @@ export class ShuffleAnimationManager {
     this.playerCards = [];
     this.opponentCards = [];
 
-    const playerDeck = this.getDeckPosition(false);
-    const opponentDeck = this.getDeckPosition(true);
+    const playerDeck = this.getDeckStackConfig(false);
+    const opponentDeck = this.getDeckStackConfig(true);
 
     // Hide main deck sprites while shuffle runs
-    this.playerDeckSprite = this.scene.children.getByName("playerDeck") as Phaser.GameObjects.Image;
-    this.opponentDeckSprite = this.scene.children.getByName("opponentDeck") as Phaser.GameObjects.Image;
+    this.playerDeckSprite = this.scene.children.getByName("deck-pile-player") as Phaser.GameObjects.GameObject;
+    this.opponentDeckSprite = this.scene.children.getByName("deck-pile-opponent") as Phaser.GameObjects.GameObject;
     this.playerDeckSprite?.setVisible(false);
     this.opponentDeckSprite?.setVisible(false);
 
@@ -64,20 +76,20 @@ export class ShuffleAnimationManager {
       const imgKey = this.scene.textures.exists("deckBack") ? "deckBack" : undefined;
       const pCard = imgKey
         ? this.scene.add.image(playerDeck.x, playerDeck.y, imgKey)
-        : (this.scene.add.rectangle(playerDeck.x, playerDeck.y, this.config.deckW, this.config.deckH, 0x5e48f0) as any);
-      pCard.setDisplaySize(this.config.deckW, this.config.deckH).setDepth(100 + i);
+        : (this.scene.add.rectangle(playerDeck.x, playerDeck.y, playerDeck.w, playerDeck.h, 0x5e48f0) as any);
+      pCard.setDisplaySize(playerDeck.w, playerDeck.h).setDepth(100 + i);
       this.playerCards.push(pCard as Phaser.GameObjects.Image);
 
       const oCard = imgKey
         ? this.scene.add.image(opponentDeck.x, opponentDeck.y, imgKey)
-        : (this.scene.add.rectangle(opponentDeck.x, opponentDeck.y, this.config.deckW, this.config.deckH, 0x5e48f0) as any);
-      oCard.setDisplaySize(this.config.deckW, this.config.deckH).setDepth(100 + i);
+        : (this.scene.add.rectangle(opponentDeck.x, opponentDeck.y, opponentDeck.w, opponentDeck.h, 0x5e48f0) as any);
+      oCard.setDisplaySize(opponentDeck.w, opponentDeck.h).setDepth(100 + i);
       this.opponentCards.push(oCard as Phaser.GameObjects.Image);
     }
   }
 
   private shuffleSide(isOpponent: boolean, done: () => void) {
-    const deckPos = this.getDeckPosition(isOpponent);
+    const deckPos = this.getDeckStackConfig(isOpponent);
     const slots = this.getBoardSlotPositions(isOpponent);
     const cards = isOpponent ? this.opponentCards : this.playerCards;
     const deckSprite = isOpponent ? this.opponentDeckSprite : this.playerDeckSprite;
@@ -142,6 +154,22 @@ export class ShuffleAnimationManager {
   }
 
   private getBoardSlotPositions(isOpponent: boolean) {
+    const liveSlots = this.getSlotPositions?.();
+    if (liveSlots) {
+      const ownerKey = isOpponent ? "opponent" : "player";
+      const slotMap = liveSlots[ownerKey];
+      const ordered = (isOpponent ? this.slotOrder.opponent : this.slotOrder.player)
+        .map((slotId) => slotMap?.[slotId])
+        .filter(Boolean) as { x: number; y: number }[];
+      if (ordered.length) {
+        return ordered;
+      }
+      const fallback = Object.values(slotMap || {}).map((slot) => ({ x: slot.x, y: slot.y }));
+      if (fallback.length) {
+        return fallback;
+      }
+    }
+
     const { slotW, slotH, gap, cols, rows } = this.config;
     const centerX = this.config.side[isOpponent ? "opponent" : "player"].centerX + this.offset.x;
     const originY = this.config.side[isOpponent ? "opponent" : "player"].originY + this.offset.y;
@@ -178,6 +206,18 @@ export class ShuffleAnimationManager {
       ? originY + cfg.deckH / 2 + pileGap / 2 + pileYOffset
       : originY - cfg.deckH / 2 - pileGap / 2 + pileYOffset;
     return { x: pileX, y: deckY };
+  }
+
+  private getDeckStackConfig(isOpponent: boolean) {
+    const owner = isOpponent ? "opponent" : "player";
+    const deckSprite = this.scene.children.getByName(`deck-pile-${owner}`) as Phaser.GameObjects.GameObject | null;
+    if (deckSprite && "x" in deckSprite && "y" in deckSprite) {
+      const w = "displayWidth" in deckSprite ? deckSprite.displayWidth : this.config.deckW;
+      const h = "displayHeight" in deckSprite ? deckSprite.displayHeight : this.config.deckH;
+      return { x: deckSprite.x, y: deckSprite.y, w, h };
+    }
+    const fallback = this.getDeckPosition(isOpponent);
+    return { x: fallback.x, y: fallback.y, w: this.config.deckW, h: this.config.deckH };
   }
 
   private cleanup() {

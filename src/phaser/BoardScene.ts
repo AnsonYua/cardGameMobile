@@ -119,7 +119,9 @@ export class BoardScene extends Phaser.Scene {
       text: colors.text,
       bg: colors.bg,
     });
-    this.shuffleManager = new ShuffleAnimationManager(this, this.offset);
+    this.shuffleManager = new ShuffleAnimationManager(this, this.offset, {
+      getSlotPositions: () => this.slotControls?.getBoardSlotPositions?.(),
+    });
     this.baseControls = this.ui.getBaseControls();
     this.trashControls = this.ui.getTrashControls();
     this.energyControls = this.ui.getEnergyControls();
