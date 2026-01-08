@@ -324,6 +324,7 @@ export class BoardScene extends Phaser.Scene {
     this.session.markInMatch();
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
+    
     if (promise && typeof promise.then === "function") {
       promise
         .then(() => {

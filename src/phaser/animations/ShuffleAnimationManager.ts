@@ -142,17 +142,17 @@ export class ShuffleAnimationManager {
   }
 
   private getBoardSlotPositions(isOpponent: boolean) {
-    const { slot, gap, cols, rows } = this.config;
+    const { slotW, slotH, gap, cols, rows } = this.config;
     const centerX = this.config.side[isOpponent ? "opponent" : "player"].centerX + this.offset.x;
     const originY = this.config.side[isOpponent ? "opponent" : "player"].originY + this.offset.y;
-    const gridTotalW = cols * slot + (cols - 1) * gap;
+    const gridTotalW = cols * slotW + (cols - 1) * gap;
     const gridStartX = centerX - gridTotalW / 2;
-    const rowY = (rowIndex: number) => originY + rowIndex * (slot + gap);
+    const rowY = (rowIndex: number) => originY + rowIndex * (slotH + gap);
 
     const positions: { x: number; y: number }[] = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = gridStartX + c * (slot + gap) + slot / 2;
+        const x = gridStartX + c * (slotW + gap) + slotW / 2;
         const y = rowY(r);
         positions.push({ x, y });
       }
@@ -165,10 +165,10 @@ export class ShuffleAnimationManager {
     const side = cfg.side[isOpponent ? "opponent" : "player"];
     const centerX = side.centerX + this.offset.x;
     const originY = side.originY + this.offset.y;
-    const gridTotalW = cfg.cols * cfg.slot + (cfg.cols - 1) * cfg.gap;
+    const gridTotalW = cfg.cols * cfg.slotW + (cfg.cols - 1) * cfg.gap;
     const gridStartX = centerX - gridTotalW / 2;
-    const leftX = gridStartX - cfg.slot / 2 - cfg.columnGap;
-    const rightX = gridStartX + gridTotalW + cfg.slot / 2 + cfg.columnGap;
+    const leftX = gridStartX - cfg.slotW / 2 - cfg.columnGap;
+    const rightX = gridStartX + gridTotalW + cfg.slotW / 2 + cfg.columnGap;
     const opponentBaseCenterX = rightX + cfg.side.opponent.towerOffsetX + cfg.side.opponent.baseCenterX;
     const playerBaseCenterX = leftX + cfg.side.player.towerOffsetX + cfg.side.player.baseCenterX;
     const pileX = isOpponent ? playerBaseCenterX : opponentBaseCenterX;

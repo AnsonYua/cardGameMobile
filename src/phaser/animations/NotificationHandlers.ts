@@ -110,11 +110,13 @@ export function buildNotificationHandlers(
       async (event, ctx) => {
         const playerId = event?.payload?.playerId;
         if (!playerId || playerId !== ctx.currentPlayerId) return;
+        deps.startGame?.();
+        /*
         await Promise.resolve(
           deps.mulliganDialog?.showPrompt({
             prompt: "Do you want to mulligan?",
           }),
-        );
+        );*/
       },
     ],
   ]);
