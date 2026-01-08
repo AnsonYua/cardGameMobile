@@ -39,7 +39,7 @@ export class HandAreaHandler {
       fadeIn: UI_LAYOUT.hand.preview.fadeIn,
       fadeOut: UI_LAYOUT.hand.preview.fadeOut,
       holdDelay: UI_LAYOUT.hand.preview.holdDelay,
-      depth: 2000,
+      depth: 5000,
     });
     this.renderer.setArrowHandlers(() => this.scroll.scrollByStep(-1), () => this.scroll.scrollByStep(1));
     this.scroll.bind();

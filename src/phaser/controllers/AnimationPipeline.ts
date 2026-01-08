@@ -35,11 +35,16 @@ type DrawPopupDialog = {
   }) => Promise<void>;
 };
 
+type MulliganDialog = {
+  showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
+};
+
 export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
   handControls: HandControls | null;
   drawPopupDialog?: DrawPopupDialog;
+  mulliganDialog?: MulliganDialog;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
@@ -87,6 +92,7 @@ export function createAnimationPipeline(deps: {
     phasePopup: deps.phaseChangeDialog
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
       : undefined,
+    mulliganDialog: deps.mulliganDialog,
     slotControls: deps.slotControls,
   });
   const slotAnimationRender = new SlotAnimationRenderController(deps.getSlotsFromRaw);

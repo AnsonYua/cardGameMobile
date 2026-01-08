@@ -23,6 +23,7 @@ import { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
+import { MulliganDialog } from "./ui/MulliganDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -93,6 +94,7 @@ export class BoardScene extends Phaser.Scene {
   private trashAreaDialogUi?: TrashAreaDialog;
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
+  private mulliganDialogUi?: MulliganDialog;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -126,11 +128,13 @@ export class BoardScene extends Phaser.Scene {
     this.slotControls = this.ui.getSlotControls();
     this.drawPopupDialogUi = new DrawPopupDialog(this);
     this.phaseChangeDialogUi = new PhaseChangeDialog(this);
+    this.mulliganDialogUi = new MulliganDialog(this);
     const animationPipeline = createAnimationPipeline({
       scene: this,
       slotControls: this.slotControls,
       handControls: this.handControls,
       drawPopupDialog: this.drawPopupDialogUi,
+      mulliganDialog: this.mulliganDialogUi,
       phaseChangeDialog: this.phaseChangeDialogUi,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),

@@ -12,6 +12,9 @@ export function buildNotificationHandlers(
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
+    mulliganDialog?: {
+      showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
+    };
   },
   helpers: {
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -97,7 +100,20 @@ export function buildNotificationHandlers(
       async (event) => {
         const nextPhase = event?.payload?.nextPhase;
         if (!nextPhase) return;
-        await Promise.resolve(deps.phasePopup?.showPhaseChange(nextPhase));
+        const displayPhase = nextPhase === "REDRAW_PHASE" ? "START GAME" : nextPhase;
+        await Promise.resolve(deps.phasePopup?.showPhaseChange(displayPhase));
+      },
+    ],
+    [
+      "INIT_HAND",
+      async (event, ctx) => {
+        const playerId = event?.payload?.playerId;
+        if (!playerId || playerId !== ctx.currentPlayerId) return;
+        await Promise.resolve(
+          deps.mulliganDialog?.showPrompt({
+            prompt: "Do you want to mulligan?",
+          }),
+        );
       },
     ],
   ]);
