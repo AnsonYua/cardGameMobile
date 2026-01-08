@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { DEFAULT_CARD_DIALOG_CONFIG, computeDialogLayout, createDialogShell } from "./CardDialogLayout";
+import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
 
 type MulliganDialogOpts = {
   prompt?: string;
@@ -26,8 +26,35 @@ export class MulliganDialog {
     const headerText = "Mulligan";
     const promptText = opts.prompt || "Do you want to mulligan?";
     const maxTextWidth = Math.min(420, cam.width * 0.75);
+    const headerStyle = {
+      fontSize: "20px",
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      color: "#f5f6f7",
+      align: "center",
+    };
+    const promptStyle = {
+      fontSize: "16px",
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      color: "#f5f6f7",
+      align: "center",
+      wordWrap: { width: maxTextWidth },
+    };
 
-    const layout = computeDialogLayout(cam, this.cfg, { cols: 1, visibleRows: 1 });
+    const tempHeader = this.scene.add.text(-10000, -10000, headerText, headerStyle).setOrigin(0.5);
+    const tempPrompt = this.scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5);
+    const gap = 14;
+    const buttonHeight = 46;
+    const buttonContentHeight = tempPrompt.height + gap + buttonHeight;
+    const layout = computePromptDialogLayout(cam, this.cfg, {
+      contentWidth: Math.max(tempPrompt.width, 260),
+      contentHeight: buttonContentHeight,
+      headerHeight: tempHeader.height,
+    });
+    tempHeader.destroy();
+    tempPrompt.destroy();
+
     const { dialog, content, header } = createDialogShell(this.scene, this.cfg, layout, {
       centerX: cam.centerX,
       centerY: cam.centerY,
@@ -37,17 +64,8 @@ export class MulliganDialog {
       showCloseButton: false,
     });
 
-    const prompt = this.scene.add.text(0, 0, promptText, {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: "#f5f6f7",
-      align: "center",
-      wordWrap: { width: maxTextWidth },
-    }).setOrigin(0.5);
+    const prompt = this.scene.add.text(0, 0, promptText, promptStyle).setOrigin(0.5);
 
-    const gap = 14;
-    const buttonHeight = 46;
     const dialogMargin = this.cfg.dialog.margin;
     const buttonGap = 24;
     const availableForButtons = Math.max(200, layout.dialogWidth - dialogMargin * 2);

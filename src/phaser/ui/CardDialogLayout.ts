@@ -156,6 +156,35 @@ export function computeDialogLayout(
   };
 }
 
+export function computePromptDialogLayout(
+  cam: Phaser.Cameras.Scene2D.Camera,
+  config: CardDialogConfig,
+  opts: { contentWidth: number; contentHeight: number; headerHeight: number },
+): DialogLayout {
+  const { margin, gap, widthFactor, minWidth, headerOffset, headerWrapPad } = config.dialog;
+  const maxWidth = cam.width * widthFactor;
+  const dialogWidth = Math.min(maxWidth, Math.max(minWidth, opts.contentWidth + margin * 2));
+  const topToContent = headerOffset + opts.headerHeight / 2 + gap;
+  const dialogHeight = topToContent + opts.contentHeight + margin;
+  const cellWidth = Math.max(0, dialogWidth - margin * 2);
+  const cardHeight = cellWidth * config.card.aspect;
+  const cellHeight = cardHeight + config.card.extraCellHeight;
+  return {
+    dialogWidth,
+    dialogHeight,
+    cellWidth,
+    cellHeight,
+    cardHeight,
+    gridVisibleHeight: cellHeight,
+    margin,
+    gap,
+    headerOffset,
+    headerWrapPad,
+    cols: 1,
+    visibleRows: 1,
+  };
+}
+
 export function createDialogShell(
   scene: Phaser.Scene,
   config: CardDialogConfig,
