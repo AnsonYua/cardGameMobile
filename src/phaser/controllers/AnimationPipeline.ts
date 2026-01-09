@@ -46,7 +46,7 @@ export function createAnimationPipeline(deps: {
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
-  startGame?: () => void;
+  startGame?: () => Promise<void> | void;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   getSlotsFromRaw: (raw: any) => SlotViewModel[];

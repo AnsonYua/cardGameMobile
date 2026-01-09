@@ -15,7 +15,7 @@ export function buildNotificationHandlers(
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
     };
-    startGame?: () => void;
+    startGame?: () => Promise<void> | void;
   },
   helpers: {
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -110,13 +110,13 @@ export function buildNotificationHandlers(
       async (event, ctx) => {
         const playerId = event?.payload?.playerId;
         if (!playerId || playerId !== ctx.currentPlayerId) return;
-        deps.startGame?.();
-        /*
+        await Promise.resolve(deps.startGame?.());
+        
         await Promise.resolve(
           deps.mulliganDialog?.showPrompt({
             prompt: "Do you want to mulligan?",
           }),
-        );*/
+        );
       },
     ],
   ]);

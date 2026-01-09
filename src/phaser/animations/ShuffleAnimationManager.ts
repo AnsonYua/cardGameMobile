@@ -6,8 +6,10 @@ export class ShuffleAnimationManager {
   private playerCards: Phaser.GameObjects.Image[] = [];
   private opponentCards: Phaser.GameObjects.Image[] = [];
   private config: FieldConfig = JSON.parse(JSON.stringify(FieldHandler.DEFAULT_CONFIG));
-  private playerDeckSprite: Phaser.GameObjects.GameObject | null = null;
-  private opponentDeckSprite: Phaser.GameObjects.GameObject | null = null;
+  private playerDeckSprite: (Phaser.GameObjects.GameObject & { setVisible?: (visible: boolean) => Phaser.GameObjects.GameObject }) | null =
+    null;
+  private opponentDeckSprite: (Phaser.GameObjects.GameObject & { setVisible?: (visible: boolean) => Phaser.GameObjects.GameObject }) | null =
+    null;
   private slotOrder = {
     opponent: ["slot4", "slot5", "slot6", "slot1", "slot2", "slot3"],
     player: ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"],
@@ -16,12 +18,12 @@ export class ShuffleAnimationManager {
   private hideDeckVisual(owner: "opponent" | "player") {
     this.scene.children.list
       .filter((c: any) => typeof c.name === "string" && (c.name === `deck-pile-${owner}` || c.name === `deck-pile-text-${owner}`))
-      .forEach((c: any) => c.setVisible(false));
+      .forEach((c: any) => c.setVisible?.(false));
   }
   private showDeckVisual(owner: "opponent" | "player") {
     this.scene.children.list
       .filter((c: any) => typeof c.name === "string" && (c.name === `deck-pile-${owner}` || c.name === `deck-pile-text-${owner}`))
-      .forEach((c: any) => c.setVisible(true));
+      .forEach((c: any) => c.setVisible?.(true));
   }
 
   constructor(
@@ -67,10 +69,10 @@ export class ShuffleAnimationManager {
     const opponentDeck = this.getDeckStackConfig(true);
 
     // Hide main deck sprites while shuffle runs
-    this.playerDeckSprite = this.scene.children.getByName("deck-pile-player") as Phaser.GameObjects.GameObject;
-    this.opponentDeckSprite = this.scene.children.getByName("deck-pile-opponent") as Phaser.GameObjects.GameObject;
-    this.playerDeckSprite?.setVisible(false);
-    this.opponentDeckSprite?.setVisible(false);
+    this.playerDeckSprite = this.scene.children.getByName("deck-pile-player") as Phaser.GameObjects.GameObject | null;
+    this.opponentDeckSprite = this.scene.children.getByName("deck-pile-opponent") as Phaser.GameObjects.GameObject | null;
+    this.playerDeckSprite?.setVisible?.(false);
+    this.opponentDeckSprite?.setVisible?.(false);
 
     for (let i = 0; i < numCards; i++) {
       const imgKey = this.scene.textures.exists("deckBack") ? "deckBack" : undefined;
@@ -96,7 +98,7 @@ export class ShuffleAnimationManager {
     const owner = isOpponent ? "opponent" : "player";
 
     // Hide deck visuals as soon as the shuffle starts.
-    deckSprite?.setVisible(false);
+    deckSprite?.setVisible?.(false);
     this.hideDeckVisual(owner);
 
     // Move cards from deck to slots in stacks
@@ -141,7 +143,7 @@ export class ShuffleAnimationManager {
           // Reveal the main deck sprite once first card arrives
           if (idx === 0) {
             const deckSprite = cards === this.playerCards ? this.playerDeckSprite : this.opponentDeckSprite;
-            deckSprite?.setVisible(true);
+            deckSprite?.setVisible?.(true);
             
           }
           this.showDeckVisual(cards === this.playerCards ? "player" : "opponent");
@@ -212,9 +214,13 @@ export class ShuffleAnimationManager {
     const owner = isOpponent ? "opponent" : "player";
     const deckSprite = this.scene.children.getByName(`deck-pile-${owner}`) as Phaser.GameObjects.GameObject | null;
     if (deckSprite && "x" in deckSprite && "y" in deckSprite) {
-      const w = "displayWidth" in deckSprite ? deckSprite.displayWidth : this.config.deckW;
-      const h = "displayHeight" in deckSprite ? deckSprite.displayHeight : this.config.deckH;
-      return { x: deckSprite.x, y: deckSprite.y, w, h };
+      const wRaw = "displayWidth" in deckSprite ? (deckSprite as any).displayWidth : this.config.deckW;
+      const hRaw = "displayHeight" in deckSprite ? (deckSprite as any).displayHeight : this.config.deckH;
+      const w = typeof wRaw === "number" ? wRaw : this.config.deckW;
+      const h = typeof hRaw === "number" ? hRaw : this.config.deckH;
+      const x = typeof (deckSprite as any).x === "number" ? (deckSprite as any).x : 0;
+      const y = typeof (deckSprite as any).y === "number" ? (deckSprite as any).y : 0;
+      return { x, y, w, h };
     }
     const fallback = this.getDeckPosition(isOpponent);
     return { x: fallback.x, y: fallback.y, w: this.config.deckW, h: this.config.deckH };

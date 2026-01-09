@@ -322,18 +322,16 @@ export class BoardScene extends Phaser.Scene {
     return hooks;
   }
    
-  public startGame() {
+  public async startGame(): Promise<void> {
     this.session.markInMatch();
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
     
     if (promise && typeof promise.then === "function") {
-      promise
-        .then(() => {
-          this.showDefaultUI();
-          this.refreshPhase(false);
-        })
-        .then(() => console.log("Shuffle animation finished"));
+      await promise;
+      this.showDefaultUI();
+      this.refreshPhase(false);
+      console.log("Shuffle animation finished");
     } else {
       this.showDefaultUI();
       this.refreshPhase(false);
