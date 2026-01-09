@@ -101,6 +101,7 @@ export class BoardScene extends Phaser.Scene {
   private overlay?: OverlayController;
   private animationQueue?: AnimationQueue;
   private slotAnimationRender?: SlotAnimationRenderController;
+  private startGameAnimating = false;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -324,17 +325,24 @@ export class BoardScene extends Phaser.Scene {
    
   public async startGame(): Promise<void> {
     this.session.markInMatch();
+    this.startGameAnimating = true;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
-    
-    if (promise && typeof promise.then === "function") {
-      await promise;
-      this.showDefaultUI();
-      this.refreshPhase(false);
-      console.log("Shuffle animation finished");
-    } else {
-      this.showDefaultUI();
-      this.refreshPhase(false);
+
+    try {
+      if (promise && typeof promise.then === "function") {
+        await promise;
+        this.startGameAnimating = false;
+        this.showDefaultUI();
+        this.refreshPhase(false);
+        console.log("Shuffle animation finished");
+      } else {
+        this.startGameAnimating = false;
+        this.showDefaultUI();
+        this.refreshPhase(false);
+      }
+    } finally {
+      this.startGameAnimating = false;
     }
   }
 
@@ -461,6 +469,10 @@ export class BoardScene extends Phaser.Scene {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
+    if (this.shouldHideHandForStartGame(raw)) {
+      this.handControls?.setVisible(false);
+      return;
+    }
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
     const playerId = this.gameContext.playerId;
@@ -484,7 +496,25 @@ export class BoardScene extends Phaser.Scene {
     return notifications.some((note) => {
       if (!note?.id) return false;
       const type = (note.type || "").toUpperCase();
+      if (type === "INIT_HAND") {
+        return note.payload?.playerId === playerId && !this.animationQueue?.isProcessed(note.id);
+      }
       if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return false;
+      if (note.payload?.playerId !== playerId) return false;
+      return !this.animationQueue?.isProcessed(note.id);
+    });
+  }
+
+  private shouldHideHandForStartGame(raw: any) {
+    if (this.startGameAnimating) return true;
+    const notifications = getNotificationQueue(raw);
+    if (!notifications.length || !this.animationQueue) return false;
+    const playerId = this.gameContext.playerId;
+    if (!playerId) return false;
+    return notifications.some((note) => {
+      if (!note?.id) return false;
+      const type = (note.type || "").toUpperCase();
+      if (type !== "INIT_HAND") return false;
       if (note.payload?.playerId !== playerId) return false;
       return !this.animationQueue?.isProcessed(note.id);
     });
