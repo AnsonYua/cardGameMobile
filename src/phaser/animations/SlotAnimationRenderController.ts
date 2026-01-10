@@ -98,6 +98,8 @@ export class SlotAnimationRenderController {
         }
       }
     }
+
+   
     return this.buildSlotsForRender(currentSlots);
   }
 
@@ -118,9 +120,21 @@ export class SlotAnimationRenderController {
     }
     const releaseSlots = () => keys.forEach((key) => this.runningSlots.delete(key));
     releaseSlots();
-    
+
+    if (type === "REFRESH_TARGET") {
+      keys.forEach((key) => {
+        const base = this.renderSnapshots.get(key);
+        if (!base) return;
+        const snapshot = this.cloneSlot(base);
+        snapshot.isRested = true;
+        if (snapshot.unit) snapshot.unit.isRested = true;
+        if (snapshot.pilot) snapshot.pilot.isRested = true;
+        this.renderSnapshots.set(key, snapshot);
+      });
+      return this.buildSlotsForRender(currentSlots);
+    }
+
     if (type === "UNIT_ATTACK_DECLARED" || 
-        type =="REFRESH_TARGET" ||
         type =="PHASE_CHANGED" ||
         type === "CARD_STAT_MODIFIED") {
       // Keep preview snapshot (rested) for this event; just unhide affected slots.
