@@ -102,6 +102,7 @@ export class BoardScene extends Phaser.Scene {
   private animationQueue?: AnimationQueue;
   private slotAnimationRender?: SlotAnimationRenderController;
   private startGameAnimating = false;
+  private startGameCompleted = false;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -325,6 +326,7 @@ export class BoardScene extends Phaser.Scene {
    
   public async startGame(): Promise<void> {
     this.session.markInMatch();
+    this.startGameCompleted = false;
     this.startGameAnimating = true;
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
@@ -333,11 +335,13 @@ export class BoardScene extends Phaser.Scene {
       if (promise && typeof promise.then === "function") {
         await promise;
         this.startGameAnimating = false;
+        this.startGameCompleted = true;
         this.showDefaultUI();
         this.refreshPhase(false);
         console.log("Shuffle animation finished");
       } else {
         this.startGameAnimating = false;
+        this.startGameCompleted = true;
         this.showDefaultUI();
         this.refreshPhase(false);
       }
@@ -415,7 +419,7 @@ export class BoardScene extends Phaser.Scene {
     energy?.setVisible(false);
     status?.setVisible(false);
     hand?.setVisible(false);
-    actions?.setVisible(false);
+    actions?.setVisible(true);
   }
 
   private updateHeaderOpponentHand(raw: any) {
@@ -469,6 +473,7 @@ export class BoardScene extends Phaser.Scene {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
+    
     if (this.shouldHideHandForStartGame(raw)) {
       this.handControls?.setVisible(false);
       return;
@@ -508,7 +513,7 @@ export class BoardScene extends Phaser.Scene {
   private shouldHideHandForStartGame(raw: any) {
     if (this.startGameAnimating) return true;
     const notifications = getNotificationQueue(raw);
-    if (!notifications.length || !this.animationQueue) return false;
+    if (!notifications.length) return false;
     const playerId = this.gameContext.playerId;
     if (!playerId) return false;
     return notifications.some((note) => {
@@ -516,7 +521,7 @@ export class BoardScene extends Phaser.Scene {
       const type = (note.type || "").toUpperCase();
       if (type !== "INIT_HAND") return false;
       if (note.payload?.playerId !== playerId) return false;
-      return !this.animationQueue?.isProcessed(note.id);
+      return !this.startGameCompleted;
     });
   }
 

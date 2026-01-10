@@ -42,7 +42,7 @@ export class HandLayoutRenderer {
       width: w - 7,
       height: h - 10,
       radius: 8,
-      fillColor: 0x1a1d26,
+      fillColor: 0x00000,
       fillAlpha: 0.4,
       strokeColor: 0x000000,
       strokeAlpha: 0.3,
