@@ -2,6 +2,11 @@ export type StartGamePayload = {
   playerId: string;
   gameConfig: { playerName: string };
 };
+export type StartReadyPayload = {
+  gameId: string;
+  playerId: string;
+  isRedraw: boolean;
+};
 
 export class ApiManager {
   private baseUrl: string;
@@ -22,6 +27,11 @@ export class ApiManager {
 
   startGame(payload: StartGamePayload): Promise<any> {
     const url = this.buildUrl("/api/game/player/startGame");
+    return this.requestWithFallback(url, payload);
+  }
+
+  startReady(payload: StartReadyPayload): Promise<any> {
+    const url = this.buildUrl("/api/game/player/startReady");
     return this.requestWithFallback(url, payload);
   }
 

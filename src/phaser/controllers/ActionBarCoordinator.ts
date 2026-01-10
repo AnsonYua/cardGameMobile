@@ -53,6 +53,7 @@ export class ActionBarCoordinator {
     const isOpponentTurn = !isSelfTurn;
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
     const phase = (raw?.gameEnv?.phase || "").toString().toUpperCase();
+    const isStartGamePhase = phase === "REDRAW_PHASE" || phase === "START_GAME" || phase === "STARTGAME";
 
     // Decision map (phase x turn):
     // Main Phase: opponent -> waiting, self -> existing defaults.
@@ -61,6 +62,14 @@ export class ActionBarCoordinator {
     //   confirmations[currentPlayer] === false -> allow targets/actions.
     //   confirmations[currentPlayer] === true -> waiting.
     // Action Step (self): follow existing action-step logic.
+    // Step 0: Start-game waiting message for both players.
+    if (isStartGamePhase) {
+      actions.setWaitingLabel?.("Preparing to start game...");
+      actions.setWaitingForOpponent?.(true);
+      actions.setState?.({ descriptors: [] });
+      return;
+    }
+
     // Step 1: Blocker flow (always wins, regardless of phase/turn).
     if (this.deps.blockerFlow.isActive() || phase === "BLOCKER_PHASE") {
       if (this.deps.blockerFlow.applyActionBar()) {

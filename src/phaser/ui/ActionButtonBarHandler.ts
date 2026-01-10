@@ -27,6 +27,7 @@ export class ActionButtonBarHandler {
   private waitingMode = false;
   private waitingOverride: ActionButtonConfig[] | null = null;
   private waitingOverrideKey = "";
+  private waitingLabelText = "Waiting for opponent...";
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = {
@@ -99,6 +100,15 @@ export class ActionButtonBarHandler {
     // eslint-disable-next-line no-console
     console.log("[ActionBar] waiting", { waiting, overrideCount: this.waitingOverride?.length ?? 0 });
     this.draw(this.lastOffset);
+  }
+
+  setWaitingLabel(label: string) {
+    const nextLabel = label || "Waiting for opponent...";
+    if (this.waitingLabelText === nextLabel) return;
+    this.waitingLabelText = nextLabel;
+    if (this.waitingMode) {
+      this.draw(this.lastOffset);
+    }
   }
 
   setVisible(visible: boolean) {
@@ -342,7 +352,7 @@ export class ActionButtonBarHandler {
     this.waitingLabel?.destroy();
     this.waitingLabel = this.scene
       .add
-      .text(INTERNAL_W / 2, y, "Waiting for opponent...", {
+      .text(INTERNAL_W / 2, y, this.waitingLabelText, {
         fontSize: "16px",
         fontFamily: "Arial",
         color: "#ffffff",

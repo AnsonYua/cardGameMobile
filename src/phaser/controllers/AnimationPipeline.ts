@@ -47,6 +47,7 @@ export function createAnimationPipeline(deps: {
   mulliganDialog?: MulliganDialog;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   startGame?: () => Promise<void> | void;
+  startReady?: (isRedraw: boolean) => Promise<void> | void;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   getSlotsFromRaw: (raw: any) => SlotViewModel[];
@@ -95,6 +96,7 @@ export function createAnimationPipeline(deps: {
       : undefined,
     mulliganDialog: deps.mulliganDialog,
     startGame: deps.startGame,
+    startReady: deps.startReady,
     slotControls: deps.slotControls,
   });
   const slotAnimationRender = new SlotAnimationRenderController(deps.getSlotsFromRaw);

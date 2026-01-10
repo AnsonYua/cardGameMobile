@@ -31,6 +31,7 @@ export class AnimationQueue {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
     };
     startGame?: () => Promise<void> | void;
+    startReady?: (isRedraw: boolean) => Promise<void> | void;
     slotControls?: { playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void } | null;
   },
     private opts: {

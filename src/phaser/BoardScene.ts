@@ -141,6 +141,16 @@ export class BoardScene extends Phaser.Scene {
       mulliganDialog: this.mulliganDialogUi,
       phaseChangeDialog: this.phaseChangeDialogUi,
       startGame: () => this.startGame(),
+      startReady: async (isRedraw) => {
+        const gameId = this.gameContext.gameId;
+        const playerId = this.gameContext.playerId;
+        if (!gameId || !playerId) {
+          console.warn("[startReady] missing gameId/playerId", { gameId, playerId });
+          return;
+        }
+        await this.api.startReady({ gameId, playerId, isRedraw });
+        await this.engine.updateGameStatus(gameId, playerId);
+      },
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
       getSlotsFromRaw: (data) => this.slotPresenter.toSlots(data, this.gameContext.playerId),
