@@ -82,6 +82,8 @@ export class SlotDisplayHandler {
     const key = `${owner}-${slotId}`;
     // eslint-disable-next-line no-console
     console.log("[SlotDisplayHandler] setSlotVisible", key, visible);
+    // eslint-disable-next-line no-console
+    console.trace("[SlotDisplayHandler] setSlotVisible trace");
     if (!visible) {
       this.hiddenSlots.add(key);
     } else {

@@ -37,6 +37,7 @@ export class SlotAnimationRenderController {
         type,
         keys,
         snapshots: keys.map((key) => ({ key, state: this.renderSnapshots.get(key) ? "set" : "null" })),
+        currentSlotKeys: currentSlots.map((slot) => `${slot.owner}-${slot.slotId}`),
       });
     }
     if (type === "CARD_STAT_MODIFIED") {
@@ -106,14 +107,22 @@ export class SlotAnimationRenderController {
     if (!raw) return null;
     const currentSlots = this.getSlotsFromRaw(raw);
     const type = (event.type || "").toUpperCase();
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.log("[SlotRender] event end", {
+        id: event.id,
+        type,
+        keys,
+        currentSlotKeys: currentSlots.map((slot) => `${slot.owner}-${slot.slotId}`),
+      });
+    }
     const releaseSlots = () => keys.forEach((key) => this.runningSlots.delete(key));
     releaseSlots();
-    if (type === "CARD_STAT_MODIFIED") {
-      // Keep preview snapshot for this event; just unhide affected slots.
-      return this.buildSlotsForRender(currentSlots);
-    }
     
-    if (type === "UNIT_ATTACK_DECLARED") {
+    if (type === "UNIT_ATTACK_DECLARED" || 
+        type =="REFRESH_TARGET" ||
+        type =="PHASE_CHANGED" ||
+        type === "CARD_STAT_MODIFIED") {
       // Keep preview snapshot (rested) for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }
