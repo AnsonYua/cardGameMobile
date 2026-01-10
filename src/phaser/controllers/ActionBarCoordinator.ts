@@ -90,6 +90,7 @@ export class ActionBarCoordinator {
 
     // Step 3: Main phase handling.
     if (isOpponentTurn) {
+      actions.setWaitingLabel?.("Waiting for opponent...");
       actions.setWaitingForOpponent?.(true);
       actions.setState?.({ descriptors: [] });
       return;

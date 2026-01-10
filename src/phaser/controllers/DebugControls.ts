@@ -80,7 +80,7 @@ export class DebugControls {
     if (opts?.hidePopup !== false) {
       await this.popup?.hide();
     }
-    const targetScenario = scenarioPath || "BasicCase/basicMainBasest01_016_1_debug";
+    const targetScenario = scenarioPath || "BasicCase/basicMainBasest01_016_1_debug2";
     try {
       const scenarioJson = await this.api.getTestScenario(targetScenario);
       const gameEnv =
