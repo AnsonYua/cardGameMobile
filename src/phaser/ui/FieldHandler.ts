@@ -361,8 +361,8 @@ export class FieldHandler {
     };
     energyBar.redrawWithCounts(counts);
     energyBar.setVisible(this.energyVisible);
-    statusHandler.draw(anchor.x, anchor.y, anchor.width, isOpponent, merged);
     statusHandler.setVisible(this.statusVisible);
+    statusHandler.update(merged);
   }
 
   private drawPile(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {

@@ -8,6 +8,10 @@ export type GameStatus = {
 };
 
 export class GameStatusHandler {
+  static readonly pulseConfig = {
+    scale: 1.4,
+    duration: 160,
+  };
   private labels: Partial<Record<keyof GameStatus, Phaser.GameObjects.Text>> = {};
   private status: GameStatus = { shield: 0, active: 0, rested: 0, extra: 0 };
   private visible = true;
@@ -56,6 +60,7 @@ export class GameStatusHandler {
   }
 
   update(status: Partial<GameStatus>) {
+    const prevStatus = { ...this.status };
     this.status = { ...this.status, ...status };
     (Object.keys(this.labels) as Array<keyof GameStatus>).forEach((key) => {
       const label = this.labels[key];
@@ -70,6 +75,9 @@ export class GameStatusHandler {
               ? `Rested(E):${value}`
               : `Extra(E):${value}`;
       label.setText(text);
+      if (prevStatus[key] !== value) {
+        this.pulseLabel(label);
+      }
     });
   }
 
@@ -89,6 +97,18 @@ export class GameStatusHandler {
         duration,
         ease: "Quad.easeOut",
       });
+    });
+  }
+
+  private pulseLabel(label: Phaser.GameObjects.Text) {
+    this.scene.tweens.killTweensOf(label);
+    label.setScale(1);
+    this.scene.tweens.add({
+      targets: label,
+      scale: GameStatusHandler.pulseConfig.scale,
+      duration: GameStatusHandler.pulseConfig.duration,
+      yoyo: true,
+      ease: "Sine.easeOut",
     });
   }
 }
