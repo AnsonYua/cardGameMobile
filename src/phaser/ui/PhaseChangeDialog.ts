@@ -53,14 +53,14 @@ export class PhaseChangeDialog {
     }
 
     const header = this.scene.add.text(0, 0, headerText, {
-      fontSize: "20px",
+      fontSize: "16px",
       fontFamily: "Arial",
       fontStyle: "bold",
       color: "#f5f6f7",
       align: "center",
     }).setOrigin(0.5);
     const label = this.scene.add.text(0, 0, opts.nextPhase || "", {
-      fontSize: "20px",
+      fontSize: "16px",
       fontFamily: "Arial",
       fontStyle: "bold",
       color: "#f5f6f7",
