@@ -757,7 +757,8 @@ export class BoardScene extends Phaser.Scene {
           throw new Error("Missing game id for join mode");
         }
         // Default join identity aligns with backend sample if none provided.
-        const joinId = playerIdParam || "playerId_1";
+        //const joinId = playerIdParam || "playerId_1";
+        const joinId = "playerId_2"
         const joinName = playerNameParam || "Demo Opponent";
         this.contextStore.update({ playerId: joinId, playerName: joinName });
         await this.match.joinRoom(gameId, joinId, joinName);
