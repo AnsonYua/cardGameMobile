@@ -24,6 +24,7 @@ import { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import { MulliganDialog } from "./ui/MulliganDialog";
+import { ChooseFirstPlayerDialog } from "./ui/ChooseFirstPlayerDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -95,6 +96,7 @@ export class BoardScene extends Phaser.Scene {
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
+  private chooseFirstPlayerDialogUi?: ChooseFirstPlayerDialog;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -133,12 +135,14 @@ export class BoardScene extends Phaser.Scene {
     this.drawPopupDialogUi = new DrawPopupDialog(this);
     this.phaseChangeDialogUi = new PhaseChangeDialog(this);
     this.mulliganDialogUi = new MulliganDialog(this);
+    this.chooseFirstPlayerDialogUi = new ChooseFirstPlayerDialog(this);
     const animationPipeline = createAnimationPipeline({
       scene: this,
       slotControls: this.slotControls,
       handControls: this.handControls,
       drawPopupDialog: this.drawPopupDialogUi,
       mulliganDialog: this.mulliganDialogUi,
+      chooseFirstPlayerDialog: this.chooseFirstPlayerDialogUi,
       phaseChangeDialog: this.phaseChangeDialogUi,
       startGame: () => this.startGame(),
       startReady: async (isRedraw) => {
@@ -149,6 +153,16 @@ export class BoardScene extends Phaser.Scene {
           return;
         }
         await this.api.startReady({ gameId, playerId, isRedraw });
+        await this.engine.updateGameStatus(gameId, playerId);
+      },
+      chooseFirstPlayer: async (chosenFirstPlayerId) => {
+        const gameId = this.gameContext.gameId;
+        const playerId = this.gameContext.playerId;
+        if (!gameId || !playerId) {
+          console.warn("[chooseFirstPlayer] missing gameId/playerId", { gameId, playerId });
+          return;
+        }
+        await this.api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });
         await this.engine.updateGameStatus(gameId, playerId);
       },
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),

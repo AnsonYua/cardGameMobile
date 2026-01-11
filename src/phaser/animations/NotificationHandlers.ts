@@ -15,8 +15,16 @@ export function buildNotificationHandlers(
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
     };
+    chooseFirstPlayerDialog?: {
+      showPrompt: (opts: {
+        prompt?: string;
+        onFirst?: () => Promise<void> | void;
+        onSecond?: () => Promise<void> | void;
+      }) => Promise<boolean>;
+    };
     startGame?: () => Promise<void> | void;
     startReady?: (isRedraw: boolean) => Promise<void> | void;
+    chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;
   },
   helpers: {
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -118,6 +126,25 @@ export function buildNotificationHandlers(
             prompt: "Do you want to mulligan?",
             onYes: () => deps.startReady?.(true),
             onNo: () => deps.startReady?.(false),
+          }),
+        );
+      },
+    ],
+    [
+      "CHOOSE_FIRST_PLAYER",
+      async (event, ctx) => {
+        const chooserId = event?.payload?.chooserId;
+        if (!chooserId || chooserId !== ctx.currentPlayerId) return;
+        const player1 = event?.payload?.playerId_1;
+        const player2 = event?.payload?.playerId_2;
+        if (!player1 || !player2) return;
+        const otherId = chooserId === player1 ? player2 : player1;
+
+        await Promise.resolve(
+          deps.chooseFirstPlayerDialog?.showPrompt({
+            prompt: "Choose who goes first.",
+            onFirst: () => deps.chooseFirstPlayer?.(chooserId),
+            onSecond: () => deps.chooseFirstPlayer?.(otherId),
           }),
         );
       },

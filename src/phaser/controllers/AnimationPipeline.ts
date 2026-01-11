@@ -39,15 +39,21 @@ type MulliganDialog = {
   showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
 };
 
+type ChooseFirstPlayerDialog = {
+  showPrompt: (opts: { prompt?: string; onFirst?: () => Promise<void> | void; onSecond?: () => Promise<void> | void }) => Promise<boolean>;
+};
+
 export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
   handControls: HandControls | null;
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
+  chooseFirstPlayerDialog?: ChooseFirstPlayerDialog;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   startGame?: () => Promise<void> | void;
   startReady?: (isRedraw: boolean) => Promise<void> | void;
+  chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   getSlotsFromRaw: (raw: any) => SlotViewModel[];
@@ -95,8 +101,10 @@ export function createAnimationPipeline(deps: {
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
       : undefined,
     mulliganDialog: deps.mulliganDialog,
+    chooseFirstPlayerDialog: deps.chooseFirstPlayerDialog,
     startGame: deps.startGame,
     startReady: deps.startReady,
+    chooseFirstPlayer: deps.chooseFirstPlayer,
     slotControls: deps.slotControls,
   });
   const slotAnimationRender = new SlotAnimationRenderController(deps.getSlotsFromRaw);

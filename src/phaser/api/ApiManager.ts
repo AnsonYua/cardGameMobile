@@ -7,6 +7,11 @@ export type StartReadyPayload = {
   playerId: string;
   isRedraw: boolean;
 };
+export type ChooseFirstPlayerPayload = {
+  gameId: string;
+  playerId: string;
+  chosenFirstPlayerId: string;
+};
 
 export class ApiManager {
   private baseUrl: string;
@@ -32,6 +37,11 @@ export class ApiManager {
 
   startReady(payload: StartReadyPayload): Promise<any> {
     const url = this.buildUrl("/api/game/player/startReady");
+    return this.requestWithFallback(url, payload);
+  }
+
+  chooseFirstPlayer(payload: ChooseFirstPlayerPayload): Promise<any> {
+    const url = this.buildUrl("/api/game/player/chooseFirstPlayer");
     return this.requestWithFallback(url, payload);
   }
 
