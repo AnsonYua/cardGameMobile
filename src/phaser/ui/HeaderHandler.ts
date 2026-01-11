@@ -76,6 +76,7 @@ export class HeaderHandler {
   private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
   private depth = 1000;
   private statusLabel?: Phaser.GameObjects.Text;
+  private turnLabel?: Phaser.GameObjects.Text;
   private avatarHit?: Phaser.GameObjects.Rectangle;
   private onAvatar?: () => void;
   private nameLabel?: Phaser.GameObjects.Text;
@@ -152,7 +153,8 @@ export class HeaderHandler {
       .setOrigin(0, 0)
       .setDepth(this.depth);
 
-    this.drawStatus(containerRight -5 , containerY-15);
+    this.drawStatus(containerRight - 5, containerY - 18);
+    this.drawTurnLabel(containerRight - 5, containerY + 2);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -169,15 +171,37 @@ export class HeaderHandler {
     this.statusLabel.setText(text);
   }
 
+  setTurnText(text: string, color?: string) {
+    if (!this.turnLabel) return;
+    this.turnLabel.setText(text);
+    if (color) {
+      this.turnLabel.setColor(color);
+    }
+  }
+
   private drawStatus(x: number, y: number) {
     this.statusLabel?.destroy();
     this.statusLabel = this.scene.add
       .text(x, y, "Status: idle", {
-        fontSize: "14px",
+        fontSize: "16px",
         fontFamily: "Arial",
+        fontStyle: "bold",
         color: "#ffffff",
       })
       .setOrigin(1, 0.5) // Right-align so the text hugs the CTA/right edge consistently.
+      .setDepth(this.depth + 1);
+  }
+
+  private drawTurnLabel(x: number, y: number) {
+    this.turnLabel?.destroy();
+    this.turnLabel = this.scene.add
+      .text(x, y, "Turn: -", {
+        fontSize: "14px",
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#ffffff",
+      })
+      .setOrigin(1, 0.5)
       .setDepth(this.depth + 1);
   }
 

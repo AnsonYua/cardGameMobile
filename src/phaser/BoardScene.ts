@@ -648,10 +648,23 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateHeaderPhaseStatus(raw: any) {
-    const phase = raw?.gameEnv?.phase;
+    const phase = raw?.gameEnv?.phase ?? raw?.phase;
     if (phase) {
       this.headerControls?.setStatusFromEngine?.(phase, { offlineFallback: this.offlineFallback });
     }
+    this.updateHeaderTurnStatus(raw);
+  }
+
+  private updateHeaderTurnStatus(raw: any) {
+    const currentPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
+    if (!currentPlayer) {
+      this.headerControls?.setTurnText?.("Turn: -");
+      return;
+    }
+    const isSelf = currentPlayer === this.gameContext.playerId;
+    const text = `Turn: ${isSelf ? "Your Turn" : "Opponent"}`;
+    const color = isSelf ? "#6fd66f" : "#ff6b6b";
+    this.headerControls?.setTurnText?.(text, color);
   }
 
   private refreshActionBarState(raw: any) {

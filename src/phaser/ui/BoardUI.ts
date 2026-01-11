@@ -24,6 +24,7 @@ type HandControls = {
 type HeaderControls = {
   setStatus: (text: string) => void;
   setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
+  setTurnText?: (text: string, color?: string) => void;
   setAvatarHandler: (handler: () => void) => void;
 };
 
@@ -70,6 +71,7 @@ export class BoardUI {
           this.header.setStatusText(text);
         }
       },
+      setTurnText: (text: string, color?: string) => this.header.setTurnText(text, color),
       setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
     };
   }
