@@ -37,6 +37,10 @@ export class AnimationQueue {
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;
     };
+    turnOrderStatusDialog?: { showMessage: (promptText: string, headerText?: string) => void; hide: () => void };
+    waitingOpponentDialog?: { hide: () => void };
+    mulliganWaitingDialog?: { hide: () => void };
+    coinFlipOverlay?: { play: () => Promise<void> | void };
     startGame?: () => Promise<void> | void;
     startReady?: (isRedraw: boolean) => Promise<void> | void;
     chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;

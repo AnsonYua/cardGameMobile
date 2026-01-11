@@ -43,6 +43,15 @@ type ChooseFirstPlayerDialog = {
   showPrompt: (opts: { prompt?: string; onFirst?: () => Promise<void> | void; onSecond?: () => Promise<void> | void }) => Promise<boolean>;
 };
 
+type TurnOrderStatusDialog = {
+  showMessage: (promptText: string, headerText?: string) => void;
+  hide: () => void;
+};
+
+type CoinFlipOverlay = {
+  play: () => Promise<void> | void;
+};
+
 export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
@@ -50,6 +59,10 @@ export function createAnimationPipeline(deps: {
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
   chooseFirstPlayerDialog?: ChooseFirstPlayerDialog;
+  turnOrderStatusDialog?: TurnOrderStatusDialog;
+  waitingOpponentDialog?: TurnOrderStatusDialog;
+  mulliganWaitingDialog?: TurnOrderStatusDialog;
+  coinFlipOverlay?: CoinFlipOverlay;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   startGame?: () => Promise<void> | void;
   startReady?: (isRedraw: boolean) => Promise<void> | void;
@@ -102,6 +115,10 @@ export function createAnimationPipeline(deps: {
       : undefined,
     mulliganDialog: deps.mulliganDialog,
     chooseFirstPlayerDialog: deps.chooseFirstPlayerDialog,
+    turnOrderStatusDialog: deps.turnOrderStatusDialog,
+    waitingOpponentDialog: deps.waitingOpponentDialog,
+    mulliganWaitingDialog: deps.mulliganWaitingDialog,
+    coinFlipOverlay: deps.coinFlipOverlay,
     startGame: deps.startGame,
     startReady: deps.startReady,
     chooseFirstPlayer: deps.chooseFirstPlayer,

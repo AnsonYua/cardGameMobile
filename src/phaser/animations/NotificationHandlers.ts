@@ -22,6 +22,10 @@ export function buildNotificationHandlers(
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;
     };
+    turnOrderStatusDialog?: { showMessage: (promptText: string, headerText?: string) => void; hide: () => void };
+    waitingOpponentDialog?: { hide: () => void };
+    mulliganWaitingDialog?: { hide: () => void };
+    coinFlipOverlay?: { play: () => Promise<void> | void };
     startGame?: () => Promise<void> | void;
     startReady?: (isRedraw: boolean) => Promise<void> | void;
     chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;
@@ -110,6 +114,9 @@ export function buildNotificationHandlers(
       async (event) => {
         const nextPhase = event?.payload?.nextPhase;
         if (!nextPhase) return;
+        deps.turnOrderStatusDialog?.hide();
+        deps.waitingOpponentDialog?.hide();
+        deps.mulliganWaitingDialog?.hide();
         const displayPhase = nextPhase === "REDRAW_PHASE" ? "START GAME" : nextPhase;
         await Promise.resolve(deps.phasePopup?.showPhaseChange(displayPhase));
       },
@@ -133,8 +140,14 @@ export function buildNotificationHandlers(
     [
       "CHOOSE_FIRST_PLAYER",
       async (event, ctx) => {
+        deps.waitingOpponentDialog?.hide();
+        deps.mulliganWaitingDialog?.hide();
         const chooserId = event?.payload?.chooserId;
-        if (!chooserId || chooserId !== ctx.currentPlayerId) return;
+        await Promise.resolve(deps.coinFlipOverlay?.play());
+        if (!chooserId || chooserId !== ctx.currentPlayerId) {
+          deps.turnOrderStatusDialog?.showMessage("Opponent is deciding Turn Order...");
+          return;
+        }
         const player1 = event?.payload?.playerId_1;
         const player2 = event?.payload?.playerId_2;
         if (!player1 || !player2) return;

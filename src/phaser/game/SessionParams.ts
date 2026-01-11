@@ -5,6 +5,7 @@ export type ParsedSessionParams = {
   gameId: string | null;
   playerId: string | null;
   playerName: string | null;
+  isAutoPolling: boolean;
 };
 
 export function parseSessionParams(locationSearch: string): ParsedSessionParams {
@@ -26,5 +27,6 @@ export function parseSessionParams(locationSearch: string): ParsedSessionParams 
     gameId: getParam(["gameId", "gameid", "roomid"]),
     playerId: getParam(["playerId", "playerid"]),
     playerName: getParam(["playerName", "playername"]),
+    isAutoPolling: getParam(["isAutoPolling", "isautopolling"]) === "true" || getParam(["isAutoPolling", "isautopolling"]) === "1",
   };
 }

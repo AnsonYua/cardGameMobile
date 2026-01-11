@@ -25,6 +25,8 @@ import { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import { MulliganDialog } from "./ui/MulliganDialog";
 import { ChooseFirstPlayerDialog } from "./ui/ChooseFirstPlayerDialog";
+import { TurnOrderStatusDialog } from "./ui/TurnOrderStatusDialog";
+import { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -97,6 +99,12 @@ export class BoardScene extends Phaser.Scene {
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
   private chooseFirstPlayerDialogUi?: ChooseFirstPlayerDialog;
+  private turnOrderStatusDialogUi?: TurnOrderStatusDialog;
+  private coinFlipOverlayUi?: CoinFlipOverlay;
+  private waitingOpponentDialogUi?: TurnOrderStatusDialog;
+  private mulliganWaitingDialogUi?: TurnOrderStatusDialog;
+  private mulliganDecisionSubmitted = false;
+  private opponentJoined = false;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -136,6 +144,10 @@ export class BoardScene extends Phaser.Scene {
     this.phaseChangeDialogUi = new PhaseChangeDialog(this);
     this.mulliganDialogUi = new MulliganDialog(this);
     this.chooseFirstPlayerDialogUi = new ChooseFirstPlayerDialog(this);
+    this.turnOrderStatusDialogUi = new TurnOrderStatusDialog(this);
+    this.coinFlipOverlayUi = new CoinFlipOverlay(this);
+    this.waitingOpponentDialogUi = new TurnOrderStatusDialog(this);
+    this.mulliganWaitingDialogUi = new TurnOrderStatusDialog(this);
     const animationPipeline = createAnimationPipeline({
       scene: this,
       slotControls: this.slotControls,
@@ -143,6 +155,10 @@ export class BoardScene extends Phaser.Scene {
       drawPopupDialog: this.drawPopupDialogUi,
       mulliganDialog: this.mulliganDialogUi,
       chooseFirstPlayerDialog: this.chooseFirstPlayerDialogUi,
+      turnOrderStatusDialog: this.turnOrderStatusDialogUi,
+      waitingOpponentDialog: this.waitingOpponentDialogUi,
+      mulliganWaitingDialog: this.mulliganWaitingDialogUi,
+      coinFlipOverlay: this.coinFlipOverlayUi,
       phaseChangeDialog: this.phaseChangeDialogUi,
       startGame: () => this.startGame(),
       startReady: async (isRedraw) => {
@@ -152,8 +168,10 @@ export class BoardScene extends Phaser.Scene {
           console.warn("[startReady] missing gameId/playerId", { gameId, playerId });
           return;
         }
+        this.mulliganDecisionSubmitted = true;
         await this.api.startReady({ gameId, playerId, isRedraw });
-        await this.engine.updateGameStatus(gameId, playerId);
+        const snapshot = await this.engine.updateGameStatus(gameId, playerId);
+        this.updateMulliganWaitingDialog(snapshot);
       },
       chooseFirstPlayer: async (chosenFirstPlayerId) => {
         const gameId = this.gameContext.gameId;
@@ -220,6 +238,13 @@ export class BoardScene extends Phaser.Scene {
     });
     this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
     this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
+    this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
+      this.updateWaitingOpponentDialog(snapshot);
+      this.updateMulliganWaitingDialog(snapshot);
+    });
+    this.match.events.on("status", () => {
+      this.updateWaitingOpponentDialog();
+    });
     this.pilotTargetDialogUi = new PilotTargetDialog(
       this,
       (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
@@ -751,14 +776,58 @@ export class BoardScene extends Phaser.Scene {
       },
     });
   }
+
+  private updateWaitingOpponentDialog(snapshot?: GameStatusSnapshot) {
+    if (this.gameContext.mode !== GameMode.Host) {
+      this.waitingOpponentDialogUi?.hide();
+      return;
+    }
+    const matchState = this.match.getState();
+    const raw = snapshot?.raw ?? this.engine.getSnapshot().raw;
+    const env = (raw as any)?.gameEnv ?? (raw as any) ?? {};
+    const players = env?.players ?? null;
+    const hasOpponent = players ? Object.keys(players).length > 1 : false;
+    const gameStarted = !!env?.gameStarted;
+    const phase = env?.phase;
+    if (hasOpponent || gameStarted || phase === "DECIDE_FIRST_PLAYER_PHASE") {
+      this.opponentJoined = true;
+    }
+    if (this.opponentJoined) {
+      this.waitingOpponentDialogUi?.hide();
+      return;
+    }
+
+    if (!hasOpponent && matchState.status === GameStatus.WaitingOpponent) {
+      this.waitingOpponentDialogUi?.showMessage("Waiting for opponent...", "Waiting for Opponent");
+    } else {
+      this.waitingOpponentDialogUi?.hide();
+    }
+  }
+
+  private updateMulliganWaitingDialog(snapshot?: GameStatusSnapshot) {
+    if (!this.mulliganDecisionSubmitted) {
+      this.mulliganWaitingDialogUi?.hide();
+      return;
+    }
+    const raw = snapshot?.raw ?? this.engine.getSnapshot().raw;
+    const phase = (raw as any)?.gameEnv?.phase ?? (raw as any)?.phase;
+    if (phase === "REDRAW_PHASE") {
+      this.mulliganWaitingDialogUi?.showMessage("Waiting for Opponent Mulligan Decision...", "Mulligan");
+      return;
+    }
+    this.mulliganDecisionSubmitted = false;
+    this.mulliganWaitingDialogUi?.hide();
+  }
   private async initSession() {
     try {
       this.offlineFallback = false;
+      this.opponentJoined = false;
       const parsed = parseSessionParams(window.location.search);
       const mode = parsed.mode;
       const gameId = parsed.gameId;
       const playerIdParam = parsed.playerId;
       const playerNameParam = parsed.playerName;
+      const isAutoPolling = parsed.isAutoPolling;
 
       if (!mode) throw new Error("Invalid mode");
 
@@ -784,6 +853,9 @@ export class BoardScene extends Phaser.Scene {
           silent: true,
           statusPayload,
         });
+        if (isAutoPolling) {
+          await this.debugControls?.startAutoPolling();
+        }
       } else {
         const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
         this.contextStore.update({ playerName: hostName });
@@ -792,6 +864,9 @@ export class BoardScene extends Phaser.Scene {
         const state = this.match.getState();
         if (state.gameId) {
           this.contextStore.update({ gameId: state.gameId });
+        }
+        if (isAutoPolling) {
+          await this.debugControls?.startAutoPolling();
         }
       }
     } catch (err) {
