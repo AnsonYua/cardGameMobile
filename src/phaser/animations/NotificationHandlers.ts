@@ -17,7 +17,6 @@ export function buildNotificationHandlers(
     };
     chooseFirstPlayerDialog?: {
       showPrompt: (opts: {
-        prompt?: string;
         onFirst?: () => Promise<void> | void;
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;
@@ -155,7 +154,6 @@ export function buildNotificationHandlers(
 
         await Promise.resolve(
           deps.chooseFirstPlayerDialog?.showPrompt({
-            prompt: "Choose who goes first.",
             onFirst: () => deps.chooseFirstPlayer?.(chooserId),
             onSecond: () => deps.chooseFirstPlayer?.(otherId),
           }),

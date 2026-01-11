@@ -40,7 +40,7 @@ type MulliganDialog = {
 };
 
 type ChooseFirstPlayerDialog = {
-  showPrompt: (opts: { prompt?: string; onFirst?: () => Promise<void> | void; onSecond?: () => Promise<void> | void }) => Promise<boolean>;
+  showPrompt: (opts: { onFirst?: () => Promise<void> | void; onSecond?: () => Promise<void> | void }) => Promise<boolean>;
 };
 
 type TurnOrderStatusDialog = {

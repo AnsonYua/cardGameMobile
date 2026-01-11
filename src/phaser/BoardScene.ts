@@ -7,10 +7,8 @@ import { ApiManager } from "./api/ApiManager";
 import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
 import { MatchStateMachine } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
-import type { GameStatusResponse } from "./game/GameTypes";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
-import { parseSessionParams } from "./game/SessionParams";
 import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
@@ -40,6 +38,8 @@ import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
+import { DialogCoordinator } from "./controllers/DialogCoordinator";
+import { SessionController } from "./controllers/SessionController";
 
 const colors = {
   bg: "#ffffff",
@@ -103,8 +103,8 @@ export class BoardScene extends Phaser.Scene {
   private coinFlipOverlayUi?: CoinFlipOverlay;
   private waitingOpponentDialogUi?: TurnOrderStatusDialog;
   private mulliganWaitingDialogUi?: TurnOrderStatusDialog;
-  private mulliganDecisionSubmitted = false;
-  private opponentJoined = false;
+  private dialogCoordinator = new DialogCoordinator(this.match, this.contextStore);
+  private sessionController?: SessionController;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -148,6 +148,8 @@ export class BoardScene extends Phaser.Scene {
     this.coinFlipOverlayUi = new CoinFlipOverlay(this);
     this.waitingOpponentDialogUi = new TurnOrderStatusDialog(this);
     this.mulliganWaitingDialogUi = new TurnOrderStatusDialog(this);
+    this.dialogCoordinator.setWaitingOpponentDialog(this.waitingOpponentDialogUi);
+    this.dialogCoordinator.setMulliganWaitingDialog(this.mulliganWaitingDialogUi);
     const animationPipeline = createAnimationPipeline({
       scene: this,
       slotControls: this.slotControls,
@@ -168,10 +170,10 @@ export class BoardScene extends Phaser.Scene {
           console.warn("[startReady] missing gameId/playerId", { gameId, playerId });
           return;
         }
-        this.mulliganDecisionSubmitted = true;
+        this.dialogCoordinator.markMulliganDecisionSubmitted();
         await this.api.startReady({ gameId, playerId, isRedraw });
         const snapshot = await this.engine.updateGameStatus(gameId, playerId);
-        this.updateMulliganWaitingDialog(snapshot);
+        this.dialogCoordinator.updateFromSnapshot(snapshot);
       },
       chooseFirstPlayer: async (chosenFirstPlayerId) => {
         const gameId = this.gameContext.gameId;
@@ -212,6 +214,17 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls = this.ui.getHeaderControls();
     this.actionControls = this.ui.getActionControls();
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
+    this.sessionController = new SessionController({
+      match: this.match,
+      engine: this.engine,
+      contextStore: this.contextStore,
+      debugControls: this.debugControls,
+      onOfflineFallback: (gameId, message) => {
+        this.offlineFallback = true;
+        this.headerControls?.setStatusFromEngine?.(GameStatus.Ready, { offlineFallback: true });
+        console.warn("Using offline fallback:", message, { gameId });
+      },
+    });
     this.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
       const status = (payload.status || "").toUpperCase();
       if (payload.active && status === "ACTION_STEP") {
@@ -239,11 +252,10 @@ export class BoardScene extends Phaser.Scene {
     this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
     this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
     this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
-      this.updateWaitingOpponentDialog(snapshot);
-      this.updateMulliganWaitingDialog(snapshot);
+      this.dialogCoordinator.updateFromSnapshot(snapshot);
     });
     this.match.events.on("status", () => {
-      this.updateWaitingOpponentDialog();
+      this.dialogCoordinator.updateFromSnapshot();
     });
     this.pilotTargetDialogUi = new PilotTargetDialog(
       this,
@@ -777,113 +789,10 @@ export class BoardScene extends Phaser.Scene {
     });
   }
 
-  private updateWaitingOpponentDialog(snapshot?: GameStatusSnapshot) {
-    if (this.gameContext.mode !== GameMode.Host) {
-      this.waitingOpponentDialogUi?.hide();
-      return;
-    }
-    const matchState = this.match.getState();
-    const raw = snapshot?.raw ?? this.engine.getSnapshot().raw;
-    const env = (raw as any)?.gameEnv ?? (raw as any) ?? {};
-    const players = env?.players ?? null;
-    const hasOpponent = players ? Object.keys(players).length > 1 : false;
-    const gameStarted = !!env?.gameStarted;
-    const phase = env?.phase;
-    if (hasOpponent || gameStarted || phase === "DECIDE_FIRST_PLAYER_PHASE") {
-      this.opponentJoined = true;
-    }
-    if (this.opponentJoined) {
-      this.waitingOpponentDialogUi?.hide();
-      return;
-    }
-
-    if (!hasOpponent && matchState.status === GameStatus.WaitingOpponent) {
-      this.waitingOpponentDialogUi?.showMessage("Waiting for opponent...", "Waiting for Opponent");
-    } else {
-      this.waitingOpponentDialogUi?.hide();
-    }
-  }
-
-  private updateMulliganWaitingDialog(snapshot?: GameStatusSnapshot) {
-    if (!this.mulliganDecisionSubmitted) {
-      this.mulliganWaitingDialogUi?.hide();
-      return;
-    }
-    const raw = snapshot?.raw ?? this.engine.getSnapshot().raw;
-    const phase = (raw as any)?.gameEnv?.phase ?? (raw as any)?.phase;
-    if (phase === "REDRAW_PHASE") {
-      this.mulliganWaitingDialogUi?.showMessage("Waiting for Opponent Mulligan Decision...", "Mulligan");
-      return;
-    }
-    this.mulliganDecisionSubmitted = false;
-    this.mulliganWaitingDialogUi?.hide();
-  }
   private async initSession() {
-    try {
-      this.offlineFallback = false;
-      this.opponentJoined = false;
-      const parsed = parseSessionParams(window.location.search);
-      const mode = parsed.mode;
-      const gameId = parsed.gameId;
-      const playerIdParam = parsed.playerId;
-      const playerNameParam = parsed.playerName;
-      const isAutoPolling = parsed.isAutoPolling;
-
-      if (!mode) throw new Error("Invalid mode");
-
-      this.contextStore.update({ mode });
-      if (playerIdParam) this.contextStore.update({ playerId: playerIdParam });
-      if (gameId) this.contextStore.update({ gameId });
-
-      if (mode === GameMode.Join) {
-        if (!gameId) {
-          throw new Error("Missing game id for join mode");
-        }
-        // Default join identity aligns with backend sample if none provided.
-        //const joinId = playerIdParam || "playerId_1";
-        const joinId = "playerId_2"
-        const joinName = playerNameParam || "Demo Opponent";
-        this.contextStore.update({ playerId: joinId, playerName: joinName });
-        await this.match.joinRoom(gameId, joinId, joinName);
-        const resolvedPlayerId = this.gameContext.playerId || joinId;
-        const statusPayload = (await this.match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
-        await this.engine.loadGameResources(gameId, resolvedPlayerId, statusPayload);
-        await this.engine.updateGameStatus(gameId, resolvedPlayerId, {
-          fromScenario: true,
-          silent: true,
-          statusPayload,
-        });
-        if (isAutoPolling) {
-          await this.debugControls?.startAutoPolling();
-        }
-      } else {
-        const hostName = playerNameParam || this.gameContext.playerName || "Demo Player";
-        this.contextStore.update({ playerName: hostName });
-        await this.match.startAsHost(this.gameContext.playerId, { playerName: hostName });
-        // Capture gameId from the match state after hosting is created.
-        const state = this.match.getState();
-        if (state.gameId) {
-          this.contextStore.update({ gameId: state.gameId });
-        }
-        if (isAutoPolling) {
-          await this.debugControls?.startAutoPolling();
-        }
-      }
-    } catch (err) {
-      console.error("Session init failed", err);
-      const params = new URLSearchParams(window.location.search);
-      const fallbackGameId =
-        this.gameContext.mode === GameMode.Join
-          ? params.get("gameId") || params.get("roomid") || "join-local"
-          : `demo-${Date.now()}`;
-      // Fallback to a local ready state so the UI remains usable even if API/host is unreachable.
-      this.offlineFallback = true;
-      this.gameContext.gameId = fallbackGameId;
-      this.headerControls?.setStatusFromEngine?.(GameStatus.Ready, { offlineFallback: true });
-      // Keep UI clean; log error only.
-      const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
-      console.warn("Using offline fallback:", msg);
-    }
+    this.offlineFallback = false;
+    this.dialogCoordinator.resetSession();
+    await this.sessionController?.initSession(window.location.search);
   }
 
   private setupActions() {

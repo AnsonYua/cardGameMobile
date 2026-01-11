@@ -32,7 +32,6 @@ export class AnimationQueue {
     };
     chooseFirstPlayerDialog?: {
       showPrompt: (opts: {
-        prompt?: string;
         onFirst?: () => Promise<void> | void;
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;

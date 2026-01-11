@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
 
 type ChooseFirstPlayerDialogOpts = {
-  prompt?: string;
   onFirst?: () => Promise<void> | void;
   onSecond?: () => Promise<void> | void;
   firstLabel?: string;
@@ -26,7 +25,6 @@ export class ChooseFirstPlayerDialog {
 
     const cam = this.scene.cameras.main;
     const headerText = "Choose Turn Order";
-    const promptText = opts.prompt || "Choose who goes first.";
     const maxTextWidth = Math.min(420, cam.width * 0.75);
     const headerStyle = {
       fontSize: "20px",
@@ -35,27 +33,16 @@ export class ChooseFirstPlayerDialog {
       color: "#f5f6f7",
       align: "center",
     };
-    const promptStyle = {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: "#f5f6f7",
-      align: "center",
-      wordWrap: { width: maxTextWidth },
-    };
-
     const tempHeader = this.scene.add.text(-10000, -10000, headerText, headerStyle).setOrigin(0.5);
-    const tempPrompt = this.scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5);
     const gap = 14;
     const buttonHeight = 46;
-    const buttonContentHeight = tempPrompt.height + gap + buttonHeight;
+    const buttonContentHeight = gap + buttonHeight;
     const layout = computePromptDialogLayout(cam, this.cfg, {
-      contentWidth: Math.max(tempPrompt.width, 260),
+      contentWidth: 260,
       contentHeight: buttonContentHeight,
       headerHeight: tempHeader.height,
     });
     tempHeader.destroy();
-    tempPrompt.destroy();
 
     const { dialog, content, header } = createDialogShell(this.scene, this.cfg, layout, {
       centerX: cam.centerX,
@@ -66,17 +53,17 @@ export class ChooseFirstPlayerDialog {
       showCloseButton: false,
     });
 
-    const prompt = this.scene.add.text(0, 0, promptText, promptStyle).setOrigin(0.5);
-
     const dialogMargin = this.cfg.dialog.margin;
     const buttonGap = 24;
     const availableForButtons = Math.max(200, layout.dialogWidth - dialogMargin * 2);
     const buttonWidth = Math.min(220, (availableForButtons - buttonGap) / 2);
-    const promptY = header.y + header.height / 2 + gap + prompt.height / 2;
-    prompt.setY(promptY);
-    const btnY = promptY + prompt.height / 2 + gap + buttonHeight / 2;
+    const btnY = header.y + header.height / 2 + gap + buttonHeight / 2;
 
-    const makeButton = (x: number, label: string, onClick: () => Promise<void> | void) => {
+    const makeButton = (
+      x: number,
+      label: string,
+      onClick: () => Promise<void> | void,
+    ): [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text] => {
       const rect = this.scene.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0x2f3238, 1);
       rect.setStrokeStyle(2, 0x5b6068, 1);
       rect.setInteractive({ useHandCursor: true });
@@ -97,8 +84,6 @@ export class ChooseFirstPlayerDialog {
     };
 
     const offset = buttonWidth / 2 + buttonGap / 2;
-    content.add(prompt);
-
     this.container = dialog;
     this.container.setAlpha(0).setScale(0.96);
 
