@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import { BASE_H, BASE_W } from "../config/gameLayout";
-import { BoardUI } from "./ui/BoardUI";
-import { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
+import type { ShuffleAnimationManager } from "./animations/ShuffleAnimationManager";
+import type { BoardUI } from "./ui/BoardUI";
 import { ShieldAreaStatus } from "./ui/ShieldAreaHandler";
 import { ApiManager } from "./api/ApiManager";
-import { GameSessionService, GameStatus, GameMode } from "./game/GameSessionService";
+import { GameSessionService, GameStatus } from "./game/GameSessionService";
 import { MatchStateMachine } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
@@ -15,16 +15,16 @@ import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
-import { PilotTargetDialog } from "./ui/PilotTargetDialog";
-import { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
-import { EffectTargetDialog } from "./ui/EffectTargetDialog";
-import { TrashAreaDialog } from "./ui/TrashAreaDialog";
-import { DrawPopupDialog } from "./ui/DrawPopupDialog";
-import { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
-import { MulliganDialog } from "./ui/MulliganDialog";
-import { ChooseFirstPlayerDialog } from "./ui/ChooseFirstPlayerDialog";
-import { TurnOrderStatusDialog } from "./ui/TurnOrderStatusDialog";
-import { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
+import type { PilotTargetDialog } from "./ui/PilotTargetDialog";
+import type { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
+import type { EffectTargetDialog } from "./ui/EffectTargetDialog";
+import type { TrashAreaDialog } from "./ui/TrashAreaDialog";
+import type { DrawPopupDialog } from "./ui/DrawPopupDialog";
+import type { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
+import type { MulliganDialog } from "./ui/MulliganDialog";
+import type { ChooseFirstPlayerDialog } from "./ui/ChooseFirstPlayerDialog";
+import type { TurnOrderStatusDialog } from "./ui/TurnOrderStatusDialog";
+import type { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -33,23 +33,16 @@ import type { SelectionActionController } from "./controllers/SelectionActionCon
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import type { AnimationQueue } from "./animations/AnimationQueue";
 import type { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
-import { createAnimationPipeline } from "./controllers/AnimationPipeline";
+import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
 import { SessionController } from "./controllers/SessionController";
-
-const colors = {
-  bg: "#ffffff",
-  board: "#1a1d26",
-  slot: "#2a2d38",
-  accent: "#d0d5e0",
-  pill: "#2f3342",
-  text: "#f5f6fb",
-ink: "#0f1118",
-};
+import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
+import { setupBoardDialogs } from "./scene/boardDialogSetup";
+import { BOARD_THEME } from "./scene/boardTheme";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -68,12 +61,12 @@ export class BoardScene extends Phaser.Scene {
   private playerBaseStatus: ShieldAreaStatus = "normal";
   private playerShieldCount = 6;
   private offlineFallback = false;
-  private baseControls: ReturnType<BoardUI["getBaseControls"]> | null = null;
-  private trashControls: ReturnType<BoardUI["getTrashControls"]> | null = null;
-  private energyControls: ReturnType<BoardUI["getEnergyControls"]> | null = null;
-  private statusControls: ReturnType<BoardUI["getStatusControls"]> | null = null;
-  private handControls: ReturnType<BoardUI["getHandControls"]> | null = null;
-  private actionControls: ReturnType<BoardUI["getActionControls"]> | null = null;
+  private baseControls: BoardUiControls["baseControls"] | null = null;
+  private trashControls: BoardUiControls["trashControls"] | null = null;
+  private energyControls: BoardUiControls["energyControls"] | null = null;
+  private statusControls: BoardUiControls["statusControls"] | null = null;
+  private handControls: BoardUiControls["handControls"] | null = null;
+  private actionControls: BoardUiControls["actionControls"] | null = null;
   private api = new ApiManager();
   private session = new GameSessionService(this.api);
   private match = new MatchStateMachine(this.session);
@@ -84,11 +77,11 @@ export class BoardScene extends Phaser.Scene {
   private slotPresenter = new SlotPresenter();
   private turnController = new TurnStateController();
 
-  private headerControls: ReturnType<BoardUI["getHeaderControls"]> | null = null;
+  private headerControls: BoardUiControls["headerControls"] | null = null;
   private actionDispatcher = new ActionDispatcher();
   private debugControls?: DebugControls;
   private loadingText?: Phaser.GameObjects.Text;
-  private slotControls: ReturnType<BoardUI["getSlotControls"]> | null = null;
+  private slotControls: BoardUiControls["slotControls"] | null = null;
   private selectionAction?: SelectionActionController;
   private effectTargetController?: EffectTargetController;
   private pilotTargetDialogUi?: PilotTargetDialog;
@@ -119,100 +112,66 @@ export class BoardScene extends Phaser.Scene {
     const cam = this.cameras.main;
     this.offset.x = cam.centerX - BASE_W / 2;
     this.offset.y = cam.centerY - BASE_H / 2;
-    console.log("offset y ", cam.centerY)
+    this.cameras.main.setBackgroundColor(BOARD_THEME.bg);
 
+    const { ui, shuffleManager, controls } = setupBoardUi(this, this.offset, BOARD_THEME);
+    this.ui = ui;
+    this.shuffleManager = shuffleManager;
+    this.baseControls = controls.baseControls;
+    this.trashControls = controls.trashControls;
+    this.energyControls = controls.energyControls;
+    this.statusControls = controls.statusControls;
+    this.handControls = controls.handControls;
+    this.actionControls = controls.actionControls;
+    this.headerControls = controls.headerControls;
+    this.slotControls = controls.slotControls;
 
+    const dialogs = setupBoardDialogs(
+      this,
+      this.dialogCoordinator,
+      (slot, size) => this.slotControls?.createSlotSprite?.(slot as any, size),
+    );
+    this.drawPopupDialogUi = dialogs.drawPopupDialog;
+    this.phaseChangeDialogUi = dialogs.phaseChangeDialog;
+    this.mulliganDialogUi = dialogs.mulliganDialog;
+    this.chooseFirstPlayerDialogUi = dialogs.chooseFirstPlayerDialog;
+    this.turnOrderStatusDialogUi = dialogs.turnOrderStatusDialog;
+    this.coinFlipOverlayUi = dialogs.coinFlipOverlay;
+    this.waitingOpponentDialogUi = dialogs.waitingOpponentDialog;
+    this.mulliganWaitingDialogUi = dialogs.mulliganWaitingDialog;
+    this.pilotTargetDialogUi = dialogs.pilotTargetDialog;
+    this.pilotDesignationDialogUi = dialogs.pilotDesignationDialog;
+    this.effectTargetDialogUi = dialogs.effectTargetDialog;
+    this.trashAreaDialogUi = dialogs.trashAreaDialog;
 
-    this.cameras.main.setBackgroundColor(colors.bg);
-    this.ui = new BoardUI(this, {
-      ink: colors.ink,
-      slot: colors.slot,
-      accent: colors.accent,
-      text: colors.text,
-      bg: colors.bg,
-    });
-    this.shuffleManager = new ShuffleAnimationManager(this, this.offset, {
-      getSlotPositions: () => this.slotControls?.getBoardSlotPositions?.(),
-    });
-    this.baseControls = this.ui.getBaseControls();
-    this.trashControls = this.ui.getTrashControls();
-    this.energyControls = this.ui.getEnergyControls();
-    this.statusControls = this.ui.getStatusControls();
-    this.handControls = this.ui.getHandControls();
-    this.slotControls = this.ui.getSlotControls();
-    this.drawPopupDialogUi = new DrawPopupDialog(this);
-    this.phaseChangeDialogUi = new PhaseChangeDialog(this);
-    this.mulliganDialogUi = new MulliganDialog(this);
-    this.chooseFirstPlayerDialogUi = new ChooseFirstPlayerDialog(this);
-    this.turnOrderStatusDialogUi = new TurnOrderStatusDialog(this);
-    this.coinFlipOverlayUi = new CoinFlipOverlay(this);
-    this.waitingOpponentDialogUi = new TurnOrderStatusDialog(this);
-    this.mulliganWaitingDialogUi = new TurnOrderStatusDialog(this);
-    this.dialogCoordinator.setWaitingOpponentDialog(this.waitingOpponentDialogUi);
-    this.dialogCoordinator.setMulliganWaitingDialog(this.mulliganWaitingDialogUi);
-    const animationPipeline = createAnimationPipeline({
+    const { animationQueue, slotAnimationRender } = setupAnimationPipeline({
       scene: this,
-      slotControls: this.slotControls,
-      handControls: this.handControls,
-      drawPopupDialog: this.drawPopupDialogUi,
-      mulliganDialog: this.mulliganDialogUi,
-      chooseFirstPlayerDialog: this.chooseFirstPlayerDialogUi,
-      turnOrderStatusDialog: this.turnOrderStatusDialogUi,
-      waitingOpponentDialog: this.waitingOpponentDialogUi,
-      mulliganWaitingDialog: this.mulliganWaitingDialogUi,
-      coinFlipOverlay: this.coinFlipOverlayUi,
-      phaseChangeDialog: this.phaseChangeDialogUi,
-      startGame: () => this.startGame(),
-      startReady: async (isRedraw) => {
-        const gameId = this.gameContext.gameId;
-        const playerId = this.gameContext.playerId;
-        if (!gameId || !playerId) {
-          console.warn("[startReady] missing gameId/playerId", { gameId, playerId });
-          return;
-        }
-        this.dialogCoordinator.markMulliganDecisionSubmitted();
-        await this.api.startReady({ gameId, playerId, isRedraw });
-        const snapshot = await this.engine.updateGameStatus(gameId, playerId);
-        this.dialogCoordinator.updateFromSnapshot(snapshot);
+      controls,
+      dialogs: {
+        drawPopupDialog: dialogs.drawPopupDialog,
+        mulliganDialog: dialogs.mulliganDialog,
+        chooseFirstPlayerDialog: dialogs.chooseFirstPlayerDialog,
+        turnOrderStatusDialog: dialogs.turnOrderStatusDialog,
+        waitingOpponentDialog: dialogs.waitingOpponentDialog,
+        mulliganWaitingDialog: dialogs.mulliganWaitingDialog,
+        coinFlipOverlay: dialogs.coinFlipOverlay,
+        phaseChangeDialog: dialogs.phaseChangeDialog,
       },
-      chooseFirstPlayer: async (chosenFirstPlayerId) => {
-        const gameId = this.gameContext.gameId;
-        const playerId = this.gameContext.playerId;
-        if (!gameId || !playerId) {
-          console.warn("[chooseFirstPlayer] missing gameId/playerId", { gameId, playerId });
-          return;
-        }
-        await this.api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });
-        await this.engine.updateGameStatus(gameId, playerId);
-      },
+      api: this.api,
+      engine: this.engine,
+      dialogCoordinator: this.dialogCoordinator,
+      gameContext: this.gameContext,
+      slotPresenter: this.slotPresenter,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
-      getSlotsFromRaw: (data) => this.slotPresenter.toSlots(data, this.gameContext.playerId),
+      startGame: () => this.startGame(),
+      renderSlots: (slots) => this.renderSlots(slots),
+      updateHandArea: (opts) => this.updateHandArea(opts),
+      shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
+      handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
     });
-    this.animationQueue = animationPipeline.animationQueue;
-    this.slotAnimationRender = animationPipeline.slotAnimationRender;
-    this.animationQueue.setOnIdle(() => this.handleAnimationQueueIdle());
-    this.animationQueue.setOnEventStart((event, ctx) => {
-      const slots = this.slotAnimationRender?.handleEventStart(
-        event,
-        this.slotPresenter.toSlots(ctx.currentRaw ?? ctx.previousRaw, this.gameContext.playerId),
-      );
-      if (slots) {
-        this.renderSlots(slots);
-      }
-    });
-    this.animationQueue.setOnEventEnd((event, ctx) => {
-      const slots = this.slotAnimationRender?.handleEventEnd(event, ctx);
-      if (slots) {
-        this.renderSlots(slots);
-      }
-      if (this.shouldRefreshHandForEvent(event)) {
-        this.updateHandArea({ skipAnimation: true });
-        this.handControls?.scrollToEnd?.(true);
-      }
-    });
-    this.headerControls = this.ui.getHeaderControls();
-    this.actionControls = this.ui.getActionControls();
+    this.animationQueue = animationQueue;
+    this.slotAnimationRender = slotAnimationRender;
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.sessionController = new SessionController({
       match: this.match,
@@ -257,16 +216,6 @@ export class BoardScene extends Phaser.Scene {
     this.match.events.on("status", () => {
       this.dialogCoordinator.updateFromSnapshot();
     });
-    this.pilotTargetDialogUi = new PilotTargetDialog(
-      this,
-      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
-    );
-    this.pilotDesignationDialogUi = new PilotDesignationDialog(this);
-    this.effectTargetDialogUi = new EffectTargetDialog(
-      this,
-      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
-    );
-    this.trashAreaDialogUi = new TrashAreaDialog(this);
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,
