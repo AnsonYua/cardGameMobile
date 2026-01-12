@@ -10,6 +10,7 @@ import { PilotTargetDialog } from "../ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
+import type { SlotViewModel } from "../ui/SlotTypes";
 
 export type BoardDialogSet = {
   drawPopupDialog: DrawPopupDialog;
@@ -26,7 +27,10 @@ export type BoardDialogSet = {
   trashAreaDialog: TrashAreaDialog;
 };
 
-type CreateSlotSprite = (slot: unknown, size: number) => Phaser.GameObjects.GameObject | undefined;
+type CreateSlotSprite = (
+  slot: SlotViewModel,
+  size: { w: number; h: number },
+) => Phaser.GameObjects.Container | undefined;
 
 export function setupBoardDialogs(
   scene: Phaser.Scene,

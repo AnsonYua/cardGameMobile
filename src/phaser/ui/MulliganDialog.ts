@@ -74,7 +74,11 @@ export class MulliganDialog {
     prompt.setY(promptY);
     const btnY = promptY + prompt.height / 2 + gap + buttonHeight / 2;
 
-    const makeButton = (x: number, label: string, onClick: () => Promise<void> | void) => {
+    const makeButton = (
+      x: number,
+      label: string,
+      onClick: () => Promise<void> | void,
+    ): [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text] => {
       const rect = this.scene.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0x2f3238, 1);
       rect.setStrokeStyle(2, 0x5b6068, 1);
       rect.setInteractive({ useHandCursor: true });

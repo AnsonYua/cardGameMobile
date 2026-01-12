@@ -7,7 +7,8 @@ import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { GameEngine } from "../game/GameEngine";
 import type { ApiManager } from "../api/ApiManager";
 import type { DialogCoordinator } from "../controllers/DialogCoordinator";
-import type { SlotViewModel } from "../ui/SlotTypes";
+import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
+import type { SlotNotification } from "../animations/NotificationAnimationController";
 import type { DrawPopupDialog } from "../ui/DrawPopupDialog";
 import type { MulliganDialog } from "../ui/MulliganDialog";
 import type { ChooseFirstPlayerDialog } from "../ui/ChooseFirstPlayerDialog";
@@ -39,12 +40,12 @@ export type AnimationPipelineParams = {
   dialogCoordinator: DialogCoordinator;
   gameContext: { gameId?: string | null; playerId?: string | null };
   slotPresenter: SlotPresenter;
-  resolveSlotOwnerByPlayer: (playerId: string) => unknown;
+  resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   startGame: () => void;
   renderSlots: (slots: SlotViewModel[]) => void;
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
-  shouldRefreshHandForEvent: (event: unknown) => boolean;
+  shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
 };
 
@@ -104,7 +105,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     },
     resolveSlotOwnerByPlayer,
     getTargetAnchorProviders,
-    getSlotsFromRaw: (data) => slotPresenter.toSlots(data, gameContext.playerId),
+    getSlotsFromRaw: (data) => slotPresenter.toSlots(data, gameContext.playerId ?? ""),
   });
 
   const { animationQueue, slotAnimationRender } = animationPipeline;
@@ -113,7 +114,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
   animationQueue.setOnEventStart((event, ctx) => {
     const slots = slotAnimationRender.handleEventStart(
       event,
-      slotPresenter.toSlots(ctx.currentRaw ?? ctx.previousRaw, gameContext.playerId),
+      slotPresenter.toSlots(ctx.currentRaw ?? ctx.previousRaw, gameContext.playerId ?? ""),
     );
     if (slots) {
       renderSlots(slots);

@@ -215,10 +215,13 @@ export class TrashCardGridRenderer {
   }
 
   private toPreviewCard(card: any): HandCardView {
+    const cardId = card?.cardId;
     return {
       cardType: card?.cardType || card?.cardData?.cardType,
       fromPilotDesignation: card?.fromPilotDesignation,
-      cardId: card?.cardId,
+      cardId,
+      color: 0x2a2d38,
+      textureKey: toPreviewKey(cardId),
     };
   }
 }

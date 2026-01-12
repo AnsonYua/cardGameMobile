@@ -129,7 +129,7 @@ export class BoardScene extends Phaser.Scene {
     const dialogs = setupBoardDialogs(
       this,
       this.dialogCoordinator,
-      (slot, size) => this.slotControls?.createSlotSprite?.(slot as any, size),
+      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
     );
     this.drawPopupDialogUi = dialogs.drawPopupDialog;
     this.phaseChangeDialogUi = dialogs.phaseChangeDialog;
