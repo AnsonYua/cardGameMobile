@@ -7,7 +7,8 @@ import { HandRenderer } from "./HandRenderer";
 import { HandScrollController } from "./HandScrollController";
 import { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
-import { getBadgeLabel, toTextureKey } from "./HandPreviewHelper";
+import { getBadgeLabel } from "./HandPreviewHelper";
+import { toPreviewKey } from "./HandTypes";
 import type { DrawHelpers } from "./HeaderHandler";
 
 export class HandAreaHandler {
@@ -132,7 +133,7 @@ export class HandAreaHandler {
   renderPreviewCard(container: Phaser.GameObjects.Container, card: HandCardView) {
     const cardW = UI_LAYOUT.hand.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
-    const texKey = toTextureKey(card.textureKey);
+    const texKey = toPreviewKey(card.cardId) ?? card.textureKey;
     const badgeLabel = getBadgeLabel(card);
     this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, badgeLabel, card, {
       badgeSize: UI_LAYOUT.hand.preview.badgeSize,
@@ -155,7 +156,7 @@ export class HandAreaHandler {
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
     this.previewController.start((container) => {
       this.previewCardUid = card.uid;
-      const texKey = toTextureKey(card.textureKey);
+      const texKey = toPreviewKey(card.cardId) ?? card.textureKey;
       const insideLabel = getBadgeLabel(card);
       this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, insideLabel, card, {
         badgeSize: UI_LAYOUT.hand.preview.badgeSize,

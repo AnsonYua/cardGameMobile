@@ -54,8 +54,12 @@ export class TestButtonPopup {
         .text(0, y, btn.label, { fontSize: "18px", fontFamily: "Arial", color: "#ff0000" })
         .setOrigin(0.5)
         .setDepth(this.depth + 2);
-      rect.setInteractive({ useHandCursor: true }).on("pointerdown", () => btn.onClick?.());
-      label.setInteractive({ useHandCursor: true }).on("pointerdown", () => btn.onClick?.());
+      const handleClick = async () => {
+        await this.hide();
+        await Promise.resolve(btn.onClick?.());
+      };
+      rect.setInteractive({ useHandCursor: true }).on("pointerdown", handleClick);
+      label.setInteractive({ useHandCursor: true }).on("pointerdown", handleClick);
       btnObjs.push(rect, label);
     });
 

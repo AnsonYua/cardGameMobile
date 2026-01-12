@@ -1,4 +1,4 @@
-import { HandCardView, toPreviewKey } from "./HandTypes";
+import { HandCardView, toBaseKey } from "./HandTypes";
 
 export class HandPresenter {
   toHandCards(raw: any, playerId: string): HandCardView[] {
@@ -13,7 +13,7 @@ export class HandPresenter {
       const pilotParams = pilotRule?.parameters || {};
       const pilotAp = pilotParams.AP ?? pilotParams.ap ?? null;
       const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;
-      const textureKey = toPreviewKey(cardId);
+      const textureKey = toBaseKey(cardId);
       const cardType = data?.cardType;
       const isPilotCommand = cardType === "command" && pilotRule;
       const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap;

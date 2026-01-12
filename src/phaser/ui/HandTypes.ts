@@ -10,5 +10,7 @@ export type HandCardView = {
   cardId?: string;
 };
 
+export const toBaseKey = (cardId?: string | null) => (cardId ? cardId.replace(/\.png$/i, "") : undefined);
+
 export const toPreviewKey = (cardId?: string | null) =>
   cardId ? cardId.replace(/\.png$/i, "") + "-preview" : undefined;
