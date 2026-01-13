@@ -9,7 +9,6 @@ import { MatchStateMachine } from "./game/MatchStateMachine";
 import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/GameEngine";
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
-import { ENGINE_EVENTS } from "./game/EngineEvents";
 import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
 import { HandPresenter } from "./ui/HandPresenter";
@@ -43,6 +42,10 @@ import { SessionController } from "./controllers/SessionController";
 import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
 import { setupBoardDialogs } from "./scene/boardDialogSetup";
 import { BOARD_THEME } from "./scene/boardTheme";
+import { wireBoardUiHandlers } from "./scene/boardSceneUiBindings";
+import { buildBoardSceneTestHooks } from "./scene/boardSceneTestHooks";
+import { bindBoardSceneEvents } from "./scene/boardSceneEventBindings";
+import { registerBoardSceneActions } from "./scene/boardSceneActionBindings";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -184,37 +187,17 @@ export class BoardScene extends Phaser.Scene {
         console.warn("Using offline fallback:", message, { gameId });
       },
     });
-    this.engine.events.on(ENGINE_EVENTS.BATTLE_STATE_CHANGED, (payload: { active: boolean; status: string }) => {
-      const status = (payload.status || "").toUpperCase();
-      if (payload.active && status === "ACTION_STEP") {
-        this.headerControls?.setStatusFromEngine?.("Action Step", { offlineFallback: this.offlineFallback });
-      }
-    });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE, (snapshot: GameStatusSnapshot) => {
-      this.mainPhaseUpdate(false, snapshot);
-    });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, (snapshot: GameStatusSnapshot) => {
-      this.mainPhaseUpdate(true, snapshot);
-    });
-    this.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
-      this.selectionAction?.refreshActions("neutral");
-    });
-    this.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
-      this.pilotFlow?.showPilotDesignationDialog();
-    });
-    this.engine.events.on(ENGINE_EVENTS.PILOT_TARGET_DIALOG, () => {
-      this.pilotFlow?.showPilotTargetDialog("playPilotFromHand");
-    });
-    this.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
-      console.log("Game resources fetched", payload?.resources);
-    });
-    this.engine.events.on(ENGINE_EVENTS.LOADING_START, () => this.showLoading());
-    this.engine.events.on(ENGINE_EVENTS.LOADING_END, () => this.hideLoading());
-    this.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
-      this.dialogCoordinator.updateFromSnapshot(snapshot);
-    });
-    this.match.events.on("status", () => {
-      this.dialogCoordinator.updateFromSnapshot();
+    bindBoardSceneEvents({
+      engine: this.engine,
+      match: this.match,
+      dialogCoordinator: this.dialogCoordinator,
+      headerControls: this.headerControls,
+      offlineFallback: this.offlineFallback,
+      pilotFlow: this.pilotFlow,
+      selectionAction: this.selectionAction,
+      onMainPhaseUpdate: (silent, snapshot) => this.mainPhaseUpdate(silent, snapshot),
+      onShowLoading: () => this.showLoading(),
+      onHideLoading: () => this.hideLoading(),
     });
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
@@ -261,10 +244,42 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow });
-    this.debugControls.exposeTestHooks(this.buildTestHooks());
+    this.debugControls.exposeTestHooks(
+      buildBoardSceneTestHooks({
+        engineSnapshot: () => this.engine.getSnapshot(),
+        engineGetAvailableActions: (source) => this.engine.getAvailableActions(source),
+        handPresenter: this.handPresenter,
+        playerId: this.gameContext.playerId,
+        selectionAction: this.selectionAction,
+        runActionThenRefresh: this.runActionThenRefresh.bind(this),
+        effectTargetDialog: this.effectTargetDialogUi,
+        pilotTargetDialog: this.pilotTargetDialogUi,
+        pilotFlow: this.pilotFlow,
+      }),
+    );
 
-    this.setupActions();
-    this.wireUiHandlers();
+    registerBoardSceneActions({
+      actionDispatcher: this.actionDispatcher,
+      shuffleManager: this.shuffleManager,
+      baseControls: this.baseControls,
+      playerBaseStatus: this.playerBaseStatus,
+      setPlayerBaseStatus: (status) => {
+        this.playerBaseStatus = status;
+      },
+      playerShieldCount: this.playerShieldCount,
+      setPlayerShieldCount: (count) => {
+        this.playerShieldCount = count;
+      },
+      showDefaultUI: () => this.showDefaultUI(),
+      startGame: () => this.startGame(),
+    });
+    wireBoardUiHandlers({
+      controls,
+      actionDispatcher: this.actionDispatcher,
+      selectionAction: this.selectionAction,
+      showTrashArea: this.showTrashArea.bind(this),
+      showDebugControls: () => this.debugControls?.show(),
+    });
     this.ui.drawAll(this.offset);
     this.hideDefaultUI();
 
@@ -272,68 +287,6 @@ export class BoardScene extends Phaser.Scene {
     this.initSession();
   }
 
-  private buildTestHooks() {
-    const selectHandCard = (uid?: string) => {
-      if (!uid) return false;
-      const snapshot = this.engine.getSnapshot();
-      const raw = snapshot.raw as any;
-      if (!raw) return false;
-      const cards = this.handPresenter.toHandCards(raw, this.gameContext.playerId);
-      const target = cards.find((c) => c.uid === uid);
-      if (!target) return false;
-      this.selectionAction?.handleHandCardSelected(target);
-      return true;
-    };
-    const clickPrimaryAction = async (source: ActionSource = "hand") => {
-      const actions = this.engine.getAvailableActions(source);
-      const primary = actions.find((a) => a.primary) || actions[0];
-      if (!primary) return false;
-      await this.runActionThenRefresh(primary.id, source);
-      return true;
-    };
-    const runAction = async (id: string, source: ActionSource = "neutral") => {
-      await this.runActionThenRefresh(id, source);
-      return true;
-    };
-    const selectEffectTarget = async (targetIndex = 0) => {
-      const selected = await this.effectTargetDialogUi?.selectTarget(targetIndex);
-      if (selected) {
-        await this.effectTargetDialogUi?.hide();
-        return true;
-      }
-      console.warn("Effect target dialog is not open; cannot select target");
-      return false;
-    };
-    const selectPilotTarget = async (targetIndex = 0) => {
-      // Drive the real dialog callback; avoid snapshot/fallback logic to mirror UI flow.
-      const selectedInDialog = await this.pilotTargetDialogUi?.selectTarget(targetIndex);
-      if (selectedInDialog) {
-        await this.pilotTargetDialogUi?.hide();
-        return true;
-      }
-      console.warn("Pilot target dialog is not open; cannot select target");
-      return false;
-    };
-    const choosePilotDesignationPilot = async () => {
-      this.pilotFlow?.showPilotTargetDialog("playPilotDesignationAsPilot");
-      return true;
-    };
-    const choosePilotDesignationCommand = async () => {
-      await this.runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
-      return true;
-    };
-    const hooks = {
-      selectHandCard,
-      clickPrimaryAction,
-      runAction,
-      selectEffectTarget,
-      selectPilotTarget,
-      choosePilotDesignationPilot,
-      choosePilotDesignationCommand,
-    };
-    return hooks;
-  }
-   
   public async startGame(): Promise<void> {
     this.session.markInMatch();
     this.startGameCompleted = false;
@@ -726,16 +679,6 @@ export class BoardScene extends Phaser.Scene {
     this.loadingText?.setVisible(false);
   }
 
-  // Centralize UI wiring/drawing to reduce call scattering in create().
-  private wireUiHandlers() {
-    this.ui?.setActionHandler((index) => this.actionDispatcher.dispatch(index));
-    this.handControls?.setCardClickHandler?.((card) => this.selectionAction?.handleHandCardSelected(card));
-    this.slotControls?.setSlotClickHandler?.((slot) => this.selectionAction?.handleSlotCardSelected(slot));
-    this.baseControls?.setBaseClickHandler?.((payload) => this.selectionAction?.handleBaseCardSelected(payload));
-    this.trashControls?.setTrashClickHandler?.((owner) => this.showTrashArea(owner));
-    this.headerControls?.setAvatarHandler(() => this.debugControls?.show());
-  }
-
   private showTrashArea(_owner: "opponent" | "player") {
     const raw = this.engine.getSnapshot().raw as any;
     const currentPlayer = raw?.gameEnv?.currentPlayer || this.gameContext.playerId;
@@ -756,35 +699,5 @@ export class BoardScene extends Phaser.Scene {
     this.dialogCoordinator.resetSession();
     await this.sessionController?.initSession(window.location.search);
   }
-
-  private setupActions() {
-    const baseControls = this.baseControls;
-    this.actionDispatcher.register(0, () => {
-      const promise = this.shuffleManager?.play();
-      promise?.then(() =>{
-        this.showDefaultUI();
-      });
-    });
-    this.actionDispatcher.register(1, () => {
-      if (!baseControls) return;
-      this.playerBaseStatus = this.playerBaseStatus === "rested" ? "normal" : "rested";
-      baseControls.setBaseStatus(true, this.playerBaseStatus);
-      baseControls.setBaseBadgeLabel(true, this.playerBaseStatus === "rested" ? "2|3" : "0|3");
-    });
-    this.actionDispatcher.register(2, () => {
-      if (!baseControls) return;
-      baseControls.setBaseStatus(true, "normal");
-      baseControls.setBaseBadgeLabel(true, "0|0");
-    });
-    this.actionDispatcher.register(3, () => {
-      if (!baseControls) return;
-      this.playerShieldCount = (this.playerShieldCount + 1) % 7;
-      baseControls.setShieldCount(true, this.playerShieldCount);
-      baseControls.setBaseBadgeLabel(true, `${this.playerShieldCount}|6`);
-    });
-    this.actionDispatcher.register(9, () => this.startGame());
-  }
-
-
 
 }

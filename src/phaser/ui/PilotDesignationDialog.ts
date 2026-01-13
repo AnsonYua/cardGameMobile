@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
+import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { createPromptDialog } from "./PromptDialog";
 
 type PilotDesignationDialogOpts = {
@@ -56,30 +57,16 @@ export class PilotDesignationDialog {
       onClose: () => void this.hide(opts.onClose),
     });
     this.container = dialog.dialog;
-    this.container.setAlpha(0).setScale(0.96);
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 1,
-      scale: 1,
-      duration: 160,
-      ease: "Back.easeOut",
-    });
+    animateDialogIn(this.scene, this.container);
   }
 
   async hide(onClose?: () => void): Promise<void> {
     if (!this.container) return;
     const target = this.container;
     this.container = undefined;
-    this.scene.tweens.add({
-      targets: target,
-      alpha: 0,
-      scale: 1.02,
-      duration: 140,
-      ease: "Sine.easeIn",
-      onComplete: () => {
-        target.destroy();
-        onClose?.();
-      },
+    animateDialogOut(this.scene, target, () => {
+      target.destroy();
+      onClose?.();
     });
   }
 

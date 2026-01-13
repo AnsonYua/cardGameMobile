@@ -8,7 +8,7 @@ export type PromptDialogButton = {
 
 export type PromptDialogOptions = {
   headerText: string;
-  promptText: string;
+  promptText?: string;
   buttons: PromptDialogButton[];
   showOverlay?: boolean;
   closeOnBackdrop?: boolean;
@@ -22,6 +22,9 @@ export function createPromptDialog(
   opts: PromptDialogOptions,
 ) {
   const cam = scene.cameras.main;
+  const promptText = opts.promptText ?? "";
+  const hasPrompt = promptText.trim().length > 0;
+  const hasButtons = opts.buttons.length > 0;
   const headerStyle = {
     fontSize: "20px",
     fontFamily: "Arial",
@@ -39,17 +42,18 @@ export function createPromptDialog(
   };
 
   const tempHeader = scene.add.text(-10000, -10000, opts.headerText, headerStyle).setOrigin(0.5);
-  const tempPrompt = scene.add.text(-10000, -10000, opts.promptText, promptStyle).setOrigin(0.5);
+  const tempPrompt = hasPrompt ? scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5) : undefined;
   const gap = 14;
   const buttonHeight = 46;
-  const buttonContentHeight = tempPrompt.height + gap + buttonHeight;
+  const promptHeight = tempPrompt?.height ?? 0;
+  const buttonContentHeight = promptHeight + (hasPrompt && hasButtons ? gap : 0) + (hasButtons ? buttonHeight : 0);
   const layout = computePromptDialogLayout(cam, cfg, {
-    contentWidth: Math.max(tempPrompt.width, 260),
+    contentWidth: Math.max(tempPrompt?.width ?? 0, hasButtons ? 200 : 260),
     contentHeight: buttonContentHeight,
     headerHeight: tempHeader.height,
   });
   tempHeader.destroy();
-  tempPrompt.destroy();
+  tempPrompt?.destroy();
 
   const { dialog, content, header } = createDialogShell(scene, cfg, layout, {
     centerX: cam.centerX,
@@ -61,17 +65,19 @@ export function createPromptDialog(
     onClose: opts.onClose,
   });
 
-  const prompt = scene.add.text(0, 0, opts.promptText, promptStyle).setOrigin(0.5);
-  const promptY = header.y + header.height / 2 + gap + prompt.height / 2;
-  prompt.setY(promptY);
+  const prompt = hasPrompt ? scene.add.text(0, 0, promptText, promptStyle).setOrigin(0.5) : undefined;
+  const promptY = hasPrompt ? header.y + header.height / 2 + gap + (prompt?.height ?? 0) / 2 : header.y + header.height / 2;
+  if (prompt) prompt.setY(promptY);
 
   const dialogMargin = cfg.dialog.margin;
   const buttonGap = 24;
   const availableForButtons = Math.max(200, layout.dialogWidth - dialogMargin * 2);
-  const count = Math.max(1, opts.buttons.length);
+  const count = opts.buttons.length;
   const buttonWidth =
     count > 1 ? Math.min(220, (availableForButtons - buttonGap * (count - 1)) / count) : Math.min(240, availableForButtons);
-  const btnY = promptY + prompt.height / 2 + gap + buttonHeight / 2;
+  const btnY = hasPrompt
+    ? promptY + (prompt?.height ?? 0) / 2 + gap + buttonHeight / 2
+    : header.y + header.height / 2 + gap + buttonHeight / 2;
 
   const buttons = opts.buttons.map((btn, index) => {
     const totalWidth = count * buttonWidth + buttonGap * (count - 1);
@@ -96,6 +102,9 @@ export function createPromptDialog(
     return { rect, txt };
   });
 
-  content.add([prompt, ...buttons.flatMap((btn) => [btn.rect, btn.txt])]);
+  const nodes: Phaser.GameObjects.GameObject[] = [];
+  if (prompt) nodes.push(prompt);
+  buttons.forEach((btn) => nodes.push(btn.rect, btn.txt));
+  content.add(nodes);
   return { dialog, buttons };
 }

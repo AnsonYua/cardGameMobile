@@ -8,6 +8,8 @@ import type { ActionControls } from "./ControllerTypes";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
+import { buildSlotActionDescriptors, getPhase, isMainPhase, isPlayersTurn } from "./actionBarRules";
+import { computeActionBarDecision, computeMainPhaseState, computeSlotActionState } from "./actionBarState";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -49,11 +51,10 @@ export class ActionBarCoordinator {
     const actions = this.deps.actionControls;
     if (!raw || !actions) return;
     const selection = opts.selection ?? this.deps.getSelection();
-    const isSelfTurn = this.isPlayersTurnFromRaw(raw);
+    const isSelfTurn = isPlayersTurn(raw, this.deps.gameContext.playerId);
     const isOpponentTurn = !isSelfTurn;
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
-    const phase = (raw?.gameEnv?.phase || "").toString().toUpperCase();
-    const isStartGamePhase = phase === "REDRAW_PHASE" || phase === "START_GAME" || phase === "STARTGAME";
+    const phase = getPhase(raw);
 
     // Decision map (phase x turn):
     // Main Phase: opponent -> waiting, self -> existing defaults.
@@ -63,23 +64,27 @@ export class ActionBarCoordinator {
     //   confirmations[currentPlayer] === true -> waiting.
     // Action Step (self): follow existing action-step logic.
     // Step 0: Start-game waiting message for both players.
-    if (isStartGamePhase) {
-      actions.setWaitingLabel?.("Preparing to start game...");
-      actions.setWaitingForOpponent?.(true);
-      actions.setState?.({ descriptors: [] });
+    const decision = computeActionBarDecision({
+      phase,
+      isSelfTurn,
+      actionStepStatus,
+      blockerActive: this.deps.blockerFlow.isActive(),
+      isBlockerPhase: phase === "BLOCKER_PHASE",
+    });
+
+    if (decision.kind === "waiting") {
+      this.applyWaitingState(actions, decision.label);
       return;
     }
 
-    // Step 1: Blocker flow (always wins, regardless of phase/turn).
-    if (this.deps.blockerFlow.isActive() || phase === "BLOCKER_PHASE") {
+    if (decision.kind === "blocker") {
       if (this.deps.blockerFlow.applyActionBar()) {
         return;
       }
     }
 
-    // Step 2: Action step handling.
-    if (actionStepStatus !== "none") {
-      if (isOpponentTurn) {
+    if (decision.kind === "actionStep") {
+      if (decision.isOpponentTurn) {
         this.deps.actionStepCoordinator.applyActionBar(selection, actionStepStatus);
         return;
       }
@@ -88,13 +93,7 @@ export class ActionBarCoordinator {
       return;
     }
 
-    // Step 3: Main phase handling.
-    if (isOpponentTurn) {
-      actions.setWaitingLabel?.("Waiting for opponent...");
-      actions.setWaitingForOpponent?.(true);
-      actions.setState?.({ descriptors: [] });
-      return;
-    }
+    // Main phase handling.
     actions.setWaitingForOpponent?.(false);
     if (this.deps.attackCoordinator.applyActionBar()) return;
     if (this.tryApplySlotActions(selection)) return;
@@ -120,43 +119,34 @@ export class ActionBarCoordinator {
     const actions = this.deps.actionControls;
     if (!raw || !actions) return;
     const phase = raw?.gameEnv?.phase;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
     const self = this.deps.gameContext.playerId;
-    const inMainPhase = phase === "MAIN_PHASE" && currentPlayer === self;
+    const inMainPhase = isMainPhase(raw, self);
     if (!inMainPhase) {
       this.lastPhase = phase;
       this.lastBattleActive = false;
       return;
     }
     const battleActive = this.hasActiveBattle();
-    this.lastBattleActive = battleActive;
-    if (!battleActive && this.lastPhase === "MAIN_PHASE") {
-      if (!selection) {
-        const defaults = this.deps.engine.getAvailableActions("neutral");
-        actions.setState?.({
-          descriptors: this.deps.buildActionDescriptors(defaults),
-        });
-        this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
-        this.lastPhase = phase;
-        return;
-      }
-      // If a selection exists, refresh the action bar directly without re-entering update loops.
-      const selectedSource = selection.kind as ActionSource;
-      const selectedActions = this.deps.engine.getAvailableActions(selectedSource);
-      actions.setState?.({
-        descriptors: this.deps.buildActionDescriptors(selectedActions),
-      });
-      this.lastPhase = phase;
-      return;
-    }
-    if (this.lastPhase !== "MAIN_PHASE") {
-      const defaults = this.deps.engine.getAvailableActions(source);
-      actions.setState?.({
-        descriptors: this.deps.buildActionDescriptors(defaults),
-      });
+    const selectedSource = selection?.kind as ActionSource | undefined;
+    const mainPhaseState = computeMainPhaseState({
+      phase,
+      selection,
+      source,
+      battleActive,
+      lastPhase: this.lastPhase,
+      lastBattleActive: this.lastBattleActive,
+      defaultActions: this.deps.engine.getAvailableActions(source),
+      selectedActions: selectedSource ? this.deps.engine.getAvailableActions(selectedSource) : [],
+    });
+    this.lastPhase = mainPhaseState.lastPhase;
+    this.lastBattleActive = mainPhaseState.lastBattleActive;
+    if (!mainPhaseState.shouldUpdate || !mainPhaseState.descriptors) return;
+    actions.setState?.({
+      descriptors: this.deps.buildActionDescriptors(mainPhaseState.descriptors),
+    });
+    if (mainPhaseState.setHand) {
       this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
     }
-    this.lastPhase = phase;
   }
 
   private hasActiveBattle() {
@@ -165,33 +155,22 @@ export class ActionBarCoordinator {
     return !!battle;
   }
 
+  private applyWaitingState(actions: ActionControls, label: string) {
+    actions.setWaitingLabel?.(label);
+    actions.setWaitingForOpponent?.(true);
+    actions.setState?.({ descriptors: [] });
+  }
+
   private tryApplySlotActions(selection?: any) {
-    if (selection?.kind !== "slot" || selection.owner !== "player") return false;
-    const opponentHasUnit = this.deps.getOpponentRestedUnitSlots().length > 0;
     const selectedSlot = this.deps.getSelectedSlot();
-    const attackerReady = selectedSlot?.unit?.canAttackThisTurn === true;
-    if (!selectedSlot?.unit) return false;
-    const slotDescriptors: Array<{ id: string; label: string; enabled: boolean; primary?: boolean }> = [];
-    if (opponentHasUnit) {
-      slotDescriptors.push({
-        id: "attackUnit",
-        label: "Attack Unit",
-        enabled: attackerReady,
-        primary: true,
-      });
-    }
-    slotDescriptors.push({
-      id: "attackShieldArea",
-      label: "Attack Shield",
-      enabled: attackerReady,
-      primary: !slotDescriptors.some((d) => d.primary),
+    const slotState = computeSlotActionState({
+      selection,
+      opponentHasUnit: this.deps.getOpponentRestedUnitSlots().length > 0,
+      attackerReady: selectedSlot?.unit?.canAttackThisTurn === true,
+      hasUnit: !!selectedSlot?.unit,
     });
-    slotDescriptors.push({
-      id: "cancelSelection",
-      label: "Cancel",
-      enabled: true,
-    });
-    const mapped = slotDescriptors.map((d) => ({
+    if (!slotState.shouldApply) return false;
+    const mapped = buildSlotActionDescriptors(slotState.opponentHasUnit, slotState.attackerReady).map((d) => ({
       label: d.label,
       enabled: d.enabled,
       primary: d.primary,
@@ -211,10 +190,5 @@ export class ActionBarCoordinator {
     }));
     this.deps.actionControls?.setState?.({ descriptors: mapped });
     return true;
-  }
-
-  private isPlayersTurnFromRaw(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.deps.gameContext.playerId;
   }
 }

@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
+import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { createPromptDialog } from "./PromptDialog";
 
 type MulliganDialogOpts = {
@@ -38,16 +39,9 @@ export class MulliganDialog {
         if (!this.container) return;
         buttonTargets?.forEach((btn) => btn.disableInteractive());
         await cb?.();
-        this.scene.tweens.add({
-          targets: this.container,
-          alpha: 0,
-          scale: 1.02,
-          duration: 140,
-          ease: "Sine.easeIn",
-          onComplete: () => {
-            this.destroy();
-            resolve(result);
-          },
+        animateDialogOut(this.scene, this.container, () => {
+          this.destroy();
+          resolve(result);
         });
       };
 
@@ -73,16 +67,9 @@ export class MulliganDialog {
         showCloseButton: false,
       });
       this.container = dialog.dialog;
-      this.container.setAlpha(0).setScale(0.96);
       buttons = dialog.buttons.map((btn) => btn.rect);
 
-      this.scene.tweens.add({
-        targets: this.container,
-        alpha: 1,
-        scale: 1,
-        duration: 160,
-        ease: "Back.easeOut",
-      });
+      animateDialogIn(this.scene, this.container);
     });
   }
 
