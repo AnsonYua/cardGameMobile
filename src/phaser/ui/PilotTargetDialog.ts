@@ -4,6 +4,8 @@ import { UI_LAYOUT } from "./UiLayoutConfig";
 import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
+import { attachDialogTimerBar } from "./DialogTimerBar";
+import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -23,6 +25,8 @@ export class PilotTargetDialog {
   private lastOnSelect?: (slot: SlotViewModel) => Promise<void> | void;
   private lastOnClose?: (() => void) | undefined;
   private previewController: PreviewController;
+  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
+  private dialogTimerToken?: number;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -66,6 +70,7 @@ export class PilotTargetDialog {
   constructor(
     private scene: Phaser.Scene,
     private createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
+    private timerController?: TurnTimerController,
   ) {
     this.previewController = new PreviewController(scene, {
       overlayAlpha: UI_LAYOUT.slot.preview.overlayAlpha,
@@ -77,12 +82,14 @@ export class PilotTargetDialog {
   }
 
   async hide(): Promise<void> {
-    console.log("hide PilotTargetDialog.ts");
     this.previewController.hide(true);
+    this.stopDialogTimer();
     this.overlay?.destroy();
     this.dialog?.destroy();
+    this.timerBar?.destroy();
     this.overlay = undefined;
     this.dialog = undefined;
+    this.timerBar = undefined;
     this.lastTargets = [];
     this.lastOnSelect = undefined;
     const onClose = this.lastOnClose;
@@ -248,9 +255,30 @@ export class PilotTargetDialog {
     if (showCloseButton && closeButton && closeLabel) {
       dialog.add([closeButton, closeLabel]);
     }
+    this.timerBar = attachDialogTimerBar(this.scene, dialog, {
+      dialogWidth,
+      dialogHeight,
+      cellWidth,
+      cellHeight,
+      cardHeight,
+      gridVisibleHeight: gridHeight,
+      margin,
+      gap,
+      headerOffset,
+      headerWrapPad,
+      cols,
+      visibleRows: rowCount,
+    });
     dialog.setDepth(2600);
     this.scene.add.existing(dialog);
     this.open = true;
+
+    this.dialogTimerToken = this.timerController?.startDialogTimer(this.timerBar, async () => {
+      const selected = await this.selectTarget(0);
+      if (selected) {
+        await this.hide();
+      }
+    });
   }
 
   async selectTarget(index = 0): Promise<boolean> {
@@ -275,5 +303,13 @@ export class PilotTargetDialog {
         depthOffset: 0,
       });
     });
+  }
+
+  private stopDialogTimer() {
+    if (this.dialogTimerToken !== undefined) {
+      this.timerController?.endDialogTimer(this.dialogTimerToken);
+      this.dialogTimerToken = undefined;
+    }
+    this.timerController?.resumeTurnTimer();
   }
 }

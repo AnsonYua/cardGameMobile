@@ -1,7 +1,9 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
+import { attachDialogTimerBar } from "./DialogTimerBar";
 import { createPromptDialog } from "./PromptDialog";
+import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type ChooseFirstPlayerDialogOpts = {
   onFirst?: () => Promise<void> | void;
@@ -20,7 +22,10 @@ export class ChooseFirstPlayerDialog {
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
-  constructor(private scene: Phaser.Scene) {}
+  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
+  private dialogTimerToken?: number;
+
+  constructor(private scene: Phaser.Scene, private timerController?: TurnTimerController) {}
 
   async showPrompt(opts: ChooseFirstPlayerDialogOpts): Promise<boolean> {
     this.destroy();
@@ -37,6 +42,7 @@ export class ChooseFirstPlayerDialog {
         if (closing) return;
         closing = true;
         if (!this.container) return;
+        this.stopDialogTimer();
         buttons?.forEach((btn) => btn.disableInteractive());
         await cb?.();
         animateDialogOut(this.scene, this.container, () => {
@@ -71,13 +77,28 @@ export class ChooseFirstPlayerDialog {
       });
       this.container = dialog.dialog;
       buttons = dialog.buttons.map((btn) => btn.rect);
+      this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);
+      this.dialogTimerToken = this.timerController?.startDialogTimer(this.timerBar, async () => {
+        await close(true, opts.onFirst, buttons);
+      });
 
       animateDialogIn(this.scene, this.container);
     });
   }
 
+  private stopDialogTimer() {
+    if (this.dialogTimerToken !== undefined) {
+      this.timerController?.endDialogTimer(this.dialogTimerToken);
+      this.dialogTimerToken = undefined;
+    }
+    this.timerController?.resumeTurnTimer();
+  }
+
   private destroy() {
+    this.stopDialogTimer();
     this.container?.destroy();
+    this.timerBar?.destroy();
     this.container = undefined;
+    this.timerBar = undefined;
   }
 }

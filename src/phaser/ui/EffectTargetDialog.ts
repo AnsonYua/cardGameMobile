@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import type { SlotViewModel } from "./SlotTypes";
 import { PilotTargetDialog, type PilotTargetDialogShowOpts } from "./PilotTargetDialog";
+import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type EffectTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -15,8 +16,9 @@ export class EffectTargetDialog extends PilotTargetDialog {
   constructor(
     scene: Phaser.Scene,
     createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
+    timerController?: TurnTimerController,
   ) {
-    super(scene, createSlotSprite);
+    super(scene, createSlotSprite, timerController);
   }
 
   show(opts: EffectTargetDialogShowOpts) {

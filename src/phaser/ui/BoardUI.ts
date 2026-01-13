@@ -26,6 +26,8 @@ type HeaderControls = {
   setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
   setTurnText?: (text: string, color?: string) => void;
   setAvatarHandler: (handler: () => void) => void;
+  setTimerProgress?: (progress: number, secondsLeft: number) => void;
+  setTimerVisible?: (visible: boolean) => void;
 };
 
 export class BoardUI {
@@ -73,6 +75,8 @@ export class BoardUI {
       },
       setTurnText: (text: string, color?: string) => this.header.setTurnText(text, color),
       setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
+      setTimerProgress: (progress, secondsLeft) => this.header.setTimerProgress(progress, secondsLeft),
+      setTimerVisible: (visible) => this.header.setTimerVisible(visible),
     };
   }
 

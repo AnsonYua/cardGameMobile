@@ -46,6 +46,7 @@ import { wireBoardUiHandlers } from "./scene/boardSceneUiBindings";
 import { buildBoardSceneTestHooks } from "./scene/boardSceneTestHooks";
 import { bindBoardSceneEvents } from "./scene/boardSceneEventBindings";
 import { registerBoardSceneActions } from "./scene/boardSceneActionBindings";
+import { TurnTimerController } from "./controllers/TurnTimerController";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -109,6 +110,7 @@ export class BoardScene extends Phaser.Scene {
   private slotAnimationRender?: SlotAnimationRenderController;
   private startGameAnimating = false;
   private startGameCompleted = false;
+  private turnTimer?: TurnTimerController;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -129,10 +131,19 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls = controls.headerControls;
     this.slotControls = controls.slotControls;
 
+    this.turnTimer = new TurnTimerController(this);
+    if (this.headerControls?.setTimerProgress && this.headerControls?.setTimerVisible) {
+      this.turnTimer.setHeaderRenderer({
+        setProgress: (progress, secondsLeft) => this.headerControls?.setTimerProgress?.(progress, secondsLeft),
+        setVisible: (visible) => this.headerControls?.setTimerVisible?.(visible),
+      });
+    }
+
     const dialogs = setupBoardDialogs(
       this,
       this.dialogCoordinator,
       (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
+      this.turnTimer,
     );
     this.drawPopupDialogUi = dialogs.drawPopupDialog;
     this.phaseChangeDialogUi = dialogs.phaseChangeDialog;
@@ -206,6 +217,7 @@ export class BoardScene extends Phaser.Scene {
       engine: this.engine,
       api: this.api,
       scene: this,
+      onPlayerAction: () => this.turnTimer?.reset(),
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
     });
     this.selectionAction = createSelectionActionController({
@@ -219,6 +231,7 @@ export class BoardScene extends Phaser.Scene {
       effectTargetController: this.effectTargetController,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
+      onPlayerAction: () => this.turnTimer?.reset(),
       showOverlay: (message, slot) => {
         if (!this.overlay) {
           this.overlay = new OverlayController(this);
@@ -291,6 +304,7 @@ export class BoardScene extends Phaser.Scene {
     this.session.markInMatch();
     this.startGameCompleted = false;
     this.startGameAnimating = true;
+    this.turnTimer?.setEnabled(false);
     this.hideDefaultUI();
     const promise = this.shuffleManager?.play();
 
@@ -326,6 +340,7 @@ export class BoardScene extends Phaser.Scene {
     console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
     this.updateHeaderPhaseStatus(raw);
     this.updateMainPhaseUI(raw, skipAnimation);
+    this.updateTurnTimer(raw);
     if (raw) {
       void this.effectTargetController?.syncFromSnapshot(raw);
     }
@@ -691,6 +706,30 @@ export class BoardScene extends Phaser.Scene {
       onClose: () => {
         this.baseControls?.setBaseInputEnabled?.(true);
       },
+    });
+  }
+
+  private updateTurnTimer(raw: any) {
+    if (!this.turnTimer) return;
+    if (this.turnTimer.isDialogActive()) {
+      return;
+    }
+    if (this.startGameAnimating) {
+      this.turnTimer.setEnabled(false);
+      return;
+    }
+    const currentPlayer = raw?.gameEnv?.currentPlayer;
+    const isSelfTurn = currentPlayer === this.gameContext.playerId;
+    if (!isSelfTurn) {
+      this.turnTimer.setEnabled(false);
+      return;
+    }
+    this.turnTimer.setEnabled(true);
+    if (this.turnTimer.isDialogActive()) {
+      return;
+    }
+    this.turnTimer.ensureTurnTimer(async () => {
+      await this.runActionThenRefresh("endTurn", "neutral");
     });
   }
 

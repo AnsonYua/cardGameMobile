@@ -37,6 +37,7 @@ export type SelectionActionControllerDeps = {
   gameContext: GameContext;
   refreshPhase: (skipFade: boolean) => void;
   showOverlay?: (message: string, slot?: SlotViewModel) => void;
+  onPlayerAction?: (actionId: string) => void;
 };
 
 export type SelectionActionControllerModules = {
@@ -115,14 +116,17 @@ export class SelectionActionController {
     // Slot-specific actions are handled directly to avoid engine placeholders.
     if (actionId === "attackUnit") {
       await this.actionExecutor.handleAttackUnit();
+      this.deps.onPlayerAction?.(actionId);
       return;
     }
     if (actionId === "attackShieldArea") {
       await this.actionExecutor.handleAttackShieldArea();
+      this.deps.onPlayerAction?.(actionId);
       return;
     }
     if (actionId === "skipAction") {
       await this.actionExecutor.handleSkipAction();
+      this.deps.onPlayerAction?.(actionId);
       return;
     }
     if (actionId === "cancelSelection") {
@@ -132,6 +136,7 @@ export class SelectionActionController {
     console.log("print commend action")
     const result = await this.deps.engine.runAction(actionId);
     if (result === false) return;
+    this.deps.onPlayerAction?.(actionId);
     this.refreshAfterStateChange(actionSource);
   }
 

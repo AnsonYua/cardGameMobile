@@ -32,6 +32,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     effectTargetController: deps.effectTargetController,
     refreshActions: () => getController()?.refreshActions("neutral"),
     slotGate,
+    onPlayerAction: deps.onPlayerAction,
   });
   const opponentResolver = new OpponentResolver({
     engine: deps.engine,
@@ -64,6 +65,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     callbacks: {
       onSkipAction: async () => {
         await actionExecutor.handleSkipAction();
+        deps.onPlayerAction?.("skipAction");
       },
       onCancelSelection: () => {
         actionExecutor.cancelSelection();
@@ -110,9 +112,11 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     getOpponentRestedUnitSlots: () => opponentResolver.getOpponentRestedUnitSlots(),
     onAttackUnit: async () => {
       await actionExecutor.handleAttackUnit();
+      deps.onPlayerAction?.("attackUnit");
     },
     onAttackShieldArea: async () => {
       await actionExecutor.handleAttackShieldArea();
+      deps.onPlayerAction?.("attackShieldArea");
     },
     onCancelSelection: () => {
       actionExecutor.cancelSelection();

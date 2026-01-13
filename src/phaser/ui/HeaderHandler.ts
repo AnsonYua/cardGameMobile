@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { BASE_W } from "../../config/gameLayout";
 import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
+import { TimerBar } from "./TimerBar";
 
 // Shared frame styling used by BoardUI.
 export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "strokeColor" | "strokeAlpha" | "strokeWidth"> = {
@@ -81,6 +82,7 @@ export class HeaderHandler {
   private onAvatar?: () => void;
   private nameLabel?: Phaser.GameObjects.Text;
   private handLabel?: Phaser.GameObjects.Text;
+  private timerBar?: TimerBar;
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -155,6 +157,7 @@ export class HeaderHandler {
 
     this.drawStatus(containerRight - 5, containerY - 18);
     this.drawTurnLabel(containerRight - 5, containerY + 2);
+    this.drawTimerBar(containerLeft, containerTop + height - 2, containerW);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -177,6 +180,14 @@ export class HeaderHandler {
     if (color) {
       this.turnLabel.setColor(color);
     }
+  }
+
+  setTimerProgress(progress: number, secondsLeft: number) {
+    this.timerBar?.setProgress(progress, secondsLeft);
+  }
+
+  setTimerVisible(visible: boolean) {
+    this.timerBar?.setVisible(visible);
   }
 
   private drawStatus(x: number, y: number) {
@@ -203,6 +214,23 @@ export class HeaderHandler {
       })
       .setOrigin(1, 0.5)
       .setDepth(this.depth + 1);
+  }
+
+  private drawTimerBar(x: number, y: number, width: number) {
+    if (!this.timerBar) {
+      this.timerBar = new TimerBar(this.scene, {
+        width,
+        height: 4,
+        fillColor: 0x2ecc71,
+        bgColor: 0x0f1118,
+        borderColor: 0x5b6068,
+        showLabel: false,
+      });
+      this.timerBar.setVisible(false);
+      this.timerBar.setDepth(this.depth + 1);
+      this.timerBar.setProgress(1, 0);
+    }
+    this.timerBar.setPosition(x, y);
   }
 
   private drawAvatarHit(x: number, y: number, w: number, h: number) {

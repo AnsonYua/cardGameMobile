@@ -27,6 +27,7 @@ export class EffectTargetController {
       api: ApiManager;
       scene: Phaser.Scene;
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
+      onPlayerAction?: () => void;
     },
   ) {}
 
@@ -93,6 +94,7 @@ export class EffectTargetController {
 
         try {
           await this.deps.api.confirmTargetChoice(payload);
+          this.deps.onPlayerAction?.();
           await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
         } catch (err) {
           console.warn("confirmTargetChoice failed", err);
@@ -114,6 +116,7 @@ export class EffectTargetController {
       onSelect: async (slot) => {
         try {
           await opts.onSelect(slot);
+          this.deps.onPlayerAction?.();
         } finally {
           this.manualOpen = false;
         }

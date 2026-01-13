@@ -18,6 +18,7 @@ type BlockerDeps = {
   effectTargetController?: EffectTargetController | null;
   refreshActions: () => void;
   slotGate: SlotInteractionGate;
+  onPlayerAction?: (actionId: string) => void;
 };
 
 export class BlockerFlowManager {
@@ -96,6 +97,7 @@ export class BlockerFlowManager {
   async skipBlockerStep() {
     if (!this.queueEntry) return;
     await this.postBlockChoice([]);
+    this.deps.onPlayerAction?.("skipBlockerStep");
   }
 
   private async openBlockerChoiceDialog() {
@@ -136,6 +138,7 @@ export class BlockerFlowManager {
         notificationId: this.notificationId,
         selectedTargets: targets,
       });
+      this.deps.onPlayerAction?.("confirmBlockerChoice");
       await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (error) {
       console.warn("confirmBlockerChoice failed", error);

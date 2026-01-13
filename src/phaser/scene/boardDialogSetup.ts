@@ -11,6 +11,7 @@ import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
+import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type BoardDialogSet = {
   drawPopupDialog: DrawPopupDialog;
@@ -36,11 +37,12 @@ export function setupBoardDialogs(
   scene: Phaser.Scene,
   dialogCoordinator: DialogCoordinator,
   createSlotSprite: CreateSlotSprite,
+  timerController?: TurnTimerController,
 ): BoardDialogSet {
   const drawPopupDialog = new DrawPopupDialog(scene);
   const phaseChangeDialog = new PhaseChangeDialog(scene);
-  const mulliganDialog = new MulliganDialog(scene);
-  const chooseFirstPlayerDialog = new ChooseFirstPlayerDialog(scene);
+  const mulliganDialog = new MulliganDialog(scene, timerController);
+  const chooseFirstPlayerDialog = new ChooseFirstPlayerDialog(scene, timerController);
   const turnOrderStatusDialog = new TurnOrderStatusDialog(scene);
   const coinFlipOverlay = new CoinFlipOverlay(scene);
   const waitingOpponentDialog = new TurnOrderStatusDialog(scene);
@@ -49,9 +51,9 @@ export function setupBoardDialogs(
   dialogCoordinator.setWaitingOpponentDialog(waitingOpponentDialog);
   dialogCoordinator.setMulliganWaitingDialog(mulliganWaitingDialog);
 
-  const pilotTargetDialog = new PilotTargetDialog(scene, createSlotSprite);
-  const pilotDesignationDialog = new PilotDesignationDialog(scene);
-  const effectTargetDialog = new EffectTargetDialog(scene, createSlotSprite);
+  const pilotTargetDialog = new PilotTargetDialog(scene, createSlotSprite, timerController);
+  const pilotDesignationDialog = new PilotDesignationDialog(scene, timerController);
+  const effectTargetDialog = new EffectTargetDialog(scene, createSlotSprite, timerController);
   const trashAreaDialog = new TrashAreaDialog(scene);
 
   return {

@@ -106,5 +106,5 @@ export function createPromptDialog(
   if (prompt) nodes.push(prompt);
   buttons.forEach((btn) => nodes.push(btn.rect, btn.txt));
   content.add(nodes);
-  return { dialog, buttons };
+  return { dialog, buttons, layout };
 }
