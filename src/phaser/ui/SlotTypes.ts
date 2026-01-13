@@ -5,6 +5,7 @@ export type SlotCardView = {
   textureKey?: string;
   cardType?: string;
   isRested?: boolean;
+  canAttackThisTurn?: boolean;
   cardData?: any;
   cardUid?: string;
 };

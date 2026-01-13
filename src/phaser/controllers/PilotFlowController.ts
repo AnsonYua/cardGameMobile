@@ -26,7 +26,9 @@ export class PilotFlowController {
 
   showPilotDesignationDialog() {
     const { pilotDesignationDialog, runActionThenRefresh } = this.deps;
+    const targets = this.collectPilotTargetUnits();
     pilotDesignationDialog.show({
+      allowPilot: targets.length > 0,
       onPilot: async () => {
         this.showPilotTargetDialog("playPilotDesignationAsPilot");
       },

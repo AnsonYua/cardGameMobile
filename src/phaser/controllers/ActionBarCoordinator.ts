@@ -169,9 +169,8 @@ export class ActionBarCoordinator {
     if (selection?.kind !== "slot" || selection.owner !== "player") return false;
     const opponentHasUnit = this.deps.getOpponentRestedUnitSlots().length > 0;
     const selectedSlot = this.deps.getSelectedSlot();
-    // Use unit.isRested for attack gating; fieldCardValue no longer carries isRested.
-    const attackerRested = !!selectedSlot?.unit?.isRested;
-    const attackerReady = !!selectedSlot?.unit?.cardUid && !attackerRested;
+    const attackerReady = selectedSlot?.unit?.canAttackThisTurn === true;
+    if (!selectedSlot?.unit) return false;
     const slotDescriptors: Array<{ id: string; label: string; enabled: boolean; primary?: boolean }> = [];
     if (opponentHasUnit) {
       slotDescriptors.push({

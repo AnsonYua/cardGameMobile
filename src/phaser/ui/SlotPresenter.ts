@@ -50,6 +50,14 @@ export class SlotPresenter {
     const textureKey = toPreviewKey(id);
     const cardType = typeof card === "string" ? undefined : card.cardData?.cardType;
     const cardUid = typeof card === "string" ? undefined : card.carduid ?? card.cardUid ?? card.uid ?? card.id;
-    return { id, textureKey, cardType, isRested: card?.isRested, cardData: card?.cardData, cardUid };
+    return {
+      id,
+      textureKey,
+      cardType,
+      isRested: card?.isRested,
+      canAttackThisTurn: card?.canAttackThisTurn,
+      cardData: card?.cardData,
+      cardUid,
+    };
   }
 }
