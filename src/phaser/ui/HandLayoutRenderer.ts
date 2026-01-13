@@ -49,9 +49,12 @@ export class HandLayoutRenderer {
       strokeWidth: 1,
     });
     drawn.push(inner);
-
+     /*
+     card.textureKey should use toPreviewKey
+     */
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
       const fitted = this.fitCardSize(w, h);
+      console.log("print hand card image ",card.textureKey)
       const img = this.scene.add
         .image(x, y, card.textureKey)
         .setDisplaySize(fitted.w, fitted.h)

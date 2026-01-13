@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { HandCardView } from "./HandTypes";
+import { toPreviewKey, type HandCardView } from "./HandTypes";
 import type { HandLayoutState } from "./HandLayout";
 import type { HandLayoutRenderer } from "./HandLayoutRenderer";
 
@@ -64,7 +64,11 @@ export class HandRenderer {
       const x = innerPaddingX + cardW / 2 + index * (cardW + gapX);
       const y = 0;
       const isSelected = card.uid && card.uid === selectedUid;
-      const drawn = this.layout.renderCard(x, y, cardW, cardH, card, !!isSelected);
+      const resolvedCard = {
+        ...card,
+        textureKey: toPreviewKey(card.cardId) ?? card.textureKey,
+      };
+      const drawn = this.layout.renderCard(x, y, cardW, cardH, resolvedCard, !!isSelected);
       drawn.forEach((node) => this.cardContainer?.add(node));
       this.cardObjects.push(...drawn);
 
