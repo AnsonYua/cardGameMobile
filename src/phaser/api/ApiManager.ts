@@ -12,6 +12,15 @@ export type ChooseFirstPlayerPayload = {
   playerId: string;
   chosenFirstPlayerId: string;
 };
+export type LobbyRoomSummary = {
+  gameId: string;
+  createdAt: string;
+};
+export type LobbyListResponse = {
+  success: boolean;
+  rooms: LobbyRoomSummary[];
+  timestamp: string;
+};
 
 export class ApiManager {
   private baseUrl: string;
@@ -43,6 +52,11 @@ export class ApiManager {
   chooseFirstPlayer(payload: ChooseFirstPlayerPayload): Promise<any> {
     const url = this.buildUrl("/api/game/player/chooseFirstPlayer");
     return this.requestWithFallback(url, payload);
+  }
+
+  getLobbyList(): Promise<LobbyListResponse> {
+    const url = this.buildUrl("/api/game/lobbylist");
+    return this.requestGetWithFallback(url);
   }
 
   getGameStatus(gameId: string, playerId: string): Promise<any> {
@@ -112,9 +126,11 @@ export class ApiManager {
     return this.requestWithFallback(url, payload);
   }
 
-  joinRoom(gameId: string, playerId: string, playerName: string): Promise<any> {
+  joinRoom(gameId: string, playerId: string, playerName?: string): Promise<any> {
     const url = this.buildUrl("/api/game/player/joinRoom");
-    return this.requestWithFallback(url, { gameId, playerId, playerName });
+    const payload: Record<string, string> = { gameId, playerId };
+    if (playerName) payload.playerName = playerName;
+    return this.requestWithFallback(url, payload);
   }
 
   private resolveBaseUrl(baseUrl?: string) {

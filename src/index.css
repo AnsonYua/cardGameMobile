@@ -43,6 +43,97 @@ body,
   text-align: center;
 }
 
+.lobby-header {
+  display: grid;
+  gap: 6px;
+}
+
+.lobby-subtitle {
+  font-size: 14px;
+  color: rgba(230, 232, 239, 0.7);
+}
+
+.lobby-list {
+  display: grid;
+  gap: 12px;
+}
+
+.lobby-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(10, 12, 18, 0.7);
+  border: 1px solid rgba(230, 232, 239, 0.12);
+  text-align: left;
+}
+
+.lobby-card-info {
+  display: grid;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.lobby-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.lobby-card-meta {
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.6);
+}
+
+.lobby-join-button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.6);
+  background: rgba(124, 196, 255, 0.12);
+  color: #e6e8ef;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.lobby-join-button:hover {
+  border-color: rgba(124, 196, 255, 0.9);
+  background: rgba(124, 196, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.lobby-join-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.lobby-empty {
+  display: grid;
+  gap: 6px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  background: rgba(10, 12, 18, 0.5);
+  border: 1px dashed rgba(230, 232, 239, 0.2);
+}
+
+.lobby-empty span {
+  font-size: 13px;
+  color: rgba(230, 232, 239, 0.6);
+}
+
+.lobby-error {
+  color: #ffb5b5;
+  font-size: 13px;
+}
+
+.lobby-footnote {
+  font-size: 13px;
+  color: rgba(230, 232, 239, 0.7);
+}
+
 .lobby a {
   color: #7cc4ff;
 }
