@@ -49,16 +49,13 @@ export class HandLayoutRenderer {
       strokeWidth: 1,
     });
     drawn.push(inner);
-     /*
-     card.textureKey should use toPreviewKey
-     */
+    console.log("print hand card image ",card.textureKey)
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
-      const fitted = this.fitCardSize(w, h);
-      console.log("print hand card image ",card.textureKey)
-      const img = this.scene.add
-        .image(x, y, card.textureKey)
-        .setDisplaySize(fitted.w, fitted.h)
-        .setDepth((bg.depth || 0) + 1);
+      const img = this.scene.add.image(x, y, card.textureKey).setDepth((bg.depth || 0) + 1);
+      const baseW = img.width || w;
+      const baseH = img.height || h;
+      const scale = Math.min(w / baseW, h / baseH);
+      img.setScale(scale);
       drawn.push(img);
     }
 
