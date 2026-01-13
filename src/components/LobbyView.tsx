@@ -75,6 +75,15 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
         <div className="lobby-header">
           <h1>Lobby</h1>
           <span className="lobby-subtitle">Live rooms update automatically.</span>
+          <button
+            className="lobby-create-button"
+            type="button"
+            onClick={() => {
+              window.location.href = "/game?mode=host&isAutoPolling=true";
+            }}
+          >
+            Create Room
+          </button>
         </div>
         {status === "error" && <p className="lobby-error">{errorMessage}</p>}
         {rooms.length === 0 ? (

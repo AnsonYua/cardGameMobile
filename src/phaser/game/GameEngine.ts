@@ -146,32 +146,33 @@ export class GameEngine {
     if (source === "hand" && selection?.kind === "hand") {
       const cardType = (selection.cardType || "").toLowerCase();
       const canRun = !!ctx.gameId && !!ctx.playerId && !!selection.uid;
+      const canPlay = canRun && this.canPlaySelectedHandCard(selection);
       if (cardType === "base") {
         descriptors.push({
           id: "playBaseFromHand",
           label: "Play Card",
-          enabled: canRun,
+          enabled: canPlay,
           primary: true,
         });
       } else if (cardType === "unit") {
         descriptors.push({
           id: "playUnitFromHand",
           label: "Play Card",
-          enabled: canRun,
+          enabled: canPlay,
           primary: true,
         });
       } else if (cardType === "pilot") {
         descriptors.push({
           id: "playPilotFromHand",
           label: "Play Card",
-          enabled: canRun,
+          enabled: canPlay,
           primary: true,
         });
       } else if (cardType === "command") {
         descriptors.push({
           id: "playCommandFromHand",
           label: "Play Card",
-          enabled: canRun,
+          enabled: canPlay,
           primary: true,
         });
       }
@@ -250,6 +251,39 @@ export class GameEngine {
       setPilotTarget: (uid?: string) => this.setPilotTarget(uid),
       //refreshStatus: () => this.test(),
     };
+  }
+
+  private canPlaySelectedHandCard(selection: SelectionTarget) {
+    if (selection.kind !== "hand") return false;
+    const raw = this.lastRaw as any;
+    const playerId = this.contextStore.get().playerId;
+    const player = raw?.gameEnv?.players?.[playerId];
+    if (!player) return true;
+    const hand = player?.deck?.hand ?? [];
+    const target = Array.isArray(hand)
+      ? hand.find((card: any) => {
+          const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
+          return uid === selection.uid;
+        })
+      : undefined;
+    if (!target) return true;
+    const cardData = target?.cardData ?? {};
+    const cardType = (cardData.cardType || selection.cardType || "").toLowerCase();
+    const isEnergy = cardType === "energy";
+    if (isEnergy) return true;
+
+    const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
+    const totalEnergy = Array.isArray(energyArea) ? energyArea.length : 0;
+    const availableEnergy = Array.isArray(energyArea)
+      ? energyArea.filter((entry: any) => entry && entry.isRested === false).length
+      : 0;
+    const requiredLevel = Number(cardData.level ?? 0);
+    const requiredCost = Number(cardData.cost ?? 0);
+    const level = Number.isNaN(requiredLevel) ? 0 : requiredLevel;
+    const cost = Number.isNaN(requiredCost) ? 0 : requiredCost;
+    if (totalEnergy < level) return false;
+    if (availableEnergy < cost) return false;
+    return true;
   }
 
   async test(){
