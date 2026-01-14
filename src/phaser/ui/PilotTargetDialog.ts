@@ -5,6 +5,7 @@ import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
 import { attachDialogTimerBar } from "./DialogTimerBar";
+import { DialogTimerHandle } from "./DialogTimerHandle";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type PilotTargetDialogShowOpts = {
@@ -26,7 +27,7 @@ export class PilotTargetDialog {
   private lastOnClose?: (() => void) | undefined;
   private previewController: PreviewController;
   private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimerToken?: number;
+  private dialogTimer: DialogTimerHandle;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -70,7 +71,7 @@ export class PilotTargetDialog {
   constructor(
     private scene: Phaser.Scene,
     private createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
-    private timerController?: TurnTimerController,
+    timerController?: TurnTimerController,
   ) {
     this.previewController = new PreviewController(scene, {
       overlayAlpha: UI_LAYOUT.slot.preview.overlayAlpha,
@@ -79,11 +80,12 @@ export class PilotTargetDialog {
       holdDelay: UI_LAYOUT.slot.preview.holdDelay,
       depth: 5000,
     });
+    this.dialogTimer = new DialogTimerHandle(timerController);
   }
 
   async hide(): Promise<void> {
     this.previewController.hide(true);
-    this.stopDialogTimer();
+    this.dialogTimer.stop();
     this.overlay?.destroy();
     this.dialog?.destroy();
     this.timerBar?.destroy();
@@ -273,7 +275,7 @@ export class PilotTargetDialog {
     this.scene.add.existing(dialog);
     this.open = true;
 
-    this.dialogTimerToken = this.timerController?.startDialogTimer(this.timerBar, async () => {
+    this.dialogTimer.start(this.timerBar, async () => {
       const selected = await this.selectTarget(0);
       if (selected) {
         await this.hide();
@@ -303,13 +305,5 @@ export class PilotTargetDialog {
         depthOffset: 0,
       });
     });
-  }
-
-  private stopDialogTimer() {
-    if (this.dialogTimerToken !== undefined) {
-      this.timerController?.endDialogTimer(this.dialogTimerToken);
-      this.dialogTimerToken = undefined;
-    }
-    this.timerController?.resumeTurnTimer();
   }
 }

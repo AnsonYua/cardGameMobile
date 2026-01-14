@@ -4,31 +4,13 @@ import { HandAreaHandler } from "./HandAreaHandler";
 import { ActionButtonBarHandler } from "./ActionButtonBarHandler";
 import { HeaderHandler, DrawHelpers, FRAME_STYLE } from "./HeaderHandler";
 import { Offset, Palette } from "./types";
-import { formatHeaderStatus } from "./HeaderStatusFormatter";
 import type { ShieldAreaControls } from "./ShieldAreaHandler";
-import type { HandCardView } from "./HandTypes";
+import type { HandControls, HeaderControls } from "./boardUiControls";
+import { createActionControls, createHandControls, createHeaderControls } from "./boardUiControls";
 type EnergyControls = ReturnType<FieldHandler["getEnergyControls"]>;
 type StatusControls = ReturnType<FieldHandler["getStatusControls"]>;
 type SlotControls = ReturnType<FieldHandler["getSlotControls"]>;
 type TrashControls = ReturnType<FieldHandler["getTrashControls"]>;
-type HandControls = {
-  setVisible: (visible: boolean) => void;
-  fadeIn: () => void;
-  setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
-  clearHand: () => void;
-  clearSelection?: () => void;
-  scrollToEnd?: (animate?: boolean) => void;
-  renderPreviewCard?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
-  setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
-};
-type HeaderControls = {
-  setStatus: (text: string) => void;
-  setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
-  setTurnText?: (text: string, color?: string) => void;
-  setAvatarHandler: (handler: () => void) => void;
-  setTimerProgress?: (progress: number, secondsLeft: number) => void;
-  setTimerVisible?: (visible: boolean) => void;
-};
 
 export class BoardUI {
   private drawHelpers: DrawHelpers;
@@ -54,30 +36,9 @@ export class BoardUI {
     this.statusControls = this.field.getStatusControls();
     this.slotControls = this.field.getSlotControls();
     this.hand = new HandAreaHandler(scene, palette, this.drawHelpers);
-    this.handControls = {
-      setVisible: (visible: boolean) => this.hand.setVisible(visible),
-      fadeIn: () => this.hand.fadeIn(),
-      setHand: (cards, opts) => this.hand.setHand(cards, opts),
-      clearHand: () => this.hand.clearHand(),
-      clearSelection: () => this.hand.clearSelection(),
-      scrollToEnd: (animate?: boolean) => this.hand.scrollToEnd(animate),
-      renderPreviewCard: (container, card) => this.hand.renderPreviewCard(container, card),
-      setCardClickHandler: (handler) => this.hand.setCardClickHandler?.(handler),
-    };
+    this.handControls = createHandControls(this.hand);
     this.actions = new ActionButtonBarHandler(scene);
-    this.headerControls = {
-      setStatus: (text: string) => this.header.setStatusText(text),
-      setStatusFromEngine: (status: any, opts?: { offlineFallback?: boolean }) => {
-        const text = formatHeaderStatus(status, opts);
-        if (text) {
-          this.header.setStatusText(text);
-        }
-      },
-      setTurnText: (text: string, color?: string) => this.header.setTurnText(text, color),
-      setAvatarHandler: (handler: () => void) => this.header.setAvatarHandler(handler),
-      setTimerProgress: (progress, secondsLeft) => this.header.setTimerProgress(progress, secondsLeft),
-      setTimerVisible: (visible) => this.header.setTimerVisible(visible),
-    };
+    this.headerControls = createHeaderControls(this.header);
   }
 
   drawFrame() {
@@ -196,18 +157,7 @@ export class BoardUI {
   }
 
   getActionControls() {
-    return {
-      setVisible: (visible: boolean) => this.actions.setVisible(visible),
-      fadeIn: (duration?: number) => this.actions.fadeIn(duration),
-      setButtons: (labels: string[]) => this.actions.setButtons(labels),
-      setActionHandler: (handler: (index: number) => void) => this.actions.setActionHandler(handler),
-      setDescriptors: (buttons: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
-        this.actions.setDescriptors(buttons),
-      setState: (state: { descriptors: any[] }) => this.actions.setState(state),
-      setWaitingForOpponent: (waiting: boolean, overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) =>
-        this.actions.setWaitingForOpponent(waiting, overrideButtons),
-      setWaitingLabel: (label: string) => this.actions.setWaitingLabel(label),
-    };
+    return createActionControls(this.actions);
   }
 
   getHeaderControls() {

@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { attachDialogTimerBar } from "./DialogTimerBar";
+import { DialogTimerHandle } from "./DialogTimerHandle";
 import { createPromptDialog } from "./PromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
@@ -19,13 +20,15 @@ type PilotDesignationDialogOpts = {
 export class PilotDesignationDialog {
   private container?: Phaser.GameObjects.Container;
   private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimerToken?: number;
+  private dialogTimer: DialogTimerHandle;
   private cfg = {
     ...DEFAULT_CARD_DIALOG_CONFIG,
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
-  constructor(private scene: Phaser.Scene, private timerController?: TurnTimerController) {}
+  constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
+    this.dialogTimer = new DialogTimerHandle(timerController);
+  }
 
   show(opts: PilotDesignationDialogOpts) {
     this.destroy();
@@ -63,7 +66,7 @@ export class PilotDesignationDialog {
     this.container = dialog.dialog;
     this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);
     const defaultAction = allowPilot ? opts.onPilot : opts.onCommand;
-    this.dialogTimerToken = this.timerController?.startDialogTimer(this.timerBar, async () => {
+    this.dialogTimer.start(this.timerBar, async () => {
       await this.hide(opts.onClose);
       await defaultAction();
     });
@@ -74,23 +77,15 @@ export class PilotDesignationDialog {
     if (!this.container) return;
     const target = this.container;
     this.container = undefined;
-    this.stopDialogTimer();
+    this.dialogTimer.stop();
     animateDialogOut(this.scene, target, () => {
       target.destroy();
       onClose?.();
     });
   }
 
-  private stopDialogTimer() {
-    if (this.dialogTimerToken !== undefined) {
-      this.timerController?.endDialogTimer(this.dialogTimerToken);
-      this.dialogTimerToken = undefined;
-    }
-    this.timerController?.resumeTurnTimer();
-  }
-
   private destroy() {
-    this.stopDialogTimer();
+    this.dialogTimer.stop();
     this.container?.destroy();
     this.timerBar?.destroy();
     this.container = undefined;

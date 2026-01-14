@@ -46,7 +46,8 @@ import { wireBoardUiHandlers } from "./scene/boardSceneUiBindings";
 import { buildBoardSceneTestHooks } from "./scene/boardSceneTestHooks";
 import { bindBoardSceneEvents } from "./scene/boardSceneEventBindings";
 import { registerBoardSceneActions } from "./scene/boardSceneActionBindings";
-import { TurnTimerController } from "./controllers/TurnTimerController";
+import type { TurnTimerController } from "./controllers/TurnTimerController";
+import { createTurnTimerBindings } from "./scene/boardTimerBindings";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -111,6 +112,7 @@ export class BoardScene extends Phaser.Scene {
   private startGameAnimating = false;
   private startGameCompleted = false;
   private turnTimer?: TurnTimerController;
+  private updateTurnTimerFromSnapshot?: (raw: any) => void;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -131,13 +133,15 @@ export class BoardScene extends Phaser.Scene {
     this.headerControls = controls.headerControls;
     this.slotControls = controls.slotControls;
 
-    this.turnTimer = new TurnTimerController(this);
-    if (this.headerControls?.setTimerProgress && this.headerControls?.setTimerVisible) {
-      this.turnTimer.setHeaderRenderer({
-        setProgress: (progress, secondsLeft) => this.headerControls?.setTimerProgress?.(progress, secondsLeft),
-        setVisible: (visible) => this.headerControls?.setTimerVisible?.(visible),
+    const timerBindings = createTurnTimerBindings(this, this.headerControls);
+    this.turnTimer = timerBindings.timer;
+    this.updateTurnTimerFromSnapshot = (raw) => {
+      timerBindings.update(raw, {
+        playerId: this.gameContext.playerId,
+        isShuffleAnimating: this.startGameAnimating,
+        onExpire: () => void this.runActionThenRefresh("endTurn", "neutral"),
       });
-    }
+    };
 
     const dialogs = setupBoardDialogs(
       this,
@@ -198,18 +202,6 @@ export class BoardScene extends Phaser.Scene {
         console.warn("Using offline fallback:", message, { gameId });
       },
     });
-    bindBoardSceneEvents({
-      engine: this.engine,
-      match: this.match,
-      dialogCoordinator: this.dialogCoordinator,
-      headerControls: this.headerControls,
-      offlineFallback: this.offlineFallback,
-      pilotFlow: this.pilotFlow,
-      selectionAction: this.selectionAction,
-      onMainPhaseUpdate: (silent, snapshot) => this.mainPhaseUpdate(silent, snapshot),
-      onShowLoading: () => this.showLoading(),
-      onHideLoading: () => this.hideLoading(),
-    });
     this.effectTargetController = new EffectTargetController({
       dialog: this.effectTargetDialogUi,
       slotPresenter: this.slotPresenter,
@@ -257,6 +249,18 @@ export class BoardScene extends Phaser.Scene {
     this.commandFlow = new CommandFlowController(this.engine);
     this.unitFlow = new UnitFlowController();
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow });
+    bindBoardSceneEvents({
+      engine: this.engine,
+      match: this.match,
+      dialogCoordinator: this.dialogCoordinator,
+      headerControls: this.headerControls,
+      offlineFallback: this.offlineFallback,
+      pilotFlow: this.pilotFlow,
+      selectionAction: this.selectionAction,
+      onMainPhaseUpdate: (silent, snapshot) => this.mainPhaseUpdate(silent, snapshot),
+      onShowLoading: () => this.showLoading(),
+      onHideLoading: () => this.hideLoading(),
+    });
     this.debugControls.exposeTestHooks(
       buildBoardSceneTestHooks({
         engineSnapshot: () => this.engine.getSnapshot(),
@@ -710,27 +714,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateTurnTimer(raw: any) {
-    if (!this.turnTimer) return;
-    if (this.turnTimer.isDialogActive()) {
-      return;
-    }
-    if (this.startGameAnimating) {
-      this.turnTimer.setEnabled(false);
-      return;
-    }
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const isSelfTurn = currentPlayer === this.gameContext.playerId;
-    if (!isSelfTurn) {
-      this.turnTimer.setEnabled(false);
-      return;
-    }
-    this.turnTimer.setEnabled(true);
-    if (this.turnTimer.isDialogActive()) {
-      return;
-    }
-    this.turnTimer.ensureTurnTimer(async () => {
-      await this.runActionThenRefresh("endTurn", "neutral");
-    });
+    this.updateTurnTimerFromSnapshot?.(raw);
   }
 
   private async initSession() {

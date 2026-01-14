@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { BASE_W } from "../../config/gameLayout";
 import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
 import { TimerBar } from "./TimerBar";
+import { HEADER_TIMER_BAR_STYLE } from "./timerBarStyles";
 
 // Shared frame styling used by BoardUI.
 export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "strokeColor" | "strokeAlpha" | "strokeWidth"> = {
@@ -220,11 +221,7 @@ export class HeaderHandler {
     if (!this.timerBar) {
       this.timerBar = new TimerBar(this.scene, {
         width,
-        height: 4,
-        fillColor: 0x2ecc71,
-        bgColor: 0x0f1118,
-        borderColor: 0x5b6068,
-        showLabel: false,
+        ...HEADER_TIMER_BAR_STYLE,
       });
       this.timerBar.setVisible(false);
       this.timerBar.setDepth(this.depth + 1);
