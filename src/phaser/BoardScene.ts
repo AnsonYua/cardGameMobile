@@ -203,7 +203,7 @@ export class BoardScene extends Phaser.Scene {
       },
     });
     this.effectTargetController = new EffectTargetController({
-      dialog: this.effectTargetDialogUi,
+      dialog: dialogs.effectTargetDialog,
       slotPresenter: this.slotPresenter,
       gameContext: this.gameContext,
       engine: this.engine,
@@ -242,8 +242,8 @@ export class BoardScene extends Phaser.Scene {
       engine: this.engine,
       slotPresenter: this.slotPresenter,
       gameContext: this.gameContext,
-      pilotTargetDialog: this.pilotTargetDialogUi,
-      pilotDesignationDialog: this.pilotDesignationDialogUi,
+      pilotTargetDialog: dialogs.pilotTargetDialog,
+      pilotDesignationDialog: dialogs.pilotDesignationDialog,
       runActionThenRefresh: this.runActionThenRefresh.bind(this),
     });
     this.commandFlow = new CommandFlowController(this.engine);
