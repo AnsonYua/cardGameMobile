@@ -129,7 +129,7 @@ export function buildNotificationHandlers(
 
         await Promise.resolve(
           deps.mulliganDialog?.showPrompt({
-            prompt: "Do you want to mulligan?",
+            headerText: "Do you want mulligan?",
             onYes: () => deps.startReady?.(true),
             onNo: () => deps.startReady?.(false),
           }),

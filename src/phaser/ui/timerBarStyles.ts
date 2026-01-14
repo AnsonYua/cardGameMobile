@@ -13,3 +13,11 @@ export const DIALOG_TIMER_BAR_STYLE = {
   borderColor: 0x5b6068,
   showLabel: false,
 };
+
+export const DIALOG_TIMER_BAR_SPACING = {
+  top: 14,
+  bottom: 18,
+};
+
+export const getDialogTimerHeaderGap = () =>
+  DIALOG_TIMER_BAR_SPACING.top + DIALOG_TIMER_BAR_STYLE.height + DIALOG_TIMER_BAR_SPACING.bottom;

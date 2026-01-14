@@ -15,6 +15,7 @@ export type PromptDialogOptions = {
   showCloseButton?: boolean;
   onClose?: () => void;
   headerGap?: number;
+  headerFontSize?: number;
 };
 
 export function createPromptDialog(
@@ -26,8 +27,9 @@ export function createPromptDialog(
   const promptText = opts.promptText ?? "";
   const hasPrompt = promptText.trim().length > 0;
   const hasButtons = opts.buttons.length > 0;
+  const headerFontSize = opts.headerFontSize ?? cfg.dialog.headerFontSize ?? 20;
   const headerStyle = {
-    fontSize: "20px",
+    fontSize: `${headerFontSize}px`,
     fontFamily: "Arial",
     fontStyle: "bold",
     color: "#f5f6f7",
@@ -42,7 +44,8 @@ export function createPromptDialog(
     wordWrap: { width: Math.min(420, cam.width * 0.75) },
   };
 
-  const tempHeader = scene.add.text(-10000, -10000, opts.headerText, headerStyle).setOrigin(0.5);
+  const hasHeader = opts.headerText.trim().length > 0;
+  const tempHeader = hasHeader ? scene.add.text(-10000, -10000, opts.headerText, headerStyle).setOrigin(0.5) : undefined;
   const tempPrompt = hasPrompt ? scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5) : undefined;
   const gap = opts.headerGap ?? 14;
   const buttonHeight = 46;
@@ -51,16 +54,17 @@ export function createPromptDialog(
   const layout = computePromptDialogLayout(cam, cfg, {
     contentWidth: Math.max(tempPrompt?.width ?? 0, hasButtons ? 200 : 260),
     contentHeight: buttonContentHeight,
-    headerHeight: tempHeader.height,
+    headerHeight: tempHeader?.height ?? 0,
     headerGap: gap,
   });
-  tempHeader.destroy();
+  tempHeader?.destroy();
   tempPrompt?.destroy();
 
   const { dialog, content, header } = createDialogShell(scene, cfg, layout, {
     centerX: cam.centerX,
     centerY: cam.centerY,
     headerText: opts.headerText,
+    headerFontSize: opts.headerFontSize,
     showOverlay: opts.showOverlay ?? false,
     closeOnBackdrop: opts.closeOnBackdrop ?? false,
     showCloseButton: opts.showCloseButton ?? false,
@@ -68,7 +72,10 @@ export function createPromptDialog(
   });
 
   const prompt = hasPrompt ? scene.add.text(0, 0, promptText, promptStyle).setOrigin(0.5) : undefined;
-  const promptY = hasPrompt ? header.y + header.height / 2 + gap + (prompt?.height ?? 0) / 2 : header.y + header.height / 2;
+  const headerHeight = header?.height ?? 0;
+  const headerBottom = -layout.dialogHeight / 2 + layout.headerOffset + headerHeight / 2;
+  const contentTop = headerBottom + (layout.headerGap ?? gap);
+  const promptY = hasPrompt ? contentTop + (prompt?.height ?? 0) / 2 : contentTop;
   if (prompt) prompt.setY(promptY);
 
   const dialogMargin = cfg.dialog.margin;
@@ -79,7 +86,7 @@ export function createPromptDialog(
     count > 1 ? Math.min(220, (availableForButtons - buttonGap * (count - 1)) / count) : Math.min(240, availableForButtons);
   const btnY = hasPrompt
     ? promptY + (prompt?.height ?? 0) / 2 + gap + buttonHeight / 2
-    : header.y + header.height / 2 + gap + buttonHeight / 2;
+    : contentTop + buttonHeight / 2;
 
   const buttons = opts.buttons.map((btn, index) => {
     const totalWidth = count * buttonWidth + buttonGap * (count - 1);

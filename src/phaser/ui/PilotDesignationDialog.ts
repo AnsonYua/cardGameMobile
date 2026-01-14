@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { attachDialogTimerBar } from "./DialogTimerBar";
+import { getDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerHandle } from "./DialogTimerHandle";
 import { createPromptDialog } from "./PromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
@@ -62,7 +63,7 @@ export class PilotDesignationDialog {
       closeOnBackdrop: true,
       showCloseButton: true,
       onClose: () => void this.hide(opts.onClose),
-      headerGap: 26,
+      headerGap: getDialogTimerHeaderGap(),
     });
     this.container = dialog.dialog;
     this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);

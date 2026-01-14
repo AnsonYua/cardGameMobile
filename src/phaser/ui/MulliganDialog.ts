@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { attachDialogTimerBar } from "./DialogTimerBar";
+import { getDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerHandle } from "./DialogTimerHandle";
 import { createPromptDialog } from "./PromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
@@ -10,6 +11,8 @@ type MulliganDialogOpts = {
   prompt?: string;
   onYes?: () => Promise<void> | void;
   onNo?: () => Promise<void> | void;
+  headerText?: string;
+  headerFontSize?: number;
 };
 
 /**
@@ -32,8 +35,8 @@ export class MulliganDialog {
   async showPrompt(opts: MulliganDialogOpts): Promise<boolean> {
     this.destroy();
 
-    const headerText = "Mulligan";
-    const promptText = opts.prompt || "Do you want to mulligan?";
+    const headerText = opts.headerText ?? (opts.prompt ? opts.prompt : "Do you want mulligan?");
+    const promptText = opts.headerText ? opts.prompt ?? "" : "";
     return new Promise<boolean>((resolve) => {
       let closing = false;
       let buttons: Phaser.GameObjects.Rectangle[] = [];
@@ -74,7 +77,8 @@ export class MulliganDialog {
         showOverlay: false,
         closeOnBackdrop: false,
         showCloseButton: false,
-        headerGap: 26,
+        headerFontSize: opts.headerFontSize,
+        headerGap: getDialogTimerHeaderGap(),
       });
       this.container = dialog.dialog;
       buttons = dialog.buttons.map((btn) => btn.rect);

@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import type { DialogLayout } from "./CardDialogLayout";
 import { TimerBar } from "./TimerBar";
-import { DIALOG_TIMER_BAR_STYLE } from "./timerBarStyles";
+import { DIALOG_TIMER_BAR_SPACING, DIALOG_TIMER_BAR_STYLE } from "./timerBarStyles";
 
 export function attachDialogTimerBar(
   scene: Phaser.Scene,
@@ -19,7 +19,9 @@ export function attachDialogTimerBar(
   const headerGap = layout.headerGap ?? 14;
   const hasPromptLayout = headerHeight > 0;
   const headerBottom = -layout.dialogHeight / 2 + layout.headerOffset + headerHeight / 2;
-  const y = hasPromptLayout ? headerBottom + headerGap / 2 : -layout.dialogHeight / 2 + layout.headerOffset + 24;
+  const y = hasPromptLayout
+    ? headerBottom + DIALOG_TIMER_BAR_SPACING.top + DIALOG_TIMER_BAR_STYLE.height / 2
+    : -layout.dialogHeight / 2 + layout.headerOffset + 24;
   bar.setPosition(x, y);
   bar.addTo(dialog);
   return bar;

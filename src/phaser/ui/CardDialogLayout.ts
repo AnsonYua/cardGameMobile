@@ -14,6 +14,7 @@ export type CardDialogConfig = {
     panelRadius: number;
     extraHeight: number;
     headerOffset: number;
+    headerFontSize?: number;
     closeSize: number;
     closeOffset: number;
     headerWrapPad: number;
@@ -69,6 +70,7 @@ export const DEFAULT_CARD_DIALOG_CONFIG: CardDialogConfig = {
     panelRadius: 18,
     extraHeight: 110,
     headerOffset: 36,
+    headerFontSize: 20,
     closeSize: 22,
     closeOffset: 12,
     headerWrapPad: 80,
@@ -200,6 +202,7 @@ export function createDialogShell(
     centerX: number;
     centerY: number;
     headerText: string;
+    headerFontSize?: number;
     showOverlay?: boolean;
     closeOnBackdrop?: boolean;
     showCloseButton?: boolean;
@@ -227,15 +230,19 @@ export function createDialogShell(
   panel.strokeRoundedRect(-layout.dialogWidth / 2, -layout.dialogHeight / 2, layout.dialogWidth, layout.dialogHeight, config.dialog.panelRadius);
   dialog.add(panel);
 
-  const header = scene.add.text(0, -layout.dialogHeight / 2 + layout.headerOffset, opts.headerText, {
-    fontSize: "20px",
-    fontFamily: "Arial",
-    fontStyle: "bold",
-    color: "#f5f6f7",
-    align: "center",
-    wordWrap: { width: layout.dialogWidth - layout.headerWrapPad },
-  }).setOrigin(0.5);
-  dialog.add(header);
+  let header: Phaser.GameObjects.Text | undefined;
+  if (opts.headerText && opts.headerText.trim().length > 0) {
+    const headerFontSize = opts.headerFontSize ?? config.dialog.headerFontSize ?? 20;
+    header = scene.add.text(0, -layout.dialogHeight / 2 + layout.headerOffset, opts.headerText, {
+      fontSize: `${headerFontSize}px`,
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      color: "#f5f6f7",
+      align: "center",
+      wordWrap: { width: layout.dialogWidth - layout.headerWrapPad },
+    }).setOrigin(0.5);
+    dialog.add(header);
+  }
 
   let closeButton: Phaser.GameObjects.Rectangle | undefined;
   let closeLabel: Phaser.GameObjects.Text | undefined;
