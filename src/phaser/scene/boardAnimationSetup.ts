@@ -2,6 +2,7 @@ import type Phaser from "phaser";
 import { createAnimationPipeline } from "../controllers/AnimationPipeline";
 import type { AnimationQueue } from "../animations/AnimationQueue";
 import type { SlotAnimationRenderController } from "../animations/SlotAnimationRenderController";
+import type { BaseShieldAnimationRenderController } from "../animations/BaseShieldAnimationRenderController";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { GameEngine } from "../game/GameEngine";
@@ -20,6 +21,7 @@ import type { BoardUiControls } from "./boardUiSetup";
 export type AnimationPipelineSetup = {
   animationQueue: AnimationQueue;
   slotAnimationRender: SlotAnimationRenderController;
+  baseShieldAnimationRender: BaseShieldAnimationRenderController;
 };
 
 export type AnimationPipelineParams = {
@@ -44,6 +46,7 @@ export type AnimationPipelineParams = {
   getTargetAnchorProviders: () => TargetAnchorProviders;
   startGame: () => void;
   renderSlots: (slots: SlotViewModel[]) => void;
+  renderBaseAndShield: (raw?: any) => void;
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
   shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
@@ -65,6 +68,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     getTargetAnchorProviders,
     startGame,
     renderSlots,
+    renderBaseAndShield,
     updateHandArea,
     shouldRefreshHandForEvent,
     handleAnimationQueueIdle,
@@ -114,7 +118,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     getSlotsFromRaw: (data) => slotPresenter.toSlots(data, gameContext.playerId ?? ""),
   });
 
-  const { animationQueue, slotAnimationRender } = animationPipeline;
+  const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = animationPipeline;
 
   animationQueue.setOnIdle(() => handleAnimationQueueIdle());
   animationQueue.setOnEventStart((event, ctx) => {
@@ -125,17 +129,21 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     if (slots) {
       renderSlots(slots);
     }
+    baseShieldAnimationRender.handleEventStart(event, ctx);
+    renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
   });
   animationQueue.setOnEventEnd((event, ctx) => {
     const slots = slotAnimationRender.handleEventEnd(event, ctx);
     if (slots) {
       renderSlots(slots);
     }
+    baseShieldAnimationRender.handleEventEnd(event, ctx);
+    renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
     if (shouldRefreshHandForEvent(event)) {
       updateHandArea({ skipAnimation: true });
       controls.handControls?.scrollToEnd?.(true);
     }
   });
 
-  return { animationQueue, slotAnimationRender };
+  return { animationQueue, slotAnimationRender, baseShieldAnimationRender };
 }

@@ -5,6 +5,7 @@ import { BattleAnimationManager } from "../animations/BattleAnimationManager";
 import { AttackIndicatorController } from "./AttackIndicatorController";
 import { AnimationQueue } from "../animations/AnimationQueue";
 import { SlotAnimationRenderController } from "../animations/SlotAnimationRenderController";
+import { BaseShieldAnimationRenderController } from "../animations/BaseShieldAnimationRenderController";
 import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { HandCardView } from "../ui/HandTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
@@ -129,6 +130,7 @@ export function createAnimationPipeline(deps: {
     slotControls: deps.slotControls,
   });
   const slotAnimationRender = new SlotAnimationRenderController(deps.getSlotsFromRaw);
+  const baseShieldAnimationRender = new BaseShieldAnimationRenderController(deps.resolveSlotOwnerByPlayer);
 
   return {
     battleAnimations,
@@ -137,5 +139,6 @@ export function createAnimationPipeline(deps: {
     attackIndicatorController,
     animationQueue,
     slotAnimationRender,
+    baseShieldAnimationRender,
   };
 }

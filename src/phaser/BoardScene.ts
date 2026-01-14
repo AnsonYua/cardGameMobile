@@ -32,6 +32,7 @@ import type { SelectionActionController } from "./controllers/SelectionActionCon
 import { EffectTargetController } from "./controllers/EffectTargetController";
 import type { AnimationQueue } from "./animations/AnimationQueue";
 import type { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
+import type { BaseShieldAnimationRenderController } from "./animations/BaseShieldAnimationRenderController";
 import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
@@ -109,6 +110,7 @@ export class BoardScene extends Phaser.Scene {
   private overlay?: OverlayController;
   private animationQueue?: AnimationQueue;
   private slotAnimationRender?: SlotAnimationRenderController;
+  private baseShieldAnimationRender?: BaseShieldAnimationRenderController;
   private startGameAnimating = false;
   private startGameCompleted = false;
   private turnStartDrawPopupActive = false;
@@ -165,7 +167,7 @@ export class BoardScene extends Phaser.Scene {
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
 
-    const { animationQueue, slotAnimationRender } = setupAnimationPipeline({
+    const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
       scene: this,
       controls,
       dialogs: {
@@ -187,6 +189,7 @@ export class BoardScene extends Phaser.Scene {
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
+      renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
@@ -209,6 +212,7 @@ export class BoardScene extends Phaser.Scene {
     });
     this.animationQueue = animationQueue;
     this.slotAnimationRender = slotAnimationRender;
+    this.baseShieldAnimationRender = baseShieldAnimationRender;
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.sessionController = new SessionController({
       match: this.match,
@@ -571,6 +575,7 @@ export class BoardScene extends Phaser.Scene {
       console.log("[BoardScene] updateSlots startBatch", { eventCount: events.length });
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
       const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
+      this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
       this.renderSlots(initialSlots);
       this.animationQueue?.enqueue(events, ctx);
       return;
@@ -642,41 +647,34 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const slots = this.slotPresenter.toSlots(raw, playerId);
     this.slotAnimationRender?.clear();
+    this.baseShieldAnimationRender?.clear();
     this.renderSlots(slots);
+    this.updateBaseAndShield(raw);
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
   }
 
-  private updateBaseAndShield() {
-    console.log("show base")
-    const snapshot = this.engine.getSnapshot();
-    const raw: any = snapshot.raw;
-    const players = raw?.gameEnv?.players;
-    if (!players) return;
-
-    const allIds = Object.keys(players);
-    const selfId = this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : allIds[0];
-    const otherId = allIds.find((id) => id !== selfId);
-    console.log("selfId ", selfId , " ",otherId);
-    const applySide = (playerId: string | undefined, isOpponent: boolean) => {
-      if (!playerId || !players[playerId]) return;
-      const side = players[playerId];
-      const zones = side.zones || side.zone || {};
-      const shieldArea = zones.shieldArea || side.shieldArea;
-      const baseArr = zones.base || side.base;
-      const shieldCount = Array.isArray(shieldArea) ? shieldArea.length : 0;
-      const baseCard = Array.isArray(baseArr) ? baseArr[0] : null;
+  private updateBaseAndShield(rawOverride?: any) {
+    const raw: any = rawOverride ?? this.engine.getSnapshot().raw;
+    if (!raw?.gameEnv?.players) return;
+    const renderStates = this.baseShieldAnimationRender?.getRenderStates(raw) ?? {
+      player: null,
+      opponent: null,
+    };
+    const applyState = (state: any, isOpponent: boolean) => {
+      const shieldCount = state?.shieldCount ?? 0;
+      const baseCard = state?.baseCard ?? null;
       const hasBase = Boolean(baseCard);
-      const ap = baseCard?.fieldCardValue?.totalAP ?? 0;
-      const hp = baseCard?.fieldCardValue?.totalHP ?? 0;
-      const rested = baseCard?.isRested ?? baseCard?.fieldCardValue?.isRested ?? false;
-      // eslint-disable-next-line no-console
-      console.log("[Base] status", { isOpponent, cardId: baseCard?.cardId, rested });
+      const ap = state?.ap ?? 0;
+      const hp = state?.hp ?? 0;
+      const rested = state?.rested ?? false;
+      const baseCardId =
+        baseCard?.cardId ?? baseCard?.id ?? (typeof baseCard === "string" ? baseCard : undefined);
       this.baseControls?.setShieldCount(isOpponent, shieldCount);
       if (hasBase) {
-        this.baseControls?.setBaseTexture?.(isOpponent, baseCard?.cardId);
+        this.baseControls?.setBaseTexture?.(isOpponent, baseCardId);
         this.baseControls?.setBaseBadgeLabel(isOpponent, `${ap}|${hp}`);
         this.baseControls?.setBaseStatus(isOpponent, rested ? "rested" : "normal");
         this.baseControls?.setBaseTowerVisible(isOpponent, true);
@@ -691,8 +689,8 @@ export class BoardScene extends Phaser.Scene {
       }
     };
 
-    applySide(selfId, false);
-    applySide(otherId, true);
+    applyState(renderStates.player, false);
+    applyState(renderStates.opponent, true);
   }
 
   private showLoading() {
