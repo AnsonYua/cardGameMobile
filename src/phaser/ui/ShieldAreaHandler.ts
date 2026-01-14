@@ -136,7 +136,13 @@ export class ShieldAreaHandler {
   }
 
   getShieldTopAnchor(isOpponent: boolean) {
-    return this.shieldAnchors[isOpponent ? "opponent" : "player"];
+    const side: BaseSide = isOpponent ? "opponent" : "player";
+    const anchor = this.shieldAnchors[side];
+    // eslint-disable-next-line no-console
+    console.log(
+      `[ShieldArea] getShieldTopAnchor side=${side} anchor=(${anchor?.x ?? "null"},${anchor?.y ?? "null"})`,
+    );
+    return anchor;
   }
 
   // Set base status per side: pass `true` for opponent (top) and `false` for player (bottom); status is "normal" | "rested" | "destroyed".
@@ -298,7 +304,7 @@ export class ShieldAreaHandler {
     const baseYWithOffset = baseY + baseYOffset;
     this.clearShieldsForSide(side);
     if (shieldCount > 0) {
-      const topIndex = isOpponent ? 0 : shieldCount - 1;
+      const topIndex = 0;
       const shieldTopY = barsTop + shieldH / 2 + topIndex * (shieldH + shieldGap) + shieldYOffset;
       this.shieldAnchors[side] = { x: shieldX, y: shieldTopY };
     } else {
@@ -310,6 +316,7 @@ export class ShieldAreaHandler {
         const card = this.drawShieldCard(shieldX, y, shieldW, shieldH);
         this.shieldCards[side].push(card);
       }
+      this.updateShieldAnchorFromCards(side, shieldX);
       this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     } else {
       for (let i = shieldCount - 1; i >= 0; i--) {
@@ -317,8 +324,28 @@ export class ShieldAreaHandler {
         const card = this.drawShieldCard(shieldX, y, shieldW, shieldH);
         this.shieldCards[side].push(card);
       }
+      this.updateShieldAnchorFromCards(side, shieldX);
       this.drawBaseCard(baseX, baseYWithOffset, baseSize.w, baseSize.h, isOpponent);
     }
+  }
+
+  private updateShieldAnchorFromCards(side: BaseSide, fallbackX: number) {
+    const cards = this.shieldCards[side];
+    if (!cards.length) {
+      this.shieldAnchors[side] = undefined;
+      return;
+    }
+    const topCard = cards.reduce((best, card) => ((card as any).y < (best as any).y ? card : best), cards[0]);
+    const x = (topCard as any).x ?? fallbackX;
+    const centerY = (topCard as any).y ?? this.shieldAnchors[side]?.y ?? 0;
+    const y = centerY - this.config.shieldSize.h / 2;
+    this.shieldAnchors[side] = { x, y };
+    // eslint-disable-next-line no-console
+    console.log(
+      `[ShieldArea] shield anchor side=${side} count=${cards.length} cardYs=${JSON.stringify(
+        cards.map((card) => (card as any).y),
+      )} anchor=(${x},${y}) centerY=${centerY}`,
+    );
   }
 
   private clearShieldsForSide(side: BaseSide) {

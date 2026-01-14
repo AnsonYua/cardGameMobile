@@ -113,10 +113,18 @@ export function resolveAttackTargetPoint(
   if (isShield) {
     const anchor = context.anchors.getShieldAnchor?.(isOpponentTarget);
     if (anchor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[AttackResolver] shield anchor isOpponentTarget=${isOpponentTarget} x=${anchor.x} y=${anchor.y}`,
+      );
       return anchor;
     }
     const fallbackAnchor = context.anchors.getBaseAnchor?.(isOpponentTarget);
     if (fallbackAnchor) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[AttackResolver] shield fallback anchor isOpponentTarget=${isOpponentTarget} x=${fallbackAnchor.x} y=${fallbackAnchor.y}`,
+      );
       return { x: fallbackAnchor.x, y: fallbackAnchor.y };
     }
     // eslint-disable-next-line no-console
