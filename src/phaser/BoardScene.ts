@@ -780,11 +780,13 @@ export class BoardScene extends Phaser.Scene {
     if (!playerId) return false;
     const notifications = getNotificationQueue(raw);
     if (!notifications.length) return false;
+    const contextPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
     return notifications.some((note) => {
       if (!note?.id) return false;
       const type = (note.type || "").toUpperCase();
       if (type !== "CARD_DRAWN") return false;
       if (note.payload?.playerId !== playerId) return false;
+      if (contextPlayer && note.payload?.playerId !== contextPlayer) return false;
       const drawContext = (note.payload?.drawContext ?? "").toString().toLowerCase();
       if (drawContext !== "turn_start") return false;
       return !this.animationQueue?.isProcessed(note.id);

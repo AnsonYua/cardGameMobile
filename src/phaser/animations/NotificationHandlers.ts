@@ -54,7 +54,10 @@ export function buildNotificationHandlers(
         const drawContext = (event?.payload?.drawContext ?? "").toString().toLowerCase();
         const playerId = event?.payload?.playerId;
         const isSelf = !!playerId && !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
-        const shouldDelayTimer = drawContext === "turn_start" && isSelf;
+        const contextPlayerId =
+          ctx.currentRaw?.gameEnv?.currentPlayer ?? ctx.currentRaw?.currentPlayer;
+        const isContextPlayer = !!playerId && !!contextPlayerId && playerId === contextPlayerId;
+        const shouldDelayTimer = drawContext === "turn_start" && isSelf && isContextPlayer;
         if (shouldDelayTimer) {
           deps.onTurnStartDrawPopupStart?.();
         }
