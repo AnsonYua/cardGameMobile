@@ -1,10 +1,7 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { attachDialogTimerBar } from "./DialogTimerBar";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
-import { DialogTimerHandle } from "./DialogTimerHandle";
-import { createPromptDialog } from "./PromptDialog";
+import { TimedPromptDialog } from "./TimedPromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type ChooseFirstPlayerDialogOpts = {
@@ -18,85 +15,38 @@ type ChooseFirstPlayerDialogOpts = {
  * Turn order dialog styled like the mulligan prompt.
  */
 export class ChooseFirstPlayerDialog {
-  private container?: Phaser.GameObjects.Container;
-  private cfg = {
-    ...DEFAULT_CARD_DIALOG_CONFIG,
-    z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
-  };
+  private prompt: TimedPromptDialog<boolean>;
 
-  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimer: DialogTimerHandle;
-
-  constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
-    this.dialogTimer = new DialogTimerHandle(timerController);
+  constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
+    const cfg = {
+      ...DEFAULT_CARD_DIALOG_CONFIG,
+      z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
+    };
+    this.prompt = new TimedPromptDialog<boolean>(scene, timerController, cfg);
   }
 
   async showPrompt(opts: ChooseFirstPlayerDialogOpts): Promise<boolean> {
-    this.destroy();
-
     const headerText = "Choose Turn Order";
-    return new Promise<boolean>((resolve) => {
-      let closing = false;
-      let buttons: Phaser.GameObjects.Rectangle[] = [];
-      const close = async (
-        result: boolean,
-        cb?: () => Promise<void> | void,
-        buttons?: Phaser.GameObjects.Rectangle[],
-      ) => {
-        if (closing) return;
-        closing = true;
-        if (!this.container) return;
-        this.dialogTimer.stop();
-        buttons?.forEach((btn) => btn.disableInteractive());
-        await cb?.();
-        animateDialogOut(this.scene, this.container, () => {
-          this.destroy();
-          resolve(result);
-        });
-      };
-
-      const firstLabel = opts.firstLabel || "Go First";
-      const secondLabel = opts.secondLabel || "Go Second";
-
-      const dialog = createPromptDialog(this.scene, this.cfg, {
-        headerText,
-        promptText: "",
-        buttons: [
-          {
-            label: firstLabel,
-            onClick: async () => {
-              await close(true, opts.onFirst, buttons);
-            },
-          },
-          {
-            label: secondLabel,
-            onClick: async () => {
-              await close(false, opts.onSecond, buttons);
-            },
-          },
-        ],
-        showOverlay: false,
-        closeOnBackdrop: false,
-        showCloseButton: false,
-        headerGap: getDialogTimerHeaderGap(),
-      });
-      this.container = dialog.dialog;
-      buttons = dialog.buttons.map((btn) => btn.rect);
-      this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);
-      const defaultAction = opts.onFirst ?? opts.onSecond;
-      this.dialogTimer.start(this.timerBar, async () => {
-        await close(true, defaultAction, buttons);
-      });
-
-      animateDialogIn(this.scene, this.container);
+    const firstLabel = opts.firstLabel || "Go First";
+    const secondLabel = opts.secondLabel || "Go Second";
+    const defaultAction = opts.onFirst ?? opts.onSecond;
+    return this.prompt.showPrompt({
+      headerText,
+      promptText: "",
+      buttons: [
+        { label: firstLabel, result: true, onClick: opts.onFirst },
+        { label: secondLabel, result: false, onClick: opts.onSecond },
+      ],
+      timeoutResult: true,
+      onTimeout: defaultAction,
+      showOverlay: false,
+      closeOnBackdrop: false,
+      showCloseButton: false,
+      headerGap: getDialogTimerHeaderGap(),
     });
   }
 
   private destroy() {
-    this.dialogTimer.stop();
-    this.container?.destroy();
-    this.timerBar?.destroy();
-    this.container = undefined;
-    this.timerBar = undefined;
+    this.prompt.destroy();
   }
 }

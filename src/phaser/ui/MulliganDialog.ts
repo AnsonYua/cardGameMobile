@@ -1,10 +1,7 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { attachDialogTimerBar } from "./DialogTimerBar";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
-import { DialogTimerHandle } from "./DialogTimerHandle";
-import { createPromptDialog } from "./PromptDialog";
+import { TimedPromptDialog } from "./TimedPromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type MulliganDialogOpts = {
@@ -19,83 +16,37 @@ type MulliganDialogOpts = {
  * Mulligan prompt styled like other dialogs. Only buttons are interactive.
  */
 export class MulliganDialog {
-  private container?: Phaser.GameObjects.Container;
-  private cfg = {
-    ...DEFAULT_CARD_DIALOG_CONFIG,
-    z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
-  };
+  private prompt: TimedPromptDialog<boolean>;
 
-  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimer: DialogTimerHandle;
-
-  constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
-    this.dialogTimer = new DialogTimerHandle(timerController);
+  constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
+    const cfg = {
+      ...DEFAULT_CARD_DIALOG_CONFIG,
+      z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
+    };
+    this.prompt = new TimedPromptDialog<boolean>(scene, timerController, cfg);
   }
 
   async showPrompt(opts: MulliganDialogOpts): Promise<boolean> {
-    this.destroy();
-
     const headerText = opts.headerText ?? (opts.prompt ? opts.prompt : "Do you want mulligan?");
     const promptText = opts.headerText ? opts.prompt ?? "" : "";
-    return new Promise<boolean>((resolve) => {
-      let closing = false;
-      let buttons: Phaser.GameObjects.Rectangle[] = [];
-      const close = async (
-        result: boolean,
-        cb?: () => Promise<void> | void,
-        buttonTargets?: Phaser.GameObjects.Rectangle[],
-      ) => {
-        if (closing) return;
-        closing = true;
-        if (!this.container) return;
-        this.dialogTimer.stop();
-        buttonTargets?.forEach((btn) => btn.disableInteractive());
-        await cb?.();
-        animateDialogOut(this.scene, this.container, () => {
-          this.destroy();
-          resolve(result);
-        });
-      };
-
-      const dialog = createPromptDialog(this.scene, this.cfg, {
-        headerText,
-        promptText,
-        buttons: [
-          {
-            label: "Yes",
-            onClick: async () => {
-              await close(true, opts.onYes, buttons);
-            },
-          },
-          {
-            label: "No",
-            onClick: async () => {
-              await close(false, opts.onNo, buttons);
-            },
-          },
-        ],
-        showOverlay: false,
-        closeOnBackdrop: false,
-        showCloseButton: false,
-        headerFontSize: opts.headerFontSize,
-        headerGap: getDialogTimerHeaderGap(),
-      });
-      this.container = dialog.dialog;
-      buttons = dialog.buttons.map((btn) => btn.rect);
-      this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);
-      this.dialogTimer.start(this.timerBar, async () => {
-        await close(true, opts.onYes, buttons);
-      });
-
-      animateDialogIn(this.scene, this.container);
+    return this.prompt.showPrompt({
+      headerText,
+      promptText,
+      buttons: [
+        { label: "Yes", result: true, onClick: opts.onYes },
+        { label: "No", result: false, onClick: opts.onNo },
+      ],
+      timeoutResult: true,
+      onTimeout: opts.onYes,
+      showOverlay: false,
+      closeOnBackdrop: false,
+      showCloseButton: false,
+      headerFontSize: opts.headerFontSize,
+      headerGap: getDialogTimerHeaderGap(),
     });
   }
 
   private destroy() {
-    this.dialogTimer.stop();
-    this.container?.destroy();
-    this.timerBar?.destroy();
-    this.container = undefined;
-    this.timerBar = undefined;
+    this.prompt.destroy();
   }
 }

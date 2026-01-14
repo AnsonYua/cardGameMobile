@@ -1,9 +1,8 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { attachDialogTimerBar } from "./DialogTimerBar";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
-import { DialogTimerHandle } from "./DialogTimerHandle";
+import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import { createPromptDialog } from "./PromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
@@ -20,15 +19,14 @@ type PilotDesignationDialogOpts = {
  */
 export class PilotDesignationDialog {
   private container?: Phaser.GameObjects.Container;
-  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimer: DialogTimerHandle;
+  private dialogTimer: DialogTimerPresenter;
   private cfg = {
     ...DEFAULT_CARD_DIALOG_CONFIG,
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
   constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
-    this.dialogTimer = new DialogTimerHandle(timerController);
+    this.dialogTimer = new DialogTimerPresenter(scene, timerController);
   }
 
   show(opts: PilotDesignationDialogOpts) {
@@ -66,9 +64,8 @@ export class PilotDesignationDialog {
       headerGap: getDialogTimerHeaderGap(),
     });
     this.container = dialog.dialog;
-    this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);
     const defaultAction = allowPilot ? opts.onPilot : opts.onCommand;
-    this.dialogTimer.start(this.timerBar, async () => {
+    this.dialogTimer.attach(dialog.dialog, dialog.layout, async () => {
       await this.hide(opts.onClose);
       await defaultAction();
     });
@@ -89,8 +86,6 @@ export class PilotDesignationDialog {
   private destroy() {
     this.dialogTimer.stop();
     this.container?.destroy();
-    this.timerBar?.destroy();
     this.container = undefined;
-    this.timerBar = undefined;
   }
 }

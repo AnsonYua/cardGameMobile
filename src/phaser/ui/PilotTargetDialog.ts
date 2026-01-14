@@ -4,8 +4,7 @@ import { UI_LAYOUT } from "./UiLayoutConfig";
 import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
-import { attachDialogTimerBar } from "./DialogTimerBar";
-import { DialogTimerHandle } from "./DialogTimerHandle";
+import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type PilotTargetDialogShowOpts = {
@@ -26,8 +25,7 @@ export class PilotTargetDialog {
   private lastOnSelect?: (slot: SlotViewModel) => Promise<void> | void;
   private lastOnClose?: (() => void) | undefined;
   private previewController: PreviewController;
-  private timerBar?: ReturnType<typeof attachDialogTimerBar>;
-  private dialogTimer: DialogTimerHandle;
+  private dialogTimer: DialogTimerPresenter;
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
     overlayAlpha: 0.45,
@@ -80,7 +78,7 @@ export class PilotTargetDialog {
       holdDelay: UI_LAYOUT.slot.preview.holdDelay,
       depth: 5000,
     });
-    this.dialogTimer = new DialogTimerHandle(timerController);
+    this.dialogTimer = new DialogTimerPresenter(scene, timerController);
   }
 
   async hide(): Promise<void> {
@@ -88,10 +86,8 @@ export class PilotTargetDialog {
     this.dialogTimer.stop();
     this.overlay?.destroy();
     this.dialog?.destroy();
-    this.timerBar?.destroy();
     this.overlay = undefined;
     this.dialog = undefined;
-    this.timerBar = undefined;
     this.lastTargets = [];
     this.lastOnSelect = undefined;
     const onClose = this.lastOnClose;
@@ -258,7 +254,7 @@ export class PilotTargetDialog {
     if (showCloseButton && closeButton && closeLabel) {
       dialog.add([closeButton, closeLabel]);
     }
-    this.timerBar = attachDialogTimerBar(this.scene, dialog, {
+    this.dialogTimer.attach(dialog, {
       dialogWidth,
       dialogHeight,
       cellWidth,
@@ -271,17 +267,15 @@ export class PilotTargetDialog {
       headerWrapPad,
       cols,
       visibleRows: rowCount,
-    });
-    dialog.setDepth(2600);
-    this.scene.add.existing(dialog);
-    this.open = true;
-
-    this.dialogTimer.start(this.timerBar, async () => {
+    }, async () => {
       const selected = await this.selectTarget(0);
       if (selected) {
         await this.hide();
       }
     });
+    dialog.setDepth(2600);
+    this.scene.add.existing(dialog);
+    this.open = true;
   }
 
   async selectTarget(index = 0): Promise<boolean> {
