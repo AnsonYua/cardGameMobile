@@ -21,6 +21,8 @@ export function buildNotificationHandlers(
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;
     };
+    onTurnStartDrawPopupStart?: () => void;
+    onTurnStartDrawPopupEnd?: () => void;
     turnOrderStatusDialog?: { showMessage: (promptText: string, headerText?: string) => void; hide: () => void };
     waitingOpponentDialog?: { hide: () => void };
     mulliganWaitingDialog?: { hide: () => void };
@@ -49,13 +51,26 @@ export function buildNotificationHandlers(
     [
       "CARD_DRAWN",
       async (event, ctx) => {
-        await deps.cardPlayAnimator.playCardDrawn(event, {
-          slots: ctx.slots,
-          currentPlayerId: ctx.currentPlayerId,
-          allowAnimations: ctx.allowAnimations,
-          cardLookup: ctx.cardLookup,
-          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
-        });
+        const drawContext = (event?.payload?.drawContext ?? "").toString().toLowerCase();
+        const playerId = event?.payload?.playerId;
+        const isSelf = !!playerId && !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
+        const shouldDelayTimer = drawContext === "turn_start" && isSelf;
+        if (shouldDelayTimer) {
+          deps.onTurnStartDrawPopupStart?.();
+        }
+        try {
+          await deps.cardPlayAnimator.playCardDrawn(event, {
+            slots: ctx.slots,
+            currentPlayerId: ctx.currentPlayerId,
+            allowAnimations: ctx.allowAnimations,
+            cardLookup: ctx.cardLookup,
+            resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
+          });
+        } finally {
+          if (shouldDelayTimer) {
+            deps.onTurnStartDrawPopupEnd?.();
+          }
+        }
       },
     ],
     [

@@ -111,6 +111,9 @@ export class BoardScene extends Phaser.Scene {
   private slotAnimationRender?: SlotAnimationRenderController;
   private startGameAnimating = false;
   private startGameCompleted = false;
+  private turnStartDrawPopupActive = false;
+  private awaitingTurnStartDraw = false;
+  private lastCurrentPlayerId?: string;
   private turnTimer?: TurnTimerController;
   private updateTurnTimerFromSnapshot?: (raw: any) => void;
 
@@ -187,6 +190,22 @@ export class BoardScene extends Phaser.Scene {
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
+      onTurnStartDrawPopupStart: () => {
+        this.turnStartDrawPopupActive = true;
+        this.awaitingTurnStartDraw = true;
+        this.turnTimer?.setEnabled(false);
+      },
+      onTurnStartDrawPopupEnd: () => {
+        this.turnStartDrawPopupActive = false;
+        this.awaitingTurnStartDraw = false;
+        const snapshot = this.engine.getSnapshot();
+        const raw = snapshot.raw as any;
+        if (raw) {
+          this.updateTurnTimer(raw);
+        } else {
+          this.turnTimer?.setEnabled(true);
+        }
+      },
     });
     this.animationQueue = animationQueue;
     this.slotAnimationRender = slotAnimationRender;
@@ -714,7 +733,54 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateTurnTimer(raw: any) {
+    this.updateTurnStartGate(raw);
+    if (this.turnStartDrawPopupActive) {
+      this.turnTimer?.setEnabled(false);
+      return;
+    }
+    if (this.awaitingTurnStartDraw) {
+      this.turnTimer?.setEnabled(false);
+      return;
+    }
+    if (this.shouldDelayTurnTimerForTurnStartDraw(raw)) {
+      this.turnTimer?.setEnabled(false);
+      return;
+    }
     this.updateTurnTimerFromSnapshot?.(raw);
+  }
+
+  private updateTurnStartGate(raw: any) {
+    const currentPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
+    const selfId = this.gameContext.playerId;
+    if (!currentPlayer || !selfId) {
+      this.lastCurrentPlayerId = currentPlayer;
+      return;
+    }
+    if (currentPlayer !== this.lastCurrentPlayerId) {
+      if (currentPlayer === selfId) {
+        this.awaitingTurnStartDraw = true;
+      } else {
+        this.awaitingTurnStartDraw = false;
+        this.turnStartDrawPopupActive = false;
+      }
+    }
+    this.lastCurrentPlayerId = currentPlayer;
+  }
+
+  private shouldDelayTurnTimerForTurnStartDraw(raw: any) {
+    const playerId = this.gameContext.playerId;
+    if (!playerId) return false;
+    const notifications = getNotificationQueue(raw);
+    if (!notifications.length) return false;
+    return notifications.some((note) => {
+      if (!note?.id) return false;
+      const type = (note.type || "").toUpperCase();
+      if (type !== "CARD_DRAWN") return false;
+      if (note.payload?.playerId !== playerId) return false;
+      const drawContext = (note.payload?.drawContext ?? "").toString().toLowerCase();
+      if (drawContext !== "turn_start") return false;
+      return !this.animationQueue?.isProcessed(note.id);
+    });
   }
 
   private async initSession() {

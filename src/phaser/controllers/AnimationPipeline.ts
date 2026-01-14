@@ -59,6 +59,8 @@ export function createAnimationPipeline(deps: {
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
   chooseFirstPlayerDialog?: ChooseFirstPlayerDialog;
+  onTurnStartDrawPopupStart?: () => void;
+  onTurnStartDrawPopupEnd?: () => void;
   turnOrderStatusDialog?: TurnOrderStatusDialog;
   waitingOpponentDialog?: TurnOrderStatusDialog;
   mulliganWaitingDialog?: TurnOrderStatusDialog;
@@ -115,6 +117,8 @@ export function createAnimationPipeline(deps: {
       : undefined,
     mulliganDialog: deps.mulliganDialog,
     chooseFirstPlayerDialog: deps.chooseFirstPlayerDialog,
+    onTurnStartDrawPopupStart: deps.onTurnStartDrawPopupStart,
+    onTurnStartDrawPopupEnd: deps.onTurnStartDrawPopupEnd,
     turnOrderStatusDialog: deps.turnOrderStatusDialog,
     waitingOpponentDialog: deps.waitingOpponentDialog,
     mulliganWaitingDialog: deps.mulliganWaitingDialog,

@@ -47,6 +47,8 @@ export type AnimationPipelineParams = {
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
   shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
+  onTurnStartDrawPopupStart?: () => void;
+  onTurnStartDrawPopupEnd?: () => void;
 };
 
 export function setupAnimationPipeline(params: AnimationPipelineParams): AnimationPipelineSetup {
@@ -66,6 +68,8 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     updateHandArea,
     shouldRefreshHandForEvent,
     handleAnimationQueueIdle,
+    onTurnStartDrawPopupStart,
+    onTurnStartDrawPopupEnd,
   } = params;
 
   const animationPipeline = createAnimationPipeline({
@@ -75,6 +79,8 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     drawPopupDialog: dialogs.drawPopupDialog,
     mulliganDialog: dialogs.mulliganDialog,
     chooseFirstPlayerDialog: dialogs.chooseFirstPlayerDialog,
+    onTurnStartDrawPopupStart,
+    onTurnStartDrawPopupEnd,
     turnOrderStatusDialog: dialogs.turnOrderStatusDialog,
     waitingOpponentDialog: dialogs.waitingOpponentDialog,
     mulliganWaitingDialog: dialogs.mulliganWaitingDialog,

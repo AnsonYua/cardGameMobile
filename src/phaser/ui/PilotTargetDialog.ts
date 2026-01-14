@@ -206,16 +206,17 @@ export class PilotTargetDialog {
         0x1b1e24,
         0.75,
       );
+      const isSelectable = !!slot?.unit || (!!slot?.pilot && opts.allowPiloted);
       frame.setStrokeStyle(this.cfg.card.frameStroke, this.cfg.card.frameColor, 0.95);
-      frame.setInteractive({ useHandCursor: !!slot?.unit });
+      frame.setInteractive({ useHandCursor: isSelectable });
       frame.on("pointerdown", () => {
-        if (!slot) return;
+        if (!slot || !isSelectable) return;
         this.startPreviewTimer(slot);
       });
       frame.on("pointerup", async () => {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
-        if (!slot?.unit) return;
+        if (!slot || !isSelectable) return;
         await opts.onSelect(slot);
         await this.hide();
       });

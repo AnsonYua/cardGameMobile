@@ -36,6 +36,8 @@ export class AnimationQueue {
         onSecond?: () => Promise<void> | void;
       }) => Promise<boolean>;
     };
+    onTurnStartDrawPopupStart?: () => void;
+    onTurnStartDrawPopupEnd?: () => void;
     turnOrderStatusDialog?: { showMessage: (promptText: string, headerText?: string) => void; hide: () => void };
     waitingOpponentDialog?: { hide: () => void };
     mulliganWaitingDialog?: { hide: () => void };
