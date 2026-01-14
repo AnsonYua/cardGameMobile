@@ -144,7 +144,7 @@ export function buildNotificationHandlers(
 
         await Promise.resolve(
           deps.mulliganDialog?.showPrompt({
-            headerText: "Do you want mulligan?",
+            prompt: "Do you want mulligan?",
             onYes: () => deps.startReady?.(true),
             onNo: () => deps.startReady?.(false),
           }),

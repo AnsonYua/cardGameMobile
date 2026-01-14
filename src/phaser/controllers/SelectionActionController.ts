@@ -38,6 +38,8 @@ export type SelectionActionControllerDeps = {
   refreshPhase: (skipFade: boolean) => void;
   showOverlay?: (message: string, slot?: SlotViewModel) => void;
   onPlayerAction?: (actionId: string) => void;
+  shouldDelayActionBar?: (raw: any) => boolean;
+  onDelayActionBar?: (raw: any) => void;
 };
 
 export type SelectionActionControllerModules = {
@@ -104,6 +106,11 @@ export class SelectionActionController {
   }
 
   refreshActions(source: ActionSource = "neutral") {
+    const snapshotRaw = this.deps.engine.getSnapshot().raw as any;
+    if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
+      this.deps.onDelayActionBar?.(snapshotRaw);
+      return;
+    }
     this.syncAndUpdateActionBar(source);
   }
 
@@ -182,6 +189,10 @@ export class SelectionActionController {
 
   syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
+    if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
+      this.deps.onDelayActionBar?.(snapshotRaw);
+      return;
+    }
     this.syncSnapshotState(snapshotRaw, opts);
     this.actionBarCoordinator.updateActionBarState(snapshotRaw, { source });
   }

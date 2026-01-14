@@ -197,6 +197,8 @@ export class BoardScene extends Phaser.Scene {
         this.turnStartDrawPopupActive = true;
         this.awaitingTurnStartDraw = true;
         this.turnTimer?.setEnabled(false);
+        const raw = this.engine.getSnapshot().raw as any;
+        this.hideActionBarForTurnStartDraw(raw);
       },
       onTurnStartDrawPopupEnd: () => {
         this.turnStartDrawPopupActive = false;
@@ -205,6 +207,7 @@ export class BoardScene extends Phaser.Scene {
         const raw = snapshot.raw as any;
         if (raw) {
           this.updateTurnTimer(raw);
+          this.refreshActionBarState(raw);
         } else {
           this.turnTimer?.setEnabled(true);
         }
@@ -246,6 +249,8 @@ export class BoardScene extends Phaser.Scene {
       effectTargetController: this.effectTargetController,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
+      shouldDelayActionBar: (raw) => this.shouldDelayActionBarForTurnStartDraw(raw),
+      onDelayActionBar: (raw) => this.hideActionBarForTurnStartDraw(raw),
       onPlayerAction: () => this.turnTimer?.reset(),
       showOverlay: (message, slot) => {
         if (!this.overlay) {
@@ -366,6 +371,7 @@ export class BoardScene extends Phaser.Scene {
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
     this.updateHeaderPhaseStatus(raw);
+    this.updateTurnStartGate(raw);
     this.updateMainPhaseUI(raw, skipAnimation);
     this.updateTurnTimer(raw);
     if (raw) {
@@ -613,6 +619,10 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshActionBarState(raw: any) {
+    if (this.shouldDelayActionBarForTurnStartDraw(raw)) {
+      this.hideActionBarForTurnStartDraw(raw);
+      return;
+    }
     const playerId = this.gameContext.playerId;
     const isSelfTurn = this.turnController.update(raw, playerId);
     this.selectionAction?.updateActionBarForPhase(raw, { isSelfTurn });
@@ -779,6 +789,22 @@ export class BoardScene extends Phaser.Scene {
       if (drawContext !== "turn_start") return false;
       return !this.animationQueue?.isProcessed(note.id);
     });
+  }
+
+  private shouldDelayActionBarForTurnStartDraw(raw: any) {
+    const phase = (raw?.gameEnv?.phase ?? "").toString().toUpperCase();
+    if (phase !== "MAIN_PHASE") return false;
+    const currentPlayer = raw?.gameEnv?.currentPlayer;
+    if (!currentPlayer || currentPlayer !== this.gameContext.playerId) return false;
+    if (this.turnStartDrawPopupActive) return true;
+    if (this.awaitingTurnStartDraw) return true;
+    return this.shouldDelayTurnTimerForTurnStartDraw(raw);
+  }
+
+  private hideActionBarForTurnStartDraw(raw: any) {
+    if (!this.shouldDelayActionBarForTurnStartDraw(raw)) return;
+    this.actionControls?.setWaitingForOpponent?.(false);
+    this.actionControls?.setState?.({ descriptors: [] });
   }
 
   private async initSession() {
