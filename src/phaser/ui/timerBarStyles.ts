@@ -8,8 +8,8 @@ export const HEADER_TIMER_BAR_STYLE = {
 
 export const DIALOG_TIMER_BAR_STYLE = {
   height: 6,
-  fillColor: 0x4b79ff,
-  bgColor: 0x0f1118,
+  fillColor: 0x3d6cff,
+  bgColor: 0x1a1d24,
   borderColor: 0x5b6068,
   showLabel: false,
 };

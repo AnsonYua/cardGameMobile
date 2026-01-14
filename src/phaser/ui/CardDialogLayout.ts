@@ -121,6 +121,8 @@ export type DialogLayout = {
   gap: number;
   headerOffset: number;
   headerWrapPad: number;
+  headerHeight?: number;
+  headerGap?: number;
   cols: number;
   visibleRows: number;
 };
@@ -151,6 +153,8 @@ export function computeDialogLayout(
     gap,
     headerOffset,
     headerWrapPad,
+    headerHeight: 0,
+    headerGap: undefined,
     cols,
     visibleRows,
   };
@@ -159,12 +163,13 @@ export function computeDialogLayout(
 export function computePromptDialogLayout(
   cam: Phaser.Cameras.Scene2D.Camera,
   config: CardDialogConfig,
-  opts: { contentWidth: number; contentHeight: number; headerHeight: number },
+  opts: { contentWidth: number; contentHeight: number; headerHeight: number; headerGap?: number },
 ): DialogLayout {
   const { margin, gap, widthFactor, minWidth, headerOffset, headerWrapPad } = config.dialog;
+  const headerGap = opts.headerGap ?? gap;
   const maxWidth = cam.width * widthFactor;
   const dialogWidth = Math.min(maxWidth, Math.max(minWidth, opts.contentWidth + margin * 2));
-  const topToContent = headerOffset + opts.headerHeight / 2 + gap;
+  const topToContent = headerOffset + opts.headerHeight / 2 + headerGap;
   const dialogHeight = topToContent + opts.contentHeight + margin;
   const cellWidth = Math.max(0, dialogWidth - margin * 2);
   const cardHeight = cellWidth * config.card.aspect;
@@ -180,6 +185,8 @@ export function computePromptDialogLayout(
     gap,
     headerOffset,
     headerWrapPad,
+    headerHeight: opts.headerHeight,
+    headerGap,
     cols: 1,
     visibleRows: 1,
   };

@@ -62,6 +62,7 @@ export class PilotDesignationDialog {
       closeOnBackdrop: true,
       showCloseButton: true,
       onClose: () => void this.hide(opts.onClose),
+      headerGap: 26,
     });
     this.container = dialog.dialog;
     this.timerBar = attachDialogTimerBar(this.scene, dialog.dialog, dialog.layout);

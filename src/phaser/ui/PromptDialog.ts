@@ -14,6 +14,7 @@ export type PromptDialogOptions = {
   closeOnBackdrop?: boolean;
   showCloseButton?: boolean;
   onClose?: () => void;
+  headerGap?: number;
 };
 
 export function createPromptDialog(
@@ -43,7 +44,7 @@ export function createPromptDialog(
 
   const tempHeader = scene.add.text(-10000, -10000, opts.headerText, headerStyle).setOrigin(0.5);
   const tempPrompt = hasPrompt ? scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5) : undefined;
-  const gap = 14;
+  const gap = opts.headerGap ?? 14;
   const buttonHeight = 46;
   const promptHeight = tempPrompt?.height ?? 0;
   const buttonContentHeight = promptHeight + (hasPrompt && hasButtons ? gap : 0) + (hasButtons ? buttonHeight : 0);
@@ -51,6 +52,7 @@ export function createPromptDialog(
     contentWidth: Math.max(tempPrompt?.width ?? 0, hasButtons ? 200 : 260),
     contentHeight: buttonContentHeight,
     headerHeight: tempHeader.height,
+    headerGap: gap,
   });
   tempHeader.destroy();
   tempPrompt?.destroy();

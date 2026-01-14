@@ -77,6 +77,7 @@ export class ChooseFirstPlayerDialog {
         showOverlay: false,
         closeOnBackdrop: false,
         showCloseButton: false,
+        headerGap: 26,
       });
       this.container = dialog.dialog;
       buttons = dialog.buttons.map((btn) => btn.rect);
