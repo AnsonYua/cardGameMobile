@@ -127,7 +127,8 @@ export class PilotTargetDialog {
     const cardHeight = cellWidth * aspect;
     const cellHeight = cardHeight + extraCellHeight;
     const gridHeight = rowCount * cellHeight + (rowCount - 1) * gap;
-    const dialogHeight = Math.max(minHeight, gridHeight + extraHeight);
+    const timerGap = 22;
+    const dialogHeight = Math.max(minHeight, gridHeight + extraHeight + timerGap);
 
     this.overlay = this.scene.add
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
@@ -182,7 +183,7 @@ export class PilotTargetDialog {
     }).setOrigin(0.5);
 
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
-    const startY = -dialogHeight / 2 + headerOffset + 40 + cellHeight / 2;
+    const startY = -dialogHeight / 2 + headerOffset + 40 + timerGap + cellHeight / 2;
 
     const maxCells = cols * rowCount;
     for (let i = 0; i < maxCells; i++) {
