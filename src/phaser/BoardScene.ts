@@ -144,7 +144,7 @@ export class BoardScene extends Phaser.Scene {
       timerBindings.update(raw, {
         playerId: this.gameContext.playerId,
         isShuffleAnimating: this.startGameAnimating,
-        onExpire: () => void this.runActionThenRefresh("endTurn", "neutral"),
+        onExpire: () => void this.handleTurnTimerExpire(),
       });
     };
 
@@ -664,6 +664,11 @@ export class BoardScene extends Phaser.Scene {
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
+  }
+
+  private async handleTurnTimerExpire() {
+    this.selectionAction?.clearSelectionUI({ clearEngine: true });
+    await this.runActionThenRefresh("endTurn", "neutral");
   }
 
   private updateBaseAndShield(rawOverride?: any) {

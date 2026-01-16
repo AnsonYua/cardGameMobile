@@ -116,6 +116,8 @@ export class ApiManager {
     playerId: string;
     gameId: string;
     actionType: string;
+    carduid?: string;
+    effectId?: string;
     attackerCarduid?: string;
     targetType?: string;
     targetUnitUid?: string;

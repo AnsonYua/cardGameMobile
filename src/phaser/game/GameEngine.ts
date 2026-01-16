@@ -10,6 +10,7 @@ import { ActionRegistry, ActionContext, ActionDescriptor } from "./ActionRegistr
 import { ApiManager } from "../api/ApiManager";
 import type { CommandFlowController } from "../controllers/CommandFlowController";
 import type { UnitFlowController } from "../controllers/UnitFlowController";
+import { findBaseCard } from "../utils/CardLookup";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -198,12 +199,26 @@ export class GameEngine {
     }
 
     if (source === "base" && selection?.kind === "base") {
+      const raw = this.lastRaw as any;
+      const playerId = this.contextStore.get().playerId;
+      if (selection.side === "player" && raw && playerId) {
+        const baseCard = findBaseCard(raw, playerId);
+        const effectState = this.getActivatedEffectState(baseCard, raw, playerId);
+        if (effectState?.effectId) {
+          descriptors.push({
+            id: "activateEffect",
+            label: "Active Effect",
+            enabled: effectState.enabled,
+            primary: true,
+          });
+        }
+      }
       descriptors.push({
-        id: "inspectBase",
-        label: "Inspect Base",
+        id: "cancelSelection",
+        label: "Cancel",
         enabled: true,
-        primary: true,
       });
+      return descriptors;
     }
 
     // End turn as default primary
@@ -272,11 +287,7 @@ export class GameEngine {
     const isEnergy = cardType === "energy";
     if (isEnergy) return true;
 
-    const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
-    const totalEnergy = Array.isArray(energyArea) ? energyArea.length : 0;
-    const availableEnergy = Array.isArray(energyArea)
-      ? energyArea.filter((entry: any) => entry && entry.isRested === false).length
-      : 0;
+    const { totalEnergy, availableEnergy } = this.getEnergyState(player);
     const requiredLevel = Number(cardData.level ?? 0);
     const requiredCost = Number(cardData.cost ?? 0);
     const level = Number.isNaN(requiredLevel) ? 0 : requiredLevel;
@@ -288,6 +299,44 @@ export class GameEngine {
 
   async test(){
 
+  }
+
+  private getEnergyState(player: any) {
+    const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
+    const totalEnergy = Array.isArray(energyArea) ? energyArea.length : 0;
+    const availableEnergy = Array.isArray(energyArea)
+      ? energyArea.filter((entry: any) => entry && entry.isRested === false).length
+      : 0;
+    return { totalEnergy, availableEnergy };
+  }
+
+  private getActivatedEffectRule(cardData?: any) {
+    const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
+    return rules.find((rule) => {
+      if ((rule?.type || "").toString().toLowerCase() !== "activated") return false;
+      const windows = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
+      return windows.some((window: string) => window.toString().toUpperCase() === "MAIN_PHASE");
+    });
+  }
+
+  private getActivatedEffectState(baseCard: any, raw: any, playerId: string) {
+    if (!baseCard || !raw || !playerId) return undefined;
+    const effectRule = this.getActivatedEffectRule(baseCard?.cardData);
+    if (!effectRule?.effectId) return undefined;
+    const player = raw?.gameEnv?.players?.[playerId];
+    const { availableEnergy } = this.getEnergyState(player);
+    const required = Number(effectRule?.cost?.resource ?? 0);
+    const requiredEnergy = Number.isFinite(required) ? required : 0;
+    const currentTurn = raw?.gameEnv?.currentTurn;
+    const lastUsed = baseCard?.effectUsage?.[effectRule.effectId]?.lastUsedTurn;
+    const oncePerTurn = effectRule?.cost?.oncePerTurn === true;
+    const alreadyUsed = oncePerTurn && currentTurn !== undefined && lastUsed === currentTurn;
+    const isMainPhase = raw?.gameEnv?.phase === "MAIN_PHASE";
+    const isSelfTurn = raw?.gameEnv?.currentPlayer === playerId;
+    return {
+      effectId: effectRule.effectId,
+      enabled: isMainPhase && isSelfTurn && availableEnergy >= requiredEnergy && !alreadyUsed,
+    };
   }
   private getBattle(payload: any) {
     return payload?.gameEnv?.currentBattle ?? payload?.gameEnv?.currentbattle ?? null;
@@ -363,6 +412,38 @@ export class GameEngine {
 
     this.actions.register("inspectBase", async (ctx: ActionContext) => {
       console.log("Base action triggered", ctx.selection);
+    });
+
+    this.actions.register("activateEffect", async (ctx: ActionContext) => {
+      const sel = ctx.selection;
+      if (!sel || !ctx.gameId || !ctx.playerId) return;
+      if (sel.kind === "base") {
+        const raw = this.lastRaw as any;
+        const baseCard = findBaseCard(raw, ctx.playerId);
+        const effectState = this.getActivatedEffectState(baseCard, raw, ctx.playerId);
+        if (!baseCard || !effectState?.effectId) return;
+        const carduid =
+          baseCard?.carduid ?? baseCard?.cardUid ?? baseCard?.uid ?? baseCard?.id ?? baseCard?.cardId;
+        if (!carduid) return;
+        try {
+          await this.api.playerAction({
+            playerId: ctx.playerId,
+            gameId: ctx.gameId,
+            actionType: "activateBaseAbility",
+            carduid,
+            effectId: effectState.effectId,
+          });
+          await ctx.refreshStatus?.();
+          this.clearSelection();
+        } catch (err) {
+          console.warn("activateBaseAbility failed", err);
+        }
+        return;
+      }
+      if (sel.kind === "slot") {
+        console.log("Active effect slot selection placeholder");
+        this.clearSelection();
+      }
     });
 
     this.actions.register("playUnitFromHand", async (ctx: ActionContext) => {
