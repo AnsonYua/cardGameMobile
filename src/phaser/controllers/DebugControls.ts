@@ -80,7 +80,7 @@ export class DebugControls {
     if (opts?.hidePopup !== false) {
       await this.popup?.hide();
     }
-    const targetScenario = scenarioPath || "ST01-001/pair_ap_boost_turn";
+    const targetScenario = scenarioPath || "ST01-001/link_immediate_attack";
     try {
       const scenarioJson = await this.api.getTestScenario(targetScenario);
       const gameEnv =
