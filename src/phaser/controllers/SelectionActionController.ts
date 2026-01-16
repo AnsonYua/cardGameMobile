@@ -19,6 +19,7 @@ import { ActionStepTriggerHandler } from "./ActionStepTriggerHandler";
 import type { ActionControls, SlotControls } from "./ControllerTypes";
 import { SlotInteractionGate } from "./SlotInteractionGate";
 import { ActionStepCoordinator } from "./ActionStepCoordinator";
+import { createLogger } from "../utils/logger";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -40,12 +41,17 @@ export type SelectionActionControllerDeps = {
   onPlayerAction?: (actionId: string) => void;
   shouldDelayActionBar?: (raw: any) => boolean;
   onDelayActionBar?: (raw: any) => void;
+  burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
+  onTimerPause?: () => void;
+  onTimerResume?: () => void;
+  burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
 };
 
 export type SelectionActionControllerModules = {
   slotGate: SlotInteractionGate;
   attackCoordinator: AttackTargetCoordinator;
   blockerFlow: BlockerFlowManager;
+  burstFlow: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   actionStepCoordinator: ActionStepCoordinator;
   selectionHandler: SelectionHandler;
   opponentResolver: OpponentResolver;
@@ -56,6 +62,7 @@ export type SelectionActionControllerModules = {
 };
 
 export class SelectionActionController {
+  private readonly log = createLogger("SelectionAction");
   private slotControls?: SlotControls | null;
   private slotGate: SlotInteractionGate;
   private attackCoordinator: AttackTargetCoordinator;
@@ -140,7 +147,7 @@ export class SelectionActionController {
       this.actionExecutor.cancelSelection();
       return;
     }
-    console.log("print commend action")
+    this.log.debug("runActionThenRefresh");
     const result = await this.deps.engine.runAction(actionId);
     if (result === false) return;
     this.deps.onPlayerAction?.(actionId);
@@ -148,6 +155,10 @@ export class SelectionActionController {
   }
 
   updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {
+    this.log.debug("updateActionBarForPhase", {
+      isSelfTurn: opts.isSelfTurn,
+      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
+    });
     this.syncAndUpdateActionBar("neutral", raw, { isSelfTurn: opts.isSelfTurn });
   }
 
@@ -184,16 +195,28 @@ export class SelectionActionController {
 
 
   private syncSnapshotState(raw: any, opts: { isSelfTurn?: boolean } = {}) {
+    // eslint-disable-next-line no-console
+    this.log.debug("syncSnapshotState", {
+      hasRaw: Boolean(raw),
+      isSelfTurn: opts.isSelfTurn,
+      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
+    });
     this.turnStateCoordinator.syncSnapshotState(raw, opts);
   }
 
   syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
+    // eslint-disable-next-line no-console
+    this.log.debug("syncAndUpdateActionBar", {
+      source,
+      hasRaw: Boolean(snapshotRaw),
+      currentPlayer: snapshotRaw?.gameEnv?.currentPlayer ?? snapshotRaw?.currentPlayer,
+    });
+    this.syncSnapshotState(snapshotRaw, opts);
     if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
       this.deps.onDelayActionBar?.(snapshotRaw);
       return;
     }
-    this.syncSnapshotState(snapshotRaw, opts);
     this.actionBarCoordinator.updateActionBarState(snapshotRaw, { source });
   }
 

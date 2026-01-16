@@ -3,6 +3,7 @@ import { DialogCoordinator } from "../controllers/DialogCoordinator";
 import { createCoreDialogs, createStatusDialogs, createTimedDialogs } from "./dialogFactories";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
+import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 
 export type BoardDialogSet = {
   drawPopupDialog: DrawPopupDialog;
@@ -17,6 +18,7 @@ export type BoardDialogSet = {
   pilotDesignationDialog: PilotDesignationDialog;
   effectTargetDialog: EffectTargetDialog;
   trashAreaDialog: TrashAreaDialog;
+  burstChoiceDialog: BurstChoiceDialog;
 };
 
 type CreateSlotSprite = (
@@ -47,5 +49,6 @@ export function setupBoardDialogs(
     pilotDesignationDialog: timedDialogs.pilotDesignationDialog,
     effectTargetDialog: timedDialogs.effectTargetDialog,
     trashAreaDialog: coreDialogs.trashAreaDialog,
+    burstChoiceDialog: timedDialogs.burstChoiceDialog,
   };
 }

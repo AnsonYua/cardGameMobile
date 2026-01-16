@@ -38,7 +38,8 @@ export class EffectTargetController {
     const selfId = this.deps.gameContext.playerId;
     const processing: any[] = raw?.gameEnv?.processingQueue || [];
     const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
-    if (pending?.type?.toString().toUpperCase() === "BLOCKER_CHOICE") {
+    const pendingType = pending?.type?.toString().toUpperCase();
+    if (pendingType === "BLOCKER_CHOICE" || pendingType === "BURST_EFFECT_CHOICE") {
       return;
     }
     if (!pending) {
@@ -46,6 +47,13 @@ export class EffectTargetController {
       await this.deps.dialog.hide();
       return;
     }
+    // eslint-disable-next-line no-console
+    console.log("[EffectTarget] pending choice", {
+      id: pending?.id,
+      type: pendingType,
+      playerId: pending?.playerId,
+      userDecisionMade: pending?.data?.userDecisionMade,
+    });
     if (this.activeEffectChoiceId === pending.id && this.deps.dialog.isOpen()) {
       return;
     }

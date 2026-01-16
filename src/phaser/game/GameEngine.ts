@@ -11,6 +11,7 @@ import { ApiManager } from "../api/ApiManager";
 import type { CommandFlowController } from "../controllers/CommandFlowController";
 import type { UnitFlowController } from "../controllers/UnitFlowController";
 import { findBaseCard } from "../utils/CardLookup";
+import { createLogger } from "../utils/logger";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -22,6 +23,7 @@ export type ActionSource = "hand" | "slot" | "base" | "neutral";
 
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
+  private readonly log = createLogger("GameEngine");
   private lastRaw: GameStatusResponse | null = null;
   private previousRaw: GameStatusResponse | null = null;
   private pendingBattleTransition?: { prevBattle: any; nextBattle: any };
@@ -58,12 +60,26 @@ export class GameEngine {
         : fromScenario && this.lastRaw
         ? this.lastRaw
         : await this.match.getGameStatus(gameId, playerId);
-      // eslint-disable-next-line no-console
-      console.log("[GameEngine] status poll", {
+      this.log.debug("status poll", {
         gameId,
         playerId,
         phase: response?.gameEnv?.phase,
         version: response?.gameEnv?.version,
+      });
+      const processingQueue = response?.gameEnv?.processingQueue ?? [];
+      const notificationQueue = response?.gameEnv?.notificationQueue ?? [];
+      const processingTypes = Array.isArray(processingQueue)
+        ? processingQueue.map((item) => item?.type ?? "unknown")
+        : [];
+      const notificationTypes = Array.isArray(notificationQueue)
+        ? notificationQueue.map((item) => item?.type ?? "unknown")
+        : [];
+      this.log.debug("status payload", {
+        currentPlayer: response?.gameEnv?.currentPlayer,
+        processingQueue: processingTypes,
+        notificationQueue: notificationTypes,
+        processingTypesText: processingTypes.join(","),
+        notificationTypesText: notificationTypes.join(","),
       });
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
@@ -77,7 +93,7 @@ export class GameEngine {
       this.pendingBattleTransition = { prevBattle: previousBattle, nextBattle };
       this.contextStore.update({ lastStatus: derivedStatus });
       this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-      console.log("update game status ",JSON.stringify(this.getSnapshot()))
+      this.log.debug("update game status", this.getSnapshot());
       if (silent) {
         // Scenario loads should update UI without animations.
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, this.getSnapshot());
@@ -400,18 +416,18 @@ export class GameEngine {
 
     // Placeholder attack actions
     this.actions.register("attackUnit", async () => {
-      console.log("Attack Unit (placeholder)");
+      this.log.debug("Attack Unit (placeholder)");
     });
     this.actions.register("attackShieldArea", async () => {
-      console.log("Attack Shield Area (placeholder)");
+      this.log.debug("Attack Shield Area (placeholder)");
     });
 
     this.actions.register("slotAction", async (ctx: ActionContext) => {
-      console.log("Slot action triggered", ctx.selection);
+      this.log.debug("Slot action triggered", ctx.selection);
     });
 
     this.actions.register("inspectBase", async (ctx: ActionContext) => {
-      console.log("Base action triggered", ctx.selection);
+      this.log.debug("Base action triggered", ctx.selection);
     });
 
     this.actions.register("activateEffect", async (ctx: ActionContext) => {
@@ -441,7 +457,7 @@ export class GameEngine {
         return;
       }
       if (sel.kind === "slot") {
-        console.log("Active effect slot selection placeholder");
+        this.log.debug("Active effect slot selection placeholder");
         this.clearSelection();
       }
     });
@@ -481,7 +497,7 @@ export class GameEngine {
     });
 
     this.actions.register("playCommandFromHand", async (ctx: ActionContext) => {
-      console.log("play log from command")
+      this.log.debug("play log from command");
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
       if (this.commandFlow) return this.commandFlow.handlePlayCommand(ctx);
@@ -502,11 +518,11 @@ export class GameEngine {
     this.actions.register("playPilotDesignationAsPilot", async (ctx: ActionContext) => {
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || !sel.fromPilotDesignation) {
-        console.log("no selecteds")
+        this.log.debug("no selecteds");
         return;
       }
       if (!ctx.gameId || !ctx.playerId || !ctx.runPlayCard){
-        console.log("no gameId , playerId , runPlayCard")
+        this.log.debug("no gameId, playerId, runPlayCard");
         return;
       }
       await ctx.runPlayCard({

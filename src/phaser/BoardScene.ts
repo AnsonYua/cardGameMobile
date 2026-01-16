@@ -18,6 +18,7 @@ import type { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import type { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
 import type { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import type { TrashAreaDialog } from "./ui/TrashAreaDialog";
+import type { BurstChoiceDialog } from "./ui/BurstChoiceDialog";
 import type { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import type { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import type { MulliganDialog } from "./ui/MulliganDialog";
@@ -27,6 +28,7 @@ import type { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
+import { BurstChoiceFlowManager } from "./controllers/BurstChoiceFlowManager";
 import { createSelectionActionController } from "./controllers/SelectionActionControllerFactory";
 import type { SelectionActionController } from "./controllers/SelectionActionController";
 import { EffectTargetController } from "./controllers/EffectTargetController";
@@ -40,6 +42,8 @@ import { getNotificationQueue } from "./utils/NotificationUtils";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
 import { SessionController } from "./controllers/SessionController";
+import { TurnStartDrawGate } from "./controllers/TurnStartDrawGate";
+import { createLogger } from "./utils/logger";
 import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
 import { setupBoardDialogs } from "./scene/boardDialogSetup";
 import { BOARD_THEME } from "./scene/boardTheme";
@@ -94,6 +98,8 @@ export class BoardScene extends Phaser.Scene {
   private pilotDesignationDialogUi?: PilotDesignationDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
   private trashAreaDialogUi?: TrashAreaDialog;
+  private burstChoiceDialogUi?: BurstChoiceDialog;
+  private burstFlow?: BurstChoiceFlowManager;
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
@@ -113,9 +119,8 @@ export class BoardScene extends Phaser.Scene {
   private baseShieldAnimationRender?: BaseShieldAnimationRenderController;
   private startGameAnimating = false;
   private startGameCompleted = false;
-  private turnStartDrawPopupActive = false;
-  private awaitingTurnStartDraw = false;
-  private lastCurrentPlayerId?: string;
+  private turnStartDrawGate?: TurnStartDrawGate;
+  private readonly log = createLogger("BoardScene");
   private turnTimer?: TurnTimerController;
   private updateTurnTimerFromSnapshot?: (raw: any) => void;
 
@@ -166,6 +171,28 @@ export class BoardScene extends Phaser.Scene {
     this.pilotDesignationDialogUi = dialogs.pilotDesignationDialog;
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
+    this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
+
+    this.burstFlow = new BurstChoiceFlowManager({
+      api: this.api,
+      engine: this.engine,
+      gameContext: this.gameContext,
+      actionControls: this.actionControls,
+      burstChoiceDialog: this.burstChoiceDialogUi,
+      refreshActions: () => this.selectionAction?.refreshActions("neutral"),
+      onTimerPause: () => {
+        this.turnTimer?.setEnabled(false);
+        this.headerControls?.setTimerVisible?.(false);
+      },
+      onTimerResume: () => {
+        const raw = this.engine.getSnapshot().raw as any;
+        if (raw) {
+          this.updateTurnTimer(raw);
+        } else {
+          this.turnTimer?.setEnabled(true);
+        }
+      },
+    });
 
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
       scene: this,
@@ -187,6 +214,7 @@ export class BoardScene extends Phaser.Scene {
       slotPresenter: this.slotPresenter,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
+      burstFlow: this.burstFlow,
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
       renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
@@ -194,15 +222,15 @@ export class BoardScene extends Phaser.Scene {
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
       onTurnStartDrawPopupStart: () => {
-        this.turnStartDrawPopupActive = true;
-        this.awaitingTurnStartDraw = true;
+        this.log.debug("onTurnStartDrawPopupStart");
+        this.turnStartDrawGate?.onTurnStartDrawPopupStart();
         this.turnTimer?.setEnabled(false);
         const raw = this.engine.getSnapshot().raw as any;
         this.hideActionBarForTurnStartDraw(raw);
       },
       onTurnStartDrawPopupEnd: () => {
-        this.turnStartDrawPopupActive = false;
-        this.awaitingTurnStartDraw = false;
+        this.log.debug("onTurnStartDrawPopupEnd");
+        this.turnStartDrawGate?.onTurnStartDrawPopupEnd();
         const snapshot = this.engine.getSnapshot();
         const raw = snapshot.raw as any;
         if (raw) {
@@ -216,6 +244,11 @@ export class BoardScene extends Phaser.Scene {
     this.animationQueue = animationQueue;
     this.slotAnimationRender = slotAnimationRender;
     this.baseShieldAnimationRender = baseShieldAnimationRender;
+    this.turnStartDrawGate = new TurnStartDrawGate({
+      getPlayerId: () => this.gameContext.playerId,
+      getAnimationQueue: () => this.animationQueue,
+      getNotifications: (raw) => getNotificationQueue(raw),
+    });
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
     this.sessionController = new SessionController({
       match: this.match,
@@ -247,11 +280,25 @@ export class BoardScene extends Phaser.Scene {
       slotControls: this.slotControls,
       actionControls: this.actionControls,
       effectTargetController: this.effectTargetController,
+      burstChoiceDialog: this.burstChoiceDialogUi,
+      burstFlow: this.burstFlow,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
-      shouldDelayActionBar: (raw) => this.shouldDelayActionBarForTurnStartDraw(raw),
+      shouldDelayActionBar: (raw) => this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false,
       onDelayActionBar: (raw) => this.hideActionBarForTurnStartDraw(raw),
       onPlayerAction: () => this.turnTimer?.reset(),
+      onTimerPause: () => {
+        this.turnTimer?.setEnabled(false);
+        this.headerControls?.setTimerVisible?.(false);
+      },
+      onTimerResume: () => {
+        const raw = this.engine.getSnapshot().raw as any;
+        if (raw) {
+          this.updateTurnTimer(raw);
+        } else {
+          this.turnTimer?.setEnabled(true);
+        }
+      },
       showOverlay: (message, slot) => {
         if (!this.overlay) {
           this.overlay = new OverlayController(this);
@@ -347,7 +394,7 @@ export class BoardScene extends Phaser.Scene {
         this.startGameCompleted = true;
         this.showDefaultUI();
         this.refreshPhase(false);
-        console.log("Shuffle animation finished");
+        this.log.debug("shuffle animation finished");
       } else {
         this.startGameAnimating = false;
         this.startGameCompleted = true;
@@ -369,9 +416,9 @@ export class BoardScene extends Phaser.Scene {
   private refreshPhase(skipAnimation: boolean) {
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
-    console.log("[refreshPhase] skipAnimation", skipAnimation, "battle?", battle);
+    this.log.debug("refreshPhase", { skipAnimation, battle });
     this.updateHeaderPhaseStatus(raw);
-    this.updateTurnStartGate(raw);
+    this.turnStartDrawGate?.updateFromSnapshot(raw);
     this.updateMainPhaseUI(raw, skipAnimation);
     this.updateTurnTimer(raw);
     if (raw) {
@@ -380,6 +427,13 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {
+    const currentPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
+    this.log.debug("updateMainPhaseUI", {
+      skipAnimation,
+      currentPlayer,
+      playerId: this.gameContext.playerId,
+      queueRunning: this.animationQueue?.isRunning?.(),
+    });
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
     this.showUI(!skipAnimation);
@@ -578,7 +632,7 @@ export class BoardScene extends Phaser.Scene {
 
     if (allowAnimations && hasNewEvents && !queueRunning) {
       // eslint-disable-next-line no-console
-      console.log("[BoardScene] updateSlots startBatch", { eventCount: events.length });
+      this.log.debug("updateSlots startBatch", { eventCount: events.length });
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
       const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
       this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
@@ -589,12 +643,12 @@ export class BoardScene extends Phaser.Scene {
 
     if (allowAnimations && queueRunning) {
       // eslint-disable-next-line no-console
-      console.log("[BoardScene] updateSlots skip render (queue running)");
+      this.log.debug("updateSlots skip render (queue running)");
       return;
     }
 
     // eslint-disable-next-line no-console
-    console.log("[BoardScene] updateSlots render current", { hasNewEvents, queueRunning });
+    this.log.debug("updateSlots render current", { hasNewEvents, queueRunning });
     this.renderSlots(currentSlots);
   }
 
@@ -619,7 +673,13 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshActionBarState(raw: any) {
-    if (this.shouldDelayActionBarForTurnStartDraw(raw)) {
+    const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
+    this.log.debug("refreshActionBarState", {
+      delayActionBar,
+      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
+      playerId: this.gameContext.playerId,
+    });
+    if (delayActionBar) {
       this.hideActionBarForTurnStartDraw(raw);
       return;
     }
@@ -645,7 +705,7 @@ export class BoardScene extends Phaser.Scene {
 
   private renderSlots(slots: SlotViewModel[]) {
     // eslint-disable-next-line no-console
-    console.log("[BoardScene] setSlots", { count: slots.length });
+    this.log.debug("setSlots", { count: slots.length });
     this.slotControls?.setSlots(slots);
   }
 
@@ -665,6 +725,7 @@ export class BoardScene extends Phaser.Scene {
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
     await this.selectionAction?.runActionThenRefresh(actionId, actionSource);
   }
+
 
   private async handleTurnTimerExpire() {
     this.selectionAction?.clearSelectionUI({ clearEngine: true });
@@ -746,70 +807,22 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateTurnTimer(raw: any) {
-    this.updateTurnStartGate(raw);
-    if (this.turnStartDrawPopupActive) {
-      this.turnTimer?.setEnabled(false);
-      return;
-    }
-    if (this.awaitingTurnStartDraw) {
-      this.turnTimer?.setEnabled(false);
-      return;
-    }
-    if (this.shouldDelayTurnTimerForTurnStartDraw(raw)) {
+    this.turnStartDrawGate?.updateFromSnapshot(raw);
+    const blockReason = this.turnStartDrawGate?.getTurnTimerBlockReason(raw);
+    if (blockReason) {
+      this.log.debug("updateTurnTimer blocked", { reason: blockReason });
       this.turnTimer?.setEnabled(false);
       return;
     }
     this.updateTurnTimerFromSnapshot?.(raw);
   }
 
-  private updateTurnStartGate(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
-    const selfId = this.gameContext.playerId;
-    if (!currentPlayer || !selfId) {
-      this.lastCurrentPlayerId = currentPlayer;
+  private hideActionBarForTurnStartDraw(raw: any) {
+    if (!(this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false)) {
+      this.log.debug("hideActionBarForTurnStartDraw skipped");
       return;
     }
-    if (currentPlayer !== this.lastCurrentPlayerId) {
-      if (currentPlayer === selfId) {
-        this.awaitingTurnStartDraw = true;
-      } else {
-        this.awaitingTurnStartDraw = false;
-        this.turnStartDrawPopupActive = false;
-      }
-    }
-    this.lastCurrentPlayerId = currentPlayer;
-  }
-
-  private shouldDelayTurnTimerForTurnStartDraw(raw: any) {
-    const playerId = this.gameContext.playerId;
-    if (!playerId) return false;
-    const notifications = getNotificationQueue(raw);
-    if (!notifications.length) return false;
-    const contextPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
-    return notifications.some((note) => {
-      if (!note?.id) return false;
-      const type = (note.type || "").toUpperCase();
-      if (type !== "CARD_DRAWN") return false;
-      if (note.payload?.playerId !== playerId) return false;
-      if (contextPlayer && note.payload?.playerId !== contextPlayer) return false;
-      const drawContext = (note.payload?.drawContext ?? "").toString().toLowerCase();
-      if (drawContext !== "turn_start") return false;
-      return !this.animationQueue?.isProcessed(note.id);
-    });
-  }
-
-  private shouldDelayActionBarForTurnStartDraw(raw: any) {
-    const phase = (raw?.gameEnv?.phase ?? "").toString().toUpperCase();
-    if (phase !== "MAIN_PHASE") return false;
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    if (!currentPlayer || currentPlayer !== this.gameContext.playerId) return false;
-    if (this.turnStartDrawPopupActive) return true;
-    if (this.awaitingTurnStartDraw) return true;
-    return this.shouldDelayTurnTimerForTurnStartDraw(raw);
-  }
-
-  private hideActionBarForTurnStartDraw(raw: any) {
-    if (!this.shouldDelayActionBarForTurnStartDraw(raw)) return;
+    this.log.debug("hideActionBarForTurnStartDraw applied");
     this.actionControls?.setWaitingForOpponent?.(false);
     this.actionControls?.setState?.({ descriptors: [] });
   }

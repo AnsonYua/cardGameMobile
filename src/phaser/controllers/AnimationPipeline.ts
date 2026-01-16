@@ -57,6 +57,7 @@ export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
   handControls: HandControls | null;
+  burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
   chooseFirstPlayerDialog?: ChooseFirstPlayerDialog;
@@ -113,6 +114,7 @@ export function createAnimationPipeline(deps: {
     cardPlayAnimator: notificationAnimator,
     battleAnimator: battleAnimations,
     attackIndicator: attackIndicatorController,
+    burstChoiceFlow: deps.burstFlow,
     phasePopup: deps.phaseChangeDialog
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
       : undefined,

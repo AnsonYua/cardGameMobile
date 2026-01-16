@@ -3,6 +3,7 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
+import { createLogger } from "../utils/logger";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
 
@@ -11,6 +12,7 @@ export function buildNotificationHandlers(
     cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -35,7 +37,15 @@ export function buildNotificationHandlers(
     triggerStatPulse: (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
   },
 ) {
+  const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
+    [
+      "BURST_EFFECT_CHOICE",
+      async (event, ctx) => {
+        if (!deps.burstChoiceFlow) return;
+        await deps.burstChoiceFlow.handleNotification(event, ctx.currentRaw);
+      },
+    ],
     [
       "CARD_PLAYED_COMPLETED",
       async (event, ctx) => {
@@ -59,6 +69,14 @@ export function buildNotificationHandlers(
         const isContextPlayer = !!playerId && !!contextPlayerId && playerId === contextPlayerId;
         const shouldDelayTimer = drawContext === "turn_start" && isSelf && isContextPlayer;
         if (shouldDelayTimer) {
+          log.debug("CARD_DRAWN turn_start delay start", {
+            eventId: event?.id,
+            playerId,
+            contextPlayerId,
+            drawContext,
+          });
+        }
+        if (shouldDelayTimer) {
           deps.onTurnStartDrawPopupStart?.();
         }
         try {
@@ -71,6 +89,11 @@ export function buildNotificationHandlers(
           });
         } finally {
           if (shouldDelayTimer) {
+            log.debug("CARD_DRAWN turn_start delay end", {
+              eventId: event?.id,
+              playerId,
+              contextPlayerId,
+            });
             deps.onTurnStartDrawPopupEnd?.();
           }
         }

@@ -39,7 +39,7 @@ export class SessionController {
           throw new Error("Missing game id for join mode");
         }
         // Default join identity aligns with backend sample if none provided.
-        const joinId = "playerId_2";
+        const joinId = playerIdParam || "playerId_2";
         const joinName = playerNameParam || "Demo Opponent";
         contextStore.update({ playerId: joinId, playerName: joinName });
         await match.joinRoom(gameId, joinId, joinName);

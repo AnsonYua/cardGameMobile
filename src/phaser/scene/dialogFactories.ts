@@ -10,6 +10,7 @@ import { PilotTargetDialog } from "../ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
+import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
@@ -54,5 +55,6 @@ export function createTimedDialogs(
     pilotTargetDialog: new PilotTargetDialog(scene, createSlotSprite, timerController),
     pilotDesignationDialog: new PilotDesignationDialog(scene, timerController),
     effectTargetDialog: new EffectTargetDialog(scene, createSlotSprite, timerController),
+    burstChoiceDialog: new BurstChoiceDialog(scene, timerController),
   };
 }

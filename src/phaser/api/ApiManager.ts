@@ -97,8 +97,7 @@ export class ApiManager {
     eventId: string;
     selectedTargets: Array<{ carduid: string; zone: string; playerId: string }>;
   }) {
-    const url = this.buildUrl("/api/game/player/confirmTargetChoice");
-    return this.requestWithFallback(url, payload);
+    return this.postPlayerDecision("/api/game/player/confirmTargetChoice", payload);
   }
 
   confirmBlockerChoice(payload: {
@@ -108,8 +107,16 @@ export class ApiManager {
     notificationId?: string;
     selectedTargets: Array<{ carduid: string; zone: string; playerId: string }>;
   }) {
-    const url = this.buildUrl("/api/game/player/confirmBlockerChoice");
-    return this.requestWithFallback(url, payload);
+    return this.postPlayerDecision("/api/game/player/confirmBlockerChoice", payload);
+  }
+
+  confirmBurstChoice(payload: {
+    gameId: string;
+    playerId: string;
+    eventId: string;
+    confirmed: boolean;
+  }) {
+    return this.postPlayerDecision("/api/game/player/confirmBurstChoice", payload);
   }
 
   playerAction(payload: {
@@ -150,6 +157,11 @@ export class ApiManager {
       return `${protocol}//${apiHostParam}:8080`;
     }
     return `${protocol}//${hostname}:8080`;
+  }
+
+  private postPlayerDecision(path: string, payload: Record<string, unknown>) {
+    const url = this.buildUrl(path);
+    return this.requestWithFallback(url, payload);
   }
 
   private async requestWithFallback(url: string, body: Record<string, any>) {

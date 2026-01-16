@@ -4,6 +4,7 @@ import { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { ActionStepTriggerHandler } from "./ActionStepTriggerHandler";
 import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { BlockerFlowManager } from "./BlockerFlowManager";
+import { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import { OpponentResolver } from "./OpponentResolver";
 import { SelectionHandler } from "./SelectionHandler";
 import { SlotInteractionGate } from "./SlotInteractionGate";
@@ -34,6 +35,18 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     slotGate,
     onPlayerAction: deps.onPlayerAction,
   });
+  const burstFlow =
+    deps.burstFlow ??
+    new BurstChoiceFlowManager({
+      api: deps.api,
+      engine: deps.engine,
+      gameContext: deps.gameContext,
+      actionControls: deps.actionControls,
+      burstChoiceDialog: deps.burstChoiceDialog,
+      refreshActions: () => getController()?.refreshActions("neutral"),
+      onTimerPause: deps.onTimerPause,
+      onTimerResume: deps.onTimerResume,
+    });
   const opponentResolver = new OpponentResolver({
     engine: deps.engine,
     slotPresenter: deps.slotPresenter,
@@ -97,6 +110,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     gameContext: deps.gameContext,
     slotGate,
     blockerFlow,
+    burstFlow,
   });
   const actionBarCoordinator = new ActionBarCoordinator({
     engine: deps.engine,
@@ -107,6 +121,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     actionStepCoordinator,
     attackCoordinator,
     blockerFlow,
+    burstFlow,
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
     getOpponentRestedUnitSlots: () => opponentResolver.getOpponentRestedUnitSlots(),
@@ -134,6 +149,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     slotGate,
     attackCoordinator,
     blockerFlow,
+    burstFlow,
     actionStepCoordinator,
     selectionHandler,
     opponentResolver,

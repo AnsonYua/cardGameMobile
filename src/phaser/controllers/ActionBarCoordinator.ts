@@ -7,15 +7,18 @@ import type { SlotViewModel } from "../ui/SlotTypes";
 import type { ActionControls } from "./ControllerTypes";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
+import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { buildSlotActionDescriptors, getPhase, isMainPhase, isPlayersTurn } from "./actionBarRules";
 import { computeActionBarDecision, computeMainPhaseState, computeSlotActionState } from "./actionBarState";
+import { createLogger } from "../utils/logger";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
 };
 
 export class ActionBarCoordinator {
+  private readonly log = createLogger("ActionBar");
   private lastPhase?: string;
   private lastBattleActive = false;
   private lastBattleStatus?: string;
@@ -30,6 +33,7 @@ export class ActionBarCoordinator {
       actionStepCoordinator: ActionStepCoordinator;
       attackCoordinator: AttackTargetCoordinator;
       blockerFlow: BlockerFlowManager;
+      burstFlow: BurstChoiceFlowManager;
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
       getOpponentRestedUnitSlots: () => SlotViewModel[];
@@ -50,6 +54,13 @@ export class ActionBarCoordinator {
   updateActionBarState(raw: any, opts: { source: ActionSource; selection?: any } = { source: "neutral" }) {
     const actions = this.deps.actionControls;
     if (!raw || !actions) return;
+    this.log.debug("updateActionBarState", {
+      source: opts.source,
+      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
+      phase: getPhase(raw),
+      burstActive: this.deps.burstFlow.isActive(),
+    });
+    if (this.deps.burstFlow.applyActionBar()) return;
     const selection = opts.selection ?? this.deps.getSelection();
     const isSelfTurn = isPlayersTurn(raw, this.deps.gameContext.playerId);
     const isOpponentTurn = !isSelfTurn;

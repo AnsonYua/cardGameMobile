@@ -14,8 +14,9 @@ type QueueItem = {
 export class AnimationQueue {
   private queue: QueueItem[] = [];
   private running = false;
-  private processedIds = new Set<string>();
-  private processedOrder: string[] = [];
+  private pendingIds = new Set<string>();
+  private completedIds = new Set<string>();
+  private completedOrder: string[] = [];
   private onIdle?: () => void;
   private onEventStart?: (event: SlotNotification, ctx: AnimationContext) => void;
   private onEventEnd?: (event: SlotNotification, ctx: AnimationContext) => void;
@@ -26,6 +27,7 @@ export class AnimationQueue {
       cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -73,7 +75,7 @@ export class AnimationQueue {
   }
 
   isProcessed(id: string) {
-    return this.processedIds.has(id);
+    return this.completedIds.has(id);
   }
 
   buildEvents(notificationQueue: SlotNotification[]): SlotNotification[] {
@@ -93,8 +95,8 @@ export class AnimationQueue {
   enqueue(events: SlotNotification[], ctx: AnimationContext) {
     events.forEach((event) => {
       if (!event.id) return;
-      if (this.processedIds.has(event.id)) return;
-      this.markProcessed(event.id);
+      if (this.pendingIds.has(event.id) || this.completedIds.has(event.id)) return;
+      this.markPending(event.id);
       this.queue.push({ event, ctx });
     });
     this.runIfIdle();
@@ -124,19 +126,27 @@ export class AnimationQueue {
       // eslint-disable-next-line no-console
       console.warn("[AnimationQueue] event failed", item.event.type, item.event.id, err);
     } finally {
+      if (item.event?.id) {
+        this.markCompleted(item.event.id);
+      }
       this.onEventEnd?.(item.event, item.ctx);
       this.runNext();
     }
   }
 
-  private markProcessed(id: string) {
-    this.processedIds.add(id);
-    this.processedOrder.push(id);
+  private markPending(id: string) {
+    this.pendingIds.add(id);
+  }
+
+  private markCompleted(id: string) {
+    this.pendingIds.delete(id);
+    this.completedIds.add(id);
+    this.completedOrder.push(id);
     const max = this.opts.maxProcessed ?? 1000;
-    while (this.processedOrder.length > max) {
-      const oldest = this.processedOrder.shift();
+    while (this.completedOrder.length > max) {
+      const oldest = this.completedOrder.shift();
       if (oldest) {
-        this.processedIds.delete(oldest);
+        this.completedIds.delete(oldest);
       }
     }
   }
