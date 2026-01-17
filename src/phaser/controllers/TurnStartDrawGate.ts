@@ -49,20 +49,24 @@ export class TurnStartDrawGate {
         lastCurrentPlayerId: this.lastCurrentPlayerId,
         selfId,
       });
-      if (currentPlayer === selfId) {
-        const pendingTurnStartDraw = this.shouldDelayTurnTimerForTurnStartDraw(raw);
+    }
+    if (currentPlayer === selfId) {
+      const pendingTurnStartDraw = this.shouldDelayTurnTimerForTurnStartDraw(raw);
+      if (this.awaitingTurnStartDraw !== pendingTurnStartDraw) {
         this.log.debug("updateFromSnapshot set awaitingTurnStartDraw", {
           pendingTurnStartDraw,
         });
-        this.awaitingTurnStartDraw = pendingTurnStartDraw;
-        if (!pendingTurnStartDraw) {
-          this.turnStartDrawPopupActive = false;
-        }
-      } else {
-        this.log.debug("updateFromSnapshot clear awaitingTurnStartDraw");
-        this.awaitingTurnStartDraw = false;
+      }
+      this.awaitingTurnStartDraw = pendingTurnStartDraw;
+      if (!pendingTurnStartDraw) {
         this.turnStartDrawPopupActive = false;
       }
+    } else {
+      if (this.awaitingTurnStartDraw || this.turnStartDrawPopupActive) {
+        this.log.debug("updateFromSnapshot clear awaitingTurnStartDraw");
+      }
+      this.awaitingTurnStartDraw = false;
+      this.turnStartDrawPopupActive = false;
     }
     this.lastCurrentPlayerId = currentPlayer;
   }
@@ -84,13 +88,14 @@ export class TurnStartDrawGate {
     const delayForAwait = this.awaitingTurnStartDraw;
     const delayForAnim = this.shouldDelayTurnTimerForTurnStartDraw(raw);
     const delayActionBar = delayForPopup || delayForAwait || delayForAnim;
-    this.log.debug("shouldDelayActionBar", {
+    console.log("[ActionBar] shouldDelayActionBar", {
       delayActionBar,
       delayForPopup,
       delayForAwait,
       delayForAnim,
       currentPlayer,
       playerId,
+      phase,
     });
     return delayActionBar;
   }

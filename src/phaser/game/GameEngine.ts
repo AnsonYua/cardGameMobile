@@ -159,6 +159,13 @@ export class GameEngine {
     const ctx = this.buildActionContext();
     const selection = ctx.selection;
     const descriptors: ActionDescriptor[] = [];
+    console.log("[ActionBar] getAvailableActions", {
+      source,
+      hasSelection: !!selection,
+      selectionKind: selection?.kind,
+      playerId: ctx.playerId,
+      gameId: ctx.gameId,
+    });
 
     if (source === "hand" && selection?.kind === "hand") {
       const cardType = (selection.cardType || "").toLowerCase();
@@ -243,6 +250,11 @@ export class GameEngine {
       label: "End Turn",
       enabled: true,
       primary: !descriptors.some((d) => d.primary),
+    });
+    console.log("[ActionBar] getAvailableActions result", {
+      source,
+      count: descriptors.length,
+      ids: descriptors.map((d) => d.id),
     });
     return descriptors;
   }

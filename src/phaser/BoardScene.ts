@@ -554,6 +554,14 @@ export class BoardScene extends Phaser.Scene {
     const queueRunning = this.animationQueue?.isRunning() ?? false;
     const hasNewEvents = events.length > 0;
 
+    if (!allowAnimations && hasNewEvents && !queueRunning) {
+      // Ensure turn-start notifications are marked processed even when animations are skipped.
+      this.log.debug("updateSlots enqueue without animations", { eventCount: events.length });
+      this.renderSlots(currentSlots);
+      this.animationQueue?.enqueue(events, ctx);
+      return;
+    }
+
     if (allowAnimations && hasNewEvents && !queueRunning) {
       // eslint-disable-next-line no-console
       this.log.debug("updateSlots startBatch", { eventCount: events.length });
@@ -598,10 +606,11 @@ export class BoardScene extends Phaser.Scene {
 
   private refreshActionBarState(raw: any) {
     const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
-    this.log.debug("refreshActionBarState", {
+    console.log("[ActionBar] refreshActionBarState", {
       delayActionBar,
       currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
       playerId: this.gameContext.playerId,
+      phase: raw?.gameEnv?.phase ?? raw?.phase,
     });
     if (delayActionBar) {
       this.hideActionBarForTurnStartDraw(raw);

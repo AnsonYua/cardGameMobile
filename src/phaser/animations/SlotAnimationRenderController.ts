@@ -14,6 +14,10 @@ export class SlotAnimationRenderController {
 
   constructor(private getSlotsFromRaw: (raw: any) => SlotViewModel[]) {}
 
+  private clampNonNegative(value: number) {
+    return value < 0 ? 0 : value;
+  }
+
   startBatch(
     events: SlotNotification[],
     previousSlots: SlotViewModel[],
@@ -48,11 +52,11 @@ export class SlotAnimationRenderController {
         if (!base) return;
         const snapshot = this.cloneSlot(base);
         if (stat.includes("ap")) {
-          snapshot.ap = (snapshot.ap ?? 0) + delta;
+          snapshot.ap = this.clampNonNegative((snapshot.ap ?? 0) + delta);
           if (snapshot.fieldCardValue) {
             snapshot.fieldCardValue = {
               ...snapshot.fieldCardValue,
-              totalAP: (snapshot.fieldCardValue.totalAP ?? 0) + delta,
+              totalAP: this.clampNonNegative((snapshot.fieldCardValue.totalAP ?? 0) + delta),
             };
           }
         } else if (stat.includes("hp")) {
