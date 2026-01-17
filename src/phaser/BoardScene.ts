@@ -28,10 +28,10 @@ import type { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
-import { BurstChoiceFlowManager } from "./controllers/BurstChoiceFlowManager";
+import type { BurstChoiceFlowManager } from "./controllers/BurstChoiceFlowManager";
 import { createSelectionActionController } from "./controllers/SelectionActionControllerFactory";
 import type { SelectionActionController } from "./controllers/SelectionActionController";
-import { EffectTargetController } from "./controllers/EffectTargetController";
+import type { EffectTargetController } from "./controllers/EffectTargetController";
 import type { AnimationQueue } from "./animations/AnimationQueue";
 import type { SlotAnimationRenderController } from "./animations/SlotAnimationRenderController";
 import type { BaseShieldAnimationRenderController } from "./animations/BaseShieldAnimationRenderController";
@@ -53,6 +53,15 @@ import { bindBoardSceneEvents } from "./scene/boardSceneEventBindings";
 import { registerBoardSceneActions } from "./scene/boardSceneActionBindings";
 import type { TurnTimerController } from "./controllers/TurnTimerController";
 import { createTurnTimerBindings } from "./scene/boardTimerBindings";
+import { setupBoardFlows } from "./scene/boardFlowSetup";
+import { getEnergyStatus, getOpponentHandCount, resolvePlayerIds } from "./scene/boardStatusHelpers";
+import { shouldDeferHandUpdate, shouldHideHandForStartGame, shouldRefreshHandForEvent } from "./scene/boardHandHelpers";
+import {
+  createTimerPauseResumeHandlers,
+  createTurnStartDrawHandlers,
+  hideActionBarForTurnStartDrawWithGate,
+  updateTurnTimerWithGate,
+} from "./scene/boardTimerGate";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -173,26 +182,29 @@ export class BoardScene extends Phaser.Scene {
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
 
-    this.burstFlow = new BurstChoiceFlowManager({
+    const { burstFlow, effectTargetController } = setupBoardFlows({
+      scene: this,
       api: this.api,
       engine: this.engine,
       gameContext: this.gameContext,
+      slotPresenter: this.slotPresenter,
+      dialogs: {
+        effectTargetDialog: dialogs.effectTargetDialog,
+        burstChoiceDialog: dialogs.burstChoiceDialog,
+      },
       actionControls: this.actionControls,
-      burstChoiceDialog: this.burstChoiceDialogUi,
-      refreshActions: () => this.selectionAction?.refreshActions("neutral"),
-      onTimerPause: () => {
-        this.turnTimer?.setEnabled(false);
-        this.headerControls?.setTimerVisible?.(false);
-      },
-      onTimerResume: () => {
-        const raw = this.engine.getSnapshot().raw as any;
-        if (raw) {
-          this.updateTurnTimer(raw);
-        } else {
-          this.turnTimer?.setEnabled(true);
-        }
-      },
+      getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
+      onRefreshActions: () => this.selectionAction?.refreshActions("neutral"),
+      onPlayerAction: () => this.turnTimer?.reset(),
+      ...createTimerPauseResumeHandlers({
+        engineGetRaw: () => this.engine.getSnapshot().raw as any,
+        timer: this.turnTimer,
+        setHeaderTimerVisible: this.headerControls?.setTimerVisible?.bind(this.headerControls),
+        updateTurnTimer: (raw) => this.updateTurnTimer(raw),
+      }),
     });
+    this.burstFlow = burstFlow;
+    this.effectTargetController = effectTargetController;
 
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
       scene: this,
@@ -221,25 +233,15 @@ export class BoardScene extends Phaser.Scene {
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
-      onTurnStartDrawPopupStart: () => {
-        this.log.debug("onTurnStartDrawPopupStart");
-        this.turnStartDrawGate?.onTurnStartDrawPopupStart();
-        this.turnTimer?.setEnabled(false);
-        const raw = this.engine.getSnapshot().raw as any;
-        this.hideActionBarForTurnStartDraw(raw);
-      },
-      onTurnStartDrawPopupEnd: () => {
-        this.log.debug("onTurnStartDrawPopupEnd");
-        this.turnStartDrawGate?.onTurnStartDrawPopupEnd();
-        const snapshot = this.engine.getSnapshot();
-        const raw = snapshot.raw as any;
-        if (raw) {
-          this.updateTurnTimer(raw);
-          this.refreshActionBarState(raw);
-        } else {
-          this.turnTimer?.setEnabled(true);
-        }
-      },
+      ...createTurnStartDrawHandlers({
+        gate: this.turnStartDrawGate,
+        timer: this.turnTimer,
+        engineGetRaw: () => this.engine.getSnapshot().raw as any,
+        updateTurnTimer: (raw) => this.updateTurnTimer(raw),
+        refreshActionBar: (raw) => this.refreshActionBarState(raw),
+        hideActionBarForTurnStartDraw: (raw) => this.hideActionBarForTurnStartDraw(raw),
+        log: this.log,
+      }),
     });
     this.animationQueue = animationQueue;
     this.slotAnimationRender = slotAnimationRender;
@@ -261,16 +263,6 @@ export class BoardScene extends Phaser.Scene {
         console.warn("Using offline fallback:", message, { gameId });
       },
     });
-    this.effectTargetController = new EffectTargetController({
-      dialog: dialogs.effectTargetDialog,
-      slotPresenter: this.slotPresenter,
-      gameContext: this.gameContext,
-      engine: this.engine,
-      api: this.api,
-      scene: this,
-      onPlayerAction: () => this.turnTimer?.reset(),
-      getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
-    });
     this.selectionAction = createSelectionActionController({
       engine: this.engine,
       api: this.api,
@@ -287,18 +279,12 @@ export class BoardScene extends Phaser.Scene {
       shouldDelayActionBar: (raw) => this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false,
       onDelayActionBar: (raw) => this.hideActionBarForTurnStartDraw(raw),
       onPlayerAction: () => this.turnTimer?.reset(),
-      onTimerPause: () => {
-        this.turnTimer?.setEnabled(false);
-        this.headerControls?.setTimerVisible?.(false);
-      },
-      onTimerResume: () => {
-        const raw = this.engine.getSnapshot().raw as any;
-        if (raw) {
-          this.updateTurnTimer(raw);
-        } else {
-          this.turnTimer?.setEnabled(true);
-        }
-      },
+      ...createTimerPauseResumeHandlers({
+        engineGetRaw: () => this.engine.getSnapshot().raw as any,
+        timer: this.turnTimer,
+        setHeaderTimerVisible: this.headerControls?.setTimerVisible?.bind(this.headerControls),
+        updateTurnTimer: (raw) => this.updateTurnTimer(raw),
+      }),
       showOverlay: (message, slot) => {
         if (!this.overlay) {
           this.overlay = new OverlayController(this);
@@ -489,46 +475,14 @@ export class BoardScene extends Phaser.Scene {
 
   private updateHeaderOpponentHand(raw: any) {
     const players = raw?.gameEnv?.players || {};
-    const playerIds = Object.keys(players);
-    const selfId =
-      (this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : undefined) ||
-      playerIds[0];
-    const opponentId = playerIds.find((id) => id !== selfId) || playerIds[0] || "playerId_1";
-    const opponent = players?.[opponentId] || {};
-    const hand = opponent?.deck?.hand;
-    const handUids = opponent?.deck?.handUids;
-    let opponentHand: number | string = "-";
-    if (typeof hand?.length === "number") {
-      opponentHand = hand.length;
-    } else if (Array.isArray(hand)) {
-      opponentHand = hand.length;
-    } else if (hand && typeof hand === "object") {
-      opponentHand = Object.keys(hand).length;
-    } else if (Array.isArray(handUids)) {
-      opponentHand = handUids.length;
-    }
+    const opponentHand = getOpponentHandCount(players, this.gameContext.playerId);
     this.ui?.updateHeader({ opponentHand });
   }
 
   private updateEnergyStatus(raw: any) {
     const players = raw?.gameEnv?.players || {};
-    const ids = Object.keys(players);
-    if (!ids.length) return;
-    const selfId = (this.gameContext.playerId && players[this.gameContext.playerId] ? this.gameContext.playerId : undefined) || ids[0];
-    const opponentId = ids.find((id) => id !== selfId) || ids[0];
-    const summarize = (player: any) => {
-      const zones = player?.zones || player?.zone || {};
-      const shieldArea = zones.shieldArea || player?.shieldArea || [];
-      const energyArea = zones.energyArea || player?.energyArea || [];
-      const shield = Array.isArray(shieldArea) ? shieldArea.length : 0;
-      const energies = Array.isArray(energyArea) ? energyArea : [];
-      const active = energies.filter((e) => e && e.isRested === false && e.isExtraEnergy === false).length;
-      const rested = energies.filter((e) => e && e.isRested === true && e.isExtraEnergy === false).length;
-      const extra = energies.filter((e) => e && e.isRested === false && e.isExtraEnergy === true).length;
-      return { shield, active, rested, extra };
-    };
-    const selfStatus = summarize(players[selfId]);
-    const oppStatus = summarize(players[opponentId]);
+    const { selfStatus, oppStatus } = getEnergyStatus(players, this.gameContext.playerId);
+    if (!selfStatus || !oppStatus) return;
     this.energyControls?.update?.(false, selfStatus);
     this.energyControls?.update?.(true, oppStatus);
   }
@@ -539,7 +493,7 @@ export class BoardScene extends Phaser.Scene {
     const raw = snapshot.raw as any;
     if (!raw) return;
     
-    if (this.shouldHideHandForStartGame(raw)) {
+    if (shouldHideHandForStartGame(raw, this.startGameAnimating, this.startGameCompleted, this.gameContext.playerId)) {
       this.handControls?.setVisible(false);
       return;
     }
@@ -557,45 +511,15 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private shouldDeferHandUpdate(raw: any, skipAnimation: boolean) {
-    if (skipAnimation) return false;
-    if (!this.animationQueue) return false;
-    const playerId = this.gameContext.playerId;
-    if (!playerId) return false;
-    const notifications = getNotificationQueue(raw);
-    if (!notifications.length) return false;
-    return notifications.some((note) => {
-      if (!note?.id) return false;
-      const type = (note.type || "").toUpperCase();
-      if (type === "INIT_HAND") {
-        return note.payload?.playerId === playerId && !this.animationQueue?.isProcessed(note.id);
-      }
-      if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return false;
-      if (note.payload?.playerId !== playerId) return false;
-      return !this.animationQueue?.isProcessed(note.id);
-    });
+    return shouldDeferHandUpdate(raw, skipAnimation, this.animationQueue, this.gameContext.playerId);
   }
 
   private shouldHideHandForStartGame(raw: any) {
-    if (this.startGameAnimating) return true;
-    const notifications = getNotificationQueue(raw);
-    if (!notifications.length) return false;
-    const playerId = this.gameContext.playerId;
-    if (!playerId) return false;
-    return notifications.some((note) => {
-      if (!note?.id) return false;
-      const type = (note.type || "").toUpperCase();
-      if (type !== "INIT_HAND") return false;
-      if (note.payload?.playerId !== playerId) return false;
-      return !this.startGameCompleted;
-    });
+    return shouldHideHandForStartGame(raw, this.startGameAnimating, this.startGameCompleted, this.gameContext.playerId);
   }
 
   private shouldRefreshHandForEvent(event: { type?: string; payload?: any }) {
-    if (!event) return false;
-    const type = (event.type || "").toUpperCase();
-    if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return false;
-    const playerId = event.payload?.playerId;
-    return !!playerId && playerId === this.gameContext.playerId;
+    return shouldRefreshHandForEvent(event, this.gameContext.playerId);
   }
 
   private updateSlots(opts: { animate?: boolean } = {}) {
@@ -791,11 +715,12 @@ export class BoardScene extends Phaser.Scene {
     this.loadingText?.setVisible(false);
   }
 
-  private showTrashArea(_owner: "opponent" | "player") {
+  private showTrashArea(owner: "opponent" | "player") {
     const raw = this.engine.getSnapshot().raw as any;
-    const currentPlayer = raw?.gameEnv?.currentPlayer || this.gameContext.playerId;
     const players = raw?.gameEnv?.players || {};
-    const trash = players?.[currentPlayer]?.zones?.trashArea || [];
+    const { selfId, opponentId } = resolvePlayerIds(players, this.gameContext.playerId);
+    const targetPlayerId = owner === "player" ? selfId : opponentId;
+    const trash = targetPlayerId ? players?.[targetPlayerId]?.zones?.trashArea || [] : [];
     this.baseControls?.setBaseInputEnabled?.(false);
     this.trashAreaDialogUi?.show({
       cards: trash,
@@ -807,24 +732,23 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateTurnTimer(raw: any) {
-    this.turnStartDrawGate?.updateFromSnapshot(raw);
-    const blockReason = this.turnStartDrawGate?.getTurnTimerBlockReason(raw);
-    if (blockReason) {
-      this.log.debug("updateTurnTimer blocked", { reason: blockReason });
-      this.turnTimer?.setEnabled(false);
-      return;
-    }
-    this.updateTurnTimerFromSnapshot?.(raw);
+    updateTurnTimerWithGate({
+      raw,
+      gate: this.turnStartDrawGate,
+      timer: this.turnTimer,
+      updateTurnTimerFromSnapshot: this.updateTurnTimerFromSnapshot,
+      log: this.log,
+    });
   }
 
   private hideActionBarForTurnStartDraw(raw: any) {
-    if (!(this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false)) {
-      this.log.debug("hideActionBarForTurnStartDraw skipped");
-      return;
-    }
-    this.log.debug("hideActionBarForTurnStartDraw applied");
-    this.actionControls?.setWaitingForOpponent?.(false);
-    this.actionControls?.setState?.({ descriptors: [] });
+    hideActionBarForTurnStartDrawWithGate({
+      raw,
+      gate: this.turnStartDrawGate,
+      setWaitingForOpponent: this.actionControls?.setWaitingForOpponent?.bind(this.actionControls),
+      setState: this.actionControls?.setState?.bind(this.actionControls),
+      log: this.log,
+    });
   }
 
   private async initSession() {

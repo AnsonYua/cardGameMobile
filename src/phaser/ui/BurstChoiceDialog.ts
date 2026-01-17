@@ -2,6 +2,11 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computeDialogLayout, createDialogShell } from "./CardDialogLayout";
 import { TrashCardGridRenderer } from "./TrashCardGridRenderer";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
+import { UI_LAYOUT } from "./UiLayoutConfig";
+import { PreviewController } from "./PreviewController";
+import { DrawHelpers } from "./HeaderHandler";
+import { HandLayoutRenderer } from "./HandLayoutRenderer";
+import type { Palette } from "./types";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type BurstChoiceDialogOptions = {
@@ -21,6 +26,8 @@ export class BurstChoiceDialog {
   private content?: Phaser.GameObjects.Container;
   private gridRenderer: TrashCardGridRenderer;
   private dialogTimer: DialogTimerPresenter;
+  private previewController: PreviewController;
+  private previewLayout: HandLayoutRenderer;
   private buttonTargets: Phaser.GameObjects.Rectangle[] = [];
   private open = false;
 
@@ -29,6 +36,22 @@ export class BurstChoiceDialog {
   constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
     this.gridRenderer = new TrashCardGridRenderer(scene);
     this.dialogTimer = new DialogTimerPresenter(scene, timerController);
+    this.previewController = new PreviewController(scene, {
+      overlayAlpha: UI_LAYOUT.hand.preview.overlayAlpha,
+      fadeIn: UI_LAYOUT.hand.preview.fadeIn,
+      fadeOut: UI_LAYOUT.hand.preview.fadeOut,
+      holdDelay: UI_LAYOUT.hand.preview.holdDelay,
+      depth: 14000,
+    });
+    const palette: Palette = {
+      ink: "#0f1118",
+      slot: "#2a2d38",
+      accent: "#d0d5e0",
+      text: "#f5f6fb",
+      bg: "#ffffff",
+    };
+    const drawHelpers = new DrawHelpers(scene);
+    this.previewLayout = new HandLayoutRenderer(scene, palette, drawHelpers);
   }
 
   isOpen() {
@@ -36,6 +59,7 @@ export class BurstChoiceDialog {
   }
 
   hide() {
+    this.previewController.hide(true);
     this.dialogTimer.stop();
     this.buttonTargets.forEach((btn) => btn.disableInteractive());
     this.buttonTargets = [];
@@ -95,6 +119,15 @@ export class BurstChoiceDialog {
       cardConfig: cfg.card,
       badgeConfig: cfg.badge,
       typeOverrides: cfg.cardTypeOverrides,
+      onPointerDown: (card) => this.startPreview(card),
+      onPointerUp: () => {
+        if (this.previewController.isActive()) return;
+        this.previewController.cancelPending();
+      },
+      onPointerOut: () => {
+        if (this.previewController.isActive()) return;
+        this.previewController.cancelPending();
+      },
     });
 
     if (showButtons) {
@@ -136,5 +169,27 @@ export class BurstChoiceDialog {
         await opts.onTimeout?.();
       });
     }
+  }
+
+  private startPreview(card: any) {
+    const cardW = UI_LAYOUT.hand.preview.cardWidth;
+    const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
+    this.previewController.start((container) => {
+      const preview = this.gridRenderer.getPreviewData(card);
+      this.previewLayout.renderPreview(
+        container,
+        0,
+        0,
+        cardW,
+        cardH,
+        preview.textureKey,
+        preview.statLabel,
+        preview.previewCard,
+        {
+          badgeSize: UI_LAYOUT.hand.preview.badgeSize,
+          badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
+        },
+      );
+    });
   }
 }

@@ -54,16 +54,23 @@ export class BurstChoiceFlowManager {
     this.pendingNotificationId = entry.notificationId;
     this.shownEntryId = undefined;
     const decisionMade = entry?.data?.userDecisionMade === true;
+    const selfId = this.deps.gameContext.playerId;
+    const isOwner = entry.playerId === selfId;
     this.log.warn("burst notification start", {
       entryId: entry.id,
       notificationId: entry.notificationId,
       playerId: entry.playerId,
+      isOwner,
       decisionMade,
     });
     if (decisionMade) {
       return;
     }
     this.applyActionBar();
+    if (!isOwner) {
+      this.showDialog(raw);
+      return;
+    }
     this.pendingPromise =
       this.pendingPromise ??
       new Promise<void>((resolve) => {
@@ -71,6 +78,23 @@ export class BurstChoiceFlowManager {
       });
     this.showDialog(raw);
     await this.pendingPromise;
+  }
+
+  async handleResolvedNotification(notification: any): Promise<void> {
+    const payload = notification?.payload ?? {};
+    const eventId = payload?.eventId;
+    if (!this.queueEntry) return;
+    if (eventId && this.queueEntry.eventId && eventId !== this.queueEntry.eventId) {
+      return;
+    }
+    this.log.warn("burst resolved notification", {
+      entryId: this.queueEntry.id,
+      notificationId: notification?.id,
+      eventId,
+      userDecision: payload?.userDecision,
+    });
+    this.resolvePending();
+    this.clear();
   }
 
   applyActionBar() {

@@ -81,7 +81,7 @@ export class DebugControls {
       await this.popup?.hide();
     }
     //st01-001/pair_ap_boost_turn.json
-    const targetScenario = scenarioPath || "ST01-014/burst_activate_main";
+    const targetScenario = scenarioPath || "BasicUI/main_ap_reduction";
     try {
       const scenarioJson = await this.api.getTestScenario(targetScenario);
       const gameEnv =

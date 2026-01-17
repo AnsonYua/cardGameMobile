@@ -47,6 +47,13 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "BURST_EFFECT_CHOICE_RESOLVED",
+      async (event) => {
+        if (!deps.burstChoiceFlow) return;
+        await deps.burstChoiceFlow.handleResolvedNotification(event);
+      },
+    ],
+    [
       "CARD_PLAYED_COMPLETED",
       async (event, ctx) => {
         await deps.cardPlayAnimator.playCardPlayed(event, {

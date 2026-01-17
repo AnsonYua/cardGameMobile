@@ -97,7 +97,15 @@ export class TrashAreaDialog {
     this.content = content;
 
     const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2;
-    const startY = -layout.dialogHeight / 2 + layout.headerOffset + 40 + layout.cellHeight / 2;
+    const headerFontSize = this.cfg.dialog.headerFontSize ?? 20;
+    const headerHeight = headerFontSize + 12;
+    const topInset = layout.headerOffset + headerHeight + Math.max(10, layout.gap - 4);
+    const startY = -layout.dialogHeight / 2 + topInset + layout.cellHeight / 2;
+    const cardConfig = {
+      ...this.cfg.card,
+      framePadding: Math.max(2, this.cfg.card.framePadding - 4),
+      frameExtra: { ...this.cfg.card.frameExtra, h: 0 },
+    };
 
     const { contentHeight } = this.gridRenderer.render({
       container: content,
@@ -108,7 +116,7 @@ export class TrashAreaDialog {
       startY,
       cellWidth: layout.cellWidth,
       cellHeight: layout.cellHeight,
-      cardConfig: this.cfg.card,
+      cardConfig,
       badgeConfig: this.cfg.badge,
       typeOverrides: this.cfg.cardTypeOverrides,
       onPointerDown: (card) => this.startPreview(card),
