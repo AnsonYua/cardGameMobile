@@ -21,6 +21,8 @@ export type GameStatusSnapshot = {
 
 export type ActionSource = "hand" | "slot" | "base" | "neutral";
 
+const SLOT_KEYS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"];
+
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private readonly log = createLogger("GameEngine");
@@ -186,10 +188,11 @@ export class GameEngine {
           primary: true,
         });
       } else if (cardType === "pilot") {
+        const hasPairableUnit = this.hasPairableUnit(this.lastRaw, ctx.playerId);
         descriptors.push({
           id: "playPilotFromHand",
           label: "Play Card",
-          enabled: canPlay,
+          enabled: canPlay && hasPairableUnit,
           primary: true,
         });
       } else if (cardType === "command") {
@@ -323,6 +326,17 @@ export class GameEngine {
     if (totalEnergy < level) return false;
     if (availableEnergy < cost) return false;
     return true;
+  }
+
+  private hasPairableUnit(raw: any, playerId?: string | null) {
+    if (!raw || !playerId) return true;
+    const player = raw?.gameEnv?.players?.[playerId];
+    const zones = player?.zones ?? {};
+    return SLOT_KEYS.some((slotId) => {
+      const slot = zones?.[slotId];
+      if (!slot) return false;
+      return !!slot.unit && !slot.pilot;
+    });
   }
 
   async test(){

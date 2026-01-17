@@ -34,17 +34,14 @@ export class PilotDesignationDialog {
     const headerText = "Play Card As";
     const allowPilot = opts.allowPilot !== false;
     const buttons = [
-      ...(allowPilot
-        ? [
-            {
-              label: "Pilot",
-              onClick: async () => {
-                await this.hide(opts.onClose);
-                await opts.onPilot();
-              },
-            },
-          ]
-        : []),
+      {
+        label: "Pilot",
+        enabled: allowPilot,
+        onClick: async () => {
+          await this.hide(opts.onClose);
+          await opts.onPilot();
+        },
+      },
       {
         label: "Command",
         onClick: async () => {

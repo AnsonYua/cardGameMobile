@@ -4,6 +4,7 @@ import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShel
 export type PromptDialogButton = {
   label: string;
   onClick: () => Promise<void> | void;
+  enabled?: boolean;
 };
 
 export type PromptDialogOptions = {
@@ -92,18 +93,21 @@ export function createPromptDialog(
     const totalWidth = count * buttonWidth + buttonGap * (count - 1);
     const startX = -totalWidth / 2 + buttonWidth / 2;
     const x = startX + index * (buttonWidth + buttonGap);
-    const rect = scene.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0x2f3238, 1);
-    rect.setStrokeStyle(2, 0x5b6068, 1);
-    rect.setInteractive({ useHandCursor: true });
-    rect.on("pointerup", async () => {
-      await btn.onClick();
-    });
+    const enabled = btn.enabled !== false;
+    const rect = scene.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0x2f3238, enabled ? 1 : 0.45);
+    rect.setStrokeStyle(2, 0x5b6068, enabled ? 1 : 0.45);
+    if (enabled) {
+      rect.setInteractive({ useHandCursor: true });
+      rect.on("pointerup", async () => {
+        await btn.onClick();
+      });
+    }
 
     const txt = scene.add.text(x, btnY, btn.label, {
       fontSize: "15px",
       fontFamily: "Arial",
       fontStyle: "bold",
-      color: "#f5f6f7",
+      color: enabled ? "#f5f6f7" : "#98a0aa",
       align: "center",
       wordWrap: { width: buttonWidth - 18 },
     });
