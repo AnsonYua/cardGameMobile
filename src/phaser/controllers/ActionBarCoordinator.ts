@@ -200,7 +200,7 @@ export class ActionBarCoordinator {
     const slotState = computeSlotActionState({
       selection,
       opponentHasUnit: this.deps.getOpponentRestedUnitSlots().length > 0,
-      attackerReady: selectedSlot?.unit?.canAttackThisTurn === true,
+      attackerReady: selectedSlot?.unit?.canAttackThisTurn === true && selectedSlot?.unit?.isRested !== true,
       hasUnit: !!selectedSlot?.unit,
       phaseAllowsAttack,
     });
