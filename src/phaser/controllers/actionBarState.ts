@@ -35,6 +35,7 @@ export type SlotActionStateInput = {
   opponentHasUnit: boolean;
   attackerReady: boolean;
   hasUnit: boolean;
+  phaseAllowsAttack: boolean;
 };
 
 export type SlotActionStateResult =
@@ -45,6 +46,7 @@ export function computeSlotActionState(input: SlotActionStateInput): SlotActionS
   if (input.selection?.kind !== "slot" || input.selection.owner !== "player") {
     return { shouldApply: false };
   }
+  if (!input.phaseAllowsAttack) return { shouldApply: false };
   if (!input.hasUnit) return { shouldApply: false };
   return {
     shouldApply: true,

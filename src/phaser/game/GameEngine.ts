@@ -196,10 +196,12 @@ export class GameEngine {
           primary: true,
         });
       } else if (cardType === "command") {
+        const phase = (this.lastRaw as any)?.gameEnv?.phase;
+        const hasTimingWindow = this.commandHasTimingWindow(selection, phase);
         descriptors.push({
           id: "playCommandFromHand",
           label: "Play Card",
-          enabled: canPlay,
+          enabled: canPlay && hasTimingWindow,
           primary: true,
         });
       }
@@ -326,6 +328,29 @@ export class GameEngine {
     if (totalEnergy < level) return false;
     if (availableEnergy < cost) return false;
     return true;
+  }
+
+  private commandHasTimingWindow(selection: SelectionTarget, phase?: string | null) {
+    if (selection.kind !== "hand") return false;
+    const raw = this.lastRaw as any;
+    const playerId = this.contextStore.get().playerId;
+    if (!raw || !playerId) return false;
+    const hand = raw?.gameEnv?.players?.[playerId]?.deck?.hand ?? [];
+    const target = Array.isArray(hand)
+      ? hand.find((card: any) => {
+          const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
+          return uid === selection.uid;
+        })
+      : undefined;
+    const cardData = target?.cardData ?? {};
+    const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
+    if (!rules.length) return false;
+    const currentPhase = (phase ?? "").toString().toUpperCase();
+    if (!currentPhase) return false;
+    return rules.some((rule) => {
+      const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
+      return windows.some((window) => (window ?? "").toString().toUpperCase() === currentPhase);
+    });
   }
 
   private hasPairableUnit(raw: any, playerId?: string | null) {

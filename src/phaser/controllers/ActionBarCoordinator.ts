@@ -195,14 +195,22 @@ export class ActionBarCoordinator {
 
   private tryApplySlotActions(selection?: any) {
     const selectedSlot = this.deps.getSelectedSlot();
+    const raw: any = this.deps.engine.getSnapshot().raw;
+    const phaseAllowsAttack = this.phaseAllowsAttack(raw);
     const slotState = computeSlotActionState({
       selection,
       opponentHasUnit: this.deps.getOpponentRestedUnitSlots().length > 0,
       attackerReady: selectedSlot?.unit?.canAttackThisTurn === true,
       hasUnit: !!selectedSlot?.unit,
+      phaseAllowsAttack,
     });
     if (!slotState.shouldApply) return false;
-    const mapped = buildSlotActionDescriptors(slotState.opponentHasUnit, slotState.attackerReady).map((d) => ({
+    const allowAttackShield = !this.hasAttackShieldRestriction(raw, selectedSlot?.slotId);
+    const mapped = buildSlotActionDescriptors(
+      slotState.opponentHasUnit,
+      slotState.attackerReady,
+      allowAttackShield,
+    ).map((d) => ({
       label: d.label,
       enabled: d.enabled,
       primary: d.primary,
@@ -222,5 +230,44 @@ export class ActionBarCoordinator {
     }));
     this.deps.actionControls?.setState?.({ descriptors: mapped });
     return true;
+  }
+
+  private phaseAllowsAttack(raw?: any) {
+    if (!raw) return false;
+    const env = raw?.gameEnv ?? raw;
+    const explicit =
+      env?.phaseAllowsAttack ??
+      env?.allowAttack ??
+      env?.canAttack ??
+      env?.phaseWindow?.allowAttack ??
+      env?.phaseWindow?.canAttack;
+    if (explicit !== undefined && explicit !== null) {
+      return !!explicit;
+    }
+    const phase = (env?.phase ?? "").toString().toUpperCase();
+    return phase === "MAIN_PHASE";
+  }
+
+  private hasAttackShieldRestriction(raw: any, slotId?: string) {
+    if (!raw || !slotId) return false;
+    const playerId = this.deps.gameContext.playerId;
+    const slot = raw?.gameEnv?.players?.[playerId]?.zones?.[slotId];
+    const unit = slot?.unit;
+    const effects = this.collectActiveEffects(unit);
+    return effects.some((effect) => {
+      const action = (effect?.action ?? "").toString().toLowerCase();
+      const restriction = (effect?.parameters?.restriction ?? "").toString().toLowerCase();
+      return action === "restrict_attack" && restriction === "cannot_attack_player";
+    });
+  }
+
+  private collectActiveEffects(unit?: any) {
+    const effects = [
+      ...(Array.isArray(unit?.activeEffects) ? unit.activeEffects : []),
+      ...(Array.isArray(unit?.effects?.active) ? unit.effects.active : []),
+      ...(Array.isArray(unit?.effects?.activeEffects) ? unit.effects.activeEffects : []),
+      ...(Array.isArray(unit?.cardData?.effects?.active) ? unit.cardData.effects.active : []),
+    ];
+    return effects.filter(Boolean);
   }
 }

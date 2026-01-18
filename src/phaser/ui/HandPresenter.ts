@@ -9,7 +9,7 @@ export class HandPresenter {
       const cardId = card?.cardId ?? card?.id;
       const data = card?.cardData;
       const rules: any[] = Array.isArray(data?.effects?.rules) ? data.effects.rules : [];
-      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation");
+      const pilotRule = rules.find((r) => r?.effectId === "pilot_designation" || r?.action === "designate_pilot");
       const pilotParams = pilotRule?.parameters || {};
       const pilotAp = pilotParams.AP ?? pilotParams.ap ?? null;
       const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;

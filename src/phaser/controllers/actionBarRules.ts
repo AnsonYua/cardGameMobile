@@ -16,7 +16,7 @@ export function isMainPhase(raw: any, playerId: string) {
   return raw?.gameEnv?.phase === "MAIN_PHASE" && raw?.gameEnv?.currentPlayer === playerId;
 }
 
-export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerReady: boolean) {
+export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerReady: boolean, allowAttackShield: boolean) {
   const descriptors: Array<{ id: string; label: string; enabled: boolean; primary?: boolean }> = [];
   if (opponentHasUnit) {
     descriptors.push({
@@ -26,12 +26,14 @@ export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerRea
       primary: true,
     });
   }
-  descriptors.push({
-    id: "attackShieldArea",
-    label: "Attack Shield",
-    enabled: attackerReady,
-    primary: !descriptors.some((d) => d.primary),
-  });
+  if (allowAttackShield) {
+    descriptors.push({
+      id: "attackShieldArea",
+      label: "Attack Shield",
+      enabled: attackerReady,
+      primary: !descriptors.some((d) => d.primary),
+    });
+  }
   descriptors.push({
     id: "cancelSelection",
     label: "Cancel",
