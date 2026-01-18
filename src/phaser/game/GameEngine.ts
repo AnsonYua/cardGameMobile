@@ -11,6 +11,13 @@ import { ApiManager } from "../api/ApiManager";
 import type { CommandFlowController } from "../controllers/CommandFlowController";
 import type { UnitFlowController } from "../controllers/UnitFlowController";
 import { findBaseCard } from "../utils/CardLookup";
+import {
+  canPlaySelectedHandCard,
+  commandHasTimingWindow,
+  getActivatedEffectState,
+  getSlotCard,
+  hasPairableUnit,
+} from "./actionEligibility";
 import { createLogger } from "../utils/logger";
 
 export type GameStatusSnapshot = {
@@ -20,8 +27,6 @@ export type GameStatusSnapshot = {
 };
 
 export type ActionSource = "hand" | "slot" | "base" | "neutral";
-
-const SLOT_KEYS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"];
 
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
@@ -172,7 +177,7 @@ export class GameEngine {
     if (source === "hand" && selection?.kind === "hand") {
       const cardType = (selection.cardType || "").toLowerCase();
       const canRun = !!ctx.gameId && !!ctx.playerId && !!selection.uid;
-      const canPlay = canRun && this.canPlaySelectedHandCard(selection);
+      const canPlay = canRun && canPlaySelectedHandCard(selection, this.lastRaw, ctx.playerId);
       if (cardType === "base") {
         descriptors.push({
           id: "playBaseFromHand",
@@ -188,16 +193,16 @@ export class GameEngine {
           primary: true,
         });
       } else if (cardType === "pilot") {
-        const hasPairableUnit = this.hasPairableUnit(this.lastRaw, ctx.playerId);
+        const hasPairable = hasPairableUnit(this.lastRaw, ctx.playerId);
         descriptors.push({
           id: "playPilotFromHand",
           label: "Play Card",
-          enabled: canPlay && hasPairableUnit,
+          enabled: canPlay && hasPairable,
           primary: true,
         });
       } else if (cardType === "command") {
         const phase = (this.lastRaw as any)?.gameEnv?.phase;
-        const hasTimingWindow = this.commandHasTimingWindow(selection, phase);
+        const hasTimingWindow = commandHasTimingWindow(selection, this.lastRaw, ctx.playerId, phase);
         descriptors.push({
           id: "playCommandFromHand",
           label: "Play Card",
@@ -218,12 +223,12 @@ export class GameEngine {
     }
 
     if (source === "slot" && selection?.kind === "slot") {
-      const slotCard = this.getSlotCard(selection);
+      const slotCard = getSlotCard(selection, this.lastRaw, ctx.playerId);
       const slotCardType = (slotCard?.cardData?.cardType || "").toLowerCase();
       if (slotCardType === "unit" || slotCardType === "base") {
         const raw = this.lastRaw as any;
         const playerId = this.contextStore.get().playerId;
-        const effectState = this.getActivatedEffectState(slotCard, raw, playerId);
+        const effectState = getActivatedEffectState(slotCard, raw, playerId);
         if (effectState?.effectId) {
           descriptors.push({
             id: "activateEffect",
@@ -248,7 +253,7 @@ export class GameEngine {
       const playerId = this.contextStore.get().playerId;
       if (selection.side === "player" && raw && playerId) {
         const baseCard = findBaseCard(raw, playerId);
-        const effectState = this.getActivatedEffectState(baseCard, raw, playerId);
+        const effectState = getActivatedEffectState(baseCard, raw, playerId);
         if (effectState?.effectId) {
           descriptors.push({
             id: "activateEffect",
@@ -318,149 +323,10 @@ export class GameEngine {
     };
   }
 
-  private canPlaySelectedHandCard(selection: SelectionTarget) {
-    if (selection.kind !== "hand") return false;
-    const raw = this.lastRaw as any;
-    const playerId = this.contextStore.get().playerId;
-    const player = raw?.gameEnv?.players?.[playerId];
-    if (!player) return true;
-    const hand = player?.deck?.hand ?? [];
-    const target = Array.isArray(hand)
-      ? hand.find((card: any) => {
-          const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
-          return uid === selection.uid;
-        })
-      : undefined;
-    if (!target) return true;
-    const cardData = target?.cardData ?? {};
-    const cardType = (cardData.cardType || selection.cardType || "").toLowerCase();
-    const isEnergy = cardType === "energy";
-    if (isEnergy) return true;
-
-    const { totalEnergy, availableEnergy } = this.getEnergyState(player);
-    const requiredLevel = Number(cardData.level ?? 0);
-    const requiredCost = Number(cardData.cost ?? 0);
-    const level = Number.isNaN(requiredLevel) ? 0 : requiredLevel;
-    const cost = Number.isNaN(requiredCost) ? 0 : requiredCost;
-    if (totalEnergy < level) return false;
-    if (availableEnergy < cost) return false;
-    return true;
-  }
-
-  private getSlotCardType(selection: SelectionTarget) {
-    if (selection.kind !== "slot") return undefined;
-    const raw = this.lastRaw as any;
-    const players = raw?.gameEnv?.players ?? {};
-    const ids = Object.keys(players);
-    if (!ids.length) return undefined;
-    const selfId = this.contextStore.get().playerId;
-    const ownerId =
-      selection.owner === "player"
-        ? selfId
-        : selection.owner === "opponent"
-        ? ids.find((id) => id !== selfId)
-        : undefined;
-    if (!ownerId) return undefined;
-    const slot = players?.[ownerId]?.zones?.[selection.slotId];
-    return slot?.unit?.cardData?.cardType ?? slot?.pilot?.cardData?.cardType;
-  }
-
-  private getSlotCard(selection: SelectionTarget) {
-    if (selection.kind !== "slot") return undefined;
-    const raw = this.lastRaw as any;
-    const players = raw?.gameEnv?.players ?? {};
-    const ids = Object.keys(players);
-    if (!ids.length) return undefined;
-    const selfId = this.contextStore.get().playerId;
-    const ownerId =
-      selection.owner === "player"
-        ? selfId
-        : selection.owner === "opponent"
-        ? ids.find((id) => id !== selfId)
-        : undefined;
-    if (!ownerId) return undefined;
-    const slot = players?.[ownerId]?.zones?.[selection.slotId];
-    return slot?.unit ?? slot?.pilot;
-  }
-
-  private commandHasTimingWindow(selection: SelectionTarget, phase?: string | null) {
-    if (selection.kind !== "hand") return false;
-    const raw = this.lastRaw as any;
-    const playerId = this.contextStore.get().playerId;
-    if (!raw || !playerId) return false;
-    const hand = raw?.gameEnv?.players?.[playerId]?.deck?.hand ?? [];
-    const target = Array.isArray(hand)
-      ? hand.find((card: any) => {
-          const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
-          return uid === selection.uid;
-        })
-      : undefined;
-    const cardData = target?.cardData ?? {};
-    const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-    if (!rules.length) return false;
-    const currentPhase = (phase ?? "").toString().toUpperCase();
-    if (!currentPhase) return false;
-    return rules.some((rule) => {
-      const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-      return windows.some((window) => (window ?? "").toString().toUpperCase() === currentPhase);
-    });
-  }
-
-  private hasPairableUnit(raw: any, playerId?: string | null) {
-    if (!raw || !playerId) return true;
-    const player = raw?.gameEnv?.players?.[playerId];
-    const zones = player?.zones ?? {};
-    return SLOT_KEYS.some((slotId) => {
-      const slot = zones?.[slotId];
-      if (!slot) return false;
-      return !!slot.unit && !slot.pilot;
-    });
-  }
-
   async test(){
 
   }
 
-  private getEnergyState(player: any) {
-    const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
-    const totalEnergy = Array.isArray(energyArea) ? energyArea.length : 0;
-    const availableEnergy = Array.isArray(energyArea)
-      ? energyArea.filter((entry: any) => entry && entry.isRested === false).length
-      : 0;
-    return { totalEnergy, availableEnergy };
-  }
-
-  private getActivatedEffectRule(cardData?: any, phase?: string | null) {
-    const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-    return rules.find((rule) => {
-      if ((rule?.type || "").toString().toLowerCase() !== "activated") return false;
-      const windows = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-      const currentPhase = (phase ?? "").toString().toUpperCase();
-      return windows.some((window: string) => window.toString().toUpperCase() === currentPhase);
-    });
-  }
-
-  private getActivatedEffectState(card: any, raw: any, playerId: string) {
-    if (!card || !raw || !playerId) return undefined;
-    const phase = raw?.gameEnv?.phase ?? raw?.phase ?? "";
-    const effectRule = this.getActivatedEffectRule(card?.cardData, phase);
-    if (!effectRule?.effectId) return undefined;
-    const player = raw?.gameEnv?.players?.[playerId];
-    const { availableEnergy } = this.getEnergyState(player);
-    const required = Number(effectRule?.cost?.resource ?? 0);
-    const requiredEnergy = Number.isFinite(required) ? required : 0;
-    const currentTurn = raw?.gameEnv?.currentTurn;
-    const lastUsed = card?.effectUsage?.[effectRule.effectId]?.lastUsedTurn;
-    const oncePerTurn = effectRule?.cost?.oncePerTurn === true;
-    const alreadyUsed = oncePerTurn && currentTurn !== undefined && lastUsed === currentTurn;
-    const restCost = (effectRule?.cost?.rest ?? "").toString().toLowerCase();
-    const restOk = restCost !== "self" || card?.isRested !== true;
-    const isSelfTurn = raw?.gameEnv?.currentPlayer === playerId;
-    return {
-      effectId: effectRule.effectId,
-      enabled: isSelfTurn && availableEnergy >= requiredEnergy && restOk && !alreadyUsed,
-    };
-  }
   private getBattle(payload: any) {
     return payload?.gameEnv?.currentBattle ?? payload?.gameEnv?.currentbattle ?? null;
   }
