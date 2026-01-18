@@ -409,7 +409,7 @@ export class GameEngine {
       if (sel.kind === "base") {
         const raw = this.lastRaw as any;
         const baseCard = findBaseCard(raw, ctx.playerId);
-        const effectState = this.getActivatedEffectState(baseCard, raw, ctx.playerId);
+        const effectState = getActivatedEffectState(baseCard, raw, ctx.playerId);
         if (!baseCard || !effectState?.effectId) return;
         const carduid =
           baseCard?.carduid ?? baseCard?.cardUid ?? baseCard?.uid ?? baseCard?.id ?? baseCard?.cardId;
