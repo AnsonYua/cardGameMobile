@@ -9,8 +9,15 @@ import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
-import { buildSlotActionDescriptors, getPhase, isMainPhase, isPlayersTurn } from "./actionBarRules";
-import { computeActionBarDecision, computeMainPhaseState, computeSlotActionState } from "./actionBarState";
+import {
+  buildSlotActionDescriptors,
+  computeActionBarDecision,
+  computeMainPhaseState,
+  computeSlotActionState,
+  getPhase,
+  isMainPhase,
+  isPlayersTurn,
+} from "./actionBarPolicy";
 import { createLogger } from "../utils/logger";
 
 type HandControls = {

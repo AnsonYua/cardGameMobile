@@ -19,6 +19,7 @@ export type BoardDialogSet = {
   effectTargetDialog: EffectTargetDialog;
   trashAreaDialog: TrashAreaDialog;
   burstChoiceDialog: BurstChoiceDialog;
+  gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
 };
 
 type CreateSlotSprite = (
@@ -50,5 +51,6 @@ export function setupBoardDialogs(
     effectTargetDialog: timedDialogs.effectTargetDialog,
     trashAreaDialog: coreDialogs.trashAreaDialog,
     burstChoiceDialog: timedDialogs.burstChoiceDialog,
+    gameOverDialog: coreDialogs.gameOverDialog,
   };
 }

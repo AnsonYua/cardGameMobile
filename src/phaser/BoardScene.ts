@@ -25,6 +25,7 @@ import type { MulliganDialog } from "./ui/MulliganDialog";
 import type { ChooseFirstPlayerDialog } from "./ui/ChooseFirstPlayerDialog";
 import type { TurnOrderStatusDialog } from "./ui/TurnOrderStatusDialog";
 import type { CoinFlipOverlay } from "./ui/CoinFlipOverlay";
+import type { GameOverDialog } from "./ui/GameOverDialog";
 import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
@@ -39,6 +40,8 @@ import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
+import { detectGameEnd, type GameEndInfo } from "./scene/gameEndHelpers";
+import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
 import { SessionController } from "./controllers/SessionController";
@@ -117,6 +120,7 @@ export class BoardScene extends Phaser.Scene {
   private coinFlipOverlayUi?: CoinFlipOverlay;
   private waitingOpponentDialogUi?: TurnOrderStatusDialog;
   private mulliganWaitingDialogUi?: TurnOrderStatusDialog;
+  private gameOverDialogUi?: GameOverDialog;
   private dialogCoordinator = new DialogCoordinator(this.match, this.contextStore);
   private sessionController?: SessionController;
   private pilotFlow?: PilotFlowController;
@@ -132,6 +136,8 @@ export class BoardScene extends Phaser.Scene {
   private readonly log = createLogger("BoardScene");
   private turnTimer?: TurnTimerController;
   private updateTurnTimerFromSnapshot?: (raw: any) => void;
+  private gameEnded = false;
+  private gameEndInfo?: GameEndInfo;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -181,6 +187,7 @@ export class BoardScene extends Phaser.Scene {
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
+    this.gameOverDialogUi = dialogs.gameOverDialog;
 
     const { burstFlow, effectTargetController } = setupBoardFlows({
       scene: this,
@@ -403,6 +410,10 @@ export class BoardScene extends Phaser.Scene {
     const raw = this.engine.getSnapshot().raw as any;
     const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
     this.log.debug("refreshPhase", { skipAnimation, battle });
+    this.checkForGameEnd(raw);
+    if (this.gameEnded) {
+      this.disableInputs();
+    }
     this.updateHeaderPhaseStatus(raw);
     this.turnStartDrawGate?.updateFromSnapshot(raw);
     this.updateMainPhaseUI(raw, skipAnimation);
@@ -422,6 +433,11 @@ export class BoardScene extends Phaser.Scene {
     });
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
+    if (this.gameEnded) {
+      this.updateSlots({ animate: !skipAnimation });
+      this.updateBaseAndShield();
+      return;
+    }
     this.showUI(!skipAnimation);
     const deferHand = this.shouldDeferHandUpdate(raw, skipAnimation);
     this.updateHandArea({ skipAnimation, deferForAnimation: deferHand });
@@ -605,6 +621,9 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private refreshActionBarState(raw: any) {
+    if (this.gameEnded) {
+      return;
+    }
     const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
     console.log("[ActionBar] refreshActionBarState", {
       delayActionBar,
@@ -700,6 +719,47 @@ export class BoardScene extends Phaser.Scene {
 
     applyState(renderStates.player, false);
     applyState(renderStates.opponent, true);
+  }
+
+  private checkForGameEnd(raw: any) {
+    if (!raw || this.gameEnded) return;
+    const info = detectGameEnd(raw);
+    if (info) {
+      this.handleGameEnded(info);
+    }
+  }
+
+  private handleGameEnded(info: { winnerId?: string; endReason?: string; endedAt?: number | string }) {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    this.gameEndInfo = info;
+    this.selectionAction?.clearSelectionUI({ clearEngine: true });
+    this.disableInputs();
+    const winnerId = info.winnerId;
+    const isWinner = !!winnerId && winnerId === this.gameContext.playerId;
+    this.gameOverDialogUi?.show({
+      isWinner,
+      onOk: async () => {
+        this.returnToLobby();
+      },
+    });
+  }
+
+  private disableInputs() {
+    disableBoardInputs({
+      turnTimer: this.turnTimer,
+      headerControls: this.headerControls,
+      debugControls: this.debugControls,
+      handControls: this.handControls,
+      actionControls: this.actionControls,
+      slotControls: this.slotControls,
+      baseControls: this.baseControls,
+    });
+  }
+
+  private returnToLobby() {
+    if (typeof window === "undefined") return;
+    window.location.href = "/";
   }
 
   private showLoading() {
