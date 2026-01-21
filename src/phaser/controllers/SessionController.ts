@@ -47,8 +47,6 @@ export class SessionController {
         const statusPayload = (await match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
         await engine.loadGameResources(gameId, resolvedPlayerId, statusPayload);
         await engine.updateGameStatus(gameId, resolvedPlayerId, {
-          fromScenario: true,
-          silent: true,
           statusPayload,
         });
         if (isAutoPolling) {

@@ -8,7 +8,7 @@ export type TestButtonPopupConfig = Partial<Record<"button1" | "button2" | "butt
 export class TestButtonPopup {
   private container?: Phaser.GameObjects.Container;
   private backdrop?: Phaser.GameObjects.Rectangle;
-  private depth = 2000;
+  private depth = 6000;
   private tweenDuration = 200;
 
   constructor(private scene: Phaser.Scene) {}
