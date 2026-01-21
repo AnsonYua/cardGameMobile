@@ -59,6 +59,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     attackCoordinator,
     getSelectedSlot: () => selectionHandler?.getSelectedSlot(),
     getOpponentRestedUnitSlots: () => opponentResolver.getOpponentRestedUnitSlots(),
+    getOpponentUnitSlots: () => opponentResolver.getOpponentUnitSlots(),
     getOpponentPlayerId: () => opponentResolver.getOpponentPlayerId(),
     clearSelection: () => selectionHandler?.clearSelectionUI({ clearEngine: true }),
     refreshNeutral: () => getController()?.refreshActions("neutral"),
@@ -125,6 +126,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
     getOpponentRestedUnitSlots: () => opponentResolver.getOpponentRestedUnitSlots(),
+    getOpponentUnitSlots: () => opponentResolver.getOpponentUnitSlots(),
     onAttackUnit: async () => {
       await actionExecutor.handleAttackUnit();
       deps.onPlayerAction?.("attackUnit");

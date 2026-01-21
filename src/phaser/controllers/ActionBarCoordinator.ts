@@ -18,6 +18,7 @@ import {
   isMainPhase,
   isPlayersTurn,
 } from "./actionBarPolicy";
+import { getAttackUnitTargets } from "./attackTargetPolicy";
 import { createLogger } from "../utils/logger";
 
 type HandControls = {
@@ -44,6 +45,7 @@ export class ActionBarCoordinator {
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
       getOpponentRestedUnitSlots: () => SlotViewModel[];
+      getOpponentUnitSlots: () => SlotViewModel[];
       onAttackUnit: () => Promise<void>;
       onAttackShieldArea: () => Promise<void>;
       onCancelSelection: () => void;
@@ -204,9 +206,11 @@ export class ActionBarCoordinator {
     const selectedSlot = this.deps.getSelectedSlot();
     const raw: any = this.deps.engine.getSnapshot().raw;
     const phaseAllowsAttack = this.phaseAllowsAttack(raw);
+    const opponentSlots = this.deps.getOpponentUnitSlots();
+    const attackTargets = getAttackUnitTargets(selectedSlot, opponentSlots);
     const slotState = computeSlotActionState({
       selection,
-      opponentHasUnit: this.deps.getOpponentRestedUnitSlots().length > 0,
+      opponentHasUnit: attackTargets.length > 0,
       attackerReady: selectedSlot?.unit?.canAttackThisTurn === true && selectedSlot?.unit?.isRested !== true,
       hasUnit: !!selectedSlot?.unit,
       phaseAllowsAttack,

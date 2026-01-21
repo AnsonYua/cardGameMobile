@@ -3,6 +3,7 @@ import type { GameEngine } from "../game/GameEngine";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { ApiManager } from "../api/ApiManager";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
+import { getAttackUnitTargets } from "./attackTargetPolicy";
 
 export class ActionExecutor {
   constructor(
@@ -13,6 +14,7 @@ export class ActionExecutor {
       attackCoordinator: AttackTargetCoordinator;
       getSelectedSlot: () => SlotViewModel | undefined;
       getOpponentRestedUnitSlots: () => SlotViewModel[];
+      getOpponentUnitSlots: () => SlotViewModel[];
       getOpponentPlayerId: () => string | undefined;
       clearSelection: () => void;
       refreshNeutral: () => void;
@@ -29,7 +31,8 @@ export class ActionExecutor {
       console.warn("Attacker is rested and cannot attack");
       return;
     }
-    const targets = this.deps.getOpponentRestedUnitSlots();
+    const opponentSlots = this.deps.getOpponentUnitSlots();
+    const targets = getAttackUnitTargets(attacker, opponentSlots);
     if (!targets.length) {
       console.warn("No opponent units to target");
       return;
