@@ -511,11 +511,12 @@ export class BoardScene extends Phaser.Scene {
     const status = this.statusControls;
     const hand = this.handControls;
     const actions = this.actionControls;
+    const queueRunning = this.animationQueue?.isRunning?.() ?? false;
 
     energy?.setVisible(true);
     status?.setVisible(true);
     hand?.setVisible(true);
-    actions?.setVisible(true);
+    actions?.setVisible(!queueRunning);
 
     if (fade) {
       energy?.fadeIn();
@@ -531,12 +532,13 @@ export class BoardScene extends Phaser.Scene {
     const status = this.statusControls;
     const hand = this.handControls;
     const actions = this.actionControls;
+    const queueRunning = this.animationQueue?.isRunning?.() ?? false;
     base?.setBaseTowerVisible(true, false);
     base?.setBaseTowerVisible(false, false);
     energy?.setVisible(false);
     status?.setVisible(false);
     hand?.setVisible(false);
-    actions?.setVisible(true);
+    actions?.setVisible(!queueRunning);
   }
 
   private updateHeaderOpponentHand(raw: any) {
@@ -597,6 +599,9 @@ export class BoardScene extends Phaser.Scene {
     const notificationQueue = getNotificationQueue(raw);
     const events = this.animationQueue?.buildEvents(notificationQueue) ?? [];
     if (!events.length) return false;
+
+    // Hide the action bar while the animation queue is active.
+    this.actionControls?.setVisible(false);
 
     const playerId = this.gameContext.playerId;
     const currentSlots = this.slotPresenter.toSlots(raw, playerId);
@@ -681,6 +686,10 @@ export class BoardScene extends Phaser.Scene {
 
   private refreshActionBarState(raw: any) {
     if (this.gameEnded) {
+      return;
+    }
+    if (this.animationQueue?.isRunning?.()) {
+      this.actionControls?.setVisible(false);
       return;
     }
     const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;

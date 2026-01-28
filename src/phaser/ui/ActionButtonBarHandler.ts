@@ -27,6 +27,8 @@ export class ActionButtonBarHandler {
   private waitingMode = false;
   private waitingOverride: ActionButtonConfig[] | null = null;
   private waitingOverrideKey = "";
+  private visible = true;
+  private background?: Phaser.GameObjects.GameObject;
   private waitingLabelText = "Waiting for opponent...";
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
@@ -108,7 +110,12 @@ export class ActionButtonBarHandler {
   }
 
   setVisible(visible: boolean) {
-    this.elements.forEach((e) => (e as any).setVisible?.(visible));
+    this.visible = visible;
+    // Keep the background panel visible; only hide the buttons/label above the hand.
+    this.elements.forEach((e) => {
+      if (e === this.background) return;
+      (e as any).setVisible?.(visible);
+    });
     this.hitAreas.forEach((h) => {
       h.setVisible(visible);
       if (visible) {
@@ -117,6 +124,7 @@ export class ActionButtonBarHandler {
         h.disableInteractive();
       }
     });
+    this.waitingLabel?.setVisible(visible);
   }
 
   fadeIn(duration = 200) {
@@ -160,10 +168,13 @@ export class ActionButtonBarHandler {
       strokeWidth: 0,
     }).setDepth(0);
     this.elements.push(bg);
+    this.background = bg;
+    bg.setVisible(true);
     this.waitingLabel?.destroy();
     this.waitingTween?.remove();
     if (this.waitingMode && !this.waitingOverride) {
       this.drawWaitingLabel(barY);
+      this.setVisible(this.visible);
       return;
     }
 
@@ -199,6 +210,7 @@ export class ActionButtonBarHandler {
       this.drawButton(x, barY, btn.width, btnHeight, btn.config, 900, btn.color, btn.actionIndex);
       currentX += btn.width + btnGap;
     });
+    this.setVisible(this.visible);
   }
 
   private drawRoundedRect(config: {
