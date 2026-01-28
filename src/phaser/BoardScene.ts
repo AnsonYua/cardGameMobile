@@ -259,7 +259,9 @@ export class BoardScene extends Phaser.Scene {
       getAnimationQueue: () => this.animationQueue,
       getNotifications: (raw) => getNotificationQueue(raw),
     });
-    this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext);
+    this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext, {
+      shouldDeferPolling: () => this.animationQueue?.isRunning?.() ?? false,
+    });
     this.sessionController = new SessionController({
       match: this.match,
       engine: this.engine,
@@ -735,6 +737,7 @@ export class BoardScene extends Phaser.Scene {
       this.updateHandArea({ skipAnimation: true });
       this.refreshActionBarState(raw);
     }
+    void this.debugControls?.flushDeferredPoll();
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {

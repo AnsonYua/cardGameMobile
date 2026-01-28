@@ -12,13 +12,19 @@ export class DebugControls {
   private api = new ApiManager();
   private pollEvent?: Phaser.Time.TimerEvent;
   private readonly pollDelayMs = 1000;
+  private readonly shouldDeferPolling?: () => boolean;
+  private deferredPollPending = false;
+  private deferredPollLogged = false;
 
   constructor(
     private scene: Phaser.Scene,
     private match: MatchStateMachine,
     private engine: GameEngine,
     private context: GameContext,
-  ) {}
+    opts?: { shouldDeferPolling?: () => boolean },
+  ) {
+    this.shouldDeferPolling = opts?.shouldDeferPolling;
+  }
 
   show() {
     if (!this.popup) {
@@ -52,6 +58,13 @@ export class DebugControls {
 
   async stopAutoPolling() {
     await this.endAutoPolling({ hidePopup: false });
+  }
+
+  async flushDeferredPoll() {
+    if (!this.deferredPollPending) return;
+    this.deferredPollPending = false;
+    this.deferredPollLogged = false;
+    await this.handleTestPolling(false, { skipPopupHide: true, source: "Deferred polling (flush)" });
   }
 
   // Expose testing hooks on window.__cardTest using provided helpers from the scene.
@@ -113,6 +126,14 @@ export class DebugControls {
     try {
       if (!opts?.skipPopupHide) {
         await this.popup?.hide();
+      }
+      if (this.shouldDeferPolling?.()) {
+        this.deferredPollPending = true;
+        if (!this.deferredPollLogged) {
+          this.deferredPollLogged = true;
+          console.log(`${opts?.source ?? "Polling"} deferred (animation queue running)`);
+        }
+        return;
       }
       const snapshot = await this.engine.updateGameStatus(this.context.gameId ?? undefined, this.context.playerId, {
         silent: silentRefresh,
