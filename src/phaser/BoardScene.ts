@@ -40,7 +40,7 @@ import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
 import { getNotificationQueue } from "./utils/NotificationUtils";
-import { detectGameEnd, type GameEndInfo } from "./scene/gameEndHelpers";
+import type { GameEndInfo } from "./scene/gameEndHelpers";
 import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
@@ -58,7 +58,7 @@ import type { TurnTimerController } from "./controllers/TurnTimerController";
 import { createTurnTimerBindings } from "./scene/boardTimerBindings";
 import { setupBoardFlows } from "./scene/boardFlowSetup";
 import { getEnergyStatus, getOpponentHandCount, resolvePlayerIds } from "./scene/boardStatusHelpers";
-import { shouldDeferHandUpdate, shouldHideHandForStartGame, shouldRefreshHandForEvent } from "./scene/boardHandHelpers";
+import { shouldHideHandForStartGame, shouldRefreshHandForEvent } from "./scene/boardHandHelpers";
 import {
   createTimerPauseResumeHandlers,
   createTurnStartDrawHandlers,
@@ -240,6 +240,7 @@ export class BoardScene extends Phaser.Scene {
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
+      onGameEnded: (info) => this.handleGameEnded(info),
       ...createTurnStartDrawHandlers({
         gate: this.turnStartDrawGate,
         timer: this.turnTimer,
@@ -406,21 +407,67 @@ export class BoardScene extends Phaser.Scene {
     this.refreshPhase(skipAnimation);
   }
 
+  private getPhase(raw: any) {
+    return raw?.gameEnv?.phase ?? raw?.phase ?? null;
+  }
+
+  private getBattle(raw: any) {
+    return raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle ?? null;
+  }
+
+  private buildPhaseEnv(raw: any) {
+    return {
+      phase: this.getPhase(raw),
+      battle: this.getBattle(raw),
+      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer ?? null,
+    };
+  }
+
+  private buildRefreshContext(skipAnimation: boolean) {
+    const snapshot = this.engine.getSnapshot();
+    const raw = snapshot.raw as any;
+    if (!raw) return null;
+    const previousRaw = snapshot.previousRaw as any;
+    return {
+      raw,
+      previousRaw,
+      status: snapshot.status,
+      allowAnimations: !skipAnimation,
+      currentGameEnv: this.buildPhaseEnv(raw),
+      previousGameEnv: this.buildPhaseEnv(previousRaw),
+    };
+  }
+
   private refreshPhase(skipAnimation: boolean) {
-    const raw = this.engine.getSnapshot().raw as any;
-    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
-    this.log.debug("refreshPhase", { skipAnimation, battle });
-    this.checkForGameEnd(raw);
-    if (this.gameEnded) {
-      this.disableInputs();
+    const ctx = this.buildRefreshContext(skipAnimation);
+    if (!ctx) return;
+
+    this.log.debug("refreshPhase", {
+      skipAnimation,
+      status: ctx.status,
+      phase: ctx.currentGameEnv.phase,
+      battle: ctx.currentGameEnv.battle,
+      currentPlayer: ctx.currentGameEnv.currentPlayer,
+      previousPhase: ctx.previousGameEnv.phase,
+      previousBattle: ctx.previousGameEnv.battle,
+    });
+
+    this.updateHeaderPhaseStatus(ctx.raw);
+    // updateTurnTimer() already calls TurnStartDrawGate.updateFromSnapshot(raw) via updateTurnTimerWithGate().
+    // Keep it early so action bar gating sees the latest gate state.
+    this.updateTurnTimer(ctx.raw);
+
+    // Notification-driven events can affect multiple UI areas; run them first and stop the normal UI pass
+    // while the animation queue is running.
+    const uiBlocked = this.processNotificationQueue({
+      raw: ctx.raw,
+      previousRaw: ctx.previousRaw,
+      animate: ctx.allowAnimations,
+    });
+    if (!uiBlocked) {
+      this.updateMainPhaseUI(ctx.raw, skipAnimation);
     }
-    this.updateHeaderPhaseStatus(raw);
-    this.turnStartDrawGate?.updateFromSnapshot(raw);
-    this.updateMainPhaseUI(raw, skipAnimation);
-    this.updateTurnTimer(raw);
-    if (raw) {
-      void this.effectTargetController?.syncFromSnapshot(raw);
-    }
+    void this.effectTargetController?.syncFromSnapshot(ctx.raw);
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {
@@ -431,17 +478,17 @@ export class BoardScene extends Phaser.Scene {
       playerId: this.gameContext.playerId,
       queueRunning: this.animationQueue?.isRunning?.(),
     });
+
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
     if (this.gameEnded) {
-      this.updateSlots({ animate: !skipAnimation });
+      this.updateSlots();
       this.updateBaseAndShield();
       return;
     }
     this.showUI(!skipAnimation);
-    const deferHand = this.shouldDeferHandUpdate(raw, skipAnimation);
-    this.updateHandArea({ skipAnimation, deferForAnimation: deferHand });
-    this.updateSlots({ animate: !skipAnimation });
+    this.updateHandArea({ skipAnimation });
+    this.updateSlots();
     this.updateBaseAndShield();
     this.refreshActionBarState(raw);
   }
@@ -526,34 +573,37 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private shouldDeferHandUpdate(raw: any, skipAnimation: boolean) {
-    return shouldDeferHandUpdate(raw, skipAnimation, this.animationQueue, this.gameContext.playerId);
-  }
-
-  private shouldHideHandForStartGame(raw: any) {
-    return shouldHideHandForStartGame(raw, this.startGameAnimating, this.startGameCompleted, this.gameContext.playerId);
-  }
-
   private shouldRefreshHandForEvent(event: { type?: string; payload?: any }) {
     return shouldRefreshHandForEvent(event, this.gameContext.playerId);
   }
 
-  private updateSlots(opts: { animate?: boolean } = {}) {
-    const snapshot = this.engine.getSnapshot();
-    const raw = snapshot.raw as any;
-    if (!raw) return;
-    const previousRaw = snapshot.previousRaw as any;
-    const playerId = this.gameContext.playerId;
-    const currentSlots = this.slotPresenter.toSlots(raw, playerId);
-    const allowAnimations = opts.animate ?? true;
+  private processNotificationQueue(params: { raw: any; previousRaw?: any; animate: boolean }) {
+    const raw = params.raw as any;
+    const previousRaw = params.previousRaw as any;
+
+    const queueRunning = this.animationQueue?.isRunning() ?? false;
+    if (queueRunning) {
+      this.log.debug("processNotificationQueue skip (queue running)");
+      return true;
+    }
+
+    if (this.gameEnded) {
+      return false;
+    }
 
     const notificationQueue = getNotificationQueue(raw);
+    const events = this.animationQueue?.buildEvents(notificationQueue) ?? [];
+    if (!events.length) return false;
+
+    const playerId = this.gameContext.playerId;
+    const currentSlots = this.slotPresenter.toSlots(raw, playerId);
+    const allowAnimations = params.animate;
+
     const boardSlotPositions = this.slotControls?.getBoardSlotPositions?.();
     const cardLookup = {
       findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
       findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
     };
-    const events = this.animationQueue?.buildEvents(notificationQueue) ?? [];
     const ctx = {
       notificationQueue,
       slots: currentSlots,
@@ -567,36 +617,42 @@ export class BoardScene extends Phaser.Scene {
       currentRaw: raw,
     };
 
-    const queueRunning = this.animationQueue?.isRunning() ?? false;
-    const hasNewEvents = events.length > 0;
-
-    if (!allowAnimations && hasNewEvents && !queueRunning) {
-      // Ensure turn-start notifications are marked processed even when animations are skipped.
-      this.log.debug("updateSlots enqueue without animations", { eventCount: events.length });
-      this.renderSlots(currentSlots);
-      this.animationQueue?.enqueue(events, ctx);
-      return;
-    }
-
-    if (allowAnimations && hasNewEvents && !queueRunning) {
-      // eslint-disable-next-line no-console
-      this.log.debug("updateSlots startBatch", { eventCount: events.length });
+    if (!allowAnimations) {
+      this.log.debug("processNotificationQueue startBatch (animations skipped)", { eventCount: events.length });
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
       const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
       this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
       this.renderSlots(initialSlots);
       this.animationQueue?.enqueue(events, ctx);
-      return;
+      return true;
     }
 
-    if (allowAnimations && queueRunning) {
+    this.log.debug("processNotificationQueue startBatch", { eventCount: events.length });
+    const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
+    const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
+    this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
+    this.renderSlots(initialSlots);
+    this.animationQueue?.enqueue(events, ctx);
+    return true;
+  }
+
+  private updateSlots() {
+    const snapshot = this.engine.getSnapshot();
+    const raw = snapshot.raw as any;
+    if (!raw) return;
+    const playerId = this.gameContext.playerId;
+    const currentSlots = this.slotPresenter.toSlots(raw, playerId);
+
+    const queueRunning = this.animationQueue?.isRunning() ?? false;
+
+    if (queueRunning) {
       // eslint-disable-next-line no-console
       this.log.debug("updateSlots skip render (queue running)");
       return;
     }
 
     // eslint-disable-next-line no-console
-    this.log.debug("updateSlots render current", { hasNewEvents, queueRunning });
+    this.log.debug("updateSlots render current", { queueRunning });
     this.renderSlots(currentSlots);
   }
 
@@ -672,6 +728,13 @@ export class BoardScene extends Phaser.Scene {
     this.baseShieldAnimationRender?.clear();
     this.renderSlots(slots);
     this.updateBaseAndShield(raw);
+    this.updateHeaderOpponentHand(raw);
+    this.updateEnergyStatus(raw);
+    if (!this.gameEnded) {
+      this.showUI(false);
+      this.updateHandArea({ skipAnimation: true });
+      this.refreshActionBarState(raw);
+    }
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
@@ -719,14 +782,6 @@ export class BoardScene extends Phaser.Scene {
 
     applyState(renderStates.player, false);
     applyState(renderStates.opponent, true);
-  }
-
-  private checkForGameEnd(raw: any) {
-    if (!raw || this.gameEnded) return;
-    const info = detectGameEnd(raw);
-    if (info) {
-      this.handleGameEnded(info);
-    }
   }
 
   private handleGameEnded(info: { winnerId?: string; endReason?: string; endedAt?: number | string }) {

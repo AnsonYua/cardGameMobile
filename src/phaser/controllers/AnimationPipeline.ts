@@ -9,6 +9,7 @@ import { BaseShieldAnimationRenderController } from "../animations/BaseShieldAni
 import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { HandCardView } from "../ui/HandTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
+import type { GameEndInfo } from "../scene/gameEndHelpers";
 
 type SlotControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -57,6 +58,7 @@ export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
   handControls: HandControls | null;
+  onGameEnded?: (info: GameEndInfo) => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
@@ -114,6 +116,7 @@ export function createAnimationPipeline(deps: {
     cardPlayAnimator: notificationAnimator,
     battleAnimator: battleAnimations,
     attackIndicator: attackIndicatorController,
+    onGameEnded: deps.onGameEnded,
     burstChoiceFlow: deps.burstFlow,
     phasePopup: deps.phaseChangeDialog
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }

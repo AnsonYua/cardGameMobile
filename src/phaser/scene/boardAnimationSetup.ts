@@ -17,6 +17,7 @@ import type { TurnOrderStatusDialog } from "../ui/TurnOrderStatusDialog";
 import type { CoinFlipOverlay } from "../ui/CoinFlipOverlay";
 import type { PhaseChangeDialog } from "../ui/PhaseChangeDialog";
 import type { BoardUiControls } from "./boardUiSetup";
+import type { GameEndInfo } from "./gameEndHelpers";
 
 export type AnimationPipelineSetup = {
   animationQueue: AnimationQueue;
@@ -51,6 +52,7 @@ export type AnimationPipelineParams = {
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
   shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
+  onGameEnded?: (info: GameEndInfo) => void;
   onTurnStartDrawPopupStart?: () => void;
   onTurnStartDrawPopupEnd?: () => void;
 };
@@ -82,6 +84,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     scene,
     slotControls: controls.slotControls,
     handControls: controls.handControls,
+    onGameEnded: params.onGameEnded,
     drawPopupDialog: dialogs.drawPopupDialog,
     mulliganDialog: dialogs.mulliganDialog,
     chooseFirstPlayerDialog: dialogs.chooseFirstPlayerDialog,

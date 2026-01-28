@@ -3,6 +3,7 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
+import type { GameEndInfo } from "../scene/gameEndHelpers";
 import { createLogger } from "../utils/logger";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -12,6 +13,7 @@ export function buildNotificationHandlers(
     cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
@@ -39,6 +41,17 @@ export function buildNotificationHandlers(
 ) {
   const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
+    [
+      "GAME_ENDED",
+      async (event) => {
+        const payload = event?.payload ?? {};
+        deps.onGameEnded?.({
+          winnerId: payload.winnerId,
+          endReason: payload.reason ?? payload.endReason,
+          endedAt: payload.timestamp ?? payload.endedAt,
+        });
+      },
+    ],
     [
       "BURST_EFFECT_CHOICE",
       async (event, ctx) => {
@@ -142,12 +155,22 @@ export function buildNotificationHandlers(
       "BATTLE_RESOLVED",
       async (event, ctx) => {
         deps.attackIndicator.clear();
-        await deps.battleAnimator.playBattleResolution(
-          event,
-          ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-          ctx.currentRaw,
-        );
+        if (ctx.allowAnimations) {
+          await deps.battleAnimator.playBattleResolution(
+            event,
+            ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,
+            ctx.boardSlotPositions ?? undefined,
+            ctx.currentRaw,
+          );
+        }
+        const result = event?.payload?.result ?? {};
+        if (result?.gameEnded) {
+          deps.onGameEnded?.({
+            winnerId: result.winnerId ?? event?.payload?.winnerId,
+            endReason: result.endReason ?? result.reason,
+            endedAt: result.endedAt ?? result.timestamp,
+          });
+        }
       },
     ],
     [

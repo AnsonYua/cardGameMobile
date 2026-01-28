@@ -55,81 +55,110 @@ export class GameEngine {
     opts: { fromScenario?: boolean; silent?: boolean; statusPayload?: GameStatusResponse | null } = {},
   ) {
     if (!gameId || !playerId) return this.getSnapshot();
+    const snapshotNow = () => this.getSnapshot();
     const fromScenario = opts.fromScenario === true;
     const silent = opts.silent === true || fromScenario;
-    const previousPhase = this.lastRaw?.gameEnv?.phase ?? this.lastRaw?.phase ?? null;
-    const previousBattle = this.getBattle(this.lastRaw);
-    const previousStatus = this.contextStore.get().lastStatus;
+    const previousGameEnv = {
+      phase: this.getPhase(this.lastRaw),
+      battle: this.getBattle(this.lastRaw),
+      status: this.contextStore.get().lastStatus,
+      raw: this.lastRaw,
+    };
     try {
-      const forcedPayload = opts.statusPayload ?? null;
-      const response: GameStatusResponse = forcedPayload
-        ? forcedPayload
-        : fromScenario && this.lastRaw
-        ? this.lastRaw
-        : await this.match.getGameStatus(gameId, playerId);
-      this.log.debug("status poll", {
-        gameId,
-        playerId,
-        phase: response?.gameEnv?.phase,
-        version: response?.gameEnv?.version,
+      const response = await this.resolveStatusPayload(gameId, playerId, {
+        fromScenario,
+        forcedPayload: opts.statusPayload ?? null,
       });
-      const processingQueue = response?.gameEnv?.processingQueue ?? [];
-      const notificationQueue = response?.gameEnv?.notificationQueue ?? [];
-      const processingTypes = Array.isArray(processingQueue)
-        ? processingQueue.map((item) => item?.type ?? "unknown")
-        : [];
-      const notificationTypes = Array.isArray(notificationQueue)
-        ? notificationQueue.map((item) => item?.type ?? "unknown")
-        : [];
-      this.log.debug("status payload", {
-        currentPlayer: response?.gameEnv?.currentPlayer,
-        processingQueue: processingTypes,
-        notificationQueue: notificationTypes,
-        processingTypesText: processingTypes.join(","),
-        notificationTypesText: notificationTypes.join(","),
-      });
+      this.logStatusPoll(gameId, playerId, response);
+      this.logStatusQueues(response);
+
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
       // Only fall back to the full response if it's a string; otherwise use the previous status.
-      const fallback = typeof response === "string" ? response : previousStatus;
-      const derivedStatus = response?.status ?? response?.gameStatus ?? fallback;
-      const nextPhase = response?.gameEnv?.phase ?? response?.phase ?? null;
-      this.previousRaw = this.lastRaw;
+      const derivedStatus = this.deriveStatus(response, previousGameEnv.status);
+      const nextGameEnv = {
+        phase: this.getPhase(response),
+        battle: this.getBattle(response),
+        status: derivedStatus,
+      };
+
+      this.previousRaw = previousGameEnv.raw;
       this.lastRaw = response;
-      const nextBattle = this.getBattle(this.lastRaw);
-      this.pendingBattleTransition = { prevBattle: previousBattle, nextBattle };
-      this.contextStore.update({ lastStatus: derivedStatus });
-      this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-      this.log.debug("update game status", this.getSnapshot());
+      this.pendingBattleTransition = { prevBattle: previousGameEnv.battle, nextBattle: nextGameEnv.battle };
+
+      this.contextStore.update({ lastStatus: nextGameEnv.status });
+      this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
+      this.log.debug("update game status", snapshotNow());
+
       if (silent) {
         // Scenario loads should update UI without animations.
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, this.getSnapshot());
-      } else if (previousPhase !== GamePhase.Redraw && nextPhase === GamePhase.Redraw) {
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, snapshotNow());
+      } else if (previousGameEnv.phase !== GamePhase.Redraw && nextGameEnv.phase === GamePhase.Redraw) {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
-        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
+        this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
         await this.fetchGameResources(gameId, playerId, response);
-        this.contextStore.update({ lastStatus: derivedStatus });
-        this.events.emit(ENGINE_EVENTS.STATUS, this.getSnapshot());
-        this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, this.getSnapshot());
+        this.contextStore.update({ lastStatus: nextGameEnv.status });
+        this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
+        this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, snapshotNow());
       } else {
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, this.getSnapshot());
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE, snapshotNow());
       }
-      /*
-      if lastStatus is not mainPhase and new status is mainPhase 
-       trigger this.refreshActions("neutral"); in BoardScene
-      */
-      const enteredMainPhase = !this.isMainPhase(previousPhase) && this.isMainPhase(nextPhase);
+      const enteredMainPhase = !this.isMainPhase(previousGameEnv.phase) && this.isMainPhase(nextGameEnv.phase);
       if (enteredMainPhase) {
-        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_ENTER, this.getSnapshot());
+        this.events.emit(ENGINE_EVENTS.MAIN_PHASE_ENTER, snapshotNow());
         this.contextStore.update({ lastStatus: "Main Step" });
       }
 
-      return this.getSnapshot();
+      return snapshotNow();
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
       throw err;
     }
+  }
+
+  private getPhase(payload: any): any {
+    return payload?.gameEnv?.phase ?? payload?.phase ?? null;
+  }
+
+  private async resolveStatusPayload(
+    gameId: string,
+    playerId: string,
+    opts: { fromScenario: boolean; forcedPayload: GameStatusResponse | null },
+  ): Promise<GameStatusResponse> {
+    if (opts.forcedPayload) return opts.forcedPayload;
+    if (opts.fromScenario && this.lastRaw) return this.lastRaw;
+    return this.match.getGameStatus(gameId, playerId);
+  }
+
+  private deriveStatus(response: GameStatusResponse, previousStatus: any) {
+    const fallback = typeof response === "string" ? response : previousStatus;
+    return response?.status ?? response?.gameStatus ?? fallback;
+  }
+
+  private logStatusPoll(gameId: string, playerId: string, response: GameStatusResponse) {
+    this.log.debug("status poll", {
+      gameId,
+      playerId,
+      phase: response?.gameEnv?.phase,
+      version: response?.gameEnv?.version,
+    });
+  }
+
+  private logStatusQueues(response: GameStatusResponse) {
+    const processingQueue = response?.gameEnv?.processingQueue ?? [];
+    const notificationQueue = response?.gameEnv?.notificationQueue ?? [];
+    const processingTypes = Array.isArray(processingQueue) ? processingQueue.map((item) => item?.type ?? "unknown") : [];
+    const notificationTypes = Array.isArray(notificationQueue)
+      ? notificationQueue.map((item) => item?.type ?? "unknown")
+      : [];
+    this.log.debug("status payload", {
+      currentPlayer: response?.gameEnv?.currentPlayer,
+      processingQueue: processingTypes,
+      notificationQueue: notificationTypes,
+      processingTypesText: processingTypes.join(","),
+      notificationTypesText: notificationTypes.join(","),
+    });
   }
 
   getSnapshot(): GameStatusSnapshot {

@@ -4,6 +4,7 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
+import type { GameEndInfo } from "../scene/gameEndHelpers";
 import { buildNotificationHandlers, type NotificationHandler } from "./NotificationHandlers";
 
 type QueueItem = {
@@ -27,6 +28,7 @@ export class AnimationQueue {
       cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
@@ -152,7 +154,6 @@ export class AnimationQueue {
   }
 
   private async runEvent(event: SlotNotification, ctx: AnimationContext): Promise<void> {
-    if (!ctx.allowAnimations) return;
     const type = (event.type || "").toUpperCase();
     console.log("sequence of animation ", type);
     const handler = this.handlers.get(type);
