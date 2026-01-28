@@ -42,7 +42,7 @@ export function bindBoardSceneEvents(deps: EventBindingDeps) {
     deps.pilotFlow?.showPilotTargetDialog("playPilotFromHand");
   });
   deps.engine.events.on(ENGINE_EVENTS.GAME_RESOURCE, (payload: any) => {
-    console.log("Game resources fetched", payload?.resources);
+    void payload;
   });
   deps.engine.events.on(ENGINE_EVENTS.LOADING_START, () => deps.onShowLoading());
   deps.engine.events.on(ENGINE_EVENTS.LOADING_END, () => deps.onHideLoading());

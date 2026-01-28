@@ -125,8 +125,7 @@ export class AnimationQueue {
     try {
       await this.runEvent(item.event, item.ctx);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("[AnimationQueue] event failed", item.event.type, item.event.id, err);
+      void err;
     } finally {
       if (item.event?.id) {
         this.markCompleted(item.event.id);
@@ -155,7 +154,6 @@ export class AnimationQueue {
 
   private async runEvent(event: SlotNotification, ctx: AnimationContext): Promise<void> {
     const type = (event.type || "").toUpperCase();
-    console.log("sequence of animation ", type);
     const handler = this.handlers.get(type);
     if (!handler) return;
     await handler(event, ctx);

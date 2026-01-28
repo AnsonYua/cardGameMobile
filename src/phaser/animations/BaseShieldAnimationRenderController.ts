@@ -15,15 +15,10 @@ export type BaseShieldState = {
 export class BaseShieldAnimationRenderController {
   private renderSnapshots = new Map<BaseSide, BaseShieldState | null>();
   private eventSides = new Map<string, BaseSide[]>();
-  private debug = false;
 
   constructor(private resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined) {}
 
   startBatch(events: SlotNotification[], previousRaw: any, currentRaw: any) {
-    if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log("[BaseShieldRender] startBatch", { eventCount: events.length });
-    }
     this.renderSnapshots.clear();
     this.eventSides.clear();
 

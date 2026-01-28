@@ -155,11 +155,6 @@ export class SelectionActionController {
   }
 
   updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {
-    console.log("[ActionBar] updateActionBarForPhase", {
-      isSelfTurn: opts.isSelfTurn,
-      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
-      phase: raw?.gameEnv?.phase ?? raw?.phase,
-    });
     this.syncAndUpdateActionBar("neutral", raw, { isSelfTurn: opts.isSelfTurn });
   }
 
@@ -207,14 +202,6 @@ export class SelectionActionController {
 
   syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
-    // eslint-disable-next-line no-console
-    console.log("[ActionBar] syncAndUpdateActionBar", {
-      source,
-      hasRaw: Boolean(snapshotRaw),
-      currentPlayer: snapshotRaw?.gameEnv?.currentPlayer ?? snapshotRaw?.currentPlayer,
-      phase: snapshotRaw?.gameEnv?.phase ?? snapshotRaw?.phase,
-      isSelfTurn: opts.isSelfTurn,
-    });
     this.syncSnapshotState(snapshotRaw, opts);
     if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
       this.deps.onDelayActionBar?.(snapshotRaw);

@@ -18,7 +18,6 @@ export class HandAreaHandler {
   private previewCardUid?: string;
   private layoutState?: HandLayoutState;
   private onCardClick?: (card: HandCardView) => void;
-  private debug = true;
 
   private layout: HandLayoutRenderer;
   private renderer: HandRenderer;
@@ -59,21 +58,6 @@ export class HandAreaHandler {
       (card) => this.handlePointerUp(card),
       () => this.handlePointerOut(),
     );
-
-    if (this.debug) {
-      // eslint-disable-next-line no-console
-      console.log("[HandArea] layout", {
-        count: this.handCards.length,
-        viewW: this.layoutState.viewW,
-        viewH: this.layoutState.viewH,
-        cardW: this.layoutState.cardW,
-        cardH: this.layoutState.cardH,
-        viewX: this.layoutState.viewX,
-        viewY: this.layoutState.viewY,
-        scrollX: this.scroll.getScrollX(),
-        minScrollX: this.layoutState.minScrollX,
-      });
-    }
   }
 
   setHand(cards: HandCardView[], opts?: { preserveSelectionUid?: string }) {

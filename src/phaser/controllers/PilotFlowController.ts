@@ -47,7 +47,6 @@ export class PilotFlowController {
       onSelect: async (slot) => {
         const targetUid = slot?.unit?.cardUid || slot?.unit?.id;
         if (!targetUid) {
-          console.warn("No target unit uid found for pilot target selection");
           return;
         }
         engine.setPilotTarget(targetUid);

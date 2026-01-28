@@ -86,7 +86,6 @@ export class DebugControls {
       stopAutoPolling: () => this.stopAutoPolling(),
     };
     (window as any)[globalKey] = { ...baseHooks, ...hooks };
-    console.log("Test hooks registered on window.__cardTest");
   }
 
   private async handleSetScenario(scenarioPath?: string, opts?: { hidePopup?: boolean }) {
@@ -104,7 +103,7 @@ export class DebugControls {
         scenarioJson?.scenario?.gameEnv ??
         null;
       if (!gameEnv) {
-        console.warn("Scenario response missing initialGameEnv; raw payload:", scenarioJson);
+        void scenarioJson;
         throw new Error("Scenario response missing initialGameEnv");
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
@@ -115,7 +114,6 @@ export class DebugControls {
       //alert(gameId)
       await this.api.injectGameState(gameId, gameEnv);
       await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
-      console.log("Scenario injected", { scenarioPath: targetScenario, gameId });
       await this.engine.updateGameStatus(gameId, this.context.playerId, { fromScenario: true, silent: true });
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
     } catch (err) {
@@ -131,7 +129,6 @@ export class DebugControls {
         this.deferredPollPending = true;
         if (!this.deferredPollLogged) {
           this.deferredPollLogged = true;
-          console.log(`${opts?.source ?? "Polling"} deferred (animation queue running)`);
         }
         return;
       }
@@ -142,9 +139,8 @@ export class DebugControls {
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;
       }
-      console.log(`${opts?.source ?? "Polling"} status:`, this.context.lastStatus);
     } catch (err) {
-      console.warn(`${opts?.source ?? "Polling"} failed`, err);
+      void err;
     }
   }
 
@@ -171,7 +167,6 @@ export class DebugControls {
     if (opts?.hidePopup !== false) {
       await this.popup?.hide();
     }
-    console.log(`Started auto polling every ${this.pollDelayMs / 1000}s`);
   }
 
   private async endAutoPolling(opts?: { hidePopup?: boolean }) {
@@ -182,7 +177,6 @@ export class DebugControls {
     if (opts?.hidePopup !== false) {
       await this.popup?.hide();
     }
-    console.log("Stopped auto polling");
   }
 
   private async handleTestJoinButton() {
@@ -211,9 +205,8 @@ export class DebugControls {
         actionType: "confirmBattle",
       });
       await this.engine.updateGameStatus(gameId, selfId);
-      console.log("Sent confirmBattle as opponent", { opponentId, gameId });
     } catch (err) {
-      console.warn("ConfirmBattle (opponent) failed", err);
+      void err;
     }
   }
 
@@ -228,9 +221,8 @@ export class DebugControls {
         actionType: "resolveBattle",
       });
       await this.engine.updateGameStatus(gameId, this.context.playerId);
-      console.log("Sent resolveBattle", { playerId, gameId });
     } catch (err) {
-      console.warn("resolveBattle failed", err);
+      void err;
     }
   }
 }

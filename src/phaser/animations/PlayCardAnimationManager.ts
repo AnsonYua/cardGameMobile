@@ -29,7 +29,6 @@ export class PlayCardAnimationManager {
   }
 
   private playFlight({ textureKey, fallbackLabel, start, end, size, angle }: PlayAnimationPayload) {
-    console.log("playFlight ",textureKey)
     return new Promise<void>((resolve) => {
       // Bail if geometry is invalid to avoid runtime errors.
       const valid =

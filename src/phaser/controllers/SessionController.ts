@@ -75,7 +75,6 @@ export class SessionController {
           : `demo-${Date.now()}`;
       contextStore.update({ gameId: fallbackGameId });
       this.deps.onOfflineFallback(fallbackGameId, msg);
-      console.warn("Using offline fallback:", msg);
     }
   }
 }

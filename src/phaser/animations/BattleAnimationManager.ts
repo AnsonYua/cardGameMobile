@@ -53,14 +53,10 @@ export class BattleAnimationManager {
     if (!attackId) return;
     const snapshot = this.buildSnapshotFromResolution(event, slots, positions);
     if (!snapshot) {
-      // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] missing snapshot for battle", attackId, event.id, payload?.battleType);
       return;
     }
     const rawSlots = raw && this.config.getSlotsFromRaw ? this.config.getSlotsFromRaw(raw) : undefined;
     await this.playBattleResolutionAnimation(snapshot, payload, rawSlots);
-    // eslint-disable-next-line no-console
-    console.log("[BattleAnimation] completed resolution", attackId, payload?.battleType, Date.now());
   }
 
   private buildSnapshotFromResolution(
@@ -68,9 +64,6 @@ export class BattleAnimationManager {
     slots?: SlotViewModel[],
     positions?: SlotPositionMap | null,
   ): PendingBattleSnapshot | undefined {
-
-    console.log("slotttt  11122", JSON.stringify(positions))
-    console.log("slotttt  11133", JSON.stringify(positions))
     if (!slots || !positions) return undefined;
     const payload = note.payload || {};
     const attackerOwner =
@@ -81,29 +74,13 @@ export class BattleAnimationManager {
     const attackerSlotId = payload.attacker?.slot ?? payload.attackerSlot ?? payload.attackerSlotName;
     const attackerCarduid = payload.attacker?.carduid ?? payload.attackerCarduid ?? payload.attackerUnitUid;
     const attackerSlot = findSlotForAttack(slots, attackerCarduid, attackerOwner, attackerSlotId);
-    console.log("slotttt  111", JSON.stringify(attackerSlot))
     const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
-    console.log("slotttt  111", JSON.stringify(attackerPosition))
     const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
       resolveSlotOwnerByPlayer: this.config.resolveSlotOwnerByPlayer,
       anchors: this.config.anchors,
     });
 
-    console.log("slotttt  111", JSON.stringify(targetPoint))
     if (!attackerPosition || !targetPoint) {
-      // eslint-disable-next-line no-console
-      console.log("[BattleAnimation] missing positions", {
-        attackerPosition: attackerPosition ? "ok" : "missing",
-        targetPoint: targetPoint ? "ok" : "missing",
-        attackerOwner,
-        defenderOwner,
-        attackerSlotId,
-        targetSlotId:
-          payload.forcedTargetZone ?? payload.target?.slot ?? payload.targetSlotName ?? payload.targetSlot,
-        attackerCarduid: payload.attacker?.carduid ?? payload.attackerCarduid ?? payload.attackerUnitUid,
-        targetCarduid:
-          payload.forcedTargetCarduid ?? payload.target?.carduid ?? payload.targetCarduid ?? payload.targetUnitUid,
-      });
       return undefined;
     }
 
@@ -140,8 +117,6 @@ export class BattleAnimationManager {
       return;
     }
     const resolved = this.resolveBattleResult(snapshot, payload, rawSlots);
-    // eslint-disable-next-line no-console
-    console.log("[BattleAnimation] start", snapshot.attackId, payload?.battleType, Date.now());
     const hideSlot = (seed?: BattleSpriteSeed) => {
       if (!seed?.slotId) return;
       this.config.setSlotVisible?.(seed.owner, seed.slotId, false);
@@ -206,8 +181,6 @@ export class BattleAnimationManager {
         showSlot(snapshot.target);
       }
     }
-    // eslint-disable-next-line no-console
-    console.log("[BattleAnimation] end", snapshot.attackId, payload?.battleType, Date.now());
   }
 
   private buildBattleSpriteSeed(slot?: SlotViewModel, slotPosition?: { x: number; y: number; w: number; h: number; isOpponent?: boolean }): BattleSpriteSeed | undefined {

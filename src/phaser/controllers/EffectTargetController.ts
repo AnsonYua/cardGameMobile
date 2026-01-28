@@ -47,13 +47,6 @@ export class EffectTargetController {
       await this.deps.dialog.hide();
       return;
     }
-    // eslint-disable-next-line no-console
-    console.log("[EffectTarget] pending choice", {
-      id: pending?.id,
-      type: pendingType,
-      playerId: pending?.playerId,
-      userDecisionMade: pending?.data?.userDecisionMade,
-    });
     if (this.activeEffectChoiceId === pending.id && this.deps.dialog.isOpen()) {
       return;
     }
@@ -105,7 +98,7 @@ export class EffectTargetController {
           this.deps.onPlayerAction?.();
           await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
         } catch (err) {
-          console.warn("confirmTargetChoice failed", err);
+          void err;
         } finally {
           this.activeEffectChoiceId = undefined;
           await this.deps.dialog.hide();

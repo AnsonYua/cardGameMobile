@@ -270,7 +270,8 @@ export class BoardScene extends Phaser.Scene {
       onOfflineFallback: (gameId, message) => {
         this.offlineFallback = true;
         this.headerControls?.setStatusFromEngine?.(GameStatus.Ready, { offlineFallback: true });
-        console.warn("Using offline fallback:", message, { gameId });
+        void gameId;
+        void message;
       },
     });
     this.selectionAction = createSelectionActionController({
@@ -683,12 +684,6 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
     const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
-    console.log("[ActionBar] refreshActionBarState", {
-      delayActionBar,
-      currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
-      playerId: this.gameContext.playerId,
-      phase: raw?.gameEnv?.phase ?? raw?.phase,
-    });
     if (delayActionBar) {
       this.hideActionBarForTurnStartDraw(raw);
       return;

@@ -104,19 +104,8 @@ export class NotificationAnimationController {
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     if (playAs === "command") {
-      // eslint-disable-next-line no-console
-      console.log("[CardPlayed] command animation", {
-        cardUid: payload.carduid,
-        playerId,
-        isSelf,
-      });
       const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
       return () => {
-        // eslint-disable-next-line no-console
-        console.log("[CardPlayed] command animate start", {
-          cardUid: payload.carduid,
-          hasCard: Boolean(card),
-        });
         return this.animateCommand(payload, isSelf, card);
       };
     }
@@ -245,7 +234,6 @@ export class NotificationAnimationController {
       ap: card?.cardData?.ap ?? 0,
       hp: card?.cardData?.hp ?? 0,
     };
-    console.log("play card animation ",card?.textureKey)
     return this.deps.playAnimator.play({
       textureKey: card?.textureKey,
       fallbackLabel: card?.id ?? payload.carduid,
@@ -400,8 +388,6 @@ export class NotificationAnimationController {
     if (!owner || !slotId) return;
     const key = `${owner}-${slotId}`;
     if (this.hiddenSlots.has(key)) return;
-    // eslint-disable-next-line no-console
-    console.log("[NotificationAnimator] hideSlot", key);
     this.deps.setSlotVisible?.(owner, slotId, false);
     this.hiddenSlots.add(key);
   }
@@ -410,8 +396,6 @@ export class NotificationAnimationController {
     if (!owner || !slotId) return;
     const key = `${owner}-${slotId}`;
     if (!this.hiddenSlots.has(key)) return;
-    // eslint-disable-next-line no-console
-    console.log("[NotificationAnimator] showSlot", key);
     this.hiddenSlots.delete(key);
     this.deps.setSlotVisible?.(owner, slotId, true);
   }

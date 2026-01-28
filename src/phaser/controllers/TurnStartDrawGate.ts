@@ -88,15 +88,6 @@ export class TurnStartDrawGate {
     const delayForAwait = this.awaitingTurnStartDraw;
     const delayForAnim = this.shouldDelayTurnTimerForTurnStartDraw(raw);
     const delayActionBar = delayForPopup || delayForAwait || delayForAnim;
-    console.log("[ActionBar] shouldDelayActionBar", {
-      delayActionBar,
-      delayForPopup,
-      delayForAwait,
-      delayForAnim,
-      currentPlayer,
-      playerId,
-      phase,
-    });
     return delayActionBar;
   }
 

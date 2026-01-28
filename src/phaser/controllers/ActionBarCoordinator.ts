@@ -75,14 +75,6 @@ export class ActionBarCoordinator {
     const isOpponentTurn = !isSelfTurn;
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
     const phase = getPhase(raw);
-    // Use console to ensure visibility regardless of logger level.
-    console.log("[ActionBar] updateActionBarState status", {
-      isSelfTurn,
-      isOpponentTurn,
-      actionStepStatus,
-      phase,
-      playerId: this.deps.gameContext.playerId,
-    });
 
     // Decision map (phase x turn):
     // Main Phase: opponent -> waiting, self -> existing defaults.
@@ -99,7 +91,6 @@ export class ActionBarCoordinator {
       blockerActive: this.deps.blockerFlow.isActive(),
       isBlockerPhase: phase === "BLOCKER_PHASE",
     });
-    console.log("[ActionBar] actionBar decision", { decision });
 
     if (decision.kind === "waiting") {
       this.applyWaitingState(actions, decision.label);
@@ -150,13 +141,6 @@ export class ActionBarCoordinator {
     const phase = raw?.gameEnv?.phase;
     const self = this.deps.gameContext.playerId;
     const inMainPhase = isMainPhase(raw, self);
-    console.log("[ActionBar] applyMainPhaseDefaults", {
-      phase,
-      playerId: self,
-      currentPlayer: raw?.gameEnv?.currentPlayer,
-      inMainPhase,
-      selection: selection?.kind,
-    });
     if (!inMainPhase) {
       this.lastPhase = phase;
       this.lastBattleActive = false;
@@ -177,11 +161,6 @@ export class ActionBarCoordinator {
     this.lastPhase = mainPhaseState.lastPhase;
     this.lastBattleActive = mainPhaseState.lastBattleActive;
     if (!mainPhaseState.shouldUpdate || !mainPhaseState.descriptors) return;
-    console.log("[ActionBar] applyMainPhaseDefaults descriptors", {
-      source,
-      count: mainPhaseState.descriptors.length,
-      setHand: mainPhaseState.setHand,
-    });
     actions.setState?.({
       descriptors: this.deps.buildActionDescriptors(mainPhaseState.descriptors),
     });

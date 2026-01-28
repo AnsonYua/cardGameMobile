@@ -84,55 +84,31 @@ export function resolveAttackTargetPoint(
 
   const isBase = isBaseTarget(normalizedSlot, normalizedName);
   const isShield = isShieldTarget(normalizedSlot, normalizedName);
-  // eslint-disable-next-line no-console
-  console.log("[AttackResolver] target resolution", {
-    targetSlotId,
-    normalizedSlot,
-    normalizedName,
-    battleType,
-    targetZoneType,
-    hasForcedTarget,
-    targetOwner,
-    isBase,
-    isShield,
-  });
+  void targetSlotId;
+  void battleType;
+  void targetZoneType;
+  void hasForcedTarget;
+  void isBase;
+  void isShield;
 
   if (isBase) {
     const anchor = context.anchors.getBaseAnchor?.(isOpponentTarget);
     if (anchor) {
       return { x: anchor.x, y: anchor.y };
     }
-    // eslint-disable-next-line no-console
-    console.log("[AttackResolver] base target without anchor", {
-      targetSlotId,
-      targetName: normalizedName,
-      targetOwner,
-    });
+    void normalizedName;
+    void targetOwner;
   }
 
   if (isShield) {
     const anchor = context.anchors.getShieldAnchor?.(isOpponentTarget);
     if (anchor) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[AttackResolver] shield anchor isOpponentTarget=${isOpponentTarget} x=${anchor.x} y=${anchor.y}`,
-      );
       return anchor;
     }
     const fallbackAnchor = context.anchors.getBaseAnchor?.(isOpponentTarget);
     if (fallbackAnchor) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[AttackResolver] shield fallback anchor isOpponentTarget=${isOpponentTarget} x=${fallbackAnchor.x} y=${fallbackAnchor.y}`,
-      );
       return { x: fallbackAnchor.x, y: fallbackAnchor.y };
     }
-    // eslint-disable-next-line no-console
-    console.log("[AttackResolver] shield target without anchor", {
-      targetSlotId,
-      targetName: normalizedName,
-      targetOwner,
-    });
   }
 
   const targetCarduid =

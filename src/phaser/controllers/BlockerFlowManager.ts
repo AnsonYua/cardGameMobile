@@ -33,8 +33,6 @@ export class BlockerFlowManager {
     const entry = this.getActiveQueueEntry(raw);
     if (!entry || !this.isBlockerChoiceEntry(entry)) {
       if (this.queueEntry) {
-        // eslint-disable-next-line no-console
-        console.log("[BlockerFlow] clear entry", { entryId: this.queueEntry.id });
         this.clear();
       }
       return null;
@@ -49,12 +47,6 @@ export class BlockerFlowManager {
     );
     this.notificationId = this.extractNotificationId(raw);
     this.requestPending = false;
-    // eslint-disable-next-line no-console
-    console.log("[BlockerFlow] new entry", {
-      entryId: entry.id,
-      targets: this.slotTargets.length,
-      notificationId: this.notificationId,
-    });
     return entry;
   }
 
@@ -126,8 +118,6 @@ export class BlockerFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
-    // eslint-disable-next-line no-console
-    console.log("[BlockerFlow] postBlockChoice", { entryId: this.queueEntry.id, targets });
     this.requestPending = true;
     this.deps.refreshActions();
     try {
@@ -141,7 +131,7 @@ export class BlockerFlowManager {
       this.deps.onPlayerAction?.("confirmBlockerChoice");
       await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (error) {
-      console.warn("confirmBlockerChoice failed", error);
+      void error;
     } finally {
       this.requestPending = false;
       this.clear();

@@ -222,7 +222,7 @@ export class BurstChoiceFlowManager {
       });
       await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (err) {
-      console.warn("confirmBurstChoice failed", err);
+      void err;
     } finally {
       this.requestPending = false;
       this.resolvePending();

@@ -8,7 +8,7 @@ export function getNotificationQueue(raw: any): SlotNotification[] {
 
 function findAttackNotification(
   notifications: SlotNotification[],
-  opts: { includeBattleEnd?: boolean; logBattleEndSkip?: boolean } = {},
+  opts: { includeBattleEnd?: boolean } = {},
 ): SlotNotification | undefined {
   if (!Array.isArray(notifications) || notifications.length === 0) {
     return undefined;
@@ -18,10 +18,6 @@ function findAttackNotification(
     if (!note) continue;
     if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
     if (!opts.includeBattleEnd && note.payload?.battleEnd === true) {
-      if (opts.logBattleEndSkip) {
-        // eslint-disable-next-line no-console
-        console.log("[NotificationUtils] skip attack note with battleEnd", note.id);
-      }
       continue;
     }
     return note;
@@ -40,7 +36,7 @@ export function findActiveAttackNotification(
   notifications: SlotNotification[],
   opts: { includeBattleEnd?: boolean } = {},
 ): SlotNotification | undefined {
-  return findAttackNotification(notifications, { ...opts, logBattleEndSkip: true });
+  return findAttackNotification(notifications, opts);
 }
 
 export function getActiveAttackTargetSlotKey(

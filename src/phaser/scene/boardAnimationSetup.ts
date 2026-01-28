@@ -101,7 +101,6 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       const gameId = gameContext.gameId;
       const playerId = gameContext.playerId;
       if (!gameId || !playerId) {
-        console.warn("[startReady] missing gameId/playerId", { gameId, playerId });
         return;
       }
       dialogCoordinator.markMulliganDecisionSubmitted();
@@ -113,7 +112,6 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       const gameId = gameContext.gameId;
       const playerId = gameContext.playerId;
       if (!gameId || !playerId) {
-        console.warn("[chooseFirstPlayer] missing gameId/playerId", { gameId, playerId });
         return;
       }
       await api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });

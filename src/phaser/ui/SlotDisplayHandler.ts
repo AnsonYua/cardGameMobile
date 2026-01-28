@@ -80,10 +80,6 @@ export class SlotDisplayHandler {
 
   setSlotVisible(owner: SlotOwner, slotId: string, visible: boolean) {
     const key = `${owner}-${slotId}`;
-    // eslint-disable-next-line no-console
-    console.log("[SlotDisplayHandler] setSlotVisible", key, visible);
-    // eslint-disable-next-line no-console
-    console.trace("[SlotDisplayHandler] setSlotVisible trace");
     if (!visible) {
       this.hiddenSlots.add(key);
     } else {
@@ -92,13 +88,7 @@ export class SlotDisplayHandler {
     const container = this.slotContainers.get(key);
     if (container) {
       container.setVisible(visible);
-      // eslint-disable-next-line no-console
-      console.log("[SlotDisplayHandler] setSlotVisible applied", key, visible, {
-        hasContainer: true,
-      });
     } else {
-      // eslint-disable-next-line no-console
-      console.warn("[SlotDisplayHandler] setSlotVisible missing container", key, visible);
     }
   }
 
@@ -544,8 +534,6 @@ export class SlotDisplayHandler {
   }
 
   playStatPulse(slotKey: string, delta: number) {
-    // eslint-disable-next-line no-console
-    console.log("[SlotDisplayHandler] playStatPulse", slotKey, delta);
     if (!Number.isFinite(delta) || delta === 0) {
       return Promise.resolve();
     }
@@ -553,17 +541,11 @@ export class SlotDisplayHandler {
     const [owner, slotId] = slotKey.split("-");
     if (owner && slotId) {
       this.setSlotVisible(owner as SlotOwner, slotId, true);
-      // eslint-disable-next-line no-console
-      console.log("[SlotDisplayHandler] forceVisibleForPulse", slotKey);
     }
     return this.getStatNodesWithRetry(slotKey).then((nodes) => {
       if (!nodes) {
-        // eslint-disable-next-line no-console
-        console.warn("[SlotDisplayHandler] stat pulse skipped; nodes missing", slotKey);
         return;
       }
-      // eslint-disable-next-line no-console
-      console.log("[SlotDisplayHandler] stat pulse", slotKey, delta);
       return this.triggerStatsPulse(nodes.text, nodes.pill, delta);
     });
   }
@@ -581,8 +563,6 @@ export class SlotDisplayHandler {
           return;
         }
         if (remaining <= 0) {
-          // eslint-disable-next-line no-console
-          console.warn("[SlotDisplayHandler] stat nodes missing after retries", slotKey);
           resolve(null);
           return;
         }

@@ -47,7 +47,6 @@ export function buildBoardSceneTestHooks(deps: TestHookDeps) {
       await deps.effectTargetDialog?.hide();
       return true;
     }
-    console.warn("Effect target dialog is not open; cannot select target");
     return false;
   };
   const selectPilotTarget = async (targetIndex = 0) => {
@@ -56,7 +55,6 @@ export function buildBoardSceneTestHooks(deps: TestHookDeps) {
       await deps.pilotTargetDialog?.hide();
       return true;
     }
-    console.warn("Pilot target dialog is not open; cannot select target");
     return false;
   };
   const choosePilotDesignationPilot = async () => {

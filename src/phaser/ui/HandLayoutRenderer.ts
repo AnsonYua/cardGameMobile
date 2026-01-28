@@ -49,7 +49,6 @@ export class HandLayoutRenderer {
       strokeWidth: 1,
     });
     drawn.push(inner);
-    console.log("print hand card image ",card.textureKey)
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
       const img = this.scene.add.image(x, y, card.textureKey).setDepth((bg.depth || 0) + 1);
       const baseW = img.width || w;

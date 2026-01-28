@@ -57,14 +57,6 @@ export class AttackIndicatorController {
       this.hideIndicator();
       return;
     }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[AttackIndicator] resolved attackerOwner=${attackerOwner ?? "unknown"} defenderOwner=${
-        defenderOwner ?? "unknown"
-      } attacker=(${attackerCenter.x},${attackerCenter.y}) target=(${targetPoint.x},${
-        targetPoint.y
-      }) targetSlotName=${payload.targetSlotName ?? ""} targetName=${payload.targetName ?? ""}`,
-    );
     const attackStyle: AttackIndicatorStyle = attackerOwner ?? "player";
     await this.indicator.show({ from: attackerCenter, to: targetPoint, style: attackStyle });
     this.activeAttackNotificationId = event.id;

@@ -138,10 +138,6 @@ export class ShieldAreaHandler {
   getShieldTopAnchor(isOpponent: boolean) {
     const side: BaseSide = isOpponent ? "opponent" : "player";
     const anchor = this.shieldAnchors[side];
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ShieldArea] getShieldTopAnchor side=${side} anchor=(${anchor?.x ?? "null"},${anchor?.y ?? "null"})`,
-    );
     return anchor;
   }
 
@@ -340,12 +336,6 @@ export class ShieldAreaHandler {
     const centerY = (topCard as any).y ?? this.shieldAnchors[side]?.y ?? 0;
     const y = centerY - this.config.shieldSize.h / 2;
     this.shieldAnchors[side] = { x, y };
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ShieldArea] shield anchor side=${side} count=${cards.length} cardYs=${JSON.stringify(
-        cards.map((card) => (card as any).y),
-      )} anchor=(${x},${y}) centerY=${centerY}`,
-    );
   }
 
   private clearShieldsForSide(side: BaseSide) {
@@ -366,8 +356,6 @@ export class ShieldAreaHandler {
     const angle = isOpponent ? 180 : 0;
     const overlayKey = isOpponent ? "opponent" : "player";
     const radius = this.config.cornerRadius;
-    // eslint-disable-next-line no-console
-    console.log("[ShieldArea] drawBaseCard", { overlayKey, x, y, w, h, angle });
     this.baseAnchors[overlayKey] = { x, y, isOpponent, w, h };
     // Clean up any previous base visuals for this side before drawing anew.
     this.baseContainers[overlayKey]?.destroy();
@@ -385,8 +373,6 @@ export class ShieldAreaHandler {
     container.setAngle(this.getBaseAngle(overlayKey, this.baseStatus[overlayKey]));
 
     const hasTexture = this.scene.textures.exists("baseCard");
-    // eslint-disable-next-line no-console
-    console.log("[ShieldArea] base texture", { overlayKey, hasTexture });
     if (hasTexture) {
       const baseImg = this.scene.add.image(0, 0, "baseCard").setDisplaySize(w, h).setOrigin(0.5);
       this.baseCards[overlayKey] = baseImg;
@@ -444,12 +430,6 @@ export class ShieldAreaHandler {
 
     // Apply any previously-set status now that visuals exist.
     this.applyBaseStatus(overlayKey);
-    // eslint-disable-next-line no-console
-    console.log("[ShieldArea] base children", {
-      overlayKey,
-      childCount: container.list.length,
-      visible: container.visible,
-    });
   }
 
   private applyBaseStatus(side: BaseSide) {
@@ -463,8 +443,6 @@ export class ShieldAreaHandler {
     // Base visibility (hidden if destroyed)
     container.setVisible(status !== "destroyed");
     container.setAngle(this.getBaseAngle(side, status));
-    // eslint-disable-next-line no-console
-    console.log("[ShieldArea] applyBaseStatus", { side, status, angle: container.angle });
   }
 
   private getBaseAngle(side: BaseSide, status: ShieldAreaStatus) {
@@ -506,30 +484,25 @@ export class ShieldAreaHandler {
 
   // --- Preview handling for base card ---
   private startPreviewTimer(side: BaseSide) {
-    console.log("Base preview: start timer", { side, holdDelay: this.previewConfig.holdDelay });
     this.hidePreview(true);
     this.previewTimer = setTimeout(() => {
       this.previewTimer = undefined;
-      console.log("Base preview: trigger show", { side });
       this.showPreview(side);
     }, this.previewConfig.holdDelay);
   }
 
   private handlePointerUp(side: BaseSide) {
-    console.log("Base preview: pointerup", { previewActive: this.previewActive });
     if (this.previewActive) return;
     this.cancelPreviewTimer();
     this.baseClickHandler?.({ side, card: this.basePreviewData[side] });
   }
 
   private handlePointerOut() {
-    console.log("Base preview: pointerout", { previewActive: this.previewActive });
     if (this.previewActive) return;
     this.cancelPreviewTimer();
   }
 
   private cancelPreviewTimer() {
-    console.log("Base preview: cancel timer", { hasTimer: !!this.previewTimer });
     if (this.previewTimer) {
       clearTimeout(this.previewTimer);
       this.previewTimer = undefined;
@@ -538,12 +511,9 @@ export class ShieldAreaHandler {
 
   private showPreview(side: BaseSide) {
     const payload = this.basePreviewData[side];
-      console.log("payload ",JSON.stringify(this.basePreviewData))
     if (!payload) {
-      console.log("Base preview: no payload for side", side);
       return;
     }
-    console.log("Base preview: render payload", { side, payloadCardId: payload?.cardId, field: payload?.fieldCardValue });
     const cam = this.scene.cameras.main;
     const cx = cam.centerX;
     const cy = cam.centerY;

@@ -47,7 +47,6 @@ export class CardResourceLoader {
 
     const baseUrl = baseOverride || this.resolveBaseUrl(gameStatus) || (typeof window !== "undefined" ? window.location.origin : "");
     if (!baseUrl) {
-      console.warn("CardResourceLoader: missing base URL for card assets");
       return { success: false, stats: this.stats, loadedCount: 0, failedCount: cardPaths.length };
     }
 
@@ -125,7 +124,6 @@ export class CardResourceLoader {
       const cacheBust = Date.now();
       const url = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
       const previewUrl = `${this.getPeviewImageUrl(path, baseUrl)}?t=${cacheBust}`;
-      console.log("preview url ", previewUrl)
       if (!url || !previewUrl) return;
 
       [

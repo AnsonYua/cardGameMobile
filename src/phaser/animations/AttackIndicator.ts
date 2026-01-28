@@ -32,7 +32,6 @@ export class AttackIndicator {
     this.reset();
     this.current = opts;
     this.currentStyle = opts.style ?? "player";
-    console.log("[AttackIndicator] show", opts);
     this.container = this.scene.add.container(0, 0);
     this.glowGraphics = this.scene.add.graphics();
     this.coreGraphics = this.scene.add.graphics();
@@ -70,7 +69,6 @@ export class AttackIndicator {
 
   hide(opts: { immediate?: boolean; fadeDuration?: number } = {}) {
     if (!this.container) return;
-    console.log("[AttackIndicator] hide", { immediate: opts.immediate, fadeDuration: opts.fadeDuration });
     const fadeDuration = opts.fadeDuration ?? 220;
     if (opts.immediate) {
       this.destroyGraphics();

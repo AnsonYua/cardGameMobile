@@ -24,17 +24,14 @@ export class ActionExecutor {
   async handleAttackUnit() {
     const attacker = this.deps.getSelectedSlot();
     if (!attacker) {
-      console.warn("No attacker selected");
       return;
     }
     if (attacker.unit?.isRested) {
-      console.warn("Attacker is rested and cannot attack");
       return;
     }
     const opponentSlots = this.deps.getOpponentUnitSlots();
     const targets = getAttackUnitTargets(attacker, opponentSlots);
     if (!targets.length) {
-      console.warn("No opponent units to target");
       return;
     }
     this.deps.attackCoordinator.enter(
@@ -49,11 +46,9 @@ export class ActionExecutor {
   async handleAttackShieldArea() {
     const attacker = this.deps.getSelectedSlot();
     if (!attacker?.unit?.cardUid) {
-      console.warn("No attacker selected for shield attack");
       return;
     }
     if (attacker.unit?.isRested) {
-      console.warn("Attacker is rested and cannot attack shield");
       return;
     }
     const attackerCarduid = attacker.unit.cardUid;
@@ -61,7 +56,6 @@ export class ActionExecutor {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId || !targetPlayerId) {
-      console.warn("Missing data for attackShieldArea", { gameId, playerId, targetPlayerId });
       return;
     }
     const payload = {
@@ -78,7 +72,7 @@ export class ActionExecutor {
       await this.deps.engine.updateGameStatus(gameId, playerId);
       this.handleCancelSelection();
     } catch (err) {
-      console.warn("attackShieldArea request failed", err);
+      void err;
     }
   }
 
@@ -96,7 +90,7 @@ export class ActionExecutor {
       await this.deps.engine.updateGameStatus(gameId, playerId);
       this.handleCancelSelection();
     } catch (err) {
-      console.warn("confirmBattle request failed", err);
+      void err;
     }
   }
 
@@ -107,7 +101,6 @@ export class ActionExecutor {
   private async performAttackUnit(target: SlotViewModel) {
     const attacker = this.deps.getSelectedSlot();
     if (!attacker?.unit?.cardUid) {
-      console.warn("No attacker selected");
       return;
     }
     const attackerCarduid = attacker.unit.cardUid;
@@ -116,7 +109,6 @@ export class ActionExecutor {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId || !targetUnitUid || !targetPlayerId) {
-      console.warn("Missing data for attackUnit", { gameId, playerId, targetUnitUid, targetPlayerId });
       return;
     }
     const payload = {
@@ -134,7 +126,7 @@ export class ActionExecutor {
       await this.deps.engine.updateGameStatus(gameId, playerId);
       this.handleCancelSelection();
     } catch (err) {
-      console.warn("attackUnit request failed", err);
+      void err;
       this.handleCancelSelection();
     }
   }
