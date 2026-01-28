@@ -43,9 +43,11 @@ export class BaseShieldAnimationRenderController {
     if (type !== "CARD_STAT_MODIFIED") return;
 
     const payload = event.payload ?? {};
-    const delta = Number(payload.delta ?? payload.modifierValue ?? 0);
-    if (!delta) return;
     const stat = (payload.stat ?? "").toString().toLowerCase();
+    const displayValue = Number(payload.displayValue);
+    const hasDisplayValue = Number.isFinite(displayValue);
+    const delta = Number(payload.delta ?? payload.modifierValue ?? 0);
+    if (!hasDisplayValue && delta === 0) return;
     const cardUid = this.getPayloadCardUid(payload);
     if (!cardUid) return;
 
@@ -59,7 +61,7 @@ export class BaseShieldAnimationRenderController {
       if (!baseUid || baseUid !== cardUid) return;
       const next = this.cloneState(snapshot);
       if (!next) return;
-      this.applyStatDelta(next, stat, delta);
+      this.applyStatDelta(next, stat, hasDisplayValue ? displayValue : undefined, delta);
       this.renderSnapshots.set(side, next);
     });
   }
@@ -199,14 +201,14 @@ export class BaseShieldAnimationRenderController {
     };
   }
 
-  private applyStatDelta(state: BaseShieldState, stat: string, delta: number) {
+  private applyStatDelta(state: BaseShieldState, stat: string, displayValue: number | undefined, delta: number) {
     const card = state.baseCard;
     const field = card?.fieldCardValue ? { ...card.fieldCardValue } : {};
     if (stat.includes("ap")) {
-      state.ap = (state.ap ?? 0) + delta;
+      state.ap = Number.isFinite(displayValue) ? displayValue : (state.ap ?? 0) + delta;
       field.totalAP = state.ap;
     } else if (stat.includes("hp")) {
-      state.hp = (state.hp ?? 0) + delta;
+      state.hp = Number.isFinite(displayValue) ? displayValue : (state.hp ?? 0) + delta;
       field.totalHP = state.hp;
     }
     if (card) {

@@ -30,26 +30,33 @@ export class SlotAnimationRenderController {
     const keys = this.eventSlots.get(event.id) ?? [];
     const type = (event.type || "").toUpperCase();
     if (type === "CARD_STAT_MODIFIED") {
-      const delta = Number(event.payload?.delta ?? event.payload?.modifierValue ?? 0);
       const stat = (event.payload?.stat ?? "").toString().toLowerCase();
+      const displayValue = Number(event.payload?.displayValue);
+      const hasDisplayValue = Number.isFinite(displayValue);
+      const delta = Number(event.payload?.delta ?? event.payload?.modifierValue ?? 0);
+      if (!hasDisplayValue && delta === 0) {
+        return this.buildSlotsForRender(currentSlots);
+      }
       keys.forEach((key) => {
         const base = this.renderSnapshots.get(key);
         if (!base) return;
         const snapshot = this.cloneSlot(base);
+        const nextValue = hasDisplayValue ? displayValue : undefined;
         if (stat.includes("ap")) {
-          snapshot.ap = this.clampNonNegative((snapshot.ap ?? 0) + delta);
+          const ap = nextValue ?? this.clampNonNegative((snapshot.ap ?? 0) + delta);
+          snapshot.ap = this.clampNonNegative(ap);
           if (snapshot.fieldCardValue) {
             snapshot.fieldCardValue = {
               ...snapshot.fieldCardValue,
-              totalAP: this.clampNonNegative((snapshot.fieldCardValue.totalAP ?? 0) + delta),
+              totalAP: this.clampNonNegative(nextValue ?? this.clampNonNegative((snapshot.fieldCardValue.totalAP ?? 0) + delta)),
             };
           }
         } else if (stat.includes("hp")) {
-          snapshot.hp = (snapshot.hp ?? 0) + delta;
+          snapshot.hp = nextValue ?? (snapshot.hp ?? 0) + delta;
           if (snapshot.fieldCardValue) {
             snapshot.fieldCardValue = {
               ...snapshot.fieldCardValue,
-              totalHP: (snapshot.fieldCardValue.totalHP ?? 0) + delta,
+              totalHP: nextValue ?? (snapshot.fieldCardValue.totalHP ?? 0) + delta,
             };
           }
         }
