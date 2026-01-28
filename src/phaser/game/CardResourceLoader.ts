@@ -79,7 +79,7 @@ export class CardResourceLoader {
 
   private normalizePath(path: string | undefined | null) {
     if (!path) return null;
-    return path.endsWith(".png") ? path : `${path}.png`;
+    return path.endsWith(".jpeg") ? path : `${path}.jpeg`;
   }
 
   private resolveBaseUrl(payload: any): string | null {
@@ -99,7 +99,7 @@ export class CardResourceLoader {
   private getImageKey(path: string) {
     const parts = path.split("/");
     const filename = parts[parts.length - 1];
-    return filename.replace(/\.png$/i, "");
+    return filename.replace(/\.jpeg$/i, "");
   }
 
   private getImageUrl(path: string, baseUrl: string) {

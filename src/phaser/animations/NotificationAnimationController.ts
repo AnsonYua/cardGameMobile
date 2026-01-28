@@ -245,6 +245,7 @@ export class NotificationAnimationController {
       ap: card?.cardData?.ap ?? 0,
       hp: card?.cardData?.hp ?? 0,
     };
+    console.log("play card animation ",card?.textureKey)
     return this.deps.playAnimator.play({
       textureKey: card?.textureKey,
       fallbackLabel: card?.id ?? payload.carduid,
