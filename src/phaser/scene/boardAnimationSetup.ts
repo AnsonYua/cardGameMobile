@@ -18,6 +18,7 @@ import type { CoinFlipOverlay } from "../ui/CoinFlipOverlay";
 import type { PhaseChangeDialog } from "../ui/PhaseChangeDialog";
 import type { BoardUiControls } from "./boardUiSetup";
 import type { GameEndInfo } from "./gameEndHelpers";
+import type { EffectTargetController } from "../controllers/EffectTargetController";
 
 export type AnimationPipelineSetup = {
   animationQueue: AnimationQueue;
@@ -28,6 +29,7 @@ export type AnimationPipelineSetup = {
 export type AnimationPipelineParams = {
   scene: Phaser.Scene;
   controls: Pick<BoardUiControls, "slotControls" | "handControls">;
+  effectTargetController?: EffectTargetController | null;
   dialogs: {
     drawPopupDialog: DrawPopupDialog;
     mulliganDialog: MulliganDialog;
@@ -61,6 +63,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
   const {
     scene,
     controls,
+    effectTargetController,
     dialogs,
     api,
     engine,
@@ -84,6 +87,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     scene,
     slotControls: controls.slotControls,
     handControls: controls.handControls,
+    effectTargetController: effectTargetController ?? undefined,
     onGameEnded: params.onGameEnded,
     drawPopupDialog: dialogs.drawPopupDialog,
     mulliganDialog: dialogs.mulliganDialog,

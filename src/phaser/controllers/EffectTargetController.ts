@@ -6,6 +6,7 @@ import type { SlotViewModel } from "../ui/SlotTypes";
 import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import Phaser from "phaser";
 import { mapAvailableTargetsToSlotTargets } from "./TargetSlotMapper";
+import type { SlotNotification } from "../animations/NotificationAnimationController";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -31,79 +32,106 @@ export class EffectTargetController {
     },
   ) {}
 
-  async syncFromSnapshot(raw: any) {
-    if (this.manualOpen) {
-      return;
-    }
+  async handleTargetChoiceNotification(note: SlotNotification, raw: any): Promise<void> {
+    if (this.manualOpen) return;
+    if (!raw) return;
+
     const selfId = this.deps.gameContext.playerId;
-    const processing: any[] = raw?.gameEnv?.processingQueue || [];
-    const pending = processing.find((p) => p?.data?.userDecisionMade === false && (!p.playerId || p.playerId === selfId));
-    const pendingType = pending?.type?.toString().toUpperCase();
-    if (pendingType === "BLOCKER_CHOICE" || pendingType === "BURST_EFFECT_CHOICE") {
-      return;
-    }
-    if (!pending) {
-      this.activeEffectChoiceId = undefined;
-      await this.deps.dialog.hide();
-      return;
-    }
-    if (this.activeEffectChoiceId === pending.id && this.deps.dialog.isOpen()) {
+    const payload = note?.payload ?? {};
+    const event = payload?.event ?? payload;
+    const eventType = (event?.type ?? note?.type ?? "").toString().toUpperCase();
+    if (eventType !== "TARGET_CHOICE") return;
+
+    const eventId = (event?.id ?? note?.id ?? "").toString();
+    if (!eventId) return;
+
+    const playerId = event?.playerId ?? payload?.playerId;
+    if (playerId && selfId && playerId !== selfId) {
+      // Not our decision.
+      if (this.activeEffectChoiceId === eventId) {
+        this.activeEffectChoiceId = undefined;
+        await this.deps.dialog.hide();
+      }
       return;
     }
 
+    const data = event?.data ?? {};
+    const userDecisionMade = data?.userDecisionMade;
+    const status = (event?.status ?? "").toString().toUpperCase();
+    if (userDecisionMade !== false || (status && status !== "DECLARED")) {
+      if (this.activeEffectChoiceId) {
+        this.activeEffectChoiceId = undefined;
+        await this.deps.dialog.hide();
+      }
+      return;
+    }
+
+    if (this.activeEffectChoiceId === eventId && this.deps.dialog.isOpen()) {
+      // Already showing this choice; don't block the queue again.
+      return;
+    }
+
+    const availableTargets: any[] = Array.isArray(data?.availableTargets) ? data.availableTargets : [];
+    const players = raw?.gameEnv?.players || {};
+    const allIds = Object.keys(players);
+    const otherId = allIds.find((id) => id !== selfId) || "";
     const slotTargets = mapAvailableTargetsToSlotTargets(
       this.deps.slotPresenter,
       raw,
-      pending.data?.availableTargets || [],
-      selfId,
+      availableTargets,
+      selfId ?? "",
     );
     const targets = slotTargets.map((entry) => entry.slot);
     if (!targets.length) return;
 
-    const players = raw?.gameEnv?.players || {};
-    const allIds = Object.keys(players);
-    const otherId = allIds.find((id) => id !== selfId);
-    const availableTargets: any[] = pending.data?.availableTargets || [];
-
-    this.activeEffectChoiceId = pending.id;
-    this.deps.dialog.show({
-      targets,
-      header: "Choose a Target",
-      onSelect: async (slot) => {
-        const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
-        const zone = slot?.slotId || "";
-        const ownerPlayerId = slot?.owner === "player" ? selfId : otherId || "";
-        const matched = availableTargets.find(
-          (t) =>
-            (t.carduid && t.carduid === targetUid) ||
-            (t.cardUid && t.cardUid === targetUid) ||
-            (t.zone && t.zone === zone && t.playerId === ownerPlayerId),
-        );
-        const carduid = matched?.carduid || matched?.cardUid || targetUid;
-        const payload = {
-          gameId: this.deps.gameContext.gameId || "",
-          playerId: selfId || "",
-          eventId: pending.id,
-          selectedTargets: [
-            {
-              carduid: carduid || "",
-              zone: matched?.zone || zone,
-              playerId: matched?.playerId || ownerPlayerId || "",
-            },
-          ],
-        };
-
-        try {
-          await this.deps.api.confirmTargetChoice(payload);
-          this.deps.onPlayerAction?.();
-          await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
-        } catch (err) {
-          void err;
-        } finally {
-          this.activeEffectChoiceId = undefined;
-          await this.deps.dialog.hide();
-        }
-      },
+    this.activeEffectChoiceId = eventId;
+    await new Promise<void>((resolve) => {
+      const finish = async () => {
+        this.activeEffectChoiceId = undefined;
+        await this.deps.dialog.hide();
+        resolve();
+      };
+      this.deps.dialog.show({
+        targets,
+        header: "Choose a Target",
+        onClose: () => {
+          void finish();
+        },
+        onSelect: async (slot) => {
+          if (!selfId) {
+            await finish();
+            return;
+          }
+          const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
+          const zone = slot?.slotId || "";
+          const ownerPlayerId = slot?.owner === "player" ? selfId : otherId;
+          const matched = availableTargets.find(
+            (t) =>
+              ((t?.carduid || t?.cardUid) && targetUid && (t?.carduid || t?.cardUid) === targetUid) ||
+              (t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId),
+          );
+          try {
+            await this.deps.api.confirmTargetChoice({
+              gameId: this.deps.gameContext.gameId || "",
+              playerId: selfId || "",
+              eventId,
+              selectedTargets: [
+                {
+                  carduid: matched?.carduid || matched?.cardUid || targetUid || "",
+                  zone: matched?.zone || zone,
+                  playerId: matched?.playerId || ownerPlayerId || "",
+                },
+              ],
+            });
+            this.deps.onPlayerAction?.();
+            await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+          } catch (err) {
+            void err;
+          } finally {
+            await finish();
+          }
+        },
+      });
     });
   }
 

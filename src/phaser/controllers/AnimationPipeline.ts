@@ -10,6 +10,7 @@ import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { HandCardView } from "../ui/HandTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import type { GameEndInfo } from "../scene/gameEndHelpers";
+import type { EffectTargetController } from "./EffectTargetController";
 
 type SlotControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -58,6 +59,7 @@ export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
   handControls: HandControls | null;
+  effectTargetController?: EffectTargetController;
   onGameEnded?: (info: GameEndInfo) => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   drawPopupDialog?: DrawPopupDialog;
@@ -116,6 +118,7 @@ export function createAnimationPipeline(deps: {
     cardPlayAnimator: notificationAnimator,
     battleAnimator: battleAnimations,
     attackIndicator: attackIndicatorController,
+    effectTargetController: deps.effectTargetController,
     onGameEnded: deps.onGameEnded,
     burstChoiceFlow: deps.burstFlow,
     phasePopup: deps.phaseChangeDialog

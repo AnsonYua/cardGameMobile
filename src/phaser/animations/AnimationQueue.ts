@@ -4,6 +4,7 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
+import type { EffectTargetController } from "../controllers/EffectTargetController";
 import type { GameEndInfo } from "../scene/gameEndHelpers";
 import { buildNotificationHandlers, type NotificationHandler } from "./NotificationHandlers";
 
@@ -28,6 +29,7 @@ export class AnimationQueue {
       cardPlayAnimator: NotificationAnimationController;
     battleAnimator: BattleAnimationManager;
     attackIndicator: AttackIndicatorController;
+    effectTargetController?: EffectTargetController;
     onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };

@@ -216,6 +216,7 @@ export class BoardScene extends Phaser.Scene {
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
       scene: this,
       controls,
+      effectTargetController: this.effectTargetController,
       dialogs: {
         drawPopupDialog: dialogs.drawPopupDialog,
         mulliganDialog: dialogs.mulliganDialog,
@@ -470,7 +471,6 @@ export class BoardScene extends Phaser.Scene {
     if (!uiBlocked) {
       this.updateMainPhaseUI(ctx.raw, skipAnimation);
     }
-    void this.effectTargetController?.syncFromSnapshot(ctx.raw);
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {
