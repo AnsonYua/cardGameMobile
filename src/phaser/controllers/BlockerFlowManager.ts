@@ -7,7 +7,7 @@ import type { ActionControls } from "./ControllerTypes";
 import { mapAvailableTargetsToSlotTargets, type SlotTarget } from "./TargetSlotMapper";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { SlotInteractionGate } from "./SlotInteractionGate";
-import { findLatestAttackNotification, getNotificationQueue } from "../utils/NotificationUtils";
+import { getNotificationQueue } from "../utils/NotificationUtils";
 
 type BlockerDeps = {
   api: ApiManager;
@@ -30,7 +30,8 @@ export class BlockerFlowManager {
   constructor(private deps: BlockerDeps) {}
 
   handleSnapshot(raw: any) {
-    const entry = this.getActiveQueueEntry(raw);
+    const active = this.getActiveQueueEntry(raw);
+    const entry = active?.entry;
     if (!entry || !this.isBlockerChoiceEntry(entry)) {
       if (this.queueEntry) {
         this.clear();
@@ -45,7 +46,7 @@ export class BlockerFlowManager {
       entry?.data?.availableTargets || [],
       this.deps.gameContext.playerId,
     );
-    this.notificationId = this.extractNotificationId(raw);
+    this.notificationId = active?.notificationId;
     this.requestPending = false;
     return entry;
   }
@@ -139,10 +140,23 @@ export class BlockerFlowManager {
     }
   }
 
-  private getActiveQueueEntry(raw: any) {
-    const queue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
-    if (!Array.isArray(queue)) return undefined;
-    return queue.find((entry) => (entry?.status || "").toString().toUpperCase() !== "RESOLVED");
+  private getActiveQueueEntry(raw: any): { entry: any; notificationId?: string } | undefined {
+    const notifications = getNotificationQueue(raw);
+    // Prefer the most recent unresolved blocker choice.
+    for (let i = notifications.length - 1; i >= 0; i -= 1) {
+      const note: any = notifications[i];
+      if (!note) continue;
+      const type = (note.type || "").toString().toUpperCase();
+      if (type !== "BLOCKER_CHOICE") continue;
+      const payload = note.payload ?? {};
+      const event = payload.event ?? payload;
+      const status = (event?.status || "").toString().toUpperCase();
+      const userDecisionMade = event?.data?.userDecisionMade;
+      if (status && status === "RESOLVED") continue;
+      if (userDecisionMade !== false) continue;
+      return { entry: event, notificationId: note.id };
+    }
+    return undefined;
   }
 
   private isBlockerChoiceEntry(entry?: any) {
@@ -179,14 +193,5 @@ export class BlockerFlowManager {
     this.slotTargets = [];
     this.notificationId = undefined;
     this.deps.slotGate.enable("blocker-choice");
-  }
-
-  private extractNotificationId(raw: any) {
-    const notifications = getNotificationQueue(raw);
-    const attackNote = findLatestAttackNotification(notifications, { includeBattleEnd: true });
-    if (attackNote?.id) return attackNote.id;
-    const last = notifications[notifications.length - 1];
-    if (!last || typeof last?.id !== "string") return undefined;
-    return last.id;
   }
 }

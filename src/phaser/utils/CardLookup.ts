@@ -32,7 +32,7 @@ const scanPlayersForCard = (players: any[], targetUid: string): SlotCardView | u
     }
     const deck = player.deck;
     if (deck) {
-      const areas = [deck.hand, deck.discard, deck.graveyard, deck.command, deck.processingQueue];
+      const areas = [deck.hand, deck.discard, deck.graveyard, deck.command];
       for (const area of areas) {
         const match = extractCardFromZone(area, targetUid);
         if (match) return match;

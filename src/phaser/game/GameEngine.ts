@@ -146,17 +146,13 @@ export class GameEngine {
   }
 
   private logStatusQueues(response: GameStatusResponse) {
-    const processingQueue = response?.gameEnv?.processingQueue ?? [];
     const notificationQueue = response?.gameEnv?.notificationQueue ?? [];
-    const processingTypes = Array.isArray(processingQueue) ? processingQueue.map((item) => item?.type ?? "unknown") : [];
     const notificationTypes = Array.isArray(notificationQueue)
       ? notificationQueue.map((item) => item?.type ?? "unknown")
       : [];
     this.log.debug("status payload", {
       currentPlayer: response?.gameEnv?.currentPlayer,
-      processingQueue: processingTypes,
       notificationQueue: notificationTypes,
-      processingTypesText: processingTypes.join(","),
       notificationTypesText: notificationTypes.join(","),
     });
   }
