@@ -14,8 +14,8 @@ import { findBaseCard } from "../utils/CardLookup";
 import {
   canPlaySelectedHandCard,
   commandHasTimingWindow,
-  getActivatedEffectState,
-  getSlotCard,
+  getActivatedEffectOptions,
+  getSlotCards,
   hasPairableUnit,
 } from "./actionEligibility";
 import { createLogger } from "../utils/logger";
@@ -241,28 +241,26 @@ export class GameEngine {
     }
 
     if (source === "slot" && selection?.kind === "slot") {
-      const slotCard = getSlotCard(selection, this.lastRaw, ctx.playerId);
-      const slotCardType = (slotCard?.cardData?.cardType || "").toLowerCase();
-      if (slotCardType === "unit" || slotCardType === "base") {
-        const raw = this.lastRaw as any;
-        const playerId = this.contextStore.get().playerId;
-        const effectState = getActivatedEffectState(slotCard, raw, playerId);
-        if (effectState?.effectId) {
-          descriptors.push({
-            id: "activateEffect",
-            label: "Activate Effect",
-            enabled: effectState.enabled,
-            primary: true,
-          });
-        }
-      }
-      if (descriptors.length) {
+      const raw = this.lastRaw as any;
+      const playerId = this.contextStore.get().playerId;
+      const slotCards = getSlotCards(selection, raw, playerId);
+      const options = [
+        ...(slotCards?.unit ? getActivatedEffectOptions(slotCards.unit, raw, playerId) : []),
+        ...(slotCards?.pilot ? getActivatedEffectOptions(slotCards.pilot, raw, playerId) : []),
+      ];
+      if (options.length) {
         descriptors.push({
-          id: "cancelSelection",
-          label: "Cancel",
+          id: "activateEffect",
+          label: "Activate Effect",
           enabled: true,
+          primary: true,
         });
       }
+      descriptors.push({
+        id: "cancelSelection",
+        label: "Cancel",
+        enabled: true,
+      });
       return descriptors;
     }
 
@@ -271,12 +269,12 @@ export class GameEngine {
       const playerId = this.contextStore.get().playerId;
       if (selection.side === "player" && raw && playerId) {
         const baseCard = findBaseCard(raw, playerId);
-        const effectState = getActivatedEffectState(baseCard, raw, playerId);
-        if (effectState?.effectId) {
+        const options = getActivatedEffectOptions(baseCard, raw, playerId);
+        if (options.length) {
           descriptors.push({
             id: "activateEffect",
-            label: "Active Effect",
-            enabled: effectState.enabled,
+            label: "Activate Effect",
+            enabled: true,
             primary: true,
           });
         }
@@ -410,42 +408,6 @@ export class GameEngine {
 
     this.actions.register("slotAction", async (ctx: ActionContext) => {
       this.log.debug("Slot action triggered", ctx.selection);
-    });
-
-    this.actions.register("inspectBase", async (ctx: ActionContext) => {
-      this.log.debug("Base action triggered", ctx.selection);
-    });
-
-    this.actions.register("activateEffect", async (ctx: ActionContext) => {
-      const sel = ctx.selection;
-      if (!sel || !ctx.gameId || !ctx.playerId) return;
-      if (sel.kind === "base") {
-        const raw = this.lastRaw as any;
-        const baseCard = findBaseCard(raw, ctx.playerId);
-        const effectState = getActivatedEffectState(baseCard, raw, ctx.playerId);
-        if (!baseCard || !effectState?.effectId) return;
-        const carduid =
-          baseCard?.carduid ?? baseCard?.cardUid ?? baseCard?.uid ?? baseCard?.id ?? baseCard?.cardId;
-        if (!carduid) return;
-        try {
-          await this.api.playerAction({
-            playerId: ctx.playerId,
-            gameId: ctx.gameId,
-            actionType: "activateCardAbility",
-            carduid,
-            effectId: effectState.effectId,
-          });
-          await ctx.refreshStatus?.();
-          this.clearSelection();
-        } catch (err) {
-          void err;
-        }
-        return;
-      }
-      if (sel.kind === "slot") {
-        this.log.debug("Active effect slot selection placeholder");
-        this.clearSelection();
-      }
     });
 
     this.actions.register("playUnitFromHand", async (ctx: ActionContext) => {

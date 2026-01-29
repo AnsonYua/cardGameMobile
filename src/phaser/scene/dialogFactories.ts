@@ -8,6 +8,7 @@ import { TurnOrderStatusDialog } from "../ui/TurnOrderStatusDialog";
 import { CoinFlipOverlay } from "../ui/CoinFlipOverlay";
 import { PilotTargetDialog } from "../ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
+import { AbilityChoiceDialog } from "../ui/AbilityChoiceDialog";
 import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
 import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
@@ -56,6 +57,7 @@ export function createTimedDialogs(
     chooseFirstPlayerDialog: new ChooseFirstPlayerDialog(scene, timerController),
     pilotTargetDialog: new PilotTargetDialog(scene, createSlotSprite, timerController),
     pilotDesignationDialog: new PilotDesignationDialog(scene, timerController),
+    abilityChoiceDialog: new AbilityChoiceDialog(scene),
     effectTargetDialog: new EffectTargetDialog(scene, createSlotSprite, timerController),
     burstChoiceDialog: new BurstChoiceDialog(scene, timerController),
   };

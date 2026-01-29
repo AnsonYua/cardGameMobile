@@ -10,15 +10,14 @@ import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import {
-  buildSlotActionDescriptors,
   computeActionBarDecision,
   computeMainPhaseState,
-  computeSlotActionState,
   getPhase,
   isMainPhase,
   isPlayersTurn,
 } from "./actionBarPolicy";
-import { getAttackUnitTargets } from "./attackTargetPolicy";
+import { buildSlotAttackActionDescriptors } from "./actionBar/slotAttackProvider";
+import { mergeActionDescriptors, normalizePrimary, sortActionDescriptors } from "./actionBar/descriptorUtils";
 import { createLogger } from "../utils/logger";
 
 type HandControls = {
@@ -44,11 +43,7 @@ export class ActionBarCoordinator {
       burstFlow: BurstChoiceFlowManager;
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
-      getOpponentRestedUnitSlots: () => SlotViewModel[];
       getOpponentUnitSlots: () => SlotViewModel[];
-      onAttackUnit: () => Promise<void>;
-      onAttackShieldArea: () => Promise<void>;
-      onCancelSelection: () => void;
       onRefreshActions: (source: ActionSource) => void;
       onSyncAndUpdateActionBar: (source: ActionSource) => void;
       buildActionDescriptors: (descriptors: ActionDescriptor[]) => Array<{
@@ -116,7 +111,6 @@ export class ActionBarCoordinator {
     // Main phase handling.
     actions.setWaitingForOpponent?.(false);
     if (this.deps.attackCoordinator.applyActionBar()) return;
-    if (this.tryApplySlotActions(selection)) return;
     this.applyMainPhaseDefaults(raw, selection, opts.source);
   }
 
@@ -148,6 +142,19 @@ export class ActionBarCoordinator {
     }
     const battleActive = this.hasActiveBattle();
     const selectedSource = selection?.kind as ActionSource | undefined;
+    const slotAttackDescriptors =
+      selection?.kind === "slot"
+        ? buildSlotAttackActionDescriptors({
+            raw,
+            selection,
+            selectedSlot: this.deps.getSelectedSlot(),
+            opponentUnitSlots: this.deps.getOpponentUnitSlots(),
+            playerId: self,
+          })
+        : [];
+    const selectedActions = selectedSource ? this.deps.engine.getAvailableActions(selectedSource) : [];
+    const mergedSelectedActions =
+      selection?.kind === "slot" ? mergeActionDescriptors(slotAttackDescriptors, selectedActions) : selectedActions;
     const mainPhaseState = computeMainPhaseState({
       phase,
       selection,
@@ -156,14 +163,13 @@ export class ActionBarCoordinator {
       lastPhase: this.lastPhase,
       lastBattleActive: this.lastBattleActive,
       defaultActions: this.deps.engine.getAvailableActions(source),
-      selectedActions: selectedSource ? this.deps.engine.getAvailableActions(selectedSource) : [],
+      selectedActions: mergedSelectedActions,
     });
     this.lastPhase = mainPhaseState.lastPhase;
     this.lastBattleActive = mainPhaseState.lastBattleActive;
     if (!mainPhaseState.shouldUpdate || !mainPhaseState.descriptors) return;
-    actions.setState?.({
-      descriptors: this.deps.buildActionDescriptors(mainPhaseState.descriptors),
-    });
+    const ordered = normalizePrimary(sortActionDescriptors(mainPhaseState.descriptors));
+    actions.setState?.({ descriptors: this.deps.buildActionDescriptors(ordered) });
     if (mainPhaseState.setHand) {
       this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
     }
@@ -179,85 +185,5 @@ export class ActionBarCoordinator {
     actions.setWaitingLabel?.(label);
     actions.setWaitingForOpponent?.(true);
     actions.setState?.({ descriptors: [] });
-  }
-
-  private tryApplySlotActions(selection?: any) {
-    const selectedSlot = this.deps.getSelectedSlot();
-    const raw: any = this.deps.engine.getSnapshot().raw;
-    const phaseAllowsAttack = this.phaseAllowsAttack(raw);
-    const opponentSlots = this.deps.getOpponentUnitSlots();
-    const attackTargets = getAttackUnitTargets(selectedSlot, opponentSlots);
-    const slotState = computeSlotActionState({
-      selection,
-      opponentHasUnit: attackTargets.length > 0,
-      attackerReady: selectedSlot?.unit?.canAttackThisTurn === true && selectedSlot?.unit?.isRested !== true,
-      hasUnit: !!selectedSlot?.unit,
-      phaseAllowsAttack,
-    });
-    if (!slotState.shouldApply) return false;
-    const allowAttackShield = !this.hasAttackShieldRestriction(raw, selectedSlot?.slotId);
-    const mapped = buildSlotActionDescriptors(
-      slotState.opponentHasUnit,
-      slotState.attackerReady,
-      allowAttackShield,
-    ).map((d) => ({
-      label: d.label,
-      enabled: d.enabled,
-      primary: d.primary,
-      onClick: async () => {
-        if (d.id === "attackUnit") {
-          await this.deps.onAttackUnit();
-          return;
-        }
-        if (d.id === "attackShieldArea") {
-          await this.deps.onAttackShieldArea();
-          return;
-        }
-        if (d.id === "cancelSelection") {
-          this.deps.onCancelSelection();
-        }
-      },
-    }));
-    this.deps.actionControls?.setState?.({ descriptors: mapped });
-    return true;
-  }
-
-  private phaseAllowsAttack(raw?: any) {
-    if (!raw) return false;
-    const env = raw?.gameEnv ?? raw;
-    const explicit =
-      env?.phaseAllowsAttack ??
-      env?.allowAttack ??
-      env?.canAttack ??
-      env?.phaseWindow?.allowAttack ??
-      env?.phaseWindow?.canAttack;
-    if (explicit !== undefined && explicit !== null) {
-      return !!explicit;
-    }
-    const phase = (env?.phase ?? "").toString().toUpperCase();
-    return phase === "MAIN_PHASE";
-  }
-
-  private hasAttackShieldRestriction(raw: any, slotId?: string) {
-    if (!raw || !slotId) return false;
-    const playerId = this.deps.gameContext.playerId;
-    const slot = raw?.gameEnv?.players?.[playerId]?.zones?.[slotId];
-    const unit = slot?.unit;
-    const effects = this.collectActiveEffects(unit);
-    return effects.some((effect) => {
-      const action = (effect?.action ?? "").toString().toLowerCase();
-      const restriction = (effect?.parameters?.restriction ?? "").toString().toLowerCase();
-      return action === "restrict_attack" && restriction === "cannot_attack_player";
-    });
-  }
-
-  private collectActiveEffects(unit?: any) {
-    const effects = [
-      ...(Array.isArray(unit?.activeEffects) ? unit.activeEffects : []),
-      ...(Array.isArray(unit?.effects?.active) ? unit.effects.active : []),
-      ...(Array.isArray(unit?.effects?.activeEffects) ? unit.effects.activeEffects : []),
-      ...(Array.isArray(unit?.cardData?.effects?.active) ? unit.cardData.effects.active : []),
-    ];
-    return effects.filter(Boolean);
   }
 }

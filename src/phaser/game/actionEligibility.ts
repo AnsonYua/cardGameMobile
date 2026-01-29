@@ -98,35 +98,74 @@ export function hasPairableUnit(raw: any, playerId?: string | null) {
 }
 
 export function getActivatedEffectRule(cardData?: any, phase?: string | null) {
+  return getActivatedEffectRules(cardData, phase)[0];
+}
+
+export function getActivatedEffectRules(cardData?: any, phase?: string | null) {
   const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-  return rules.find((rule) => {
+  const currentPhase = (phase ?? "").toString().toUpperCase();
+  if (!currentPhase) return [];
+  return rules.filter((rule) => {
     if ((rule?.type || "").toString().toLowerCase() !== "activated") return false;
     const windows = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    const currentPhase = (phase ?? "").toString().toUpperCase();
     return windows.some((window: string) => window.toString().toUpperCase() === currentPhase);
   });
 }
 
-export function getActivatedEffectState(card: any, raw: any, playerId: string) {
-  if (!card || !raw || !playerId) return undefined;
+export type ActivatedEffectOption = {
+  effectId: string;
+  enabled: boolean;
+  availableEnergy: number;
+  requiredEnergy: number;
+  oncePerTurn: boolean;
+  alreadyUsed: boolean;
+};
+
+export function getActivatedEffectOptions(card: any, raw: any, playerId: string): ActivatedEffectOption[] {
+  if (!card || !raw || !playerId) return [];
   const phase = raw?.gameEnv?.phase ?? raw?.phase ?? "";
-  const effectRule = getActivatedEffectRule(card?.cardData, phase);
-  if (!effectRule?.effectId) return undefined;
+  const rules = getActivatedEffectRules(card?.cardData, phase).filter((rule) => !!rule?.effectId);
+  if (!rules.length) return [];
   const player = raw?.gameEnv?.players?.[playerId];
   const { availableEnergy } = getEnergyState(player);
-  const required = Number(effectRule?.cost?.resource ?? 0);
-  const requiredEnergy = Number.isFinite(required) ? required : 0;
   const currentTurn = raw?.gameEnv?.currentTurn;
-  const lastUsed = card?.effectUsage?.[effectRule.effectId]?.lastUsedTurn;
-  const oncePerTurn = effectRule?.cost?.oncePerTurn === true;
-  const alreadyUsed = oncePerTurn && currentTurn !== undefined && lastUsed === currentTurn;
-  const restCost = (effectRule?.cost?.rest ?? "").toString().toLowerCase();
-  const restOk = restCost !== "self" || card?.isRested !== true;
   const isSelfTurn = raw?.gameEnv?.currentPlayer === playerId;
-  return {
-    effectId: effectRule.effectId,
-    enabled: isSelfTurn && availableEnergy >= requiredEnergy && restOk && !alreadyUsed,
-  };
+
+  return rules.map((effectRule) => {
+    const required = Number(effectRule?.cost?.resource ?? 0);
+    const requiredEnergy = Number.isFinite(required) ? required : 0;
+    const lastUsed = card?.effectUsage?.[effectRule.effectId]?.lastUsedTurn;
+    const oncePerTurn = effectRule?.cost?.oncePerTurn === true;
+    const alreadyUsed = oncePerTurn && currentTurn !== undefined && lastUsed === currentTurn;
+    const restCost = (effectRule?.cost?.rest ?? "").toString().toLowerCase();
+    const restOk = restCost !== "self" || card?.isRested !== true;
+    return {
+      effectId: effectRule.effectId,
+      availableEnergy,
+      requiredEnergy,
+      oncePerTurn,
+      alreadyUsed,
+      enabled: isSelfTurn && availableEnergy >= requiredEnergy && restOk && !alreadyUsed,
+    };
+  });
+}
+
+export function getActivatedEffectState(card: any, raw: any, playerId: string) {
+  const opt = getActivatedEffectOptions(card, raw, playerId)[0];
+  if (!opt?.effectId) return undefined;
+  return { effectId: opt.effectId, enabled: opt.enabled };
+}
+
+export function getSlotCards(selection: SelectionTarget, raw: any, playerId?: string | null) {
+  if (selection.kind !== "slot") return undefined;
+  const players = raw?.gameEnv?.players ?? {};
+  const ids = Object.keys(players);
+  if (!ids.length) return undefined;
+  const ownerId = resolveSlotOwnerId(selection, ids, playerId);
+  if (!ownerId) return undefined;
+  const slot = players?.[ownerId]?.zones?.[selection.slotId];
+  if (!slot) return undefined;
+  return { ownerId, unit: slot?.unit, pilot: slot?.pilot };
 }
 
 function resolveSlotOwnerId(selection: SelectionTarget, ids: string[], playerId?: string | null) {

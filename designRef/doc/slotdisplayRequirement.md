@@ -196,8 +196,18 @@ curl 'http://localhost:8080/api/game/player/playerAction' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"' \
   --data-raw '{"playerId":"playerId_2","gameId":"sample_play_card","actionType":"attackUnit","attackerCarduid":"ST01-005_b35d1d0f-72ae-4388-8808-7656341c25bd","targetType":"unit","targetUnitUid":"ST01-006_ba54a530-2fcc-4b9d-adb5-b9b89e152578","targetPlayerId":"playerId_1","targetPilotUid":null}'
+
+6.1 Activated abilities (Main Phase)
+
+- When selecting your slot, if the **unit** and/or **pilot** in that slot has one or more `effects.rules` entries with:
+  - `type` = `activated`
+  - `timing.windows` contains the current phase
+- The action bar shows a single `Activate Effect` button (plus `Cancel`).
+- Clicking `Activate Effect` opens a dialog to choose which ability to activate:
+  - If the slot has both unit + pilot activated abilities, show both groups (`Unit` / `Pilot`).
+  - If a unit/pilot has multiple activated abilities, show `Activate Unit Effect 1..N` / `Activate Pilot Effect 1..N`.
   after play card , sometime the gameEnv.currentbattle will become non-empty. you can see if gameEnv.currentbattle.status = "ACTION_STEP" and  gameEnv.currentbattle.confirmations.{currentplayer}=false, in actionbuttonbar, it will hide the endturn button and become "skips action" button. if gameEnv.currentbattle.confirmations.{currentplayer}=true no button will show in actionbutton bar. User is able to click slot card / hand card or base card on the screen only if the card have effect = time = actionstep
-effects.rules.timing.windows.ACTION_STEP . below is an example. otherwise card cannot be click (but still can long press) when card is click , it will show activate effect and cancel button. when click cancel button it will deselect the card and show "skips action"
+effects.rules.timing.windows.ACTION_STEP . below is an example. otherwise card cannot be click (but still can long press). when card is click , it will show an action-step trigger button (example: `Trigger Card Effect`) and a cancel button. when click cancel button it will deselect the card and show "skips action"
 
         "ST01-014": {
             "id": "ST01-014",

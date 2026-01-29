@@ -19,6 +19,7 @@ import { ActionStepTriggerHandler } from "./ActionStepTriggerHandler";
 import type { ActionControls, SlotControls } from "./ControllerTypes";
 import { SlotInteractionGate } from "./SlotInteractionGate";
 import { ActionStepCoordinator } from "./ActionStepCoordinator";
+import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { createLogger } from "../utils/logger";
 
 type HandControls = {
@@ -41,6 +42,7 @@ export type SelectionActionControllerDeps = {
   onPlayerAction?: (actionId: string) => void;
   shouldDelayActionBar?: (raw: any) => boolean;
   onDelayActionBar?: (raw: any) => void;
+  abilityChoiceDialog?: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog | null;
   burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
@@ -53,6 +55,7 @@ export type SelectionActionControllerModules = {
   blockerFlow: BlockerFlowManager;
   burstFlow: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   actionStepCoordinator: ActionStepCoordinator;
+  abilityFlow: AbilityActivationFlowController;
   selectionHandler: SelectionHandler;
   opponentResolver: OpponentResolver;
   actionExecutor: ActionExecutor;
@@ -69,6 +72,7 @@ export class SelectionActionController {
   private blockerFlow: BlockerFlowManager;
   private actionStepCoordinator: ActionStepCoordinator;
   private actionBarCoordinator: ActionBarCoordinator;
+  private abilityFlow: AbilityActivationFlowController;
   private selectionHandler: SelectionHandler;
   private actionExecutor: ActionExecutor;
   private turnStateCoordinator: TurnStateCoordinator;
@@ -88,6 +92,7 @@ export class SelectionActionController {
     this.attackCoordinator = modules.attackCoordinator;
     this.blockerFlow = modules.blockerFlow;
     this.actionStepCoordinator = modules.actionStepCoordinator;
+    this.abilityFlow = modules.abilityFlow;
     this.selectionHandler = modules.selectionHandler;
     this.opponentResolver = modules.opponentResolver;
     this.actionExecutor = modules.actionExecutor;
@@ -141,6 +146,15 @@ export class SelectionActionController {
     if (actionId === "skipAction") {
       await this.actionExecutor.handleSkipAction();
       this.deps.onPlayerAction?.(actionId);
+      return;
+    }
+    if (actionId === "activateEffect") {
+      const rawSnapshot: any = this.deps.engine.getSnapshot().raw;
+      const selectionSnapshot: any = this.deps.engine.getSelection();
+      await this.abilityFlow.showAbilityChoiceDialog({ raw: rawSnapshot, selection: selectionSnapshot });
+      // Reset selection + action bar to defaults while the dialog is open.
+      this.selectionHandler.clearSelectionUI({ clearEngine: true });
+      this.refreshActions("neutral");
       return;
     }
     if (actionId === "cancelSelection") {

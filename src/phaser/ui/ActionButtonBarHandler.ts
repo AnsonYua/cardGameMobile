@@ -30,6 +30,39 @@ export class ActionButtonBarHandler {
   private visible = true;
   private background?: Phaser.GameObjects.GameObject;
   private waitingLabelText = "Waiting for opponent...";
+  private buttonContainer?: Phaser.GameObjects.Container;
+  private maskShape?: Phaser.GameObjects.Graphics;
+  private maskRect?: Phaser.Geom.Rectangle;
+  private leftArrow?: Phaser.GameObjects.Container;
+  private rightArrow?: Phaser.GameObjects.Container;
+
+  private scrollBound = false;
+  private scrollLayout?: {
+    viewX: number;
+    viewY: number;
+    viewW: number;
+    viewH: number;
+    minX: number;
+    maxX: number;
+    step: number;
+    canScroll: boolean;
+    defaultX: number;
+  };
+  private scrollX = 0;
+  private dragActive = false;
+  private dragStartX = 0;
+  private dragLastX = 0;
+  private dragLastTime = 0;
+  private dragVelocity = 0;
+  private dragSuppressClick = false;
+  private inertiaActive = false;
+  private onWheel?: (pointer: Phaser.Input.Pointer, go: any, dx: number, dy: number) => void;
+  private onPointerDown?: (pointer: Phaser.Input.Pointer) => void;
+  private onPointerMove?: (pointer: Phaser.Input.Pointer) => void;
+  private onPointerUp?: () => void;
+  private onPointerUpOutside?: () => void;
+  private onUpdate?: (_time: number, delta: number) => void;
+  private lastScrollKey = "";
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = {
@@ -137,9 +170,15 @@ export class ActionButtonBarHandler {
   }
 
   draw(offset: { x: number; y: number }) {
+    this.ensureScrollBindings();
     this.lastOffset = offset;
     this.elements.forEach((e) => e.destroy());
     this.elements = [];
+    this.buttonContainer = undefined;
+    this.maskShape = undefined;
+    this.maskRect = undefined;
+    this.leftArrow = undefined;
+    this.rightArrow = undefined;
     this.hitAreas.forEach((h) => h.destroy());
     this.hitAreas = [];
 
@@ -153,6 +192,10 @@ export class ActionButtonBarHandler {
     const btnGap = 12;
     const btnHeight = this.barHeight;
     const bgHeight = HAND_AREA_HEIGHT + 120;
+    const viewX = 0;
+    const viewW = camW;
+    const viewY = barY - btnHeight / 2;
+    const viewH = btnHeight;
 
     // Always draw the background bar.
     const bg = this.drawRoundedRectOrigin({
@@ -170,6 +213,22 @@ export class ActionButtonBarHandler {
     this.elements.push(bg);
     this.background = bg;
     bg.setVisible(true);
+
+    // Solid strip behind buttons (keeps the bar grey even when the rest of the panel is clipped/changed).
+    const stripBg = this.drawRoundedRectOrigin({
+      x: viewX,
+      y: viewY - 6,
+      width: viewW,
+      height: viewH + 12,
+      radius: 0,
+      fillColor: "#414242",
+      fillAlpha: 1,
+      strokeColor: 0x5e48f0,
+      strokeAlpha: 0,
+      strokeWidth: 0,
+    }).setDepth(850);
+    this.elements.push(stripBg);
+
     this.waitingLabel?.destroy();
     this.waitingTween?.remove();
     if (this.waitingMode && !this.waitingOverride) {
@@ -181,6 +240,9 @@ export class ActionButtonBarHandler {
     // Build buttons to render (hide pinned if blank/disabled).
     const renderButtons: Array<{ config: ActionButtonConfig; color: number; actionIndex: number | null }> = [];
     const sourceDescriptors = this.waitingOverride ?? this.state.descriptors;
+    const nextScrollKey = sourceDescriptors
+      .map((btn) => `${String(btn?.label ?? "")}:${btn?.enabled ?? true}:${(btn as any)?.primary ?? false}`)
+      .join("|");
     sourceDescriptors.forEach((btn) => {
       if (!btn.label || !btn.label.trim() || btn.enabled === false) return;
       const color = btn.primary ? this.buttonStyle.endOuterColor : 0x5e48f0;
@@ -203,11 +265,34 @@ export class ActionButtonBarHandler {
 
     const totalButtonsWidth = buttonsWithSize.reduce((sum, btn) => sum + btn.width, 0);
     const totalWidth = totalButtonsWidth + btnGap * (buttonsWithSize.length - 1);
-    let currentX = barX - totalWidth / 2;
+    const canScroll = totalWidth > viewW + 1;
+    // When content fits, keep scroll at 0 and center content within the viewport.
+    const contentStartX = canScroll ? 0 : (viewW - totalWidth) / 2;
+    // When content overflows, allow scrolling the container between [minX, maxX].
+    const minX = canScroll ? Math.min(0, viewW - totalWidth) : 0;
+    const maxX = canScroll ? 0 : 0;
+    // Default overflow position is centered across the full content width.
+    const defaultX = canScroll ? (minX + maxX) / 2 : 0;
+    const step = 170;
+    this.scrollLayout = { viewX, viewY, viewW, viewH, minX, maxX, step, canScroll, defaultX };
+    const shouldReset = this.lastScrollKey !== nextScrollKey;
+    this.lastScrollKey = nextScrollKey;
+    this.scrollX = Phaser.Math.Clamp(shouldReset ? defaultX : this.scrollX, minX, maxX);
+    this.updateMask(viewX, viewY, viewW, viewH);
+    this.updateArrows();
+
+    this.buttonContainer?.destroy();
+    this.buttonContainer = this.scene.add.container(viewX + this.scrollX, 0).setDepth(900);
+    this.elements.push(this.buttonContainer);
+    if (this.maskShape && !this.buttonContainer.mask) {
+      this.buttonContainer.setMask(this.maskShape.createGeometryMask());
+    }
+
+    let currentX = contentStartX;
 
     buttonsWithSize.forEach((btn) => {
       const x = currentX + btn.width / 2;
-      this.drawButton(x, barY, btn.width, btnHeight, btn.config, 900, btn.color, btn.actionIndex);
+      this.drawButton(x, barY, btn.width, btnHeight, btn.config, 900, btn.color, btn.actionIndex, this.buttonContainer);
       currentX += btn.width + btnGap;
     });
     this.setVisible(this.visible);
@@ -290,6 +375,7 @@ export class ActionButtonBarHandler {
     depth: number,
     fillColor: number,
     actionIndex: number | null,
+    container?: Phaser.GameObjects.Container,
   ) {
     const enabled = config.enabled !== false;
     // Outer pill
@@ -305,6 +391,7 @@ export class ActionButtonBarHandler {
       strokeAlpha: 0.8,
       strokeWidth: 2,
     }).setDepth(depth);
+    if (container) container.add(outer);
     this.elements.push(outer);
 
     // Inner pill inset
@@ -320,6 +407,7 @@ export class ActionButtonBarHandler {
       strokeAlpha: 0.6,
       strokeWidth: 1,
     }).setDepth(depth + 1);
+    if (container) container.add(inner);
     this.elements.push(inner);
 
     const textStyle = {
@@ -330,21 +418,136 @@ export class ActionButtonBarHandler {
       .add.text(x, y, String(config.label || ""), textStyle)
       .setOrigin(0.5)
       .setDepth(depth + 2);
+    if (container) container.add(text);
     this.elements.push(text);
 
     const hit = this.scene.add
       .rectangle(x, y, w, h, 0x000000, 0)
       .setInteractive({ useHandCursor: enabled })
       .setDepth(depth + 3);
-    hit.on("pointerup", () => {
+    hit.on("pointerup", (_pointer: any, _localX: number, _localY: number, event: any) => {
       if (!enabled) return;
+      if (this.dragSuppressClick) {
+        this.dragSuppressClick = false;
+        return;
+      }
+      // Prevent underlying interactive game objects (hand/slots) from also receiving this click.
+      event?.stopPropagation?.();
       if (actionIndex !== null) {
         this.onAction(actionIndex);
       }
       config.onClick?.();
     });
     this.hitAreas.push(hit);
+    if (container) container.add(hit);
     this.elements.push(hit);
+  }
+
+  private ensureScrollBindings() {
+    if (this.scrollBound) return;
+    this.scrollBound = true;
+
+    this.onWheel = (_pointer: Phaser.Input.Pointer, _go: any, dx: number, dy: number) => {
+      const layout = this.scrollLayout;
+      if (!layout || !layout.canScroll || !this.maskRect) return;
+      const pointer = this.scene.input.activePointer;
+      if (!this.maskRect.contains(pointer.x, pointer.y)) return;
+      const delta = dx !== 0 ? dx : dy;
+      if (delta === 0) return;
+      const stepCap = layout.step;
+      const clampedDelta = Phaser.Math.Clamp(delta, -stepCap, stepCap);
+      this.scrollTo(this.scrollX - clampedDelta);
+    };
+    this.scene.input.on("wheel", this.onWheel);
+
+    this.onPointerDown = (pointer: Phaser.Input.Pointer) => {
+      const layout = this.scrollLayout;
+      if (!layout || !layout.canScroll || !this.maskRect) return;
+      if (!this.maskRect.contains(pointer.x, pointer.y)) return;
+      this.dragActive = true;
+      this.dragSuppressClick = false;
+      this.dragStartX = pointer.x;
+      this.dragLastX = pointer.x;
+      this.dragLastTime = this.scene.time.now;
+      this.dragVelocity = 0;
+      this.inertiaActive = false;
+    };
+    this.onPointerMove = (pointer: Phaser.Input.Pointer) => {
+      const layout = this.scrollLayout;
+      if (!this.dragActive || !layout) return;
+      const now = this.scene.time.now;
+      const dx = pointer.x - this.dragLastX;
+      const dt = Math.max(1, now - this.dragLastTime);
+      if (Math.abs(pointer.x - this.dragStartX) > 4) {
+        this.dragSuppressClick = true;
+      }
+      this.scrollTo(this.scrollX + dx, { animate: false });
+      this.dragVelocity = dx / dt;
+      this.dragLastX = pointer.x;
+      this.dragLastTime = now;
+    };
+    const stopDrag = () => {
+      if (!this.dragActive) return;
+      this.dragActive = false;
+      if (Math.abs(this.dragVelocity) > 0.02) {
+        this.inertiaActive = true;
+      }
+    };
+    this.onPointerUp = () => stopDrag();
+    this.onPointerUpOutside = () => stopDrag();
+    this.scene.input.on("pointerdown", this.onPointerDown);
+    this.scene.input.on("pointermove", this.onPointerMove);
+    this.scene.input.on("pointerup", this.onPointerUp);
+    this.scene.input.on("pointerupoutside", this.onPointerUpOutside);
+
+    this.onUpdate = (_time: number, delta: number) => {
+      const layout = this.scrollLayout;
+      if (!this.inertiaActive || !layout || !layout.canScroll) return;
+      const dt = Math.max(1, delta);
+      this.scrollTo(this.scrollX + this.dragVelocity * dt, { animate: false });
+      const friction = Math.pow(0.92, dt / 16.67);
+      this.dragVelocity *= friction;
+      if (this.scrollX === layout.minX || this.scrollX === layout.maxX) {
+        this.dragVelocity = 0;
+      }
+      if (Math.abs(this.dragVelocity) < 0.01) {
+        this.inertiaActive = false;
+        this.dragVelocity = 0;
+      }
+    };
+    this.scene.events.on("update", this.onUpdate);
+  }
+
+  private scrollTo(targetX: number, opts: { animate?: boolean } = {}) {
+    const layout = this.scrollLayout;
+    if (!layout) return;
+    const clamped = Phaser.Math.Clamp(targetX, layout.minX, layout.maxX);
+    this.scrollX = clamped;
+    this.applyScrollX();
+    this.updateArrows();
+    void opts;
+  }
+
+  private applyScrollX() {
+    if (!this.scrollLayout || !this.buttonContainer) return;
+    this.buttonContainer.setX(this.scrollLayout.viewX + this.scrollX);
+  }
+
+  private updateMask(viewX: number, viewY: number, viewW: number, viewH: number) {
+    if (!this.maskShape) {
+      this.maskShape = this.scene.add.graphics().setVisible(false);
+      this.elements.push(this.maskShape);
+    }
+    this.maskShape.clear();
+    this.maskShape.fillStyle(0xffffff, 1);
+    this.maskShape.fillRect(viewX, viewY, viewW, viewH);
+    this.maskRect = new Phaser.Geom.Rectangle(viewX, viewY, viewW, viewH);
+  }
+
+  private updateArrows() {
+    // Always hide arrows for action bar; scrolling is via drag/wheel only.
+    if (this.leftArrow) this.leftArrow.setVisible(false);
+    if (this.rightArrow) this.rightArrow.setVisible(false);
   }
 
   private drawWaitingLabel(y: number) {

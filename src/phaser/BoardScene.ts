@@ -16,6 +16,7 @@ import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
 import type { PilotTargetDialog } from "./ui/PilotTargetDialog";
 import type { PilotDesignationDialog } from "./ui/PilotDesignationDialog";
+import type { AbilityChoiceDialog } from "./ui/AbilityChoiceDialog";
 import type { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import type { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import type { BurstChoiceDialog } from "./ui/BurstChoiceDialog";
@@ -108,6 +109,7 @@ export class BoardScene extends Phaser.Scene {
   private effectTargetController?: EffectTargetController;
   private pilotTargetDialogUi?: PilotTargetDialog;
   private pilotDesignationDialogUi?: PilotDesignationDialog;
+  private abilityChoiceDialogUi?: AbilityChoiceDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
   private trashAreaDialogUi?: TrashAreaDialog;
   private burstChoiceDialogUi?: BurstChoiceDialog;
@@ -184,6 +186,7 @@ export class BoardScene extends Phaser.Scene {
     this.mulliganWaitingDialogUi = dialogs.mulliganWaitingDialog;
     this.pilotTargetDialogUi = dialogs.pilotTargetDialog;
     this.pilotDesignationDialogUi = dialogs.pilotDesignationDialog;
+    this.abilityChoiceDialogUi = dialogs.abilityChoiceDialog;
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
@@ -284,6 +287,7 @@ export class BoardScene extends Phaser.Scene {
       slotControls: this.slotControls,
       actionControls: this.actionControls,
       effectTargetController: this.effectTargetController,
+      abilityChoiceDialog: this.abilityChoiceDialogUi,
       burstChoiceDialog: this.burstChoiceDialogUi,
       burstFlow: this.burstFlow,
       gameContext: this.gameContext,

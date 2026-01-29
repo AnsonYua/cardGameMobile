@@ -93,7 +93,8 @@ export class DebugControls {
       await this.popup?.hide();
     }
     //st01-001/pair_ap_boost_turn.json
-    const targetScenario = scenarioPath || "ST01/ST01-015/token_deploy_one_unit_no_cost";
+    const targetScenario = scenarioPath || "ST02/ST02-003/paired_splash";
+    //const targetScenario = scenarioPath || "ST01/ST01-015/token_deploy_one_unit";
     try {
       const scenarioJson = await this.api.getTestScenario(targetScenario);
       const gameEnv =

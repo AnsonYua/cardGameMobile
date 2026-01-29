@@ -2,6 +2,19 @@
 
 2. if click any of help card , it will show Play Card Button and a cancel button. when click cancel, it will go back to normal status in which one End Turn button shown. when card click that card is being highlighted, when cacnel the card will display highlight. the highlight mean a green rect frame in the card.
 
+2.1 Activated abilities (Base / Slot)
+
+- If the selected **base card** (on board) OR the selected **slot** (unit or pilot) has one or more `effects.rules` entries where:
+  - `type` = `activated`
+  - `timing.windows` contains the current phase (example: `MAIN_PHASE`)
+- Then the bottom action bar shows a single `Activate Effect` button (plus `Cancel`).
+- Clicking `Activate Effect` opens a choice dialog (same visual style as `PilotDesignationDialog`) that lists:
+  - `Unit` → `Activate Unit Effect 1..N` (when the slot unit has multiple activated effects)
+  - `Pilot` → `Activate Pilot Effect 1..N` (when the slot pilot has multiple activated effects)
+  - (Base only has one list: `Activate Base Effect 1..N`)
+- Each option is enabled/disabled based on cost rules like `cost.resource`, `cost.oncePerTurn`, `cost.rest`, and `currentPlayer` (self turn).
+- Choosing an option calls `playerAction` with `actionType = "activateCardAbility"` and sends `carduid` + `effectId`.
+
 3.if a base card in handarea is clicked and the play button is clicked, it will call api 
 curl 'http://localhost:8080/api/game/player/playCard' \
   -H 'Accept: */*' \

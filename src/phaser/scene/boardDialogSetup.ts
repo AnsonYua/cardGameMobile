@@ -16,6 +16,7 @@ export type BoardDialogSet = {
   mulliganWaitingDialog: TurnOrderStatusDialog;
   pilotTargetDialog: PilotTargetDialog;
   pilotDesignationDialog: PilotDesignationDialog;
+  abilityChoiceDialog: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog;
   effectTargetDialog: EffectTargetDialog;
   trashAreaDialog: TrashAreaDialog;
   burstChoiceDialog: BurstChoiceDialog;
@@ -48,6 +49,7 @@ export function setupBoardDialogs(
     mulliganWaitingDialog: statusDialogs.mulliganWaitingDialog,
     pilotTargetDialog: timedDialogs.pilotTargetDialog,
     pilotDesignationDialog: timedDialogs.pilotDesignationDialog,
+    abilityChoiceDialog: timedDialogs.abilityChoiceDialog,
     effectTargetDialog: timedDialogs.effectTargetDialog,
     trashAreaDialog: coreDialogs.trashAreaDialog,
     burstChoiceDialog: timedDialogs.burstChoiceDialog,

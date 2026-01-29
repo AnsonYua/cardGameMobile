@@ -94,6 +94,26 @@ export class ActionExecutor {
     }
   }
 
+  async handleActivateCardAbility(carduid: string, effectId: string) {
+    const gameId = this.deps.gameContext.gameId;
+    const playerId = this.deps.gameContext.playerId;
+    if (!gameId || !playerId || !carduid || !effectId) return;
+    const payload = {
+      playerId,
+      gameId,
+      actionType: "activateCardAbility",
+      carduid,
+      effectId,
+    };
+    try {
+      await this.deps.api.playerAction(payload as any);
+      await this.deps.engine.updateGameStatus(gameId, playerId);
+      this.handleCancelSelection();
+    } catch (err) {
+      void err;
+    }
+  }
+
   cancelSelection() {
     this.handleCancelSelection();
   }

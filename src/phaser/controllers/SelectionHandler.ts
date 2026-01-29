@@ -115,7 +115,7 @@ export class SelectionHandler {
         return;
       }
     }
-    if (!this.isPlayersTurnFromRaw(raw) || slot.owner !== "player" || !slot.unit) {
+    if (!this.isPlayersTurnFromRaw(raw) || slot.owner !== "player" || (!slot.unit && !slot.pilot)) {
       // disallow selecting opponent cards or empty slots when not in player turn
       this.clearSelectionUI({ clearEngine: true });
       this.deps.refreshActions("neutral");

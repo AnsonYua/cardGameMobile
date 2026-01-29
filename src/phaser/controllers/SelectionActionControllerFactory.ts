@@ -3,6 +3,7 @@ import { ActionExecutor } from "./ActionExecutor";
 import { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { ActionStepTriggerHandler } from "./ActionStepTriggerHandler";
 import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
+import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { BlockerFlowManager } from "./BlockerFlowManager";
 import { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import { OpponentResolver } from "./OpponentResolver";
@@ -125,19 +126,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     burstFlow,
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
-    getOpponentRestedUnitSlots: () => opponentResolver.getOpponentRestedUnitSlots(),
     getOpponentUnitSlots: () => opponentResolver.getOpponentUnitSlots(),
-    onAttackUnit: async () => {
-      await actionExecutor.handleAttackUnit();
-      deps.onPlayerAction?.("attackUnit");
-    },
-    onAttackShieldArea: async () => {
-      await actionExecutor.handleAttackShieldArea();
-      deps.onPlayerAction?.("attackShieldArea");
-    },
-    onCancelSelection: () => {
-      actionExecutor.cancelSelection();
-    },
     onRefreshActions: (source) => {
       getController()?.refreshActions(source);
     },
@@ -147,12 +136,20 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     buildActionDescriptors: (descriptors) => getController()!.buildActionDescriptors(descriptors),
   });
 
+  const abilityFlow = new AbilityActivationFlowController({
+    engine: deps.engine,
+    gameContext: deps.gameContext,
+    abilityChoiceDialog: deps.abilityChoiceDialog,
+    actionExecutor,
+  });
+
   const modules: SelectionActionControllerModules = {
     slotGate,
     attackCoordinator,
     blockerFlow,
     burstFlow,
     actionStepCoordinator,
+    abilityFlow,
     selectionHandler,
     opponentResolver,
     actionExecutor,
