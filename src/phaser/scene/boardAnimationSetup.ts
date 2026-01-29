@@ -138,7 +138,6 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       renderSlots(slots);
     }
     baseShieldAnimationRender.handleEventStart(event, ctx);
-    renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
   });
   animationQueue.setOnEventEnd((event, ctx) => {
     const slots = slotAnimationRender.handleEventEnd(event, ctx);
@@ -146,7 +145,9 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       renderSlots(slots);
     }
     baseShieldAnimationRender.handleEventEnd(event, ctx);
-    renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
+    if ((event?.type ?? "").toString().toUpperCase() === "BATTLE_RESOLVED") {
+      renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
+    }
     if (shouldRefreshHandForEvent(event)) {
       updateHandArea({ skipAnimation: true });
       controls.handControls?.scrollToEnd?.(true);

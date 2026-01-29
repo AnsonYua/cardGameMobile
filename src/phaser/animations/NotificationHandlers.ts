@@ -199,6 +199,17 @@ export function buildNotificationHandlers(
       async (event) => {
         const nextPhase = event?.payload?.nextPhase;
         if (!nextPhase) return;
+        const previousPhase = event?.payload?.previousPhase;
+        // Suppress internal battle flow phase flips; these can happen during the notification animation queue
+        // and would otherwise spam the phase dialog.
+        const prev = (previousPhase ?? "").toString().toUpperCase();
+        const next = (nextPhase ?? "").toString().toUpperCase();
+        if (
+          (prev === "MAIN_PHASE" && next === "ACTION_STEP_PHASE") ||
+          (prev === "ACTION_STEP_PHASE" && next === "MAIN_PHASE")
+        ) {
+          return;
+        }
         deps.turnOrderStatusDialog?.hide();
         deps.waitingOpponentDialog?.hide();
         deps.mulliganWaitingDialog?.hide();

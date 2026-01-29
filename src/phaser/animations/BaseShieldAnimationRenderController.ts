@@ -205,10 +205,12 @@ export class BaseShieldAnimationRenderController {
     const card = state.baseCard;
     const field = card?.fieldCardValue ? { ...card.fieldCardValue } : {};
     if (stat.includes("ap")) {
-      state.ap = Number.isFinite(displayValue) ? displayValue : (state.ap ?? 0) + delta;
+      state.ap =
+        typeof displayValue === "number" && Number.isFinite(displayValue) ? displayValue : (state.ap ?? 0) + delta;
       field.totalAP = state.ap;
     } else if (stat.includes("hp")) {
-      state.hp = Number.isFinite(displayValue) ? displayValue : (state.hp ?? 0) + delta;
+      state.hp =
+        typeof displayValue === "number" && Number.isFinite(displayValue) ? displayValue : (state.hp ?? 0) + delta;
       field.totalHP = state.hp;
     }
     if (card) {
