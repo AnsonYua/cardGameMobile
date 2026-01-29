@@ -593,7 +593,7 @@ when click skip action-step button, call
       - On success: replace local gameEnv.
       - On error: show message, pause user inputs until next success.
   2. UI gating
-      - If queue head is a declared choice (blocker/target/burst): show corresponding dialog, block other actions.
+      - If `processingQueue` head is a declared choice (blocker/target/burst): show corresponding dialog, block other actions.
       - If no blocking event but currentBattle exists: show action-step UI and confirm buttons for players with confirmations[playerId] === false.
         Allow command cards and confirmBattle POSTs only.
       - Otherwise: normal play controls.

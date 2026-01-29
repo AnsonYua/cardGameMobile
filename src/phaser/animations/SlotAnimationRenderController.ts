@@ -63,6 +63,31 @@ export class SlotAnimationRenderController {
         this.renderSnapshots.set(key, snapshot);
       });
     }
+
+    if (type === "CARD_DAMAGED") {
+      const payload = event.payload ?? {};
+      const displayValue = Number(payload?.displayValue ?? payload?.resultingHP);
+      const hasDisplayValue = Number.isFinite(displayValue);
+      const damage = Number(payload?.damage ?? 0);
+      const delta = Number.isFinite(damage) ? -damage : 0;
+      if (!hasDisplayValue && delta === 0) {
+        return this.buildSlotsForRender(currentSlots);
+      }
+      keys.forEach((key) => {
+        const base = this.renderSnapshots.get(key);
+        if (!base) return;
+        const snapshot = this.cloneSlot(base);
+        const nextValue = hasDisplayValue ? displayValue : undefined;
+        snapshot.hp = nextValue ?? (snapshot.hp ?? 0) + delta;
+        if (snapshot.fieldCardValue) {
+          snapshot.fieldCardValue = {
+            ...snapshot.fieldCardValue,
+            totalHP: nextValue ?? (snapshot.fieldCardValue.totalHP ?? 0) + delta,
+          };
+        }
+        this.renderSnapshots.set(key, snapshot);
+      });
+    }
     
     if (type === "UNIT_ATTACK_DECLARED") {
       const attackerUid = event.payload?.attackerCarduid;
@@ -111,7 +136,8 @@ export class SlotAnimationRenderController {
 
     if (type === "UNIT_ATTACK_DECLARED" || 
         type =="PHASE_CHANGED" ||
-        type === "CARD_STAT_MODIFIED") {
+        type === "CARD_STAT_MODIFIED" ||
+        type === "CARD_DAMAGED") {
       // Keep preview snapshot (rested) for this event; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }

@@ -176,7 +176,16 @@ export class AnimationQueue {
     const delta = payload?.delta ?? payload?.modifierValue;
     if (typeof delta === "number") return delta;
     const parsed = Number(delta);
-    return Number.isFinite(parsed) ? parsed : 0;
+    if (Number.isFinite(parsed)) return parsed;
+
+    // Damage events provide "damage" and should pulse as a negative HP delta.
+    const damage = payload?.damage;
+    const damageNum = typeof damage === "number" ? damage : Number(damage);
+    if (Number.isFinite(damageNum) && damageNum !== 0) {
+      return -damageNum;
+    }
+
+    return 0;
   }
 
   private resolveSlotKey(

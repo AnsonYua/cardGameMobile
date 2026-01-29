@@ -189,6 +189,12 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "CARD_DAMAGED",
+      async (event, ctx) => {
+        await helpers.triggerStatPulse(event, ctx);
+      },
+    ],
+    [
       "PHASE_CHANGED",
       async (event) => {
         const nextPhase = event?.payload?.nextPhase;

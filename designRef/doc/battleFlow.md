@@ -18,6 +18,7 @@
   - Inspect `processingQueue` for the first entry whose `status !== "RESOLVED"`:
     * If it is `BLOCKER_CHOICE`, the defender takes over the blocker flow while the attacker sees a waiting indicator.
   - If no active blocker queue entry exists but `currentBattle` is populated with `status === "ACTION_STEP"`, render the action-step UI for anyone whose `confirmations[playerId] === false`.
+  - `notificationQueue` is for UI/animations and should not be used as the authoritative signal for whether blocker choice is still pending.
 
 ## Blocker selection phase
 
@@ -32,6 +33,10 @@
   2. **Skip Blocker Phase** – submits the same endpoint with `selectedTargets: []` to decline blocking.
 - The blocker dialog stays open until the POST succeeds; afterwards, wait for the next poll to either enter action-step or return to normal play if the attack fizzled.
 - When the defender is the opponent, the action bar shows a waiting state instead of buttons.
+- Backend resolution contract:
+  - After `/api/game/player/confirmBlockerChoice` succeeds, the blocker choice event must no longer be exposed as pending input.
+  - Concretely: the corresponding `processingQueue` entry must either be removed or have `status: "RESOLVED"` (and `data.userDecisionMade: true` if that field exists).
+  - If a `BLOCKER_CHOICE` notification is included in `notificationQueue`, it must also reflect the resolved state (or a `BLOCKER_CHOICE_RESOLVED` notification should be emitted) so the frontend does not re-open the choice on later polls.
 
 ### Blocking payload
 
