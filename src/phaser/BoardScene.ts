@@ -11,6 +11,7 @@ import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
 import { DebugControls } from "./controllers/DebugControls";
 import { TurnStateController } from "./game/TurnStateController";
+import { getTurnOwnerId } from "./game/turnOwner";
 import { HandPresenter } from "./ui/HandPresenter";
 import { SlotPresenter } from "./ui/SlotPresenter";
 import type { SlotViewModel, SlotOwner } from "./ui/SlotTypes";
@@ -450,6 +451,9 @@ export class BoardScene extends Phaser.Scene {
     const ctx = this.buildRefreshContext(skipAnimation);
     if (!ctx) return;
 
+    // Derive a stable turn owner for UI gating (avoids Burst temporarily repurposing `currentPlayer`).
+    this.turnController.update(ctx.raw, this.gameContext.playerId);
+
     this.log.debug("refreshPhase", {
       skipAnimation,
       status: ctx.status,
@@ -488,6 +492,7 @@ export class BoardScene extends Phaser.Scene {
 
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
+    this.updateTrashTopCards(raw);
     if (this.gameEnded) {
       this.updateSlots();
       this.updateBaseAndShield();
@@ -557,6 +562,15 @@ export class BoardScene extends Phaser.Scene {
     if (!selfStatus || !oppStatus) return;
     this.energyControls?.update?.(false, selfStatus);
     this.energyControls?.update?.(true, oppStatus);
+  }
+
+  private updateTrashTopCards(raw: any) {
+    const players = raw?.gameEnv?.players || {};
+    const { selfId, opponentId } = resolvePlayerIds(players, this.gameContext.playerId);
+    const selfTrash = selfId ? players?.[selfId]?.zones?.trashArea || [] : [];
+    const oppTrash = opponentId ? players?.[opponentId]?.zones?.trashArea || [] : [];
+    this.trashControls?.setTrashTopCard?.("player", selfTrash.length ? selfTrash[selfTrash.length - 1] : null);
+    this.trashControls?.setTrashTopCard?.("opponent", oppTrash.length ? oppTrash[oppTrash.length - 1] : null);
   }
 
   private updateHandArea(opts: { skipAnimation?: boolean; deferForAnimation?: boolean } = {}) {
@@ -677,12 +691,12 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private updateHeaderTurnStatus(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer;
-    if (!currentPlayer) {
+    const turnOwnerId = getTurnOwnerId(raw);
+    if (!turnOwnerId) {
       this.headerControls?.setTurnText?.("Turn: -");
       return;
     }
-    const isSelf = currentPlayer === this.gameContext.playerId;
+    const isSelf = turnOwnerId === this.gameContext.playerId;
     const text = `Turn: ${isSelf ? "Your Turn" : "Opponent"}`;
     const color = isSelf ? "#6fd66f" : "#ff6b6b";
     this.headerControls?.setTurnText?.(text, color);
@@ -740,6 +754,7 @@ export class BoardScene extends Phaser.Scene {
     this.updateBaseAndShield(raw);
     this.updateHeaderOpponentHand(raw);
     this.updateEnergyStatus(raw);
+    this.updateTrashTopCards(raw);
     if (!this.gameEnded) {
       this.showUI(false);
       this.updateHandArea({ skipAnimation: true });

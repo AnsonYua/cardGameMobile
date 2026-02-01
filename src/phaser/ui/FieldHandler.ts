@@ -8,6 +8,7 @@ import { EnergyBarHandler, EnergyCounts } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { SlotOwner, SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
+import { toPreviewKey } from "./HandTypes";
 
 export type FieldConfig = {
   slotW: number;
@@ -131,6 +132,11 @@ export class FieldHandler {
   private energyVisible = true;
   private trashClickHandler?: (owner: "opponent" | "player") => void;
   private trashHits: Partial<Record<"opponent" | "player", Phaser.GameObjects.Zone>> = {};
+  private trashAnchors: Partial<Record<"opponent" | "player", { x: number; y: number; w: number; h: number }>> = {};
+  private trashLabels: Partial<Record<"opponent" | "player", Phaser.GameObjects.Text>> = {};
+  private trashTopCards: Partial<Record<"opponent" | "player", Phaser.GameObjects.Image>> = {};
+  private trashTopCardKeys: Partial<Record<"opponent" | "player", string>> = {};
+  private pendingTrashTopCards: Partial<Record<"opponent" | "player", any | null>> = {};
   private energyAnchors: {
     opponent?: { x: number; y: number; width: number; isOpponent: boolean };
     player?: { x: number; y: number; width: number; isOpponent: boolean };
@@ -237,6 +243,9 @@ export class FieldHandler {
     return {
       setTrashClickHandler: (handler?: (owner: "opponent" | "player") => void) => {
         this.trashClickHandler = handler;
+      },
+      setTrashTopCard: (owner: "opponent" | "player", card: any | null) => {
+        this.setTrashTopCard(owner, card);
       },
     };
   }
@@ -384,6 +393,7 @@ export class FieldHandler {
     }
   }
   private drawTrashBox(x: number, y: number, w: number, h: number, label: string, owner: "opponent" | "player") {
+    this.trashAnchors[owner] = { x, y, w, h };
     this.drawHelpers.drawRoundedRect({
       x,
       y,
@@ -397,13 +407,90 @@ export class FieldHandler {
       strokeWidth: 2,
     });
     if (label) {
-      this.scene.add.text(x, y, label, { fontSize: "13px", fontFamily: "Arial", color: this.palette.ink }).setOrigin(0.5);
+      const existing = this.trashLabels[owner];
+      if (existing) {
+        existing.setText(label).setPosition(x, y).setVisible(true);
+      } else {
+        this.trashLabels[owner] = this.scene
+          .add.text(x, y, label, { fontSize: "13px", fontFamily: "Arial", color: this.palette.ink })
+          .setOrigin(0.5)
+          .setDepth(12);
+      }
     }
     this.trashHits[owner]?.destroy();
     const hit = this.scene.add.zone(x, y, w, h).setOrigin(0.5).setInteractive({ useHandCursor: true });
     hit.setDepth(30);
     hit.on("pointerup", () => this.trashClickHandler?.(owner));
     this.trashHits[owner] = hit;
+
+    const pending = this.pendingTrashTopCards[owner];
+    if (pending !== undefined) {
+      this.pendingTrashTopCards[owner] = undefined;
+      this.setTrashTopCard(owner, pending);
+    }
+  }
+
+  private setTrashTopCard(owner: "opponent" | "player", card: any | null) {
+    const anchor = this.trashAnchors[owner];
+    if (!anchor) {
+      this.pendingTrashTopCards[owner] = card;
+      return;
+    }
+
+    if (!card) {
+      this.trashTopCardKeys[owner] = undefined;
+      this.trashTopCards[owner]?.destroy();
+      this.trashTopCards[owner] = undefined;
+      this.trashLabels[owner]?.setVisible(true);
+      return;
+    }
+
+    const cardId =
+      typeof card === "string"
+        ? card
+        : (card?.cardId ??
+          card?.id ??
+          card?.uid ??
+          (typeof card?.card === "string" ? card.card : undefined));
+    const preferredTexture = cardId ? (toPreviewKey(cardId) || cardId) : undefined;
+    const textureKey =
+      preferredTexture && this.scene.textures.exists(preferredTexture)
+        ? preferredTexture
+        : cardId && this.scene.textures.exists(cardId)
+          ? cardId
+          : this.scene.textures.exists("deckBack")
+            ? "deckBack"
+            : undefined;
+
+    if (!textureKey) {
+      this.trashLabels[owner]?.setVisible(true);
+      return;
+    }
+
+    if (this.trashTopCardKeys[owner] === textureKey && this.trashTopCards[owner]) {
+      const displayW = Math.max(1, anchor.w - 6);
+      const displayH = Math.max(1, anchor.h - 6);
+      this.trashTopCards[owner]?.setPosition(anchor.x, anchor.y).setDisplaySize(displayW, displayH).setVisible(true);
+      this.trashLabels[owner]?.setVisible(false);
+      return;
+    }
+
+    this.trashTopCardKeys[owner] = textureKey;
+    this.trashLabels[owner]?.setVisible(false);
+
+    const displayW = Math.max(1, anchor.w - 6);
+    const displayH = Math.max(1, anchor.h - 6);
+    const existing = this.trashTopCards[owner];
+    if (!existing) {
+      this.trashTopCards[owner] = this.scene
+        .add.image(anchor.x, anchor.y, textureKey)
+        .setOrigin(0.5)
+        .setDepth(11)
+        .setDisplaySize(displayW, displayH);
+      return;
+    }
+
+    existing.setPosition(anchor.x, anchor.y).setDisplaySize(displayW, displayH).setTexture(textureKey).setVisible(true);
   }
 
   private drawCardBox(x: number, y: number, w: number, h: number, label: string) {

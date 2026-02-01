@@ -1,5 +1,6 @@
 import type { ActionDescriptor } from "../game/ActionRegistry";
 import type { ActionSource } from "../game/GameEngine";
+import { getTurnOwnerId } from "../game/turnOwner";
 
 export const START_GAME_PHASES = new Set(["REDRAW_PHASE", "START_GAME", "STARTGAME"]);
 
@@ -12,11 +13,11 @@ export function isStartGamePhase(phase: string) {
 }
 
 export function isPlayersTurn(raw: any, playerId: string) {
-  return raw?.gameEnv?.currentPlayer === playerId;
+  return getTurnOwnerId(raw) === playerId;
 }
 
 export function isMainPhase(raw: any, playerId: string) {
-  return raw?.gameEnv?.phase === "MAIN_PHASE" && raw?.gameEnv?.currentPlayer === playerId;
+  return raw?.gameEnv?.phase === "MAIN_PHASE" && getTurnOwnerId(raw) === playerId;
 }
 
 export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerReady: boolean, allowAttackShield: boolean) {

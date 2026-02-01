@@ -4,6 +4,7 @@ import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import { findCardByUid } from "../utils/CardLookup";
+import { findActiveBurstChoiceNotification } from "../utils/NotificationUtils";
 import { createLogger } from "../utils/logger";
 
 type BurstChoiceDeps = {
@@ -29,21 +30,46 @@ export class BurstChoiceFlowManager {
   constructor(private deps: BurstChoiceDeps) {}
 
   syncDecisionState(raw: any) {
-    if (!this.queueEntry || !this.pendingResolve) return;
     const notifications = this.getNotificationQueue(raw);
-    const note = notifications.find((entry: any) => entry?.id === this.pendingNotificationId);
-    const event = note?.payload?.event ?? note?.payload ?? {};
-    const decisionMade = event?.data?.userDecisionMade === true;
-    if (!note || decisionMade) {
-      this.log.warn("resolve pending burst from snapshot", {
-        entryId: this.queueEntry?.id,
-        notificationId: this.pendingNotificationId,
-        missing: !note,
-        decisionMade,
+    const preferChoiceKey = this.queueEntry?.eventId ?? this.queueEntry?.id;
+    const active = findActiveBurstChoiceNotification(notifications, { preferChoiceKey });
+    if (!active) {
+      if (this.queueEntry || this.pendingResolve) {
+        if (this.queueEntry) {
+          this.log.debug("burst prompt cleared from snapshot", { entryId: this.queueEntry?.id });
+        }
+        this.resolvePending();
+        this.clear();
+      }
+      return;
+    }
+
+    const entry = this.buildEntryFromNotification(active);
+    if (!entry || !this.isBurstChoiceEntry(entry)) return;
+    const decisionMade = entry?.data?.userDecisionMade === true;
+    if (decisionMade) {
+      this.log.warn("resolve burst from snapshot (decision made)", {
+        entryId: entry?.id,
+        notificationId: entry?.notificationId,
       });
       this.resolvePending();
       this.clear();
+      return;
     }
+
+    const switching = !this.queueEntry || this.queueEntry.id !== entry.id;
+    if (switching) {
+      this.log.debug("burst active prompt sync", { from: this.queueEntry?.id, to: entry.id });
+      this.resolvePending();
+      this.queueEntry = entry;
+      this.requestPending = false;
+      this.pendingNotificationId = entry.notificationId;
+      this.shownEntryId = undefined;
+    }
+
+    // Ensure UI (action bar + dialog) stays aligned with the active unresolved prompt.
+    this.applyActionBar();
+    this.showDialog(raw);
   }
 
   async handleNotification(notification: any, raw: any): Promise<void> {

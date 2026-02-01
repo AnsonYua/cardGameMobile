@@ -6,6 +6,7 @@ import type { SlotControls } from "./ControllerTypes";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
+import { getTurnOwnerId, hasActiveBurstPrompt } from "../game/turnOwner";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -50,6 +51,11 @@ export class SelectionHandler {
 
   handleHandCardSelected(card: HandCardView) {
     const raw = this.deps.engine.getSnapshot().raw as any;
+    if (hasActiveBurstPrompt(raw)) {
+      this.clearSelectionUI({ clearEngine: true });
+      this.deps.refreshActions("neutral");
+      return;
+    }
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
     const isSelfTurn = this.isPlayersTurnFromRaw(raw);
     if (!isSelfTurn) {
@@ -92,6 +98,11 @@ export class SelectionHandler {
 
   async handleSlotCardSelected(slot: SlotViewModel) {
     const raw = this.deps.engine.getSnapshot().raw as any;
+    if (hasActiveBurstPrompt(raw)) {
+      this.clearSelectionUI({ clearEngine: true });
+      this.deps.refreshActions("neutral");
+      return;
+    }
     this.deps.blockerFlow.handleSnapshot(raw);
     // let blocker flow inspect latest queue before acting on the slot click
     if (await this.deps.attackCoordinator.handleSlot(slot)) {
@@ -137,6 +148,12 @@ export class SelectionHandler {
   }
 
   handleBaseCardSelected(payload?: { side: "opponent" | "player"; card?: any }) {
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    if (hasActiveBurstPrompt(raw)) {
+      this.clearSelectionUI({ clearEngine: true });
+      this.deps.refreshActions("neutral");
+      return;
+    }
     this.selectedHandCard = undefined;
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
@@ -163,7 +180,6 @@ export class SelectionHandler {
   }
 
   private isPlayersTurnFromRaw(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.deps.gameContext.playerId;
+    return getTurnOwnerId(raw) === this.deps.gameContext.playerId;
   }
 }

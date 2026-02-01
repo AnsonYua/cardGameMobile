@@ -95,8 +95,8 @@ export class DebugControls {
     //st01-001/pair_ap_boost_turn.json
     //const targetScenario = scenarioPath || "ST02/ST02-003/paired_splash";
     //const targetScenario = scenarioPath || "ST01/ST01-011/burst_add_to_hand";
-    const targetScenario = scenarioPath || "ActionCase/ST05-001/suppression_damaged_unit_attacks_two_shields";
-    
+    const targetScenario = scenarioPath || "ActionCase/ST05-001/suppression_damaged_unit_attacks_two_shields_multiple_burst";
+    //const targetScenario = scenarioPath || "ST01/ST01-008/blocker_choice_multiple_active"
     //const targetScenario = scenarioPath || "ST01/ST01-015/token_deploy_one_unit";
     try {
       const scenarioJson = await this.api.getTestScenario(targetScenario);

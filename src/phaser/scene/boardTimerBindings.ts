@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { TurnTimerController } from "../controllers/TurnTimerController";
+import { getTurnOwnerId } from "../game/turnOwner";
 
 type HeaderTimerControls = {
   setTimerProgress?: (progress: number, secondsLeft: number) => void;
@@ -27,8 +28,7 @@ export function createTurnTimerBindings(scene: Phaser.Scene, headerControls?: He
       timer.setEnabled(false);
       return;
     }
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    const isSelfTurn = currentPlayer === opts.playerId;
+    const isSelfTurn = getTurnOwnerId(raw) === opts.playerId;
     if (!isSelfTurn) {
       timer.setEnabled(false);
       return;

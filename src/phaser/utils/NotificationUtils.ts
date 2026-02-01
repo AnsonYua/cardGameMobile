@@ -6,6 +6,86 @@ export function getNotificationQueue(raw: any): SlotNotification[] {
   return queue;
 }
 
+function getNotificationType(note: SlotNotification | undefined): string {
+  const payload: any = note?.payload ?? {};
+  const event: any = payload?.event ?? {};
+  return (event?.type ?? note?.type ?? "").toString().toUpperCase();
+}
+
+function getBurstChoiceKey(note: SlotNotification | undefined): string | undefined {
+  if (!note) return undefined;
+  const payload: any = note.payload ?? {};
+  const event: any = payload?.event ?? payload ?? {};
+  const key = event?.id ?? payload?.eventId ?? payload?.choiceId ?? note.id;
+  return key ? String(key) : undefined;
+}
+
+function getBurstResolvedKey(note: SlotNotification | undefined): string | undefined {
+  if (!note) return undefined;
+  const payload: any = note.payload ?? {};
+  const event: any = payload?.event ?? {};
+  const key = payload?.eventId ?? payload?.choiceId ?? event?.id ?? payload?.id ?? note.id;
+  return key ? String(key) : undefined;
+}
+
+function buildResolvedBurstKeys(notifications: SlotNotification[]): Set<string> {
+  const resolved = new Set<string>();
+  if (!Array.isArray(notifications) || notifications.length === 0) return resolved;
+  for (const note of notifications) {
+    const type = getNotificationType(note);
+    if (type !== "BURST_EFFECT_CHOICE_RESOLVED") continue;
+    const key = getBurstResolvedKey(note);
+    if (key) resolved.add(key);
+  }
+  return resolved;
+}
+
+function findBurstChoiceByKey(notifications: SlotNotification[], key: string): SlotNotification | undefined {
+  if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+  if (!key) return undefined;
+  for (const note of notifications) {
+    const type = getNotificationType(note);
+    if (type !== "BURST_EFFECT_CHOICE") continue;
+    if (getBurstChoiceKey(note) === key) return note;
+  }
+  return undefined;
+}
+
+export function findActiveBurstChoiceNotification(
+  notifications: SlotNotification[],
+  opts: { preferChoiceKey?: string } = {},
+): SlotNotification | undefined {
+  if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+  const resolved = buildResolvedBurstKeys(notifications);
+
+  const preferredKey = opts.preferChoiceKey ? String(opts.preferChoiceKey) : "";
+  if (preferredKey && !resolved.has(preferredKey)) {
+    const preferred = findBurstChoiceByKey(notifications, preferredKey);
+    if (preferred) {
+      const payload: any = preferred.payload ?? {};
+      const eventPayload: any = payload?.event ?? payload ?? {};
+      const decisionMade = eventPayload?.data?.userDecisionMade === true;
+      if (!decisionMade) {
+        return preferred;
+      }
+    }
+  }
+
+  for (let i = notifications.length - 1; i >= 0; i -= 1) {
+    const note = notifications[i];
+    const payload: any = note?.payload ?? {};
+    const type = getNotificationType(note);
+    if (type !== "BURST_EFFECT_CHOICE") continue;
+    const key = getBurstChoiceKey(note);
+    if (!key || resolved.has(key)) continue;
+    const eventPayload: any = payload?.event ?? payload ?? {};
+    const decisionMade = eventPayload?.data?.userDecisionMade === true;
+    if (decisionMade) continue;
+    return note;
+  }
+  return undefined;
+}
+
 function findAttackNotification(
   notifications: SlotNotification[],
   opts: { includeBattleEnd?: boolean } = {},

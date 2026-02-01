@@ -3,6 +3,7 @@ import type { GameEngine } from "../game/GameEngine";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { SlotInteractionGate } from "./SlotInteractionGate";
+import { getTurnOwnerId } from "../game/turnOwner";
 import { createLogger } from "../utils/logger";
 
 export class TurnStateCoordinator {
@@ -26,18 +27,24 @@ export class TurnStateCoordinator {
         types: notifications.map((entry: any) => entry?.type),
       });
     }
+    this.deps.blockerFlow.handleSnapshot(raw);
+    this.deps.burstFlow.syncDecisionState(raw);
+
+    if (this.deps.burstFlow.isActive()) {
+      this.deps.slotGate.disable("burst-prompt");
+    } else {
+      this.deps.slotGate.enable("burst-prompt");
+    }
+
     const isSelfTurn = opts.isSelfTurn ?? this.isPlayersTurnFromRaw(raw);
     if (isSelfTurn) {
       this.deps.slotGate.enable("phase-turn");
     } else {
       this.deps.slotGate.disable("phase-turn");
     }
-    this.deps.blockerFlow.handleSnapshot(raw);
-    this.deps.burstFlow.syncDecisionState(raw);
   }
 
   private isPlayersTurnFromRaw(raw: any) {
-    const currentPlayer = raw?.gameEnv?.currentPlayer;
-    return currentPlayer === this.deps.gameContext.playerId;
+    return getTurnOwnerId(raw) === this.deps.gameContext.playerId;
   }
 }

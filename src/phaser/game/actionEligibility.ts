@@ -1,4 +1,5 @@
 import type { SelectionTarget } from "./SelectionStore";
+import { getTurnOwnerId } from "./turnOwner";
 
 const SLOT_KEYS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"];
 
@@ -129,7 +130,7 @@ export function getActivatedEffectOptions(card: any, raw: any, playerId: string)
   const player = raw?.gameEnv?.players?.[playerId];
   const { availableEnergy } = getEnergyState(player);
   const currentTurn = raw?.gameEnv?.currentTurn;
-  const isSelfTurn = raw?.gameEnv?.currentPlayer === playerId;
+  const isSelfTurn = getTurnOwnerId(raw) === playerId;
 
   return rules.map((effectRule) => {
     const required = Number(effectRule?.cost?.resource ?? 0);
