@@ -119,6 +119,10 @@ export class ApiManager {
     return this.postPlayerDecision("/api/game/player/confirmBurstChoice", payload);
   }
 
+  acknowledgeEvents(payload: { gameId: string; playerId: string; eventIds: string[] }) {
+    return this.postPlayerDecision("/api/game/player/acknowledgeEvents", payload);
+  }
+
   playerAction(payload: {
     playerId: string;
     gameId: string;

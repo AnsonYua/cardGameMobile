@@ -8,6 +8,7 @@ import type { ActionControls } from "./ControllerTypes";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
+import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import {
   computeActionBarDecision,
@@ -40,6 +41,7 @@ export class ActionBarCoordinator {
       actionStepCoordinator: ActionStepCoordinator;
       attackCoordinator: AttackTargetCoordinator;
       blockerFlow: BlockerFlowManager;
+      burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
@@ -62,8 +64,10 @@ export class ActionBarCoordinator {
       source: opts.source,
       currentPlayer: raw?.gameEnv?.currentPlayer ?? raw?.currentPlayer,
       phase: getPhase(raw),
+      burstGroupActive: this.deps.burstGroupFlow.isActive(),
       burstActive: this.deps.burstFlow.isActive(),
     });
+    if (this.deps.burstGroupFlow.applyActionBar()) return;
     if (this.deps.burstFlow.applyActionBar()) return;
     const selection = opts.selection ?? this.deps.getSelection();
     const isSelfTurn = isPlayersTurn(raw, this.deps.gameContext.playerId);

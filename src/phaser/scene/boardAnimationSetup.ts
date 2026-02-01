@@ -46,6 +46,7 @@ export type AnimationPipelineParams = {
   gameContext: { gameId?: string | null; playerId?: string | null };
   slotPresenter: SlotPresenter;
   burstFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
+  burstGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
   startGame: () => void;
@@ -71,6 +72,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     gameContext,
     slotPresenter,
     burstFlow,
+    burstGroupFlow,
     resolveSlotOwnerByPlayer,
     getTargetAnchorProviders,
     startGame,
@@ -100,6 +102,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     coinFlipOverlay: dialogs.coinFlipOverlay,
     phaseChangeDialog: dialogs.phaseChangeDialog,
     burstFlow,
+    burstGroupFlow,
     startGame: () => startGame(),
     startReady: async (isRedraw) => {
       const gameId = gameContext.gameId;

@@ -21,6 +21,7 @@ import type { AbilityChoiceDialog } from "./ui/AbilityChoiceDialog";
 import type { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import type { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import type { BurstChoiceDialog } from "./ui/BurstChoiceDialog";
+import type { BurstChoiceGroupDialog } from "./ui/BurstChoiceGroupDialog";
 import type { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import type { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import type { MulliganDialog } from "./ui/MulliganDialog";
@@ -32,6 +33,7 @@ import { PilotFlowController } from "./controllers/PilotFlowController";
 import { CommandFlowController } from "./controllers/CommandFlowController";
 import { UnitFlowController } from "./controllers/UnitFlowController";
 import type { BurstChoiceFlowManager } from "./controllers/BurstChoiceFlowManager";
+import type { BurstChoiceGroupFlowManager } from "./controllers/BurstChoiceGroupFlowManager";
 import { createSelectionActionController } from "./controllers/SelectionActionControllerFactory";
 import type { SelectionActionController } from "./controllers/SelectionActionController";
 import type { EffectTargetController } from "./controllers/EffectTargetController";
@@ -114,7 +116,9 @@ export class BoardScene extends Phaser.Scene {
   private effectTargetDialogUi?: EffectTargetDialog;
   private trashAreaDialogUi?: TrashAreaDialog;
   private burstChoiceDialogUi?: BurstChoiceDialog;
+  private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
   private burstFlow?: BurstChoiceFlowManager;
+  private burstGroupFlow?: BurstChoiceGroupFlowManager;
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
@@ -191,9 +195,10 @@ export class BoardScene extends Phaser.Scene {
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
+    this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
 
-    const { burstFlow, effectTargetController } = setupBoardFlows({
+    const { burstFlow, burstGroupFlow, effectTargetController } = setupBoardFlows({
       scene: this,
       api: this.api,
       engine: this.engine,
@@ -202,6 +207,7 @@ export class BoardScene extends Phaser.Scene {
       dialogs: {
         effectTargetDialog: dialogs.effectTargetDialog,
         burstChoiceDialog: dialogs.burstChoiceDialog,
+        burstChoiceGroupDialog: dialogs.burstChoiceGroupDialog,
       },
       actionControls: this.actionControls,
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
@@ -215,6 +221,7 @@ export class BoardScene extends Phaser.Scene {
       }),
     });
     this.burstFlow = burstFlow;
+    this.burstGroupFlow = burstGroupFlow;
     this.effectTargetController = effectTargetController;
 
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
@@ -239,6 +246,7 @@ export class BoardScene extends Phaser.Scene {
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
       burstFlow: this.burstFlow,
+      burstGroupFlow: this.burstGroupFlow,
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
       renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
@@ -291,6 +299,7 @@ export class BoardScene extends Phaser.Scene {
       abilityChoiceDialog: this.abilityChoiceDialogUi,
       burstChoiceDialog: this.burstChoiceDialogUi,
       burstFlow: this.burstFlow,
+      burstGroupFlow: this.burstGroupFlow,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
       shouldDelayActionBar: (raw) => this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false,

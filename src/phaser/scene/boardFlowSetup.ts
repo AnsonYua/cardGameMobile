@@ -7,7 +7,9 @@ import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { ActionControls } from "../controllers/ControllerTypes";
 import { BurstChoiceFlowManager } from "../controllers/BurstChoiceFlowManager";
+import { BurstChoiceGroupFlowManager } from "../controllers/BurstChoiceGroupFlowManager";
 import { EffectTargetController } from "../controllers/EffectTargetController";
+import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 
 type BoardFlowSetupParams = {
   scene: Phaser.Scene;
@@ -18,6 +20,7 @@ type BoardFlowSetupParams = {
   dialogs: {
     effectTargetDialog: EffectTargetDialog;
     burstChoiceDialog: BurstChoiceDialog;
+    burstChoiceGroupDialog: BurstChoiceGroupDialog;
   };
   actionControls?: ActionControls | null;
   getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
@@ -39,6 +42,18 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     onTimerResume: params.onTimerResume,
   });
 
+  const burstGroupFlow = new BurstChoiceGroupFlowManager({
+    api: params.api,
+    engine: params.engine,
+    gameContext: params.gameContext,
+    actionControls: params.actionControls,
+    groupDialog: params.dialogs.burstChoiceGroupDialog,
+    burstChoiceDialog: params.dialogs.burstChoiceDialog,
+    refreshActions: params.onRefreshActions,
+    onTimerPause: params.onTimerPause,
+    onTimerResume: params.onTimerResume,
+  });
+
   const effectTargetController = new EffectTargetController({
     dialog: params.dialogs.effectTargetDialog,
     slotPresenter: params.slotPresenter,
@@ -50,5 +65,5 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     getSlotAreaCenter: params.getSlotAreaCenter,
   });
 
-  return { burstFlow, effectTargetController };
+  return { burstFlow, burstGroupFlow, effectTargetController };
 }

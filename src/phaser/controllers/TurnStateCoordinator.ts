@@ -2,6 +2,7 @@ import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
+import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { SlotInteractionGate } from "./SlotInteractionGate";
 import { getTurnOwnerId } from "../game/turnOwner";
 import { createLogger } from "../utils/logger";
@@ -14,6 +15,7 @@ export class TurnStateCoordinator {
       gameContext: GameContext;
       slotGate: SlotInteractionGate;
       blockerFlow: BlockerFlowManager;
+      burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
     },
   ) {}
@@ -28,9 +30,12 @@ export class TurnStateCoordinator {
       });
     }
     this.deps.blockerFlow.handleSnapshot(raw);
-    this.deps.burstFlow.syncDecisionState(raw);
+    this.deps.burstGroupFlow.syncSnapshotState(raw);
+    if (!this.deps.burstGroupFlow.isActive()) {
+      this.deps.burstFlow.syncDecisionState(raw);
+    }
 
-    if (this.deps.burstFlow.isActive()) {
+    if (this.deps.burstGroupFlow.isActive() || this.deps.burstFlow.isActive()) {
       this.deps.slotGate.disable("burst-prompt");
     } else {
       this.deps.slotGate.enable("burst-prompt");

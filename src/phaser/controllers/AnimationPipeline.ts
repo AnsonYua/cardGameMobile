@@ -62,6 +62,7 @@ export function createAnimationPipeline(deps: {
   effectTargetController?: EffectTargetController;
   onGameEnded?: (info: GameEndInfo) => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
+  burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
   chooseFirstPlayerDialog?: ChooseFirstPlayerDialog;
@@ -121,6 +122,7 @@ export function createAnimationPipeline(deps: {
     effectTargetController: deps.effectTargetController,
     onGameEnded: deps.onGameEnded,
     burstChoiceFlow: deps.burstFlow,
+    burstChoiceGroupFlow: deps.burstGroupFlow,
     phasePopup: deps.phaseChangeDialog
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
       : undefined,

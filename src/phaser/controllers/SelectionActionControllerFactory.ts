@@ -6,6 +6,7 @@ import { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { BlockerFlowManager } from "./BlockerFlowManager";
 import { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
+import { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import { OpponentResolver } from "./OpponentResolver";
 import { SelectionHandler } from "./SelectionHandler";
 import { SlotInteractionGate } from "./SlotInteractionGate";
@@ -43,6 +44,19 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       engine: deps.engine,
       gameContext: deps.gameContext,
       actionControls: deps.actionControls,
+      burstChoiceDialog: deps.burstChoiceDialog,
+      refreshActions: () => getController()?.refreshActions("neutral"),
+      onTimerPause: deps.onTimerPause,
+      onTimerResume: deps.onTimerResume,
+    });
+  const burstGroupFlow =
+    deps.burstGroupFlow ??
+    new BurstChoiceGroupFlowManager({
+      api: deps.api,
+      engine: deps.engine,
+      gameContext: deps.gameContext,
+      actionControls: deps.actionControls,
+      groupDialog: null,
       burstChoiceDialog: deps.burstChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
       onTimerPause: deps.onTimerPause,
@@ -112,6 +126,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     gameContext: deps.gameContext,
     slotGate,
     blockerFlow,
+    burstGroupFlow,
     burstFlow,
   });
   const actionBarCoordinator = new ActionBarCoordinator({
@@ -123,6 +138,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     actionStepCoordinator,
     attackCoordinator,
     blockerFlow,
+    burstGroupFlow,
     burstFlow,
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
@@ -147,6 +163,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     slotGate,
     attackCoordinator,
     blockerFlow,
+    burstGroupFlow,
     burstFlow,
     actionStepCoordinator,
     abilityFlow,

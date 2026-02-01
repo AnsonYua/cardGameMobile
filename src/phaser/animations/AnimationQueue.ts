@@ -32,6 +32,7 @@ export class AnimationQueue {
     effectTargetController?: EffectTargetController;
     onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
+    burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -86,10 +87,16 @@ export class AnimationQueue {
     if (!Array.isArray(notificationQueue) || notificationQueue.length === 0) {
       return [];
     }
+    const hasBurstGroup = notificationQueue.some(
+      (note) => (note?.type ?? "").toString().toUpperCase() === "BURST_EFFECT_CHOICE_GROUP",
+    );
     const events: SlotNotification[] = [];
     notificationQueue.forEach((note) => {
       if (!note || !note.id) return;
       const type = (note.type || "").toUpperCase();
+      if (hasBurstGroup && (type === "BURST_EFFECT_CHOICE" || type === "BURST_EFFECT_CHOICE_RESOLVED")) {
+        return;
+      }
       if (!this.handlers.has(type)) return;
       events.push(note);
     });

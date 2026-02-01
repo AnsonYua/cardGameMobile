@@ -17,6 +17,7 @@ export function buildNotificationHandlers(
     effectTargetController?: EffectTargetController;
     onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
+    burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -44,6 +45,13 @@ export function buildNotificationHandlers(
   const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
     [
+      "BURST_EFFECT_CHOICE_GROUP",
+      async (event, ctx) => {
+        if (!deps.burstChoiceGroupFlow) return;
+        await deps.burstChoiceGroupFlow.handleNotification(event, ctx.currentRaw);
+      },
+    ],
+    [
       "TARGET_CHOICE",
       async (event, ctx) => {
         if (!deps.effectTargetController) return;
@@ -65,6 +73,7 @@ export function buildNotificationHandlers(
       "BURST_EFFECT_CHOICE",
       async (event, ctx) => {
         if (!deps.burstChoiceFlow) return;
+        if (deps.burstChoiceGroupFlow?.isActive()) return;
         await deps.burstChoiceFlow.handleNotification(event, ctx.currentRaw);
       },
     ],
@@ -72,6 +81,7 @@ export function buildNotificationHandlers(
       "BURST_EFFECT_CHOICE_RESOLVED",
       async (event) => {
         if (!deps.burstChoiceFlow) return;
+        if (deps.burstChoiceGroupFlow?.isActive()) return;
         await deps.burstChoiceFlow.handleResolvedNotification(event);
       },
     ],

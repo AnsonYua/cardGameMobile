@@ -13,8 +13,10 @@ export type BurstChoiceDialogOptions = {
   card: any;
   header?: string;
   showButtons?: boolean;
+  showBack?: boolean;
   showTimer?: boolean;
   showOverlay?: boolean;
+  onBack?: () => Promise<void> | void;
   onTrigger?: () => Promise<void> | void;
   onCancel?: () => Promise<void> | void;
   onTimeout?: () => Promise<void> | void;
@@ -76,6 +78,7 @@ export class BurstChoiceDialog {
     const cam = this.scene.cameras.main;
     const headerText = opts.header || "Burst Card";
     const showButtons = opts.showButtons ?? false;
+    const showBack = opts.showBack ?? false;
     const showTimer = opts.showTimer ?? false;
     const showOverlay = opts.showOverlay ?? false;
     const extraButtonHeight = showButtons ? 70 : 0;
@@ -101,6 +104,28 @@ export class BurstChoiceDialog {
     this.overlay = overlay;
     this.content = content;
     this.open = true;
+
+    if (showBack) {
+      const size = 28;
+      const offset = 12;
+      const x = -layout.dialogWidth / 2 + size / 2 + offset;
+      const y = -layout.dialogHeight / 2 + size / 2 + offset;
+      const backButton = this.scene.add.rectangle(x, y, size, size, 0xffffff, 0.12);
+      backButton.setStrokeStyle(2, 0xffffff, 0.5);
+      backButton.setInteractive({ useHandCursor: true });
+      backButton.on("pointerup", async () => {
+        await opts.onBack?.();
+      });
+      const backLabel = this.scene.add
+        .text(x, y, "←", { fontSize: "18px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
+        .setOrigin(0.5);
+      backLabel.setInteractive({ useHandCursor: true });
+      backLabel.on("pointerup", async () => {
+        await opts.onBack?.();
+      });
+      dialog.add([backButton, backLabel]);
+      this.buttonTargets.push(backButton);
+    }
 
     const colIndex = Math.floor(cols / 2);
     const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2 + colIndex * (layout.cellWidth + layout.gap);
@@ -135,7 +160,8 @@ export class BurstChoiceDialog {
       const buttonGap = 18;
       const buttonWidth = 160;
       const buttonY = startY + layout.cellHeight / 2 + 22 + buttonHeight / 2;
-      const totalWidth = buttonWidth * 2 + buttonGap;
+      const buttonCount = 2;
+      const totalWidth = buttonWidth * buttonCount + buttonGap * (buttonCount - 1);
       const startBtnX = -totalWidth / 2 + buttonWidth / 2;
       const triggerX = startBtnX;
       const cancelX = startBtnX + buttonWidth + buttonGap;

@@ -86,6 +86,27 @@ export function findActiveBurstChoiceNotification(
   return undefined;
 }
 
+export function findActiveBurstChoiceGroupNotification(
+  notifications: SlotNotification[],
+  opts: { playerId?: string; includeCompleted?: boolean } = {},
+): SlotNotification | undefined {
+  if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+  const matchPlayerId = opts.playerId ? String(opts.playerId) : "";
+  const includeCompleted = opts.includeCompleted === true;
+  for (let i = notifications.length - 1; i >= 0; i -= 1) {
+    const note = notifications[i];
+    const payload: any = note?.payload ?? {};
+    const type = (note?.type ?? "").toString().toUpperCase();
+    if (type !== "BURST_EFFECT_CHOICE_GROUP") continue;
+    const groupPlayerId = payload?.playerId;
+    if (matchPlayerId && groupPlayerId && String(groupPlayerId) !== matchPlayerId) continue;
+    const isCompleted = payload?.isCompleted === true;
+    if (isCompleted && !includeCompleted) continue;
+    return note;
+  }
+  return undefined;
+}
+
 function findAttackNotification(
   notifications: SlotNotification[],
   opts: { includeBattleEnd?: boolean } = {},

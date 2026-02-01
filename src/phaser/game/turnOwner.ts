@@ -1,5 +1,9 @@
 import type { SlotNotification } from "../animations/NotificationAnimationController";
-import { findActiveBurstChoiceNotification, getNotificationQueue } from "../utils/NotificationUtils";
+import {
+  findActiveBurstChoiceGroupNotification,
+  findActiveBurstChoiceNotification,
+  getNotificationQueue,
+} from "../utils/NotificationUtils";
 
 export function getTurnOwnerId(raw: any): string | undefined {
   const explicit = raw?.gameEnv?.turnOwnerId;
@@ -28,6 +32,8 @@ export function getCurrentTurn(raw: any): number | undefined {
 
 export function hasActiveBurstPrompt(raw: any): boolean {
   const queue: SlotNotification[] = getNotificationQueue(raw);
-  return !!findActiveBurstChoiceNotification(queue);
+  return (
+    !!findActiveBurstChoiceGroupNotification(queue, { includeCompleted: false }) ||
+    !!findActiveBurstChoiceNotification(queue)
+  );
 }
-

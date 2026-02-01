@@ -4,6 +4,7 @@ import { createCoreDialogs, createStatusDialogs, createTimedDialogs } from "./di
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
+import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 
 export type BoardDialogSet = {
   drawPopupDialog: DrawPopupDialog;
@@ -20,6 +21,7 @@ export type BoardDialogSet = {
   effectTargetDialog: EffectTargetDialog;
   trashAreaDialog: TrashAreaDialog;
   burstChoiceDialog: BurstChoiceDialog;
+  burstChoiceGroupDialog: BurstChoiceGroupDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
 };
 
@@ -53,6 +55,7 @@ export function setupBoardDialogs(
     effectTargetDialog: timedDialogs.effectTargetDialog,
     trashAreaDialog: coreDialogs.trashAreaDialog,
     burstChoiceDialog: timedDialogs.burstChoiceDialog,
+    burstChoiceGroupDialog: timedDialogs.burstChoiceGroupDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
   };
 }

@@ -47,6 +47,7 @@ export type SelectionActionControllerDeps = {
   onTimerPause?: () => void;
   onTimerResume?: () => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
+  burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
 };
 
 export type SelectionActionControllerModules = {
@@ -54,6 +55,7 @@ export type SelectionActionControllerModules = {
   attackCoordinator: AttackTargetCoordinator;
   blockerFlow: BlockerFlowManager;
   burstFlow: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
+  burstGroupFlow: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   actionStepCoordinator: ActionStepCoordinator;
   abilityFlow: AbilityActivationFlowController;
   selectionHandler: SelectionHandler;

@@ -12,6 +12,7 @@ import { AbilityChoiceDialog } from "../ui/AbilityChoiceDialog";
 import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
 import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
+import { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
@@ -51,7 +52,7 @@ export function createTimedDialogs(
   scene: Phaser.Scene,
   createSlotSprite: CreateSlotSprite,
   timerController?: TurnTimerController,
-) {
+  ) {
   return {
     mulliganDialog: new MulliganDialog(scene, timerController),
     chooseFirstPlayerDialog: new ChooseFirstPlayerDialog(scene, timerController),
@@ -60,5 +61,6 @@ export function createTimedDialogs(
     abilityChoiceDialog: new AbilityChoiceDialog(scene),
     effectTargetDialog: new EffectTargetDialog(scene, createSlotSprite, timerController),
     burstChoiceDialog: new BurstChoiceDialog(scene, timerController),
+    burstChoiceGroupDialog: new BurstChoiceGroupDialog(scene),
   };
 }
