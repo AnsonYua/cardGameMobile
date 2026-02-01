@@ -5,7 +5,15 @@ import type { ActionControls } from "./ControllerTypes";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 import { getNotificationQueue, findActiveBurstChoiceGroupNotification } from "../utils/NotificationUtils";
-import { findCardByUid } from "../utils/CardLookup";
+import {
+  buildGroupDialogRows,
+  findGroupEvent,
+  getBurstSourceInfo,
+  getGroupEvents,
+  isGroupEventDone,
+  type BurstGroupEvent,
+} from "../utils/burstChoiceGroupUtils";
+import { resolveBurstChoiceCard } from "../utils/burstChoiceCardResolver";
 import { createLogger } from "../utils/logger";
 
 type GroupDeps = {
@@ -26,21 +34,15 @@ type GroupNote = {
   metadata?: any;
 };
 
-type GroupEvent = {
-  id: string;
-  type?: string;
-  status?: string;
-  playerId?: string;
-  data?: any;
-};
-
 export class BurstChoiceGroupFlowManager {
   private readonly log = createLogger("BurstChoiceGroupFlow");
   private groupNotificationId?: string;
   private active = false;
   private pendingResolve?: () => void;
   private pendingPromise?: Promise<void>;
-  private selectedEventId?: string;
+  private selectionResolve?: (eventId: string) => void;
+  private selectionPromise?: Promise<string>;
+  private view: "group" | "single" = "group";
   private requestPending = false;
 
   constructor(private deps: GroupDeps) {}
@@ -92,7 +94,7 @@ export class BurstChoiceGroupFlowManager {
     this.groupNotificationId = note.id;
 
     // If user backed out of single choice, ensure group list is visible again for the owner.
-    if (isOwner && !this.selectedEventId && !this.deps.groupDialog?.isOpen()) {
+    if (isOwner && this.view === "group" && !this.deps.groupDialog?.isOpen()) {
       this.showGroupDialog(note);
     }
 
@@ -108,7 +110,8 @@ export class BurstChoiceGroupFlowManager {
     if (!note) return;
     this.active = true;
     this.groupNotificationId = note.id;
-    this.selectedEventId = undefined;
+    this.view = "group";
+    this.clearSelectionWait();
     this.requestPending = false;
 
     const selfId = this.deps.gameContext.playerId;
@@ -136,30 +139,32 @@ export class BurstChoiceGroupFlowManager {
     let note: GroupNote | undefined = initialNote;
     while (note) {
       const payload = note.payload ?? {};
-      const events: GroupEvent[] = Array.isArray(payload.events) ? payload.events : [];
+      const events: BurstGroupEvent[] = getGroupEvents(payload);
       if (payload.isCompleted === true || events.length === 0) {
         await this.onGroupCompleted(note);
         return;
       }
 
       // Show group selection dialog and wait for a selection.
-      this.selectedEventId = undefined;
+      this.view = "group";
+      this.clearSelectionWait();
       await this.deps.burstChoiceDialog?.hide();
       this.showGroupDialog(note);
-      const selectedId = await this.waitForSelection();
+      const selectedId = await this.waitForSelectionId();
       if (!selectedId) {
         // Should not happen (no close), but keep looping if it does.
         note = this.findGroupNote(this.deps.engine.getSnapshot().raw as any) ?? undefined;
         continue;
       }
 
-      const event = events.find((e) => String(e?.id ?? "") === String(selectedId));
-      if (!event || this.isDoneRow(payload, event)) {
+      const event = findGroupEvent(events, selectedId);
+      if (!event || isGroupEventDone(payload, event)) {
         note = this.findGroupNote(this.deps.engine.getSnapshot().raw as any) ?? undefined;
         continue;
       }
 
       // Enter single-burst UI for selected event; allow back navigation.
+      this.view = "single";
       await this.deps.groupDialog?.hide();
       await this.showSingleBurstChoice(event, raw);
 
@@ -173,31 +178,9 @@ export class BurstChoiceGroupFlowManager {
     const dialog = this.deps.groupDialog;
     if (!dialog) return;
     const payload = note.payload ?? {};
-    const events: GroupEvent[] = Array.isArray(payload.events) ? payload.events : [];
-    const rows = events.map((e) => {
-      const burstSource = e?.data?.burstSource ?? {};
-      const name = burstSource?.name ?? e?.data?.displayName ?? "Burst";
-      const cardId = burstSource?.cardId ?? burstSource?.id ?? "";
-      const cardType = burstSource?.cardType ? String(burstSource.cardType) : "";
-      const zone = burstSource?.sourceZone ? String(burstSource.sourceZone) : "";
-      const attack = burstSource?.attackContext ?? {};
-      const attackSuffix =
-        attack?.attackingPlayerId && attack?.attackerSlot
-          ? ""
-          : "";
-      const metaSuffix = [cardId, cardType, zone].filter(Boolean).join(" · ");
-      const label = `${name}${metaSuffix ? ` — ${metaSuffix}` : ""}${attackSuffix}`;
-      const done = this.isDoneRow(payload, e);
-      const enabled = !done;
-      return {
-        id: String(e?.id ?? ""),
-        label,
-        done,
-        enabled,
-        onClick: async () => {
-          this.selectedEventId = String(e?.id ?? "");
-        },
-      };
+    const events: BurstGroupEvent[] = getGroupEvents(payload);
+    const rows = buildGroupDialogRows(payload, events, (eventId) => {
+      this.selectionResolve?.(eventId);
     });
 
     dialog.show({
@@ -207,28 +190,25 @@ export class BurstChoiceGroupFlowManager {
     });
   }
 
-  private isDoneRow(groupPayload: any, event: GroupEvent): boolean {
-    const resolvedIds: string[] = Array.isArray(groupPayload?.resolvedEventIds) ? groupPayload.resolvedEventIds : [];
-    const id = String(event?.id ?? "");
-    if (resolvedIds.includes(id)) return true;
-    if ((event?.status ?? "").toString().toUpperCase() === "RESOLVED") return true;
-    if (event?.data?.userDecisionMade === true) return true;
-    return false;
-  }
-
-  private async waitForSelection(): Promise<string | undefined> {
-    // No close button; selection is made by setting `selectedEventId` via row click.
-    const maxWaitMs = 1000 * 60 * 60;
-    const start = Date.now();
-    while (Date.now() - start < maxWaitMs) {
-      if (this.selectedEventId) return this.selectedEventId;
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 50));
+  private async waitForSelectionId(): Promise<string | undefined> {
+    if (!this.selectionPromise) {
+      this.selectionPromise = new Promise<string>((resolve) => {
+        this.selectionResolve = resolve;
+      });
     }
-    return undefined;
+    try {
+      return await this.selectionPromise;
+    } finally {
+      this.clearSelectionWait();
+    }
   }
 
-  private async showSingleBurstChoice(event: GroupEvent, raw: any) {
+  private clearSelectionWait() {
+    this.selectionResolve = undefined;
+    this.selectionPromise = undefined;
+  }
+
+  private async showSingleBurstChoice(event: BurstGroupEvent, raw: any) {
     const dialog = this.deps.burstChoiceDialog;
     if (!dialog) return;
     const selfId = this.deps.gameContext.playerId;
@@ -236,7 +216,8 @@ export class BurstChoiceGroupFlowManager {
     if (!isOwner) {
       return;
     }
-    const card = this.resolveCardFromGroupEvent(raw, event);
+    const info = getBurstSourceInfo(event);
+    const card = resolveBurstChoiceCard(raw, { carduid: info.carduid, availableTargets: event?.data?.availableTargets });
     if (!card) {
       this.log.warn("single burst skipped: card not resolved", { eventId: event?.id });
       return;
@@ -251,7 +232,7 @@ export class BurstChoiceGroupFlowManager {
         resolve();
       };
       const openList = async () => {
-        this.selectedEventId = undefined;
+        this.view = "group";
         await dialog.hide();
         const note = this.findGroupNote(this.deps.engine.getSnapshot().raw as any);
         if (note) this.showGroupDialog(note);
@@ -281,25 +262,6 @@ export class BurstChoiceGroupFlowManager {
         },
       });
     });
-  }
-
-  private resolveCardFromGroupEvent(raw: any, event: GroupEvent) {
-    const data = event?.data ?? {};
-    const carduid = data?.carduid ?? data?.burstSource?.carduid;
-    const targets = Array.isArray(data?.availableTargets) ? data.availableTargets : [];
-    if (carduid) {
-      const match = targets.find((t: any) => t?.carduid === carduid);
-      if (match) return match;
-      const lookup = findCardByUid(raw, carduid);
-      if (lookup) {
-        return {
-          carduid: lookup.cardUid ?? carduid,
-          cardId: lookup.id,
-          cardData: lookup.cardData,
-        };
-      }
-    }
-    return targets[0];
   }
 
   private async submitChoice(eventId: string, confirmed: boolean) {
@@ -360,7 +322,8 @@ export class BurstChoiceGroupFlowManager {
   private clear() {
     this.active = false;
     this.groupNotificationId = undefined;
-    this.selectedEventId = undefined;
+    this.view = "group";
+    this.clearSelectionWait();
     this.requestPending = false;
     this.pendingPromise = undefined;
     this.pendingResolve = undefined;
