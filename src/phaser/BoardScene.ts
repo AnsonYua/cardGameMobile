@@ -819,17 +819,28 @@ export class BoardScene extends Phaser.Scene {
     applyState(renderStates.opponent, true);
   }
 
-  private handleGameEnded(info: { winnerId?: string; endReason?: string; endedAt?: number | string }) {
+  private handleGameEnded(info: { winnerId?: string; loserId?: string; endReason?: string; endedAt?: number | string; notificationId?: string }) {
     if (this.gameEnded) return;
     this.gameEnded = true;
     this.gameEndInfo = info;
     this.selectionAction?.clearSelectionUI({ clearEngine: true });
     this.disableInputs();
+    const selfId = this.gameContext.playerId;
     const winnerId = info.winnerId;
-    const isWinner = !!winnerId && winnerId === this.gameContext.playerId;
+    const isWinner = !!winnerId && !!selfId && winnerId === selfId;
     this.gameOverDialogUi?.show({
       isWinner,
       onOk: async () => {
+        const gameId = this.gameContext.gameId;
+        const playerId = this.gameContext.playerId;
+        const notificationId = info.notificationId;
+        if (gameId && playerId && notificationId) {
+          try {
+            await this.api.acknowledgeEvents({ gameId, playerId, eventIds: [notificationId] });
+          } catch (err) {
+            void err;
+          }
+        }
         this.returnToLobby();
       },
     });

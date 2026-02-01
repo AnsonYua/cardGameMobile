@@ -63,9 +63,11 @@ export function buildNotificationHandlers(
       async (event) => {
         const payload = event?.payload ?? {};
         deps.onGameEnded?.({
+          notificationId: event?.id,
           winnerId: payload.winnerId,
+          loserId: payload.loserId,
           endReason: payload.reason ?? payload.endReason,
-          endedAt: payload.timestamp ?? payload.endedAt,
+          endedAt: payload.endedAt ?? payload.timestamp ?? payload.endedAt,
         });
       },
     ],
@@ -184,11 +186,17 @@ export function buildNotificationHandlers(
         }
         const result = event?.payload?.result ?? {};
         if (result?.gameEnded) {
-          deps.onGameEnded?.({
-            winnerId: result.winnerId ?? event?.payload?.winnerId,
-            endReason: result.endReason ?? result.reason,
-            endedAt: result.endedAt ?? result.timestamp,
-          });
+          const winnerId = result.winnerId ?? event?.payload?.winnerId;
+          const loserId = result.loserId ?? event?.payload?.loserId;
+          // If backend didn't include winner/loser, wait for an explicit GAME_ENDED notification instead of guessing.
+          if (winnerId || loserId) {
+            deps.onGameEnded?.({
+              winnerId,
+              loserId,
+              endReason: result.endReason ?? result.reason,
+              endedAt: result.endedAt ?? result.timestamp,
+            });
+          }
         }
       },
     ],

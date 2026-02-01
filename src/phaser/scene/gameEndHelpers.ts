@@ -2,8 +2,10 @@ import { getNotificationQueue } from "../utils/NotificationUtils";
 
 export type GameEndInfo = {
   winnerId?: string;
+  loserId?: string;
   endReason?: string;
   endedAt?: number | string;
+  notificationId?: string;
 };
 
 export function detectGameEnd(raw: any): GameEndInfo | null {
@@ -12,6 +14,7 @@ export function detectGameEnd(raw: any): GameEndInfo | null {
   if (gameEnv?.gameEnded) {
     return {
       winnerId: gameEnv?.winnerId,
+      loserId: gameEnv?.loserId,
       endReason: gameEnv?.endReason,
       endedAt: gameEnv?.endedAt,
     };
@@ -22,8 +25,10 @@ export function detectGameEnd(raw: any): GameEndInfo | null {
     const payload = endedNote.payload ?? {};
     return {
       winnerId: payload.winnerId,
+      loserId: payload.loserId,
       endReason: payload.reason,
-      endedAt: payload.timestamp,
+      endedAt: payload.endedAt ?? payload.timestamp,
+      notificationId: endedNote.id,
     };
   }
   const battleEnd = notifications.find(
@@ -33,6 +38,7 @@ export function detectGameEnd(raw: any): GameEndInfo | null {
     const result = battleEnd?.payload?.result ?? {};
     return {
       winnerId: result.winnerId ?? battleEnd?.payload?.winnerId,
+      loserId: result.loserId ?? battleEnd?.payload?.loserId,
       endReason: result.endReason ?? result.reason,
       endedAt: result.endedAt ?? result.timestamp,
     };
