@@ -38,6 +38,7 @@ export class EffectTargetController {
 
     const selfId = this.deps.gameContext.playerId;
     const payload = note?.payload ?? {};
+    const allowEmptySelection = payload?.allowEmptySelection === true;
     const event = payload?.event ?? payload;
     const eventType = (event?.type ?? note?.type ?? "").toString().toUpperCase();
     if (eventType !== "TARGET_CHOICE") return;
@@ -82,7 +83,23 @@ export class EffectTargetController {
       selfId ?? "",
     );
     const targets = slotTargets.map((entry) => entry.slot);
-    if (!targets.length) return;
+    if (!targets.length) {
+      if (allowEmptySelection && selfId) {
+        try {
+          await this.deps.api.confirmTargetChoice({
+            gameId: this.deps.gameContext.gameId || "",
+            playerId: selfId || "",
+            eventId,
+            selectedTargets: [],
+          });
+          this.deps.onPlayerAction?.();
+          await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+        } catch (err) {
+          void err;
+        }
+      }
+      return;
+    }
 
     this.activeEffectChoiceId = eventId;
     await new Promise<void>((resolve) => {
@@ -94,8 +111,28 @@ export class EffectTargetController {
       this.deps.dialog.show({
         targets,
         header: "Choose a Target",
+        showCloseButton: allowEmptySelection,
         onClose: () => {
-          void finish();
+          if (!allowEmptySelection || !selfId) {
+            void finish();
+            return;
+          }
+          void (async () => {
+            try {
+              await this.deps.api.confirmTargetChoice({
+                gameId: this.deps.gameContext.gameId || "",
+                playerId: selfId || "",
+                eventId,
+                selectedTargets: [],
+              });
+              this.deps.onPlayerAction?.();
+              await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+            } catch (err) {
+              void err;
+            } finally {
+              await finish();
+            }
+          })();
         },
         onSelect: async (slot) => {
           if (!selfId) {
