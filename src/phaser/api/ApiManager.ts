@@ -22,6 +22,17 @@ export type LobbyListResponse = {
   timestamp: string;
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly data: any,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export class ApiManager {
   private baseUrl: string;
   private fallbackUrl = "http://localhost:8080";
@@ -220,7 +231,11 @@ export class ApiManager {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(`request failed: ${res.status} ${res.statusText} ${json ? JSON.stringify(json) : ""}`);
+      const serverMsg =
+        (json && typeof json === "object" && (json as any).error && String((json as any).error)) ||
+        (json && typeof json === "object" && (json as any).message && String((json as any).message)) ||
+        "";
+      throw new ApiError(serverMsg || `request failed: ${res.status} ${res.statusText}`, res.status, json);
     }
     return json;
   }

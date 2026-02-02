@@ -44,6 +44,7 @@ export type SelectionActionControllerDeps = {
   onDelayActionBar?: (raw: any) => void;
   abilityChoiceDialog?: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog | null;
   burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
+  errorDialog?: import("../ui/ErrorDialog").ErrorDialog | null;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
@@ -164,10 +165,26 @@ export class SelectionActionController {
       return;
     }
     this.log.debug("runActionThenRefresh");
-    const result = await this.deps.engine.runAction(actionId);
-    if (result === false) return;
+    try {
+      const result = await this.deps.engine.runAction(actionId);
+      if (result === false) return;
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.deps.errorDialog?.show({ headerText: "Action Failed", message: msg });
+      return;
+    }
     this.deps.onPlayerAction?.(actionId);
     this.refreshAfterStateChange(actionSource);
+  }
+
+  private extractErrorMessage(err: any): string {
+    const rawMessage = (err?.message ?? "").toString();
+    // ApiManager throws ApiError; use its message as the user-facing text.
+    if (err?.name === "ApiError" && rawMessage) return rawMessage;
+    // Fallback: try to pull `"error":"..."` from the serialized JSON embedded in the message.
+    const match = rawMessage.match(/\"error\"\\s*:\\s*\"([^\"]+)\"/);
+    if (match?.[1]) return match[1];
+    return rawMessage || "Request failed.";
   }
 
   updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {

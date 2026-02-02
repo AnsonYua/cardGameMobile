@@ -13,6 +13,7 @@ import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
 import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
+import { ErrorDialog } from "../ui/ErrorDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
@@ -28,6 +29,7 @@ export function createCoreDialogs(scene: Phaser.Scene) {
     phaseChangeDialog: new PhaseChangeDialog(scene),
     coinFlipOverlay: new CoinFlipOverlay(scene),
     trashAreaDialog: new TrashAreaDialog(scene),
+    errorDialog: new ErrorDialog(scene),
     gameOverDialog: new GameOverDialog(scene),
   };
 }

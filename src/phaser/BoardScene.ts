@@ -22,6 +22,7 @@ import type { EffectTargetDialog } from "./ui/EffectTargetDialog";
 import type { TrashAreaDialog } from "./ui/TrashAreaDialog";
 import type { BurstChoiceDialog } from "./ui/BurstChoiceDialog";
 import type { BurstChoiceGroupDialog } from "./ui/BurstChoiceGroupDialog";
+import type { ErrorDialog } from "./ui/ErrorDialog";
 import type { DrawPopupDialog } from "./ui/DrawPopupDialog";
 import type { PhaseChangeDialog } from "./ui/PhaseChangeDialog";
 import type { MulliganDialog } from "./ui/MulliganDialog";
@@ -115,6 +116,7 @@ export class BoardScene extends Phaser.Scene {
   private abilityChoiceDialogUi?: AbilityChoiceDialog;
   private effectTargetDialogUi?: EffectTargetDialog;
   private trashAreaDialogUi?: TrashAreaDialog;
+  private errorDialogUi?: ErrorDialog;
   private burstChoiceDialogUi?: BurstChoiceDialog;
   private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
   private burstFlow?: BurstChoiceFlowManager;
@@ -194,6 +196,7 @@ export class BoardScene extends Phaser.Scene {
     this.abilityChoiceDialogUi = dialogs.abilityChoiceDialog;
     this.effectTargetDialogUi = dialogs.effectTargetDialog;
     this.trashAreaDialogUi = dialogs.trashAreaDialog;
+    this.errorDialogUi = dialogs.errorDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
     this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
@@ -298,6 +301,7 @@ export class BoardScene extends Phaser.Scene {
       effectTargetController: this.effectTargetController,
       abilityChoiceDialog: this.abilityChoiceDialogUi,
       burstChoiceDialog: this.burstChoiceDialogUi,
+      errorDialog: this.errorDialogUi,
       burstFlow: this.burstFlow,
       burstGroupFlow: this.burstGroupFlow,
       gameContext: this.gameContext,

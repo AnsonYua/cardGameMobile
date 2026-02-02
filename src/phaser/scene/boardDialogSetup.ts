@@ -20,6 +20,7 @@ export type BoardDialogSet = {
   abilityChoiceDialog: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog;
   effectTargetDialog: EffectTargetDialog;
   trashAreaDialog: TrashAreaDialog;
+  errorDialog: import("../ui/ErrorDialog").ErrorDialog;
   burstChoiceDialog: BurstChoiceDialog;
   burstChoiceGroupDialog: BurstChoiceGroupDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
@@ -54,6 +55,7 @@ export function setupBoardDialogs(
     abilityChoiceDialog: timedDialogs.abilityChoiceDialog,
     effectTargetDialog: timedDialogs.effectTargetDialog,
     trashAreaDialog: coreDialogs.trashAreaDialog,
+    errorDialog: coreDialogs.errorDialog,
     burstChoiceDialog: timedDialogs.burstChoiceDialog,
     burstChoiceGroupDialog: timedDialogs.burstChoiceGroupDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
