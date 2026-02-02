@@ -96,7 +96,8 @@ export class DebugControls {
     //const targetScenario = scenarioPath || "ST02/ST02-003/paired_splash";
     //const targetScenario = scenarioPath || "ST01/ST01-011/burst_add_to_hand";
     //const targetScenario = scenarioPath || "ST01/ST01-011/burst_add_to_hand";
-    const targetScenario = scenarioPath || "ActionCase/T-014/restrictions_cannot_set_active_or_pair"
+    //const targetScenario = scenarioPath || "ActionCase/T-014/restrictions_cannot_set_active_or_pair"
+    const targetScenario = scenarioPath || "ActionCase/ST08-011/effect_draw_grant_high_maneuver_if_paired_blue_unit"
     //const targetScenario = scenarioPath ||"ST02/ST02-006/activate_once_per_turn"
     //const targetScenario = scenarioPath || "ActionCase/ST05-001/suppression_damaged_unit_attacks_two_shields_multiple_burst";
     //const targetScenario = scenarioPath || "ST01/ST01-008/blocker_choice_multiple_active"
