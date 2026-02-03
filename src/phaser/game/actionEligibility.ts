@@ -30,8 +30,8 @@ export function canPlaySelectedHandCard(selection: SelectionTarget, raw: any, pl
   if (isEnergy) return true;
 
   const { totalEnergy, availableEnergy } = getEnergyState(player);
-  const requiredLevel = Number(cardData.level ?? 0);
-  const requiredCost = Number(cardData.cost ?? 0);
+  const requiredLevel = Number(cardData.effectiveLevel ?? cardData.level ?? 0);
+  const requiredCost = Number(cardData.effectiveCost ?? cardData.cost ?? 0);
   const level = Number.isNaN(requiredLevel) ? 0 : requiredLevel;
   const cost = Number.isNaN(requiredCost) ? 0 : requiredCost;
   if (totalEnergy < level) return false;
