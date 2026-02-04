@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import type { GameStatusSnapshot } from "../game/GameEngine";
 import { ENGINE_EVENTS } from "../game/EngineEvents";
+import type { PilotDesignationDialogPayload } from "../game/EngineEvents";
 
 type EventBindingDeps = {
   engine: {
@@ -35,7 +36,7 @@ export function bindBoardSceneEvents(deps: EventBindingDeps) {
   deps.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
     deps.selectionAction?.refreshActions("neutral");
   });
-  deps.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, (payload?: { selection?: any }) => {
+  deps.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, (payload?: PilotDesignationDialogPayload) => {
     deps.pilotFlow?.showPilotDesignationDialog(payload?.selection);
   });
   deps.engine.events.on(ENGINE_EVENTS.PILOT_TARGET_DIALOG, () => {

@@ -14,3 +14,7 @@ export const ENGINE_EVENTS = {
 } as const;
 
 export type EngineEventKey = (typeof ENGINE_EVENTS)[keyof typeof ENGINE_EVENTS];
+
+export type PilotDesignationDialogPayload = {
+  selection: import("./SelectionStore").SelectionTarget;
+};

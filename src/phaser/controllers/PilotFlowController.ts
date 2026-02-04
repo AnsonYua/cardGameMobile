@@ -8,6 +8,7 @@ import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import type { GameEngine } from "../game/GameEngine";
 import { isBattleActionStep } from "../game/battleUtils";
 import { commandHasTimingWindow } from "../game/actionEligibility";
+import type { SelectionTarget } from "../game/SelectionStore";
 
 type PilotFlowDeps = {
   scene: Phaser.Scene;
@@ -26,7 +27,7 @@ export class PilotFlowController {
     this.deps = deps;
   }
 
-  showPilotDesignationDialog(selection?: { uid?: string; kind?: string; cardType?: string } | null) {
+  showPilotDesignationDialog(selection?: SelectionTarget | null) {
     const { pilotDesignationDialog, runActionThenRefresh } = this.deps;
     const raw = this.deps.engine.getSnapshot().raw as any;
     if (isBattleActionStep(raw)) {
@@ -42,7 +43,7 @@ export class PilotFlowController {
       selection.kind === "hand" &&
       (selection.cardType || "").toString().toLowerCase() === "command" &&
       !!playerId &&
-      commandHasTimingWindow(selection as any, raw, playerId, phase);
+      commandHasTimingWindow(selection, raw, playerId, phase);
 
     pilotDesignationDialog.show({
       allowPilot: targets.length > 0,
