@@ -113,8 +113,7 @@ export class DebugControls {
     //const targetScenario = scenarioPath ||"ActionCase/ST07-001/pair_mill2_draw_if_cb"
     //const targetScenario = scenarioPath ||"ActionCase/ST07-001/end_of_turn_set_active_resource_if_cb_trash_ge_7"
     //const targetScenario = scenarioPath ||"ActionCase/ST06-014/activate_restSelf_ap_plus_2_if_clan_link_unit"
-    //const targetScenario = scenarioPath ||"ActionCase/ST06-013/action_prevent_battle_damage_from_enemy_units_le_2_for_clan"
-    const targetScenario = scenarioPath || "ActionCase/ST06-011/main_or_action_choose_1_or_2_clan_units_ap_plus_2"
+    const targetScenario = scenarioPath ||"ActionCase/ST06-013/action_prevent_battle_damage_from_enemy_units_le_2_for_clan"
     //const targetScenario = scenarioPath || "ActionCase/ST08-006/pair_attack_reveal_ef_unit_bottom_then_draw_2_notarget"
     //const targetScenario = scenarioPath ||"ST02/ST02-006/activate_once_per_turn"
     //const targetScenario = scenarioPath || "ActionCase/ST05-001/suppression_damaged_unit_attacks_two_shields_multiple_burst";
