@@ -185,7 +185,7 @@ export class EffectTargetController {
           this.deps.dialog.showMulti({
             targets,
             header: "Choose Targets",
-            showCloseButton: true,
+            showCloseButton: false,
             allowPiloted: true,
             min: allowEmptySelection ? 0 : min,
             max: max,
