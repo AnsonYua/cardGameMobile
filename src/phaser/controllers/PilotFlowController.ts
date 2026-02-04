@@ -7,6 +7,7 @@ import { PilotTargetDialog } from "../ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import type { GameEngine } from "../game/GameEngine";
 import { isBattleActionStep } from "../game/battleUtils";
+import { commandHasTimingWindow } from "../game/actionEligibility";
 
 type PilotFlowDeps = {
   scene: Phaser.Scene;
@@ -25,7 +26,7 @@ export class PilotFlowController {
     this.deps = deps;
   }
 
-  showPilotDesignationDialog() {
+  showPilotDesignationDialog(selection?: { uid?: string; kind?: string; cardType?: string } | null) {
     const { pilotDesignationDialog, runActionThenRefresh } = this.deps;
     const raw = this.deps.engine.getSnapshot().raw as any;
     if (isBattleActionStep(raw)) {
@@ -35,23 +36,17 @@ export class PilotFlowController {
     }
     const phase = (raw?.gameEnv?.phase ?? "").toString().toUpperCase();
     const targets = this.collectPilotTargetUnits();
-    // In MAIN_PHASE, pilot-designation should behave like playing a Pilot (command mode isn't legal here).
-    if (phase === "MAIN_PHASE") {
-      if (targets.length > 0) {
-        this.showPilotTargetDialog("playPilotDesignationAsPilot");
-        return;
-      }
-      pilotDesignationDialog.show({
-        allowPilot: false,
-        allowCommand: false,
-        onPilot: async () => {},
-        onCommand: async () => {},
-      });
-      return;
-    }
+    const playerId = this.deps.gameContext.playerId;
+    const canPlayAsCommand =
+      !!selection &&
+      selection.kind === "hand" &&
+      (selection.cardType || "").toString().toLowerCase() === "command" &&
+      !!playerId &&
+      commandHasTimingWindow(selection as any, raw, playerId, phase);
+
     pilotDesignationDialog.show({
       allowPilot: targets.length > 0,
-      allowCommand: true,
+      allowCommand: canPlayAsCommand,
       onPilot: async () => {
         this.showPilotTargetDialog("playPilotDesignationAsPilot");
       },

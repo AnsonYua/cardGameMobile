@@ -63,7 +63,6 @@ export class PilotDesignationDialog {
     }
     const dialog = createPromptDialog(this.scene, this.cfg, {
       headerText,
-      promptText: "Choose option",
       buttons,
       showOverlay: true,
       closeOnBackdrop: true,

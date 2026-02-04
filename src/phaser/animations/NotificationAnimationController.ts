@@ -4,6 +4,7 @@ import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "..
 import { toBaseKey, toPreviewKey, type HandCardView } from "../ui/HandTypes";
 import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
+import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
 
 export type SlotNotification = {
   id: string;
@@ -387,10 +388,6 @@ export class NotificationAnimationController {
       };
     }
     const data = card.cardData ?? {};
-    const rules: any[] = Array.isArray(data?.effects?.rules) ? data.effects.rules : [];
-    const pilotRule = rules.find(
-      (rule) => rule?.effectId === "pilot_designation" || rule?.effectId === "pilotDesignation",
-    );
     const cardType = data?.cardType ?? card.cardType;
     const cardId = data?.cardId ?? data?.id ?? card.id ?? fallbackUid;
     const baseTextureKey =
@@ -400,7 +397,7 @@ export class NotificationAnimationController {
       cardType,
       cardData: { ...data, cardId, cardType },
       textureKey: baseTextureKey,
-      fromPilotDesignation: cardType === "command" && !!pilotRule,
+      fromPilotDesignation: cardType === "command" && hasPilotDesignationRule(data),
       ap: data?.ap,
       hp: data?.hp,
     };
@@ -409,17 +406,11 @@ export class NotificationAnimationController {
   private buildPreviewCard(card?: SlotCardView): HandCardView | null {
     if (!card) return null;
     const data = card.cardData ?? {};
-    const rules: any[] = Array.isArray(data?.effects?.rules) ? data.effects.rules : [];
-    const pilotRule = rules.find(
-      (rule) => rule?.effectId === "pilot_designation" || rule?.effectId === "pilotDesignation",
-    );
-    const pilotParams = pilotRule?.parameters || {};
-    const pilotAp = pilotParams.AP ?? pilotParams.ap ?? null;
-    const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;
+    const pilotStats = getPilotDesignationStats(data);
     const cardType = data?.cardType ?? card.cardType;
-    const isPilotCommand = cardType === "command" && pilotRule;
-    const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap ?? card.cardData?.ap;
-    const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp ?? card.cardData?.hp;
+    const isPilotCommand = cardType === "command" && hasPilotDesignationRule(data);
+    const ap = isPilotCommand ? pilotStats?.ap ?? 0 : data?.ap ?? card.cardData?.ap;
+    const hp = isPilotCommand ? pilotStats?.hp ?? 0 : data?.hp ?? card.cardData?.hp;
     const cardId = data?.cardId ?? data?.id ?? card.id;
     // Use full art for popups (non-preview) when possible.
     const textureKey = (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(cardId);

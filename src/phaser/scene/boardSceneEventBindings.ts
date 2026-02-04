@@ -35,8 +35,8 @@ export function bindBoardSceneEvents(deps: EventBindingDeps) {
   deps.engine.events.on(ENGINE_EVENTS.MAIN_PHASE_ENTER, () => {
     deps.selectionAction?.refreshActions("neutral");
   });
-  deps.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, () => {
-    deps.pilotFlow?.showPilotDesignationDialog();
+  deps.engine.events.on(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, (payload?: { selection?: any }) => {
+    deps.pilotFlow?.showPilotDesignationDialog(payload?.selection);
   });
   deps.engine.events.on(ENGINE_EVENTS.PILOT_TARGET_DIALOG, () => {
     deps.pilotFlow?.showPilotTargetDialog("playPilotFromHand");

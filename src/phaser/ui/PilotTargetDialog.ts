@@ -92,18 +92,24 @@ export class PilotTargetDialog {
   }
 
   async hide(): Promise<void> {
-    await this.multiDialog.hide();
-    this.previewController.hide(true);
-    this.dialogTimer.stop();
-    this.overlay?.destroy();
-    this.dialog?.destroy();
+    const overlay = this.overlay;
+    const dialog = this.dialog;
+    const onClose = this.lastOnClose;
+
+    // Clear references immediately to avoid a race where `show()` calls `void this.hide()` and
+    // this async method destroys the newly-created dialog after the first await.
     this.overlay = undefined;
     this.dialog = undefined;
     this.lastTargets = [];
     this.lastOnSelect = undefined;
-    const onClose = this.lastOnClose;
     this.lastOnClose = undefined;
     this.openSingle = false;
+
+    await this.multiDialog.hide();
+    this.previewController.hide(true);
+    this.dialogTimer.stop();
+    overlay?.destroy();
+    dialog?.destroy();
     onClose?.();
   }
 
@@ -320,4 +326,3 @@ export class PilotTargetDialog {
     });
   }
 }
-

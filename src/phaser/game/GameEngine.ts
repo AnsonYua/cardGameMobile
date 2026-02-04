@@ -20,6 +20,7 @@ import {
 } from "./actionEligibility";
 import { isBattleActionStep } from "./battleUtils";
 import { createLogger } from "../utils/logger";
+import { hasPilotDesignationRule } from "../utils/pilotDesignation";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -204,13 +205,9 @@ export class GameEngine {
           })
         : undefined;
       const cardData = handCard?.cardData ?? {};
-      const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
       const derivedType = (cardData?.cardType || "").toString();
       const cardType = (derivedType || selection.cardType || "").toLowerCase();
-      const hasPilotDesignationRule = rules.some(
-        (r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation" || r?.action === "designate_pilot",
-      );
-      const fromPilotDesignation = selection.fromPilotDesignation === true || hasPilotDesignationRule;
+      const fromPilotDesignation = selection.fromPilotDesignation === true || hasPilotDesignationRule(cardData);
       const canRun = !!ctx.gameId && !!ctx.playerId && !!selection.uid;
       const canPlay = canRun && canPlaySelectedHandCard(selection, this.lastRaw, ctx.playerId);
       if (cardType === "base") {
