@@ -1,5 +1,6 @@
 import { TrashAreaDialog } from "./TrashAreaDialog";
 import { computeDialogLayout, createDialogShell } from "./CardDialogLayout";
+import { buildPopupBadgeConfigs } from "./PopupBadgeScaling";
 
 export type DrawPopupOpts = {
   card: any;
@@ -12,18 +13,29 @@ export type DrawPopupOpts = {
 };
 
 export class DrawPopupDialog extends TrashAreaDialog {
-  showDrawPopup(opts: DrawPopupOpts): Promise<void> {
+  showCardsPopup(opts: {
+    cards: any[];
+    header?: string;
+    fadeInMs?: number;
+    holdMs?: number;
+    fadeOutMs?: number;
+    showOverlay?: boolean;
+    centerY?: number;
+    maxCols?: number;
+  }): Promise<void> {
     this.hide();
     const cam = this.scene.cameras.main;
     const showOverlay = opts.showOverlay ?? false;
-    const headerText = opts.header || "Card Drawn";
+    const headerText = opts.header || "Move to Trash";
     const fadeInMs = opts.fadeInMs ?? 160;
     const holdMs = opts.holdMs ?? 700;
     const fadeOutMs = opts.fadeOutMs ?? 220;
     const centerY = opts.centerY ?? cam.centerY;
+    const cards = Array.isArray(opts.cards) ? opts.cards.filter(Boolean) : [];
 
-    const cols = this.cfg.dialog.cols;
-    const visibleRows = 1;
+    const maxCols = Math.max(1, Math.floor(opts.maxCols ?? this.cfg.dialog.cols));
+    const cols = Math.max(1, Math.min(maxCols, cards.length || 1));
+    const visibleRows = Math.max(1, Math.min(2, Math.ceil((cards.length || 1) / cols)));
 
     const layout = computeDialogLayout(cam, this.cfg, { cols, visibleRows });
     const { dialog, overlay, content } = createDialogShell(this.scene, this.cfg, layout, {
@@ -39,13 +51,14 @@ export class DrawPopupDialog extends TrashAreaDialog {
     this.content = content;
     this.open = true;
 
-    const colIndex = Math.floor(cols / 2);
-    const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2 + colIndex * (layout.cellWidth + layout.gap);
+    const startX = -layout.dialogWidth / 2 + layout.margin + layout.cellWidth / 2;
     const startY = -layout.dialogHeight / 2 + layout.headerOffset + 40 + layout.cellHeight / 2;
+
+    const { badgeConfig, typeOverrides } = buildPopupBadgeConfigs(this.cfg, cols);
 
     this.gridRenderer.render({
       container: content,
-      cards: [opts.card],
+      cards,
       cols,
       gap: layout.gap,
       startX,
@@ -53,8 +66,8 @@ export class DrawPopupDialog extends TrashAreaDialog {
       cellWidth: layout.cellWidth,
       cellHeight: layout.cellHeight,
       cardConfig: this.cfg.card,
-      badgeConfig: this.cfg.badge,
-      typeOverrides: this.cfg.cardTypeOverrides,
+      badgeConfig,
+      typeOverrides,
     });
 
     dialog.setAlpha(0).setScale(0.96);
@@ -81,6 +94,19 @@ export class DrawPopupDialog extends TrashAreaDialog {
           });
         },
       });
+    });
+  }
+
+  showDrawPopup(opts: DrawPopupOpts): Promise<void> {
+    return this.showCardsPopup({
+      cards: [opts.card],
+      header: opts.header || "Card Drawn",
+      fadeInMs: opts.fadeInMs,
+      holdMs: opts.holdMs,
+      fadeOutMs: opts.fadeOutMs,
+      showOverlay: opts.showOverlay,
+      centerY: opts.centerY,
+      maxCols: 1,
     });
   }
 }

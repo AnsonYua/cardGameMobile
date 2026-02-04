@@ -100,7 +100,19 @@ export class DebugControls {
     //const targetScenario = scenarioPath || "ActionCase/ST08-011/effect_draw_grant_high_maneuver_if_paired_blue_unit"
     //const targetScenario = scenarioPath || "ActionCase/ST08-011/effect_draw_grant_high_maneuver_if_paired_unit_blue" 
     //const targetScenario = scenarioPath || "ActionCase/ST08-001/pair_damage_highest_level_enemy_3"
-    const targetScenario = scenarioPath || "ActionCase/ST08-001/costing_level6_onfield"
+    //const targetScenario = scenarioPath || "ActionCase/ST08-001/costing_level6_onfield"
+   // const targetScenario = scenarioPath || "ActionCase/ST07-015/prevent_damage_base_if_rested_cb_unit_in_play_lv3"   
+    
+    //const targetScenario = scenarioPath ||  "ActionCase/ST07-010/destroyed_draw_1_on_opponent_turn_if_paired_cb_unit"
+    //const targetScenario = scenarioPath ||  "ActionCase/ST07-010/destroyed_draw_1_on_opponent_turn_if_paired_cb_unit"
+    //const targetScenario = scenarioPath || "ActionCase/ST07-009/attack_branch_paired_unit_ap_plus_1_if_cb_trash_lt_7"
+    
+    //const targetScenario = scenarioPath || "ActionCase/ST07-005/battle_destroy_heal_2_on_your_turn3"
+
+    //const targetScenario = scenarioPath ||"ActionCase/ST07-004/blocker_if_cb_pilot_in_play"
+    //const targetScenario = scenarioPath ||"ActionCase/ST07-001/pair_mill2_draw_if_cb"
+    //const targetScenario = scenarioPath ||"ActionCase/ST07-001/end_of_turn_set_active_resource_if_cb_trash_ge_7"
+    const targetScenario = scenarioPath ||"ActionCase/ST06-014/ activate_restSelf_ap_plus_2_if_clan_link_unit"
     //const targetScenario = scenarioPath || "ActionCase/ST08-006/pair_attack_reveal_ef_unit_bottom_then_draw_2_notarget"
     //const targetScenario = scenarioPath ||"ST02/ST02-006/activate_once_per_turn"
     //const targetScenario = scenarioPath || "ActionCase/ST05-001/suppression_damaged_unit_attacks_two_shields_multiple_burst";

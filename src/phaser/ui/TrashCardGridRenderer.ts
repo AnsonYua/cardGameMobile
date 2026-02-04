@@ -154,6 +154,12 @@ export class TrashCardGridRenderer {
   }
 
   private getCardTexture(card: any) {
+    const explicit = card?.textureKey;
+    if (explicit) {
+      const key = String(explicit);
+      // Prefer full card art for dialogs/popups when provided.
+      return key.replace(/-preview$/i, "");
+    }
     const cardId = card?.cardId ?? card?.cardData?.id ?? card?.cardData?.cardId;
     if (cardId === "base" || cardId === "base_default") return "baseCard";
     return toPreviewKey(cardId) || cardId;

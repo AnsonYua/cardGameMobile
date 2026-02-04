@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
 import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
-import { toPreviewKey, type HandCardView } from "../ui/HandTypes";
+import { toBaseKey, toPreviewKey, type HandCardView } from "../ui/HandTypes";
 import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
 
@@ -46,6 +46,10 @@ export class NotificationAnimationController {
         card: any,
         opts: Pick<DrawPopupOpts, "header" | "fadeInMs" | "holdMs" | "fadeOutMs" | "centerY">,
       ) => Promise<void>;
+      showCardsPopup?: (
+        cards: any[],
+        opts: Pick<DrawPopupOpts, "header" | "fadeInMs" | "holdMs" | "fadeOutMs" | "centerY">,
+      ) => Promise<void>;
       onSlotAnimationStart?: (slotKey: string) => void;
       onSlotAnimationEnd?: (slotKey: string) => void;
       setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -75,6 +79,17 @@ export class NotificationAnimationController {
     return task();
   }
 
+  playCardsMovedToTrash(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "CARDS_MOVED_TO_TRASH") return Promise.resolve();
+    const task = this.buildCardsMovedToTrashTask(note.payload ?? {}, args);
+    if (!task) return Promise.resolve();
+    return task();
+  }
+
   private buildCardDrawnTask(payload: any, ctx: ProcessArgs, header: string): (() => Promise<void>) | null {
     const playerId = payload?.playerId ?? "";
     if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
@@ -92,6 +107,53 @@ export class NotificationAnimationController {
         popupCard,
         header,
       );
+  }
+
+  private buildCardsMovedToTrashTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
+    const cardUids: string[] = Array.isArray(payload?.carduids) ? payload.carduids.filter(Boolean).map(String) : [];
+    const count = Number(payload?.count ?? cardUids.length);
+    const total = cardUids.length || (Number.isFinite(count) ? Math.max(0, count) : 0);
+    if (total <= 0) return null;
+
+    const playerId = payload?.playerId ? String(payload.playerId) : "";
+    const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
+    const reveal = payload?.reveal === true;
+
+    const popupCards = new Array(total).fill(null).map((_, idx) => {
+      const uid = cardUids[idx];
+      if (!uid || (!reveal && !isSelf)) {
+        return {
+          cardId: `hidden_trash_${payload?.timestamp ?? "event"}_${idx + 1}`,
+          cardType: "command",
+          cardData: { id: "hidden", name: "Hidden Card", cardType: "command" },
+        };
+      }
+      const found = ctx.cardLookup?.findCardByUid?.(uid);
+      return this.buildPopupCardData(found, uid);
+    });
+
+    const header = "Move to Trash";
+    return async () => {
+      const cam = this.deps.scene.cameras.main;
+      if (this.deps.showCardsPopup) {
+        await this.deps.showCardsPopup(popupCards, {
+          header,
+          fadeInMs: this.drawPopupTimings.fadeInMs,
+          holdMs: this.drawPopupTimings.holdMs,
+          fadeOutMs: this.drawPopupTimings.fadeOutMs,
+          centerY: cam.centerY,
+        });
+        return;
+      }
+      // Fallback: show just the first card.
+      await this.deps.showCardPopup?.(popupCards[0], {
+        header,
+        fadeInMs: this.drawPopupTimings.fadeInMs,
+        holdMs: this.drawPopupTimings.holdMs,
+        fadeOutMs: this.drawPopupTimings.fadeOutMs,
+        centerY: cam.centerY,
+      });
+    };
   }
 
   private buildCardPlayedTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
@@ -274,7 +336,7 @@ export class NotificationAnimationController {
     if (this.deps.renderHandPreview) {
       this.deps.renderHandPreview(cardContainer, card);
     } else {
-      const texKey = card.textureKey ?? toPreviewKey(card.cardId);
+      const texKey = (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(card.cardId);
       const hasTexture = texKey && this.deps.scene.textures.exists(texKey);
       const fallback = hasTexture
         ? this.deps.scene.add.image(0, 0, texKey!).setDisplaySize(80, 112)
@@ -331,10 +393,13 @@ export class NotificationAnimationController {
     );
     const cardType = data?.cardType ?? card.cardType;
     const cardId = data?.cardId ?? data?.id ?? card.id ?? fallbackUid;
+    const baseTextureKey =
+      (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(cardId);
     return {
       cardId,
       cardType,
       cardData: { ...data, cardId, cardType },
+      textureKey: baseTextureKey,
       fromPilotDesignation: cardType === "command" && !!pilotRule,
       ap: data?.ap,
       hp: data?.hp,
@@ -356,7 +421,8 @@ export class NotificationAnimationController {
     const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap ?? card.cardData?.ap;
     const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp ?? card.cardData?.hp;
     const cardId = data?.cardId ?? data?.id ?? card.id;
-    const textureKey = card.textureKey ?? toPreviewKey(cardId);
+    // Use full art for popups (non-preview) when possible.
+    const textureKey = (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(cardId);
     return {
       color: 0x2a2d38,
       textureKey,

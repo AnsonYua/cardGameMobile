@@ -108,6 +108,16 @@ export function createAnimationPipeline(deps: {
         centerY: opts.centerY,
         showOverlay: false,
       }) ?? Promise.resolve(),
+    showCardsPopup: (cards, opts) =>
+      deps.drawPopupDialog?.showCardsPopup({
+        cards,
+        header: opts.header,
+        fadeInMs: opts.fadeInMs,
+        holdMs: opts.holdMs,
+        fadeOutMs: opts.fadeOutMs,
+        centerY: opts.centerY,
+        showOverlay: false,
+      }) ?? Promise.resolve(),
     setSlotVisible: (owner, slotId, visible) => deps.slotControls?.setSlotVisible?.(owner, slotId, visible),
   });
   const attackIndicatorController = new AttackIndicatorController({

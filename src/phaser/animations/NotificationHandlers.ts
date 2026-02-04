@@ -141,6 +141,18 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "CARDS_MOVED_TO_TRASH",
+      async (event, ctx) => {
+        await deps.cardPlayAnimator.playCardsMovedToTrash(event, {
+          slots: ctx.slots,
+          currentPlayerId: ctx.currentPlayerId,
+          allowAnimations: ctx.allowAnimations,
+          cardLookup: ctx.cardLookup,
+          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
+        });
+      },
+    ],
+    [
       "CARD_ADDED_TO_HAND",
       async (event, ctx) => {
         await deps.cardPlayAnimator.playCardDrawn(event, {
