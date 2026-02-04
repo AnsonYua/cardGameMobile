@@ -11,6 +11,7 @@ type PilotDesignationDialogOpts = {
   onCommand: () => Promise<void> | void;
   onClose?: () => void;
   allowPilot?: boolean;
+  allowCommand?: boolean;
 };
 
 /**
@@ -33,23 +34,33 @@ export class PilotDesignationDialog {
     this.destroy();
     const headerText = "Play Card As";
     const allowPilot = opts.allowPilot !== false;
-    const buttons = [
-      {
+    const allowCommand = opts.allowCommand !== false;
+    const buttons = [];
+    if (allowPilot) {
+      buttons.push({
         label: "Pilot",
-        enabled: allowPilot,
+        enabled: true,
         onClick: async () => {
           await this.hide(opts.onClose);
           await opts.onPilot();
         },
-      },
-      {
+      });
+    } else {
+      buttons.push({
+        label: "Pilot",
+        enabled: false,
+        onClick: async () => {},
+      });
+    }
+    if (allowCommand) {
+      buttons.push({
         label: "Command",
         onClick: async () => {
           await opts.onCommand();
           await this.hide(opts.onClose);
         },
-      },
-    ];
+      });
+    }
     const dialog = createPromptDialog(this.scene, this.cfg, {
       headerText,
       promptText: "Choose option",
@@ -61,7 +72,7 @@ export class PilotDesignationDialog {
       headerGap: getDialogTimerHeaderGap(),
     });
     this.container = dialog.dialog;
-    const defaultAction = allowPilot ? opts.onPilot : opts.onCommand;
+    const defaultAction = allowPilot ? opts.onPilot : allowCommand ? opts.onCommand : opts.onPilot;
     this.dialogTimer.attach(dialog.dialog, dialog.layout, async () => {
       await this.hide(opts.onClose);
       await defaultAction();

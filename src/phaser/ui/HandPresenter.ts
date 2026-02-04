@@ -1,9 +1,11 @@
 import { HandCardView, toBaseKey } from "./HandTypes";
+import { isBattleActionStep } from "../game/battleUtils";
 
 export class HandPresenter {
   toHandCards(raw: any, playerId: string): HandCardView[] {
     const hand = raw?.gameEnv?.players?.[playerId]?.deck?.hand || [];
     if (!Array.isArray(hand) || hand.length === 0) return [];
+    const inActionStep = isBattleActionStep(raw);
     return hand.map((card: any) => {
       const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
       const cardId = card?.cardId ?? card?.id;
@@ -15,7 +17,7 @@ export class HandPresenter {
       const pilotHp = pilotParams.HP ?? pilotParams.hp ?? null;
       const textureKey = toBaseKey(cardId);
       const cardType = data?.cardType;
-      const isPilotCommand = cardType === "command" && pilotRule;
+      const isPilotCommand = !inActionStep && cardType === "command" && pilotRule;
       const ap = isPilotCommand ? pilotAp ?? 0 : data?.ap;
       const hp = isPilotCommand ? pilotHp ?? 0 : data?.hp;
       return {

@@ -1,6 +1,7 @@
 import { ENGINE_EVENTS } from "../game/EngineEvents";
 import type { ActionContext } from "../game/ActionRegistry";
 import type { GameEngine } from "../game/GameEngine";
+import { isBattleActionStep } from "../game/battleUtils";
 
 export class CommandFlowController {
   constructor(private engine: GameEngine) {}
@@ -10,7 +11,9 @@ export class CommandFlowController {
     const sel = ctx.selection;
     if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return false;
 
-    if (sel.fromPilotDesignation) {
+    const raw = this.engine.getSnapshot().raw as any;
+    const forceCommand = isBattleActionStep(raw);
+    if (sel.fromPilotDesignation && !forceCommand) {
       // Defer to pilot designation dialog flow.
       this.engine.events.emit(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, { selection: sel });
       return false;

@@ -70,6 +70,7 @@ export class ActionBarCoordinator {
     if (this.deps.burstGroupFlow.applyActionBar()) return;
     if (this.deps.burstFlow.applyActionBar()) return;
     const selection = opts.selection ?? this.deps.getSelection();
+    this.syncHand(raw, selection);
     const isSelfTurn = isPlayersTurn(raw, this.deps.gameContext.playerId);
     const isOpponentTurn = !isSelfTurn;
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
@@ -177,6 +178,13 @@ export class ActionBarCoordinator {
     if (mainPhaseState.setHand) {
       this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self));
     }
+  }
+
+  private syncHand(raw: any, selection: any) {
+    const self = this.deps.gameContext.playerId;
+    if (!self) return;
+    const preserveSelectionUid = selection?.kind === "hand" ? (selection.uid as string | undefined) : undefined;
+    this.deps.handControls?.setHand?.(this.deps.handPresenter.toHandCards(raw, self), { preserveSelectionUid });
   }
 
   private hasActiveBattle() {

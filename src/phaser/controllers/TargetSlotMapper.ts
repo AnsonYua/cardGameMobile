@@ -1,6 +1,7 @@
 import { toPreviewKey } from "../ui/HandTypes";
 import type { SlotCardView, SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 export type SlotTarget = {
   slot: SlotViewModel;
@@ -17,15 +18,33 @@ export function mapAvailableTargetsToSlotTargets(
 
   const allSlots = slotPresenter.toSlots(raw, selfPlayerId);
   const mapped: SlotTarget[] = [];
+  const debug = isDebugFlagEnabled("debugTargets");
 
   availableTargets.forEach((target) => {
     if (!target) return;
     const owner: SlotOwner = target.playerId === selfPlayerId ? "player" : "opponent";
-    const zone = target.zone || "";
+    const zone = (target.zone || target.location || target.zoneType || "").toString();
     const existing = allSlots.find((slot) => slot.owner === owner && slot.slotId === zone);
     if (existing) {
       mapped.push({ slot: existing, data: target });
       return;
+    }
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.warn("[TargetSlotMapper] no existing slot match", {
+        zone,
+        owner,
+        target: {
+          carduid: target?.carduid ?? target?.cardUid,
+          playerId: target?.playerId,
+          zone: target?.zone,
+          location: target?.location,
+          zoneType: target?.zoneType,
+          cardId: target?.cardData?.id,
+          cardType: target?.cardData?.cardType,
+        },
+        knownSlots: allSlots.filter((s) => s.owner === owner).map((s) => s.slotId),
+      });
     }
     const slotView: SlotViewModel = {
       owner,

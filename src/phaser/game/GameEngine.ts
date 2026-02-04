@@ -18,6 +18,7 @@ import {
   getSlotCards,
   hasPairableUnit,
 } from "./actionEligibility";
+import { isBattleActionStep } from "./battleUtils";
 import { createLogger } from "../utils/logger";
 
 export type GameStatusSnapshot = {
@@ -193,7 +194,23 @@ export class GameEngine {
     const descriptors: ActionDescriptor[] = [];
 
     if (source === "hand" && selection?.kind === "hand") {
-      const cardType = (selection.cardType || "").toLowerCase();
+      const raw: any = this.lastRaw as any;
+      const player = raw?.gameEnv?.players?.[ctx.playerId || ""];
+      const hand = player?.deck?.hand ?? [];
+      const handCard = Array.isArray(hand)
+        ? hand.find((card: any) => {
+            const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
+            return uid === selection.uid;
+          })
+        : undefined;
+      const cardData = handCard?.cardData ?? {};
+      const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
+      const derivedType = (cardData?.cardType || "").toString();
+      const cardType = (derivedType || selection.cardType || "").toLowerCase();
+      const hasPilotDesignationRule = rules.some(
+        (r) => r?.effectId === "pilot_designation" || r?.effectId === "pilotDesignation" || r?.action === "designate_pilot",
+      );
+      const fromPilotDesignation = selection.fromPilotDesignation === true || hasPilotDesignationRule;
       const canRun = !!ctx.gameId && !!ctx.playerId && !!selection.uid;
       const canPlay = canRun && canPlaySelectedHandCard(selection, this.lastRaw, ctx.playerId);
       if (cardType === "base") {
@@ -221,10 +238,14 @@ export class GameEngine {
       } else if (cardType === "command") {
         const phase = (this.lastRaw as any)?.gameEnv?.phase;
         const hasTimingWindow = commandHasTimingWindow(selection, this.lastRaw, ctx.playerId, phase);
+        const isPilotDesignation = fromPilotDesignation;
+        const phaseUpper = (phase ?? "").toString().toUpperCase();
+        const canPilotDuringMain = phaseUpper === "MAIN_PHASE" && hasPairableUnit(this.lastRaw, ctx.playerId);
+        const enabled = canPlay && (hasTimingWindow || (isPilotDesignation && canPilotDuringMain));
         descriptors.push({
           id: "playCommandFromHand",
           label: "Play Card",
-          enabled: canPlay && hasTimingWindow,
+          enabled,
           primary: true,
         });
       }
@@ -449,7 +470,7 @@ export class GameEngine {
       const sel = ctx.selection;
       if (!sel || sel.kind !== "hand" || (sel.cardType || "").toLowerCase() !== "command") return;
       if (this.commandFlow) return this.commandFlow.handlePlayCommand(ctx);
-      if (sel.fromPilotDesignation) {
+      if (sel.fromPilotDesignation && !isBattleActionStep(this.lastRaw)) {
         this.events.emit(ENGINE_EVENTS.PILOT_DESIGNATION_DIALOG, { selection: sel });
         return;
       }

@@ -7,6 +7,7 @@ import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import Phaser from "phaser";
 import { mapAvailableTargetsToSlotTargets } from "./TargetSlotMapper";
 import type { SlotNotification } from "../animations/NotificationAnimationController";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -18,6 +19,7 @@ type ShowManualOpts = {
 export class EffectTargetController {
   private activeEffectChoiceId?: string;
   private manualOpen = false;
+  private debug = isDebugFlagEnabled("debugTargets");
 
   constructor(
     private deps: {
@@ -39,6 +41,7 @@ export class EffectTargetController {
     const selfId = this.deps.gameContext.playerId;
     const payload = note?.payload ?? {};
     const allowEmptySelection = payload?.allowEmptySelection === true;
+    const targetCount = payload?.targetCount ?? payload?.targetcount ?? undefined;
     const event = payload?.event ?? payload;
     const eventType = (event?.type ?? note?.type ?? "").toString().toUpperCase();
     if (eventType !== "TARGET_CHOICE") return;
@@ -83,6 +86,30 @@ export class EffectTargetController {
       selfId ?? "",
     );
     const targets = slotTargets.map((entry) => entry.slot);
+    if (this.debug) {
+      // eslint-disable-next-line no-console
+      console.log("[EffectTargetController] TARGET_CHOICE", {
+        eventId,
+        allowEmptySelection,
+        targetCount,
+        availableTargets: availableTargets.map((t) => ({
+          carduid: t?.carduid ?? t?.cardUid,
+          playerId: t?.playerId,
+          zone: t?.zone,
+          location: t?.location,
+          zoneType: t?.zoneType,
+          cardId: t?.cardData?.id,
+          cardType: t?.cardData?.cardType,
+        })),
+        mappedTargets: slotTargets.map((t) => ({
+          owner: t.slot.owner,
+          slotId: t.slot.slotId,
+          hasUnit: !!t.slot.unit,
+          hasPilot: !!t.slot.pilot,
+          cardUid: t.slot.unit?.cardUid ?? t.slot.pilot?.cardUid,
+        })),
+      });
+    }
     if (!targets.length) {
       if (allowEmptySelection && selfId) {
         try {
@@ -108,57 +135,24 @@ export class EffectTargetController {
         await this.deps.dialog.hide();
         resolve();
       };
-      this.deps.dialog.show({
-        targets,
-        header: "Choose a Target",
-        showCloseButton: allowEmptySelection,
-        onClose: () => {
-          if (!allowEmptySelection || !selfId) {
-            void finish();
-            return;
-          }
-          void (async () => {
-            try {
-              await this.deps.api.confirmTargetChoice({
-                gameId: this.deps.gameContext.gameId || "",
-                playerId: selfId || "",
-                eventId,
-                selectedTargets: [],
-              });
-              this.deps.onPlayerAction?.();
-              await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
-            } catch (err) {
-              void err;
-            } finally {
-              await finish();
-            }
-          })();
-        },
-        onSelect: async (slot) => {
-          if (!selfId) {
-            await finish();
-            return;
-          }
-          const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
-          const zone = slot?.slotId || "";
-          const ownerPlayerId = slot?.owner === "player" ? selfId : otherId;
-          const matched = availableTargets.find(
-            (t) =>
-              ((t?.carduid || t?.cardUid) && targetUid && (t?.carduid || t?.cardUid) === targetUid) ||
-              (t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId),
-          );
+      const parsedMin = Number(targetCount?.min ?? targetCount?.MIN ?? targetCount?.minimum ?? 1);
+      const parsedMax = Number(targetCount?.max ?? targetCount?.MAX ?? targetCount?.maximum ?? parsedMin ?? 1);
+      const min = Number.isFinite(parsedMin) ? parsedMin : 1;
+      const max = Number.isFinite(parsedMax) ? parsedMax : min;
+      const isMulti = max > 1 || min > 1;
+
+      const confirmEmptyIfAllowed = () => {
+        if (!allowEmptySelection || !selfId) {
+          void finish();
+          return;
+        }
+        void (async () => {
           try {
             await this.deps.api.confirmTargetChoice({
               gameId: this.deps.gameContext.gameId || "",
               playerId: selfId || "",
               eventId,
-              selectedTargets: [
-                {
-                  carduid: matched?.carduid || matched?.cardUid || targetUid || "",
-                  zone: matched?.zone || zone,
-                  playerId: matched?.playerId || ownerPlayerId || "",
-                },
-              ],
+              selectedTargets: [],
             });
             this.deps.onPlayerAction?.();
             await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
@@ -167,8 +161,103 @@ export class EffectTargetController {
           } finally {
             await finish();
           }
-        },
-      });
+        })();
+      };
+
+      const mapSlotToTarget = (slot: SlotViewModel) => {
+        const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
+        const zone = slot?.slotId || "";
+        const ownerPlayerId = slot?.owner === "player" ? selfId : otherId;
+        const matched = availableTargets.find(
+          (t) =>
+            ((t?.carduid || t?.cardUid) && targetUid && (t?.carduid || t?.cardUid) === targetUid) ||
+            (t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId),
+        );
+        return {
+          carduid: (matched?.carduid || matched?.cardUid || targetUid || "").toString(),
+          zone: (matched?.zone || zone || "").toString(),
+          playerId: (matched?.playerId || ownerPlayerId || "").toString(),
+        };
+      };
+
+      if (isMulti) {
+        try {
+          this.deps.dialog.showMulti({
+            targets,
+            header: "Choose Targets",
+            showCloseButton: true,
+            allowPiloted: true,
+            min: allowEmptySelection ? 0 : min,
+            max: max,
+            onClose: confirmEmptyIfAllowed,
+            onConfirm: async (slots) => {
+              if (!selfId) {
+                await finish();
+                return;
+              }
+              const selectedTargets = slots
+                .map((slot) => mapSlotToTarget(slot))
+                .filter((t) => t.carduid && t.zone && t.playerId);
+              const deduped = Array.from(
+                new Map(selectedTargets.map((t) => [`${t.carduid}:${t.zone}:${t.playerId}`, t] as const)).values(),
+              );
+              try {
+                await this.deps.api.confirmTargetChoice({
+                  gameId: this.deps.gameContext.gameId || "",
+                  playerId: selfId || "",
+                  eventId,
+                  selectedTargets: deduped,
+                });
+                this.deps.onPlayerAction?.();
+                await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+              } catch (err) {
+                void err;
+              } finally {
+                await finish();
+              }
+            },
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[EffectTargetController] showMulti failed", err);
+          void finish();
+        }
+        return;
+      }
+
+      try {
+        this.deps.dialog.show({
+          targets,
+          header: "Choose a Target",
+          showCloseButton: allowEmptySelection,
+          allowPiloted: true,
+          onClose: confirmEmptyIfAllowed,
+          onSelect: async (slot) => {
+            if (!selfId) {
+              await finish();
+              return;
+            }
+            try {
+              await this.deps.api.confirmTargetChoice({
+                gameId: this.deps.gameContext.gameId || "",
+                playerId: selfId || "",
+                eventId,
+                selectedTargets: [mapSlotToTarget(slot)],
+              });
+              this.deps.onPlayerAction?.();
+              await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+            } catch (err) {
+              void err;
+            } finally {
+              await finish();
+            }
+          },
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[EffectTargetController] show failed", err);
+        void finish();
+      }
     });
   }
 

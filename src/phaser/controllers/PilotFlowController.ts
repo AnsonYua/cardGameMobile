@@ -6,6 +6,7 @@ import type { SlotViewModel } from "../ui/SlotTypes";
 import { PilotTargetDialog } from "../ui/PilotTargetDialog";
 import { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
 import type { GameEngine } from "../game/GameEngine";
+import { isBattleActionStep } from "../game/battleUtils";
 
 type PilotFlowDeps = {
   scene: Phaser.Scene;
@@ -26,9 +27,31 @@ export class PilotFlowController {
 
   showPilotDesignationDialog() {
     const { pilotDesignationDialog, runActionThenRefresh } = this.deps;
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    if (isBattleActionStep(raw)) {
+      // Pilot play isn't allowed during action-step; force command play.
+      void runActionThenRefresh("playPilotDesignationAsCommand", "neutral");
+      return;
+    }
+    const phase = (raw?.gameEnv?.phase ?? "").toString().toUpperCase();
     const targets = this.collectPilotTargetUnits();
+    // In MAIN_PHASE, pilot-designation should behave like playing a Pilot (command mode isn't legal here).
+    if (phase === "MAIN_PHASE") {
+      if (targets.length > 0) {
+        this.showPilotTargetDialog("playPilotDesignationAsPilot");
+        return;
+      }
+      pilotDesignationDialog.show({
+        allowPilot: false,
+        allowCommand: false,
+        onPilot: async () => {},
+        onCommand: async () => {},
+      });
+      return;
+    }
     pilotDesignationDialog.show({
       allowPilot: targets.length > 0,
+      allowCommand: true,
       onPilot: async () => {
         this.showPilotTargetDialog("playPilotDesignationAsPilot");
       },
