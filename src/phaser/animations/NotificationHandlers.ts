@@ -18,6 +18,7 @@ export function buildNotificationHandlers(
     onGameEnded?: (info: GameEndInfo) => void;
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
+    optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -44,6 +45,14 @@ export function buildNotificationHandlers(
 ) {
   const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
+    [
+      "OPTION_CHOICE",
+      async (event, ctx) => {
+        if (!deps.optionChoiceFlow) return;
+        // Keep choice prompts sequenced after prior animations by running them inside the animation queue.
+        await deps.optionChoiceFlow.handleNotification(event, ctx.currentRaw);
+      },
+    ],
     [
       "BURST_EFFECT_CHOICE_GROUP",
       async (event, ctx) => {
@@ -141,6 +150,18 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "TOP_DECK_VIEWED",
+      async (event, ctx) => {
+        await deps.cardPlayAnimator.playTopDeckViewed(event, {
+          slots: ctx.slots,
+          currentPlayerId: ctx.currentPlayerId,
+          allowAnimations: ctx.allowAnimations,
+          cardLookup: ctx.cardLookup,
+          notificationQueue: ctx.notificationQueue,
+        });
+      },
+    ],
+    [
       "CARDS_MOVED_TO_TRASH",
       async (event, ctx) => {
         await deps.cardPlayAnimator.playCardsMovedToTrash(event, {
@@ -148,6 +169,19 @@ export function buildNotificationHandlers(
           currentPlayerId: ctx.currentPlayerId,
           allowAnimations: ctx.allowAnimations,
           cardLookup: ctx.cardLookup,
+          resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
+        });
+      },
+    ],
+    [
+      "CARDS_MOVED_TO_DECK_BOTTOM",
+      async (event, ctx) => {
+        await deps.cardPlayAnimator.playCardsMovedToDeckBottom(event, {
+          slots: ctx.slots,
+          currentPlayerId: ctx.currentPlayerId,
+          allowAnimations: ctx.allowAnimations,
+          cardLookup: ctx.cardLookup,
+          notificationQueue: ctx.notificationQueue,
           resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
         });
       },

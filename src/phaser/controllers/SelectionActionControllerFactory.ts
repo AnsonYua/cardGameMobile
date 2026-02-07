@@ -7,6 +7,7 @@ import { AbilityActivationFlowController } from "./AbilityActivationFlowControll
 import { BlockerFlowManager } from "./BlockerFlowManager";
 import { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
+import { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
 import { OpponentResolver } from "./OpponentResolver";
 import { SelectionHandler } from "./SelectionHandler";
 import { SlotInteractionGate } from "./SlotInteractionGate";
@@ -58,6 +59,18 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       actionControls: deps.actionControls,
       groupDialog: null,
       burstChoiceDialog: deps.burstChoiceDialog,
+      refreshActions: () => getController()?.refreshActions("neutral"),
+      onTimerPause: deps.onTimerPause,
+      onTimerResume: deps.onTimerResume,
+    });
+  const optionChoiceFlow =
+    deps.optionChoiceFlow ??
+    new OptionChoiceFlowManager({
+      api: deps.api,
+      engine: deps.engine,
+      gameContext: deps.gameContext,
+      actionControls: deps.actionControls,
+      optionChoiceDialog: deps.optionChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
@@ -128,6 +141,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     blockerFlow,
     burstGroupFlow,
     burstFlow,
+    optionChoiceFlow,
   });
   const actionBarCoordinator = new ActionBarCoordinator({
     engine: deps.engine,
@@ -140,6 +154,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     blockerFlow,
     burstGroupFlow,
     burstFlow,
+    optionChoiceFlow,
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
     getOpponentUnitSlots: () => opponentResolver.getOpponentUnitSlots(),
@@ -165,6 +180,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     blockerFlow,
     burstGroupFlow,
     burstFlow,
+    optionChoiceFlow,
     actionStepCoordinator,
     abilityFlow,
     selectionHandler,

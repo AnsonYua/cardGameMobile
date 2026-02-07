@@ -13,6 +13,7 @@ import { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import { TrashAreaDialog } from "../ui/TrashAreaDialog";
 import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
+import { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { ErrorDialog } from "../ui/ErrorDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
@@ -64,5 +65,6 @@ export function createTimedDialogs(
     effectTargetDialog: new EffectTargetDialog(scene, createSlotSprite, timerController),
     burstChoiceDialog: new BurstChoiceDialog(scene, timerController),
     burstChoiceGroupDialog: new BurstChoiceGroupDialog(scene),
+    optionChoiceDialog: new OptionChoiceDialog(scene, timerController),
   };
 }

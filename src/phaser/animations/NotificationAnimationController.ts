@@ -5,6 +5,7 @@ import { toBaseKey, toPreviewKey, type HandCardView } from "../ui/HandTypes";
 import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
 import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
+import { createCardsMovedToDeckBottomTask, createTopDeckViewedTask } from "./deckNotificationTasks";
 
 export type SlotNotification = {
   id: string;
@@ -16,6 +17,7 @@ export type SlotNotification = {
 type ProcessArgs = {
   slots: SlotViewModel[];
   boardSlotPositions?: SlotPositionMap;
+  notificationQueue?: SlotNotification[];
   cardLookup?: {
     findBaseCard?: (playerId?: string) => any;
     findCardByUid?: (cardUid?: string) => SlotCardView | undefined;
@@ -87,6 +89,39 @@ export class NotificationAnimationController {
     const type = (note.type || "").toUpperCase();
     if (type !== "CARDS_MOVED_TO_TRASH") return Promise.resolve();
     const task = this.buildCardsMovedToTrashTask(note.payload ?? {}, args);
+    if (!task) return Promise.resolve();
+    return task();
+  }
+
+  playTopDeckViewed(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "TOP_DECK_VIEWED") return Promise.resolve();
+    const task = createTopDeckViewedTask(note.payload ?? {}, args, {
+      scene: this.deps.scene,
+      showCardsPopup: this.deps.showCardsPopup,
+      showCardPopup: this.deps.showCardPopup,
+      timings: this.drawPopupTimings,
+    });
+    if (!task) return Promise.resolve();
+    return task();
+  }
+
+  playCardsMovedToDeckBottom(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "CARDS_MOVED_TO_DECK_BOTTOM") return Promise.resolve();
+    const task = createCardsMovedToDeckBottomTask(note.payload ?? {}, args, {
+      scene: this.deps.scene,
+      showCardsPopup: this.deps.showCardsPopup,
+      showCardPopup: this.deps.showCardPopup,
+      timings: this.drawPopupTimings,
+      buildPopupCardData: this.buildPopupCardData.bind(this),
+    });
     if (!task) return Promise.resolve();
     return task();
   }

@@ -5,9 +5,11 @@ import type { GameContext } from "../game/GameContextStore";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
+import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import type { ActionControls } from "../controllers/ControllerTypes";
 import { BurstChoiceFlowManager } from "../controllers/BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "../controllers/BurstChoiceGroupFlowManager";
+import { OptionChoiceFlowManager } from "../controllers/OptionChoiceFlowManager";
 import { EffectTargetController } from "../controllers/EffectTargetController";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 
@@ -21,6 +23,7 @@ type BoardFlowSetupParams = {
     effectTargetDialog: EffectTargetDialog;
     burstChoiceDialog: BurstChoiceDialog;
     burstChoiceGroupDialog: BurstChoiceGroupDialog;
+    optionChoiceDialog: OptionChoiceDialog;
   };
   actionControls?: ActionControls | null;
   getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
@@ -37,6 +40,17 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     gameContext: params.gameContext,
     actionControls: params.actionControls,
     burstChoiceDialog: params.dialogs.burstChoiceDialog,
+    refreshActions: params.onRefreshActions,
+    onTimerPause: params.onTimerPause,
+    onTimerResume: params.onTimerResume,
+  });
+
+  const optionChoiceFlow = new OptionChoiceFlowManager({
+    api: params.api,
+    engine: params.engine,
+    gameContext: params.gameContext,
+    actionControls: params.actionControls,
+    optionChoiceDialog: params.dialogs.optionChoiceDialog,
     refreshActions: params.onRefreshActions,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
@@ -65,5 +79,5 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     getSlotAreaCenter: params.getSlotAreaCenter,
   });
 
-  return { burstFlow, burstGroupFlow, effectTargetController };
+  return { burstFlow, burstGroupFlow, optionChoiceFlow, effectTargetController };
 }

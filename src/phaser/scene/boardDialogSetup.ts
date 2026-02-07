@@ -23,6 +23,7 @@ export type BoardDialogSet = {
   errorDialog: import("../ui/ErrorDialog").ErrorDialog;
   burstChoiceDialog: BurstChoiceDialog;
   burstChoiceGroupDialog: BurstChoiceGroupDialog;
+  optionChoiceDialog: import("../ui/OptionChoiceDialog").OptionChoiceDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
 };
 
@@ -58,6 +59,7 @@ export function setupBoardDialogs(
     errorDialog: coreDialogs.errorDialog,
     burstChoiceDialog: timedDialogs.burstChoiceDialog,
     burstChoiceGroupDialog: timedDialogs.burstChoiceGroupDialog,
+    optionChoiceDialog: timedDialogs.optionChoiceDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
   };
 }

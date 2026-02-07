@@ -119,8 +119,10 @@ export class BoardScene extends Phaser.Scene {
   private errorDialogUi?: ErrorDialog;
   private burstChoiceDialogUi?: BurstChoiceDialog;
   private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
+  private optionChoiceDialogUi?: import("./ui/OptionChoiceDialog").OptionChoiceDialog;
   private burstFlow?: BurstChoiceFlowManager;
   private burstGroupFlow?: BurstChoiceGroupFlowManager;
+  private optionChoiceFlow?: import("./controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
@@ -199,9 +201,10 @@ export class BoardScene extends Phaser.Scene {
     this.errorDialogUi = dialogs.errorDialog;
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
     this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
+    this.optionChoiceDialogUi = dialogs.optionChoiceDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
 
-    const { burstFlow, burstGroupFlow, effectTargetController } = setupBoardFlows({
+    const { burstFlow, burstGroupFlow, optionChoiceFlow, effectTargetController } = setupBoardFlows({
       scene: this,
       api: this.api,
       engine: this.engine,
@@ -211,6 +214,7 @@ export class BoardScene extends Phaser.Scene {
         effectTargetDialog: dialogs.effectTargetDialog,
         burstChoiceDialog: dialogs.burstChoiceDialog,
         burstChoiceGroupDialog: dialogs.burstChoiceGroupDialog,
+        optionChoiceDialog: dialogs.optionChoiceDialog,
       },
       actionControls: this.actionControls,
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
@@ -225,6 +229,7 @@ export class BoardScene extends Phaser.Scene {
     });
     this.burstFlow = burstFlow;
     this.burstGroupFlow = burstGroupFlow;
+    this.optionChoiceFlow = optionChoiceFlow;
     this.effectTargetController = effectTargetController;
 
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
@@ -250,6 +255,7 @@ export class BoardScene extends Phaser.Scene {
       getTargetAnchorProviders: () => this.getTargetAnchorProviders(),
       burstFlow: this.burstFlow,
       burstGroupFlow: this.burstGroupFlow,
+      optionChoiceFlow: this.optionChoiceFlow,
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
       renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
@@ -301,13 +307,30 @@ export class BoardScene extends Phaser.Scene {
       effectTargetController: this.effectTargetController,
       abilityChoiceDialog: this.abilityChoiceDialogUi,
       burstChoiceDialog: this.burstChoiceDialogUi,
+      optionChoiceDialog: this.optionChoiceDialogUi,
       errorDialog: this.errorDialogUi,
       burstFlow: this.burstFlow,
       burstGroupFlow: this.burstGroupFlow,
+      optionChoiceFlow: this.optionChoiceFlow,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
-      shouldDelayActionBar: (raw) => this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false,
-      onDelayActionBar: (raw) => this.hideActionBarForTurnStartDraw(raw),
+      shouldDelayActionBar: (raw) => {
+        if (this.turnStartDrawGate?.shouldDelayActionBar(raw)) return true;
+        if (this.animationQueue?.isRunning?.()) return true;
+        const queue = getNotificationQueue(raw);
+        const events = this.animationQueue?.buildEvents(queue) ?? [];
+        // Only delay if there's at least one animatable event that the animationQueue hasn't processed yet.
+        // Notifications can remain in the queue until expiry; we should not block the action bar for already-processed events.
+        return events.some((e) => !!e?.id && !(this.animationQueue?.isProcessed?.(e.id) ?? false));
+      },
+      onDelayActionBar: (raw) => {
+        if (this.turnStartDrawGate?.shouldDelayActionBar(raw)) {
+          this.hideActionBarForTurnStartDraw(raw);
+          return;
+        }
+        this.actionControls?.setWaitingForOpponent?.(false);
+        this.actionControls?.setState?.({ descriptors: [] });
+      },
       onPlayerAction: () => this.turnTimer?.reset(),
       ...createTimerPauseResumeHandlers({
         engineGetRaw: () => this.engine.getSnapshot().raw as any,

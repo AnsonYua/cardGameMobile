@@ -44,11 +44,13 @@ export type SelectionActionControllerDeps = {
   onDelayActionBar?: (raw: any) => void;
   abilityChoiceDialog?: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog | null;
   burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
+  optionChoiceDialog?: import("../ui/OptionChoiceDialog").OptionChoiceDialog | null;
   errorDialog?: import("../ui/ErrorDialog").ErrorDialog | null;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
+  optionChoiceFlow?: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
 };
 
 export type SelectionActionControllerModules = {
@@ -57,6 +59,7 @@ export type SelectionActionControllerModules = {
   blockerFlow: BlockerFlowManager;
   burstFlow: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
+  optionChoiceFlow: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
   actionStepCoordinator: ActionStepCoordinator;
   abilityFlow: AbilityActivationFlowController;
   selectionHandler: SelectionHandler;
@@ -235,11 +238,11 @@ export class SelectionActionController {
 
   syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
-    this.syncSnapshotState(snapshotRaw, opts);
     if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
       this.deps.onDelayActionBar?.(snapshotRaw);
       return;
     }
+    this.syncSnapshotState(snapshotRaw, opts);
     this.actionBarCoordinator.updateActionBarState(snapshotRaw, { source });
   }
 

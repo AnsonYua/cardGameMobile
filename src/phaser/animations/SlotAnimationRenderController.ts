@@ -2,7 +2,7 @@ import type { AnimationContext } from "./AnimationTypes";
 import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotNotification } from "./NotificationAnimationController";
 import { extractCardUidsFromNotification } from "./NotificationCardUids";
-import { toPreviewKey } from "../ui/HandTypes";
+import { buildBattleResolvedSnapshotSlots } from "./BattleResolvedSnapshot";
 
 export class SlotAnimationRenderController {
   // Snapshot of slot visuals used during animations; null means the slot is empty.
@@ -189,66 +189,8 @@ export class SlotAnimationRenderController {
       // Special-case: when backend removes battle participants from slots immediately (moves to trash),
       // keep a short-lived visual snapshot from the BATTLE_RESOLVED payload so they don't "pop" out
       // before stat pulses / battle animations can run.
-      const type = (event?.type ?? "").toString().toUpperCase();
-      if (type === "BATTLE_RESOLVED" && resolveSlotOwnerByPlayer) {
-        const payload = event?.payload ?? {};
-        const attackerOwner = resolveSlotOwnerByPlayer(payload?.attacker?.playerId ?? payload?.attackingPlayerId);
-        const targetOwner =
-          resolveSlotOwnerByPlayer(payload?.target?.playerId ?? payload?.defendingPlayerId) ||
-          (attackerOwner === "player" ? "opponent" : attackerOwner === "opponent" ? "player" : undefined);
-        const attackerSlotId =
-          payload?.attacker?.slot ?? payload?.attackerSlot ?? payload?.attackerSlotName ?? undefined;
-        const targetSlotId =
-          payload?.target?.slot ?? payload?.targetSlot ?? payload?.targetSlotName ?? payload?.forcedTargetZone ?? undefined;
-
-        const buildSlotFromBattlePayload = (
-          source: any,
-          owner: SlotOwner | undefined,
-          slotId: string | undefined,
-        ): SlotViewModel | undefined => {
-          if (!source || !owner || !slotId) return undefined;
-          const unit = source?.unit
-            ? {
-                id: source.unit.cardId ?? source.unit.cardData?.id ?? source.unit.id,
-                textureKey: (source.unit.cardId ?? source.unit.cardData?.id ?? source.unit.id)
-                  ? toPreviewKey(source.unit.cardId ?? source.unit.cardData?.id ?? source.unit.id)
-                  : undefined,
-                cardUid: source.unit.carduid ?? source.unit.cardUid ?? source.unit.uid ?? source.unit.id,
-                cardType: source.unit.cardData?.cardType,
-                isRested: source.unit.isRested,
-                cardData: source.unit.cardData,
-              }
-            : undefined;
-          const pilot = source?.pilot
-            ? {
-                id: source.pilot.cardId ?? source.pilot.cardData?.id ?? source.pilot.id,
-                textureKey: (source.pilot.cardId ?? source.pilot.cardData?.id ?? source.pilot.id)
-                  ? toPreviewKey(source.pilot.cardId ?? source.pilot.cardData?.id ?? source.pilot.id)
-                  : undefined,
-                cardUid: source.pilot.carduid ?? source.pilot.cardUid ?? source.pilot.uid ?? source.pilot.id,
-                cardType: source.pilot.cardData?.cardType,
-                isRested: source.pilot.isRested,
-                cardData: source.pilot.cardData,
-              }
-            : undefined;
-          if (!unit && !pilot) return undefined;
-          const fieldCardValue = source.fieldCardValue ?? {};
-          return {
-            owner,
-            slotId,
-            unit,
-            pilot,
-            isRested: source.unit?.isRested ?? source.pilot?.isRested ?? false,
-            ap: fieldCardValue.totalAP ?? 0,
-            hp: fieldCardValue.totalHP ?? 0,
-            fieldCardValue,
-          };
-        };
-
-        const attackerSlot = buildSlotFromBattlePayload(payload?.attacker, attackerOwner, attackerSlotId);
-        const targetSlot = buildSlotFromBattlePayload(payload?.target, targetOwner, targetSlotId);
-        [attackerSlot, targetSlot].forEach((slot) => {
-          if (!slot) return;
+      if (resolveSlotOwnerByPlayer) {
+        buildBattleResolvedSnapshotSlots(event, resolveSlotOwnerByPlayer).forEach((slot) => {
           const key = slotKey(slot);
           keys.add(key);
           if (!this.renderSnapshots.has(key)) {
