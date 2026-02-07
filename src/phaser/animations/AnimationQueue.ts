@@ -100,7 +100,11 @@ export class AnimationQueue {
       if (!this.handlers.has(type)) return;
       events.push(note);
     });
-    return events;
+    // Prefer resolving stat changes before starting battle animations; battle animations hide the real slot
+    // containers while their clones animate on top.
+    const nonBattleResolved = events.filter((e) => (e?.type ?? "").toString().toUpperCase() !== "BATTLE_RESOLVED");
+    const battleResolved = events.filter((e) => (e?.type ?? "").toString().toUpperCase() === "BATTLE_RESOLVED");
+    return nonBattleResolved.concat(battleResolved);
   }
 
   enqueue(events: SlotNotification[], ctx: AnimationContext) {

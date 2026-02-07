@@ -276,8 +276,8 @@ export class MultiTargetDialog {
       const frame = this.scene.add.rectangle(
         x,
         y,
-        cardW + framePadding + frameExtra.w,
-        cardH + framePadding + frameExtra.h,
+        cardW + 0 + frameExtra.w-10,
+        cardH + 0 + frameExtra.h-10,
         0x1b1e24,
         0.75,
       );

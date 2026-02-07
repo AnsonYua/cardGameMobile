@@ -6,6 +6,7 @@ import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -50,6 +51,8 @@ export class SlotDisplayHandler {
   private animatingSlots = new Map<string, string | null>();
   private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
   private hiddenSlots = new Set<string>();
+  private debugSlotVisibility = isDebugFlagEnabled("debugSlotVisibility");
+  private debugSlotTextures = isDebugFlagEnabled("debugSlotTextures");
 
   private previewController: PreviewController;
 
@@ -89,6 +92,15 @@ export class SlotDisplayHandler {
     if (container) {
       container.setVisible(visible);
     } else {
+    }
+    if (this.debugSlotVisibility) {
+      // eslint-disable-next-line no-console
+      console.log("[SlotDisplayHandler] setSlotVisible", {
+        key,
+        visible,
+        hasContainer: !!container,
+        stack: new Error().stack,
+      });
     }
   }
 
@@ -158,6 +170,28 @@ export class SlotDisplayHandler {
       this.slotContainers.set(key, container);
       if (this.hiddenSlots.has(key)) {
         container.setVisible(false);
+      }
+      if (this.debugSlotTextures) {
+        // eslint-disable-next-line no-console
+        console.log("[SlotDisplayHandler] render slot textures", {
+          key,
+          unit: slot.unit
+            ? {
+                id: slot.unit.id,
+                cardUid: slot.unit.cardUid,
+                textureKey: slot.unit.textureKey,
+                textureExists: !!(slot.unit.textureKey && this.scene.textures.exists(slot.unit.textureKey)),
+              }
+            : null,
+          pilot: slot.pilot
+            ? {
+                id: slot.pilot.id,
+                cardUid: slot.pilot.cardUid,
+                textureKey: slot.pilot.textureKey,
+                textureExists: !!(slot.pilot.textureKey && this.scene.textures.exists(slot.pilot.textureKey)),
+              }
+            : null,
+        });
       }
 
       // Trigger entry animation only when a card just appeared in an empty slot.

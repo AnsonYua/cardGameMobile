@@ -14,6 +14,14 @@ export const extractCardUidsFromNotification = (note: SlotNotification): string[
     payload?.attacker?.cardUid,
     payload?.target?.carduid,
     payload?.target?.cardUid,
+    payload?.attacker?.unit?.carduid,
+    payload?.attacker?.unit?.cardUid,
+    payload?.attacker?.pilot?.carduid,
+    payload?.attacker?.pilot?.cardUid,
+    payload?.target?.unit?.carduid,
+    payload?.target?.unit?.cardUid,
+    payload?.target?.pilot?.carduid,
+    payload?.target?.pilot?.cardUid,
   ];
   const uids = new Set<string>();
   candidates.forEach((value) => {

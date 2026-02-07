@@ -659,7 +659,9 @@ export class BoardScene extends Phaser.Scene {
     if (!allowAnimations) {
       this.log.debug("processNotificationQueue startBatch (animations skipped)", { eventCount: events.length });
       const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
-      const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
+      const initialSlots =
+        this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots, this.resolveSlotOwnerByPlayer.bind(this)) ??
+        currentSlots;
       this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
       this.renderSlots(initialSlots);
       this.animationQueue?.enqueue(events, ctx);
@@ -668,7 +670,9 @@ export class BoardScene extends Phaser.Scene {
 
     this.log.debug("processNotificationQueue startBatch", { eventCount: events.length });
     const previousSlots = this.slotPresenter.toSlots(previousRaw ?? raw, playerId);
-    const initialSlots = this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots) ?? currentSlots;
+    const initialSlots =
+      this.slotAnimationRender?.startBatch(events, previousSlots, currentSlots, this.resolveSlotOwnerByPlayer.bind(this)) ??
+      currentSlots;
     this.baseShieldAnimationRender?.startBatch(events, previousRaw ?? raw, raw);
     this.renderSlots(initialSlots);
     this.animationQueue?.enqueue(events, ctx);
