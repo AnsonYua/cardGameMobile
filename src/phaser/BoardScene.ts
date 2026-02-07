@@ -120,9 +120,11 @@ export class BoardScene extends Phaser.Scene {
   private burstChoiceDialogUi?: BurstChoiceDialog;
   private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
   private optionChoiceDialogUi?: import("./ui/OptionChoiceDialog").OptionChoiceDialog;
+  private tokenChoiceDialogUi?: import("./ui/TokenChoiceDialog").TokenChoiceDialog;
   private burstFlow?: BurstChoiceFlowManager;
   private burstGroupFlow?: BurstChoiceGroupFlowManager;
   private optionChoiceFlow?: import("./controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+  private tokenChoiceFlow?: import("./controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
   private drawPopupDialogUi?: DrawPopupDialog;
   private phaseChangeDialogUi?: PhaseChangeDialog;
   private mulliganDialogUi?: MulliganDialog;
@@ -202,9 +204,10 @@ export class BoardScene extends Phaser.Scene {
     this.burstChoiceDialogUi = dialogs.burstChoiceDialog;
     this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
     this.optionChoiceDialogUi = dialogs.optionChoiceDialog;
+    this.tokenChoiceDialogUi = dialogs.tokenChoiceDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
 
-    const { burstFlow, burstGroupFlow, optionChoiceFlow, effectTargetController } = setupBoardFlows({
+    const { burstFlow, burstGroupFlow, optionChoiceFlow, tokenChoiceFlow, effectTargetController } = setupBoardFlows({
       scene: this,
       api: this.api,
       engine: this.engine,
@@ -215,6 +218,7 @@ export class BoardScene extends Phaser.Scene {
         burstChoiceDialog: dialogs.burstChoiceDialog,
         burstChoiceGroupDialog: dialogs.burstChoiceGroupDialog,
         optionChoiceDialog: dialogs.optionChoiceDialog,
+        tokenChoiceDialog: dialogs.tokenChoiceDialog,
       },
       actionControls: this.actionControls,
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
@@ -230,6 +234,7 @@ export class BoardScene extends Phaser.Scene {
     this.burstFlow = burstFlow;
     this.burstGroupFlow = burstGroupFlow;
     this.optionChoiceFlow = optionChoiceFlow;
+    this.tokenChoiceFlow = tokenChoiceFlow;
     this.effectTargetController = effectTargetController;
 
     const { animationQueue, slotAnimationRender, baseShieldAnimationRender } = setupAnimationPipeline({
@@ -256,6 +261,7 @@ export class BoardScene extends Phaser.Scene {
       burstFlow: this.burstFlow,
       burstGroupFlow: this.burstGroupFlow,
       optionChoiceFlow: this.optionChoiceFlow,
+      tokenChoiceFlow: this.tokenChoiceFlow,
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
       renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
@@ -308,10 +314,12 @@ export class BoardScene extends Phaser.Scene {
       abilityChoiceDialog: this.abilityChoiceDialogUi,
       burstChoiceDialog: this.burstChoiceDialogUi,
       optionChoiceDialog: this.optionChoiceDialogUi,
+      tokenChoiceDialog: this.tokenChoiceDialogUi,
       errorDialog: this.errorDialogUi,
       burstFlow: this.burstFlow,
       burstGroupFlow: this.burstGroupFlow,
       optionChoiceFlow: this.optionChoiceFlow,
+      tokenChoiceFlow: this.tokenChoiceFlow,
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
       shouldDelayActionBar: (raw) => {

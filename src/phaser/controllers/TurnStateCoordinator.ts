@@ -4,6 +4,7 @@ import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
+import type { TokenChoiceFlowManager } from "./TokenChoiceFlowManager";
 import type { SlotInteractionGate } from "./SlotInteractionGate";
 import { getTurnOwnerId } from "../game/turnOwner";
 import { createLogger } from "../utils/logger";
@@ -19,6 +20,7 @@ export class TurnStateCoordinator {
       burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
       optionChoiceFlow: OptionChoiceFlowManager;
+      tokenChoiceFlow: TokenChoiceFlowManager;
     },
   ) {}
 
@@ -37,8 +39,14 @@ export class TurnStateCoordinator {
       this.deps.burstFlow.syncDecisionState(raw);
     }
     this.deps.optionChoiceFlow.syncDecisionState(raw);
+    this.deps.tokenChoiceFlow.syncDecisionState(raw);
 
-    if (this.deps.burstGroupFlow.isActive() || this.deps.burstFlow.isActive() || this.deps.optionChoiceFlow.isActive()) {
+    if (
+      this.deps.burstGroupFlow.isActive() ||
+      this.deps.burstFlow.isActive() ||
+      this.deps.optionChoiceFlow.isActive() ||
+      this.deps.tokenChoiceFlow.isActive()
+    ) {
       this.deps.slotGate.disable("burst-prompt");
     } else {
       this.deps.slotGate.enable("burst-prompt");
@@ -48,6 +56,12 @@ export class TurnStateCoordinator {
       this.deps.slotGate.disable("option-choice");
     } else {
       this.deps.slotGate.enable("option-choice");
+    }
+
+    if (this.deps.tokenChoiceFlow.isActive()) {
+      this.deps.slotGate.disable("token-choice");
+    } else {
+      this.deps.slotGate.enable("token-choice");
     }
 
     const isSelfTurn = opts.isSelfTurn ?? this.isPlayersTurnFromRaw(raw);

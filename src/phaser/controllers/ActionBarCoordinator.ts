@@ -10,6 +10,7 @@ import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
+import type { TokenChoiceFlowManager } from "./TokenChoiceFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import {
   computeActionBarDecision,
@@ -45,6 +46,7 @@ export class ActionBarCoordinator {
       burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
       optionChoiceFlow: OptionChoiceFlowManager;
+      tokenChoiceFlow: TokenChoiceFlowManager;
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
       getOpponentUnitSlots: () => SlotViewModel[];
@@ -69,10 +71,12 @@ export class ActionBarCoordinator {
       burstGroupActive: this.deps.burstGroupFlow.isActive(),
       burstActive: this.deps.burstFlow.isActive(),
       optionChoiceActive: this.deps.optionChoiceFlow.isActive(),
+      tokenChoiceActive: this.deps.tokenChoiceFlow.isActive(),
     });
     if (this.deps.burstGroupFlow.applyActionBar()) return;
     if (this.deps.burstFlow.applyActionBar()) return;
     if (this.deps.optionChoiceFlow.applyActionBar()) return;
+    if (this.deps.tokenChoiceFlow.applyActionBar()) return;
     const selection = opts.selection ?? this.deps.getSelection();
     this.syncHand(raw, selection);
     const isSelfTurn = isPlayersTurn(raw, this.deps.gameContext.playerId);

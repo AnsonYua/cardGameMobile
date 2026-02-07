@@ -24,6 +24,7 @@ export type BoardDialogSet = {
   burstChoiceDialog: BurstChoiceDialog;
   burstChoiceGroupDialog: BurstChoiceGroupDialog;
   optionChoiceDialog: import("../ui/OptionChoiceDialog").OptionChoiceDialog;
+  tokenChoiceDialog: import("../ui/TokenChoiceDialog").TokenChoiceDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
 };
 
@@ -60,6 +61,7 @@ export function setupBoardDialogs(
     burstChoiceDialog: timedDialogs.burstChoiceDialog,
     burstChoiceGroupDialog: timedDialogs.burstChoiceGroupDialog,
     optionChoiceDialog: timedDialogs.optionChoiceDialog,
+    tokenChoiceDialog: timedDialogs.tokenChoiceDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
   };
 }

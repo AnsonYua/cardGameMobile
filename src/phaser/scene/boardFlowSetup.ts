@@ -6,10 +6,12 @@ import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
+import type { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
 import type { ActionControls } from "../controllers/ControllerTypes";
 import { BurstChoiceFlowManager } from "../controllers/BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "../controllers/BurstChoiceGroupFlowManager";
 import { OptionChoiceFlowManager } from "../controllers/OptionChoiceFlowManager";
+import { TokenChoiceFlowManager } from "../controllers/TokenChoiceFlowManager";
 import { EffectTargetController } from "../controllers/EffectTargetController";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 
@@ -24,6 +26,7 @@ type BoardFlowSetupParams = {
     burstChoiceDialog: BurstChoiceDialog;
     burstChoiceGroupDialog: BurstChoiceGroupDialog;
     optionChoiceDialog: OptionChoiceDialog;
+    tokenChoiceDialog: TokenChoiceDialog;
   };
   actionControls?: ActionControls | null;
   getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
@@ -79,5 +82,16 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     getSlotAreaCenter: params.getSlotAreaCenter,
   });
 
-  return { burstFlow, burstGroupFlow, optionChoiceFlow, effectTargetController };
+  const tokenChoiceFlow = new TokenChoiceFlowManager({
+    api: params.api,
+    engine: params.engine,
+    gameContext: params.gameContext,
+    actionControls: params.actionControls,
+    tokenChoiceDialog: params.dialogs.tokenChoiceDialog,
+    refreshActions: params.onRefreshActions,
+    onTimerPause: params.onTimerPause,
+    onTimerResume: params.onTimerResume,
+  });
+
+  return { burstFlow, burstGroupFlow, optionChoiceFlow, tokenChoiceFlow, effectTargetController };
 }

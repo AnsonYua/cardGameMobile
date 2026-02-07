@@ -13,6 +13,82 @@ type QueueItem = {
   ctx: AnimationContext;
 };
 
+function extractNotificationTimestamp(note: SlotNotification | undefined): number | undefined {
+  if (!note) return undefined;
+  const fromMeta = Number((note as any)?.metadata?.timestamp);
+  if (Number.isFinite(fromMeta)) return fromMeta;
+
+  const payload: any = (note as any)?.payload ?? {};
+  const fromPayload = Number(payload?.timestamp);
+  if (Number.isFinite(fromPayload)) return fromPayload;
+
+  const event: any = payload?.event ?? {};
+  const fromEvent = Number(event?.timestamp);
+  if (Number.isFinite(fromEvent)) return fromEvent;
+
+  const id = (note as any)?.id;
+  if (typeof id === "string") {
+    const match = id.match(/_(\d{10,})_/);
+    if (match?.[1]) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function sortNotificationsForAnimation(notificationQueue: SlotNotification[]): SlotNotification[] {
+  const queue = Array.isArray(notificationQueue) ? notificationQueue.slice() : [];
+  if (queue.length <= 1) return queue;
+
+  const withMeta = queue.map((note, idx) => ({
+    note,
+    idx,
+    ts: extractNotificationTimestamp(note),
+  }));
+  const allHaveTimestamps = withMeta.every((entry) => Number.isFinite(entry.ts));
+  if (allHaveTimestamps) {
+    withMeta.sort((a, b) => {
+      const aTs = Number.isFinite(a.ts) ? (a.ts as number) : Number.POSITIVE_INFINITY;
+      const bTs = Number.isFinite(b.ts) ? (b.ts as number) : Number.POSITIVE_INFINITY;
+      if (aTs !== bTs) return aTs - bTs;
+      return a.idx - b.idx;
+    });
+  }
+
+  const sorted = withMeta.map((entry) => entry.note);
+
+  // Ensure the card-play animation (when referenced) runs before the target-choice prompt.
+  // Backend payloads sometimes carry a `cardPlayNotificationId` but may not guarantee array ordering.
+  const idToIndex = new Map<string, number>();
+  sorted.forEach((note, idx) => {
+    if (note?.id) idToIndex.set(String(note.id), idx);
+  });
+  for (let i = 0; i < sorted.length; i += 1) {
+    const note = sorted[i];
+    const type = (note?.type ?? "").toString().toUpperCase();
+    if (type !== "TARGET_CHOICE") continue;
+    const payload: any = note?.payload ?? {};
+    const event: any = payload?.event ?? payload ?? {};
+    const refId = event?.data?.cardPlayNotificationId;
+    if (!refId) continue;
+    const refIndex = idToIndex.get(String(refId));
+    if (refIndex === undefined) continue;
+    if (refIndex < i) continue;
+
+    const [moved] = sorted.splice(refIndex, 1);
+    sorted.splice(i, 0, moved);
+
+    // Rebuild indices after mutation.
+    idToIndex.clear();
+    sorted.forEach((n, idx) => {
+      if (n?.id) idToIndex.set(String(n.id), idx);
+    });
+  }
+
+  return sorted;
+}
+
 export class AnimationQueue {
   private queue: QueueItem[] = [];
   private running = false;
@@ -34,6 +110,7 @@ export class AnimationQueue {
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+    tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -88,11 +165,12 @@ export class AnimationQueue {
     if (!Array.isArray(notificationQueue) || notificationQueue.length === 0) {
       return [];
     }
+    const sortedQueue = sortNotificationsForAnimation(notificationQueue);
     const hasBurstGroup = notificationQueue.some(
       (note) => (note?.type ?? "").toString().toUpperCase() === "BURST_EFFECT_CHOICE_GROUP",
     );
     const events: SlotNotification[] = [];
-    notificationQueue.forEach((note) => {
+    sortedQueue.forEach((note) => {
       if (!note || !note.id) return;
       const type = (note.type || "").toUpperCase();
       if (hasBurstGroup && (type === "BURST_EFFECT_CHOICE" || type === "BURST_EFFECT_CHOICE_RESOLVED")) {

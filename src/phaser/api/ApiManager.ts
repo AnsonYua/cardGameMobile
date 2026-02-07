@@ -139,6 +139,15 @@ export class ApiManager {
     return this.postPlayerDecision("/api/game/player/confirmOptionChoice", payload);
   }
 
+  confirmTokenChoice(payload: {
+    gameId: string;
+    playerId: string;
+    eventId: string;
+    selectedChoiceIndex: number;
+  }) {
+    return this.postPlayerDecision("/api/game/player/confirmTokenChoice", payload);
+  }
+
   acknowledgeEvents(payload: { gameId: string; playerId: string; eventIds: string[] }) {
     return this.postPlayerDecision("/api/game/player/acknowledgeEvents", payload);
   }

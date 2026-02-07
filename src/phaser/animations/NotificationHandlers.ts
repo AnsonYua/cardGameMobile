@@ -19,6 +19,7 @@ export function buildNotificationHandlers(
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+    tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -45,6 +46,13 @@ export function buildNotificationHandlers(
 ) {
   const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
+    [
+      "TOKEN_CHOICE",
+      async (event, ctx) => {
+        if (!deps.tokenChoiceFlow) return;
+        await deps.tokenChoiceFlow.handleNotification(event, ctx.currentRaw);
+      },
+    ],
     [
       "OPTION_CHOICE",
       async (event, ctx) => {
