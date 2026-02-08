@@ -21,6 +21,7 @@ import { SlotInteractionGate } from "./SlotInteractionGate";
 import { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { createLogger } from "../utils/logger";
+import { showActionError } from "./ActionErrorUtils";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -175,22 +176,11 @@ export class SelectionActionController {
       const result = await this.deps.engine.runAction(actionId);
       if (result === false) return;
     } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.deps.errorDialog?.show({ headerText: "Action Failed", message: msg });
+      showActionError(this.deps.errorDialog, err);
       return;
     }
     this.deps.onPlayerAction?.(actionId);
     this.refreshAfterStateChange(actionSource);
-  }
-
-  private extractErrorMessage(err: any): string {
-    const rawMessage = (err?.message ?? "").toString();
-    // ApiManager throws ApiError; use its message as the user-facing text.
-    if (err?.name === "ApiError" && rawMessage) return rawMessage;
-    // Fallback: try to pull `"error":"..."` from the serialized JSON embedded in the message.
-    const match = rawMessage.match(/\"error\"\\s*:\\s*\"([^\"]+)\"/);
-    if (match?.[1]) return match[1];
-    return rawMessage || "Request failed.";
   }
 
   updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {

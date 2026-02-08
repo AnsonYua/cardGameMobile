@@ -18,11 +18,14 @@ import {
   type SelectionActionControllerDeps,
   type SelectionActionControllerModules,
 } from "./SelectionActionController";
+import { showActionError } from "./ActionErrorUtils";
 
 export function createSelectionActionController(deps: SelectionActionControllerDeps) {
   let controller: SelectionActionController;
   let selectionHandler: SelectionHandler;
   let actionExecutor: ActionExecutor;
+
+  const reportActionError = (err: any) => showActionError(deps.errorDialog, err);
 
   const getController = () => controller;
 
@@ -104,6 +107,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     getOpponentPlayerId: () => opponentResolver.getOpponentPlayerId(),
     clearSelection: () => selectionHandler?.clearSelectionUI({ clearEngine: true }),
     refreshNeutral: () => getController()?.refreshActions("neutral"),
+    reportError: reportActionError,
   });
   const actionStepTriggerHandler = new ActionStepTriggerHandler({
     getSelectedHandCard: () => selectionHandler?.getSelectedHandCard(),

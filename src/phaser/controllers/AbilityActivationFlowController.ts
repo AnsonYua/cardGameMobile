@@ -85,7 +85,7 @@ export class AbilityActivationFlowController {
       const costSuffix = opt.requiredEnergy ? ` (Cost ${opt.requiredEnergy})` : "";
       return {
         label: `${baseLabel}${costSuffix}`,
-        enabled: true,
+        enabled: opt.enabled,
         onClick: async () => {
           if (!opt.enabled) {
             const available = Number(opt.availableEnergy ?? NaN);

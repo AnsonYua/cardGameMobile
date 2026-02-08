@@ -18,8 +18,29 @@ export class ActionExecutor {
       getOpponentPlayerId: () => string | undefined;
       clearSelection: () => void;
       refreshNeutral: () => void;
+      reportError?: (err: any) => void;
     },
   ) {}
+
+  private async runPlayerAction(
+    payload: Parameters<ApiManager["playerAction"]>[0],
+    opts: { cancelOnSuccess: boolean; cancelOnError: boolean },
+  ) {
+    const { gameId, playerId } = this.deps.gameContext;
+    if (!gameId || !playerId) return;
+    try {
+      await this.deps.api.playerAction(payload);
+      await this.deps.engine.updateGameStatus(gameId, playerId);
+      if (opts.cancelOnSuccess) {
+        this.handleCancelSelection();
+      }
+    } catch (err) {
+      this.deps.reportError?.(err);
+      if (opts.cancelOnError) {
+        this.handleCancelSelection();
+      }
+    }
+  }
 
   async handleAttackUnit() {
     const attacker = this.deps.getSelectedSlot();
@@ -67,13 +88,7 @@ export class ActionExecutor {
       targetPlayerId,
       targetPilotUid: null as string | null,
     };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      void err;
-    }
+    await this.runPlayerAction(payload, { cancelOnSuccess: true, cancelOnError: false });
   }
 
   async handleSkipAction() {
@@ -85,13 +100,7 @@ export class ActionExecutor {
       gameId,
       actionType: "confirmBattle",
     };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      void err;
-    }
+    await this.runPlayerAction(payload, { cancelOnSuccess: true, cancelOnError: false });
   }
 
   async handleActivateCardAbility(carduid: string, effectId: string) {
@@ -105,13 +114,7 @@ export class ActionExecutor {
       carduid,
       effectId,
     };
-    try {
-      await this.deps.api.playerAction(payload as any);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      void err;
-    }
+    await this.runPlayerAction(payload as any, { cancelOnSuccess: true, cancelOnError: false });
   }
 
   cancelSelection() {
@@ -141,14 +144,7 @@ export class ActionExecutor {
       targetPlayerId,
       targetPilotUid: null,
     };
-    try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      this.handleCancelSelection();
-    } catch (err) {
-      void err;
-      this.handleCancelSelection();
-    }
+    await this.runPlayerAction(payload, { cancelOnSuccess: true, cancelOnError: true });
   }
 
   private handleCancelSelection() {
