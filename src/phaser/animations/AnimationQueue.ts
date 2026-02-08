@@ -88,6 +88,10 @@ export class AnimationQueue {
     return this.completedIds.has(id);
   }
 
+  private isNewEventId(id: string) {
+    return !this.pendingIds.has(id) && !this.completedIds.has(id);
+  }
+
   buildEvents(notificationQueue: SlotNotification[]): SlotNotification[] {
     if (!Array.isArray(notificationQueue) || notificationQueue.length === 0) {
       return [];
@@ -111,7 +115,7 @@ export class AnimationQueue {
       // Only return events that will actually be enqueued/animated.
       // BoardScene uses this list to seed render snapshots; including already-processed events can
       // cause stale "ghost" visuals (e.g. destroyed units reappearing briefly).
-      if (this.pendingIds.has(note.id) || this.completedIds.has(note.id)) {
+      if (!this.isNewEventId(note.id)) {
         return;
       }
       if (!this.handlers.has(type)) return;
@@ -127,7 +131,7 @@ export class AnimationQueue {
   enqueue(events: SlotNotification[], ctx: AnimationContext) {
     events.forEach((event) => {
       if (!event.id) return;
-      if (this.pendingIds.has(event.id) || this.completedIds.has(event.id)) return;
+      if (!this.isNewEventId(event.id)) return;
       this.markPending(event.id);
       this.queue.push({ event, ctx });
     });
