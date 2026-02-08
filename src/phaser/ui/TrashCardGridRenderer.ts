@@ -48,6 +48,7 @@ type RenderOpts = {
   cardConfig: TrashGridCardConfig;
   badgeConfig: TrashGridBadgeConfig;
   typeOverrides: TrashGridTypeOverrides;
+  isCardInteractive?: (card: any) => boolean;
   onPointerDown?: (card: any) => void;
   onPointerUp?: (card: any) => void;
   onPointerOut?: (card: any) => void;
@@ -69,6 +70,7 @@ export class TrashCardGridRenderer {
       cardConfig,
       badgeConfig,
       typeOverrides,
+      isCardInteractive,
       onPointerDown,
       onPointerUp,
       onPointerOut,
@@ -95,10 +97,13 @@ export class TrashCardGridRenderer {
       );
       frame.setStrokeStyle(cardConfig.frameStroke, cardConfig.frameColor, 0.95);
       if (onPointerDown || onPointerUp || onPointerOut) {
-        frame.setInteractive({ useHandCursor: true });
-        frame.on("pointerdown", () => onPointerDown?.(card));
-        frame.on("pointerup", () => onPointerUp?.(card));
-        frame.on("pointerout", () => onPointerOut?.(card));
+        const interactive = isCardInteractive ? isCardInteractive(card) !== false : true;
+        if (interactive) {
+          frame.setInteractive({ useHandCursor: true });
+          frame.on("pointerdown", () => onPointerDown?.(card));
+          frame.on("pointerup", () => onPointerUp?.(card));
+          frame.on("pointerout", () => onPointerOut?.(card));
+        }
       }
       container.add(frame);
 

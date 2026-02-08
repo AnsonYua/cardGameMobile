@@ -174,6 +174,9 @@ export class SlotAnimationRenderController {
     this.eventSlots.clear();
 
     const slotKey = (slot: SlotViewModel) => `${slot.owner}-${slot.slotId}`;
+    const currentByKey = new Map<string, SlotViewModel>();
+    currentSlots.forEach((slot) => currentByKey.set(slotKey(slot), slot));
+    const slotPrimaryUid = (slot?: SlotViewModel | null) => slot?.unit?.cardUid ?? slot?.pilot?.cardUid ?? undefined;
     const byUid = new Map<string, SlotViewModel>();
     previousSlots.forEach((slot) => {
       if (slot.unit?.cardUid) byUid.set(slot.unit.cardUid, slot);
@@ -193,6 +196,17 @@ export class SlotAnimationRenderController {
         buildBattleResolvedSnapshotSlots(event, resolveSlotOwnerByPlayer).forEach((slot) => {
           const key = slotKey(slot);
           keys.add(key);
+          const liveSlot = currentByKey.get(key);
+          const liveUid = slotPrimaryUid(liveSlot);
+          const snapshotUid = slotPrimaryUid(slot);
+          // Don't let BATTLE_RESOLVED "ghost" snapshots overwrite a slot that already contains
+          // a different card in the current (post-events) state.
+          if (liveUid && snapshotUid && liveUid !== snapshotUid) {
+            return;
+          }
+          if (liveUid && !snapshotUid) {
+            return;
+          }
           if (!this.renderSnapshots.has(key)) {
             this.renderSnapshots.set(key, this.cloneSlot(slot));
           }
@@ -206,6 +220,12 @@ export class SlotAnimationRenderController {
         if (!slot) return;
         const key = slotKey(slot);
         keys.add(key);
+        const liveSlot = currentByKey.get(key);
+        const liveUid = slotPrimaryUid(liveSlot);
+        // Avoid overriding a slot that is already occupied by a different card in the current state.
+        if (liveUid && liveUid !== uid) {
+          return;
+        }
         if (!this.renderSnapshots.has(key)) {
           this.renderSnapshots.set(key, this.cloneSlot(slot));
         }

@@ -64,7 +64,7 @@ export class NotificationAnimationController {
     if (!allowAnimations) return Promise.resolve();
     if (!note || !note.id) return Promise.resolve();
     const type = (note.type || "").toUpperCase();
-    if (type !== "CARD_PLAYED_COMPLETED") return Promise.resolve();
+    if (type !== "CARD_PLAYED_COMPLETED" && type !== "CARD_PLAYED") return Promise.resolve();
     const task = this.buildCardPlayedTask(note.payload ?? {}, args);
     if (!task) return Promise.resolve();
     return task();
@@ -193,15 +193,17 @@ export class NotificationAnimationController {
   }
 
   private buildCardPlayedTask(payload: any, ctx: ProcessArgs): (() => Promise<void>) | null {
-    if (!payload?.isCompleted) return null;
     const reason = (payload.reason ?? "").toString().toLowerCase();
     if (reason && reason !== "hand") return null;
 
     // Route based on play target (command/base/slot).
     const playAs = (payload.playAs ?? "").toString().toLowerCase();
+    const isCompleted = payload?.isCompleted !== false;
     const playerId = payload.playerId ?? "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     if (playAs === "command") {
+      // Commands may not have a stable board representation; keep the prior behavior of animating only after completion.
+      if (!isCompleted) return null;
       const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
       return () => {
         return this.animateCommand(payload, isSelf, card);

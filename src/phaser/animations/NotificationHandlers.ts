@@ -105,6 +105,18 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "CARD_PLAYED",
+      async (event, ctx) => {
+        await deps.cardPlayAnimator.playCardPlayed(event, {
+          slots: ctx.slots,
+          boardSlotPositions: ctx.boardSlotPositions,
+          currentPlayerId: ctx.currentPlayerId,
+          cardLookup: ctx.cardLookup,
+          allowAnimations: ctx.allowAnimations,
+        });
+      },
+    ],
+    [
       "CARD_PLAYED_COMPLETED",
       async (event, ctx) => {
         await deps.cardPlayAnimator.playCardPlayed(event, {

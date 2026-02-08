@@ -3,8 +3,12 @@ import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
-import { getNotificationQueue } from "../utils/NotificationUtils";
 import { createLogger } from "../utils/logger";
+import {
+  findLatestTokenChoiceFromRaw,
+  normalizeTokenChoiceNotification,
+  type TokenChoiceNote,
+} from "../utils/TokenChoiceNotificationUtils";
 
 type TokenChoiceDeps = {
   api: ApiManager;
@@ -15,15 +19,6 @@ type TokenChoiceDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
-
-type TokenChoiceNote = {
-  id: string;
-  playerId?: string;
-  isCompleted: boolean;
-  decisionMade: boolean;
-  effectId?: string;
-  data?: any;
 };
 
 export class TokenChoiceFlowManager {
@@ -40,7 +35,7 @@ export class TokenChoiceFlowManager {
   constructor(private deps: TokenChoiceDeps) {}
 
   async handleNotification(notification: any, raw: any): Promise<void> {
-    const note = this.normalizeTokenChoice(notification);
+    const note = normalizeTokenChoiceNotification(notification);
     if (!note) return;
 
     this.note = note;
@@ -80,7 +75,7 @@ export class TokenChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
-    const note = this.findTokenChoice(raw);
+    const note = findLatestTokenChoiceFromRaw(raw, { preferId: this.note?.id });
     if (!note) {
       if (this.note) {
         this.log.debug("token choice cleared from snapshot", { id: this.note.id });
@@ -169,9 +164,8 @@ export class TokenChoiceFlowManager {
     if (!isOwner) {
       dialog.show({
         headerText: "Choose token to play",
-        promptText: "",
         choices: [],
-        showButtons: false,
+        showChoices: false,
         showOverlay: true,
         showTimer: false,
       });
@@ -182,16 +176,14 @@ export class TokenChoiceFlowManager {
     const choices = Array.isArray(this.note.data?.availableChoices) ? this.note.data.availableChoices : [];
     const dialogChoices = choices.map((choice: any) => ({
       index: Number(choice?.index ?? 0),
-      label: this.formatChoiceLabel(choice),
       cardId: (choice?.tokenData?.id ?? choice?.token?.cardId ?? "").toString() || undefined,
       enabled: choice?.enabled !== false,
     }));
 
     dialog.show({
       headerText: "Choose token to play",
-      promptText: "",
       choices: dialogChoices,
-      showButtons: true,
+      showChoices: true,
       showOverlay: true,
       showTimer: true,
       onSelect: async (index) => {
@@ -211,25 +203,6 @@ export class TokenChoiceFlowManager {
     if (firstEnabled && typeof firstEnabled.index === "number") return firstEnabled.index;
     const first = normalized[0];
     return typeof first?.index === "number" ? first.index : 0;
-  }
-
-  private formatChoiceLabel(choice: any): string {
-    const tokenData = choice?.tokenData ?? {};
-    const token = choice?.token ?? {};
-    const name = (tokenData?.name ?? token?.name ?? tokenData?.id ?? token?.cardId ?? "Token").toString();
-    const ap = tokenData?.ap ?? token?.ap;
-    const hp = tokenData?.hp ?? token?.hp;
-    const traits = Array.isArray(tokenData?.traits) ? tokenData.traits.filter(Boolean).map(String) : [];
-    const traitText = traits.length ? `, <${traits.join(", ")}>` : "";
-    const hasAp = typeof ap === "number" || typeof ap === "string";
-    const hasHp = typeof hp === "number" || typeof hp === "string";
-    if (hasAp && hasHp) {
-      return `${name} (AP ${ap} / HP ${hp}${traitText})`;
-    }
-    if (traitText) {
-      return `${name} (${traitText.slice(2, -1)})`;
-    }
-    return name;
   }
 
   private async submitChoice(selectedChoiceIndex: number) {
@@ -252,7 +225,7 @@ export class TokenChoiceFlowManager {
       });
       await this.deps.engine.updateGameStatus(gameId, playerId);
       // If the backend immediately marked the notification complete, acknowledge right away.
-      const latest = this.findTokenChoice(this.deps.engine.getSnapshot().raw);
+      const latest = findLatestTokenChoiceFromRaw(this.deps.engine.getSnapshot().raw, { preferId: this.note?.id });
       if (latest?.id === this.note.id && latest.isCompleted) {
         await this.onCompleted(latest);
       }
@@ -310,45 +283,5 @@ export class TokenChoiceFlowManager {
     this.submittedId = undefined;
     this.submittedAt = undefined;
     this.ackPending = false;
-  }
-
-  private normalizeTokenChoice(notification: any): TokenChoiceNote | undefined {
-    if (!notification) return undefined;
-    const type = (notification?.type ?? "").toString().toUpperCase();
-    if (type !== "TOKEN_CHOICE") return undefined;
-    const payload = notification?.payload ?? {};
-    const event = payload?.event ?? payload ?? {};
-    const eventType = (event?.type ?? type).toString().toUpperCase();
-    if (eventType !== "TOKEN_CHOICE") return undefined;
-    const id = String(notification?.id ?? event?.id ?? "");
-    if (!id) return undefined;
-    const data = event?.data ?? {};
-    const status = (event?.status ?? "").toString().toUpperCase();
-    return {
-      id,
-      playerId: payload?.playerId ?? event?.playerId,
-      isCompleted: payload?.isCompleted === true || status === "RESOLVED",
-      decisionMade: data?.userDecisionMade === true,
-      effectId: data?.effect?.effectId ?? data?.effectId,
-      data,
-    };
-  }
-
-  private findTokenChoice(raw: any): TokenChoiceNote | undefined {
-    const queue = getNotificationQueue(raw);
-    if (!queue.length) return undefined;
-
-    if (this.note?.id) {
-      const preferred = queue.find((n: any) => String(n?.id ?? "") === String(this.note?.id));
-      const normalized = preferred ? this.normalizeTokenChoice(preferred) : undefined;
-      if (normalized) return normalized;
-    }
-
-    for (let i = queue.length - 1; i >= 0; i -= 1) {
-      const normalized = this.normalizeTokenChoice(queue[i]);
-      if (!normalized) continue;
-      return normalized;
-    }
-    return undefined;
   }
 }
