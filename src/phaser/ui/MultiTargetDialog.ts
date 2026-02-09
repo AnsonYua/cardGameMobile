@@ -305,8 +305,8 @@ export class MultiTargetDialog {
       const frame = this.scene.add.rectangle(
         x,
         y,
-        cardW + 0 + frameExtra.w-10,
-        cardH + 0 + frameExtra.h-10,
+        cardW + framePadding + frameExtra.w,
+        cardH + framePadding + frameExtra.h,
         0x1b1e24,
         0.75,
       );
@@ -354,12 +354,12 @@ export class MultiTargetDialog {
 
       const frameW = cardW + framePadding + frameExtra.w;
       const frameH = cardH + framePadding + frameExtra.h;
-      const tickRadius = 12;
+      const tickRadius = 10;
       const tickX = x + frameW / 2 - tickRadius - 6;
-      const tickY = y + frameH / 2 - tickRadius - 8;
+      const tickY = y + frameH / 2 - tickRadius - 10;
       const tickBg = this.scene.add.circle(tickX, tickY, tickRadius, 0x2ecc71, 0.95);
       const tickLabel = this.scene.add
-        .text(tickX, tickY + 0.5, "✓", { fontSize: "16px", fontFamily: "Arial", color: "#0b1b10" })
+        .text(tickX, tickY + 0.5, "✓", { fontSize: "14px", fontFamily: "Arial", color: "#0b1b10" })
         .setOrigin(0.5);
       tickBg.setVisible(false);
       tickLabel.setVisible(false);

@@ -301,6 +301,16 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "UNIT_DESTROYED_BY_EFFECT",
+      async (_event, ctx) => {
+        // Ensure destroyed units remain visible until this notification is sequenced in the animation queue.
+        // (Without a handler, the event is filtered out and the unit can "pop" out immediately when the
+        // latest snapshot already reflects the post-destroy state.)
+        if (!ctx.allowAnimations) return;
+        await new Promise<void>((resolve) => setTimeout(resolve, 180));
+      },
+    ],
+    [
       "PHASE_CHANGED",
       async (event) => {
         const nextPhase = event?.payload?.nextPhase;

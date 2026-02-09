@@ -184,7 +184,14 @@ export class BoardScene extends Phaser.Scene {
     const dialogs = setupBoardDialogs(
       this,
       this.dialogCoordinator,
-      (slot, size) => this.slotControls?.createSlotSprite?.(slot, size),
+      // Only use the board-slot renderer for actual board slots. Other zones (ex: trash selection
+      // targets) should render as full single cards, like the trash dialog grid.
+      (slot, size) => {
+        const slotId = (slot?.slotId ?? "").toString().toLowerCase();
+        const isBoardSlot = /^slot[1-6]$/.test(slotId);
+        if (!isBoardSlot) return undefined;
+        return this.slotControls?.createSlotSprite?.(slot, size);
+      },
       this.turnTimer,
     );
     this.drawPopupDialogUi = dialogs.drawPopupDialog;

@@ -72,7 +72,11 @@ export class BattleAnimationManager {
       this.config.resolveSlotOwnerByPlayer(payload.target?.playerId ?? payload.defendingPlayerId) ||
       (attackerOwner === "player" ? "opponent" : "player");
     const attackerSlotId = payload.attacker?.slot ?? payload.attackerSlot ?? payload.attackerSlotName;
-    const attackerCarduid = payload.attacker?.carduid ?? payload.attackerCarduid ?? payload.attackerUnitUid;
+    const attackerCarduid =
+      payload.attacker?.unit?.carduid ??
+      payload.attacker?.carduid ??
+      payload.attackerCarduid ??
+      payload.attackerUnitUid;
     const attackerSlot = findSlotForAttack(slots, attackerCarduid, attackerOwner, attackerSlotId);
     const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
     const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
@@ -103,7 +107,7 @@ export class BattleAnimationManager {
       attacker: attackerSeed,
       target: targetSeed,
       targetPoint,
-      attackId: note.id,
+      attackId: payload.attackNotificationId ?? note.id,
     };
   }
 
@@ -126,14 +130,15 @@ export class BattleAnimationManager {
       this.config.setSlotVisible?.(seed.owner, seed.slotId, true);
     };
     try {
-      hideSlot(attackerSeed);
-      hideSlot(snapshot.target);
       // Create sprite clones so we can animate without mutating actual slot renderers.
       const attackerSprite = this.createBattleSprite(attackerSeed);
       if (!attackerSprite) {
         return;
       }
       const targetSprite = snapshot.target ? this.createBattleSprite(snapshot.target) : undefined;
+      // Only hide underlying slots once we have sprites to show; otherwise the attacker can "pop" out.
+      hideSlot(attackerSeed);
+      hideSlot(snapshot.target);
       const targetPoint = snapshot.target?.position ?? snapshot.targetPoint;
       // Advance attacker to target, then play impact effects.
       await this.fx.runTween({
@@ -254,7 +259,9 @@ export class BattleAnimationManager {
   private createBattleSprite(seed: BattleSpriteSeed) {
     const layer = this.ensureBattleAnimationLayer();
     if (!seed.card && !seed.slot) return undefined;
-    const slotSprite = seed.slot ? this.config.createSlotSprite?.(seed.slot, seed.size) : undefined;
+    const width = Number.isFinite(seed.size?.w) && seed.size.w > 0 ? seed.size.w : 96;
+    const height = Number.isFinite(seed.size?.h) && seed.size.h > 0 ? seed.size.h : 134;
+    const slotSprite = seed.slot ? this.config.createSlotSprite?.(seed.slot, { w: width, h: height }) : undefined;
     const fallbackSlot =
       seed.slot ??
       (seed.card
@@ -266,14 +273,12 @@ export class BattleAnimationManager {
             hp: seed.card?.cardData?.hp ?? 0,
           }
         : undefined);
-    const fallbackSprite = fallbackSlot ? this.config.createSlotSprite?.(fallbackSlot, seed.size) : undefined;
+    const fallbackSprite = fallbackSlot ? this.config.createSlotSprite?.(fallbackSlot, { w: width, h: height }) : undefined;
     const container = slotSprite ?? fallbackSprite ?? this.config.scene.add.container(0, 0);
     container.setPosition(seed.position.x, seed.position.y);
     container.setDepth(seed.isOpponent ? 905 : 915);
     layer?.add(container);
 
-    const width = seed.size.w;
-    const height = seed.size.h;
     if (slotSprite || fallbackSprite) {
       return container;
     }
