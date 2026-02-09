@@ -165,10 +165,19 @@ export class TrashAreaDialog {
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
     this.previewController.start((container) => {
       const preview = this.gridRenderer.getPreviewData(card);
-      this.previewLayout.renderPreview(container, 0, 0, cardW, cardH, preview.textureKey, preview.statLabel, preview.previewCard, {
+      const textureKey = this.resolveNonPreviewTextureKey(preview.textureKey);
+      this.previewLayout.renderPreview(container, 0, 0, cardW, cardH, textureKey, preview.statLabel, preview.previewCard, {
         badgeSize: UI_LAYOUT.hand.preview.badgeSize,
         badgeFontSize: UI_LAYOUT.hand.preview.badgeFontSize,
       });
     });
+  }
+
+  private resolveNonPreviewTextureKey(textureKey?: string) {
+    if (!textureKey) return textureKey;
+    const key = String(textureKey);
+    const baseKey = key.replace(/-preview$/i, "");
+    if (baseKey !== key && this.scene.textures.exists(baseKey)) return baseKey;
+    return key;
   }
 }
