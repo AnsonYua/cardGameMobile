@@ -8,6 +8,7 @@ import Phaser from "phaser";
 import { mapAvailableTargetsToSlotTargets } from "./TargetSlotMapper";
 import type { SlotNotification } from "../animations/NotificationAnimationController";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { mapSlotToApiTargetRef } from "./targeting/TargetChoiceMapping";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -165,21 +166,12 @@ export class EffectTargetController {
       };
 
       const mapSlotToTarget = (slot: SlotViewModel) => {
-        const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
-        const zone = slot?.slotId || "";
-        const ownerPlayerId = slot?.owner === "player" ? selfId : otherId;
-        const uidOf = (t: any) => (t?.carduid || t?.cardUid || "").toString();
-        // If we have a concrete card uid (ex: multi-select from trash), ONLY match by uid.
-        // Falling back to zone+player would always pick the first card in that zone and collapse
-        // multi-selections into a single target.
-        const matched = targetUid
-          ? availableTargets.find((t) => uidOf(t) && uidOf(t) === targetUid)
-          : availableTargets.find((t) => t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId);
-        return {
-          carduid: (uidOf(matched) || targetUid || "").toString(),
-          zone: (matched?.zone || zone || "").toString(),
-          playerId: (matched?.playerId || ownerPlayerId || "").toString(),
-        };
+        return mapSlotToApiTargetRef({
+          slot,
+          availableTargets,
+          selfPlayerId: selfId ?? "",
+          otherPlayerId: otherId,
+        });
       };
 
       if (isMulti) {

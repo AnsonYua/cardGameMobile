@@ -1,5 +1,12 @@
 import Phaser from "phaser";
 import { toPreviewKey, type HandCardView } from "./HandTypes";
+import {
+  getDialogBadgeOffset,
+  getDialogBadgeOverride,
+  getDialogBadgeTypeKey,
+  isPilotCommand,
+  resolveDialogTextureKey,
+} from "./DialogCardRenderUtils";
 
 export type TrashGridCardConfig = {
   aspect: number;
@@ -128,9 +135,9 @@ export class TrashCardGridRenderer {
 
       const statLabel = this.getStatLabel(card);
       if (statLabel) {
-        const typeKey = this.getBadgeTypeKey(card);
-        const override = this.getBadgeOverride(typeOverrides, typeKey);
-        const offset = this.getBadgeOffset(badgeConfig, typeKey);
+        const typeKey = getDialogBadgeTypeKey(card);
+        const override = getDialogBadgeOverride(typeOverrides, typeKey);
+        const offset = getDialogBadgeOffset(badgeConfig, typeKey);
         const badgeW = override.size.w;
         const badgeH = override.size.h;
         const badgeX = x + cardW / 2 - badgeW / 2 - override.insetX + offset.x;
@@ -161,18 +168,16 @@ export class TrashCardGridRenderer {
   private getCardTexture(card: any) {
     const explicit = card?.textureKey;
     if (explicit) {
-      const key = String(explicit);
-      // Prefer full card art for dialogs/popups when provided.
-      return key.replace(/-preview$/i, "");
+      return resolveDialogTextureKey(this.scene, String(explicit));
     }
     const cardId = card?.cardId ?? card?.cardData?.id ?? card?.cardData?.cardId;
     if (cardId === "base" || cardId === "base_default") return "baseCard";
-    return toPreviewKey(cardId) || cardId;
+    return resolveDialogTextureKey(this.scene, toPreviewKey(cardId) || cardId);
   }
 
   private getPreviewTexture(card: any) {
-    const key = this.getCardTexture(card);
-    return key ? key.replace(/-preview$/, "") : key;
+    // Preview popups should render the same texture used in the grid.
+    return this.getCardTexture(card);
   }
 
   private getCardLabel(card: any) {
@@ -181,48 +186,13 @@ export class TrashCardGridRenderer {
 
   private getStatLabel(card: any) {
     const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-    const isPilotCommand = this.isPilotCommand(card, type);
-    const shouldShow = ["unit", "pilot", "base"].includes(type) || isPilotCommand;
+    const pilotCommand = isPilotCommand(card);
+    const shouldShow = ["unit", "pilot", "base"].includes(type) || pilotCommand;
     const ap = card?.fieldCardValue?.totalAP ?? card?.cardData?.ap ?? card?.ap;
     const hp = card?.fieldCardValue?.totalHP ?? card?.cardData?.hp ?? card?.hp;
     if (!shouldShow) return undefined;
     if (ap === undefined && hp === undefined) return undefined;
     return `${Number(ap ?? 0)}|${Number(hp ?? 0)}`;
-  }
-
-  private getBadgeOffset(badgeConfig: TrashGridBadgeConfig, typeKey: ReturnType<typeof this.getBadgeTypeKey>) {
-    if (typeKey === "pilotCommand") return badgeConfig.offsets.pilotCommand;
-    if (typeKey === "unit") return badgeConfig.offsets.unit;
-    if (typeKey === "pilot") return badgeConfig.offsets.pilot;
-    if (typeKey === "base") return badgeConfig.offsets.base;
-    if (typeKey === "command") return badgeConfig.offsets.command;
-    return badgeConfig.offsets.default;
-  }
-
-  private getBadgeTypeKey(card: any): "unit" | "pilot" | "base" | "command" | "pilotCommand" | "default" {
-    const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-    if (type === "command" && this.isPilotCommand(card, type)) return "pilotCommand";
-    if (type === "unit") return "unit";
-    if (type === "pilot") return "pilot";
-    if (type === "base") return "base";
-    if (type === "command") return "command";
-    return "default";
-  }
-
-  private getBadgeOverride(typeOverrides: TrashGridTypeOverrides, typeKey: ReturnType<typeof this.getBadgeTypeKey>) {
-    if (typeKey === "unit") return typeOverrides.unit;
-    if (typeKey === "pilot") return typeOverrides.pilot;
-    if (typeKey === "base") return typeOverrides.base;
-    if (typeKey === "pilotCommand") return typeOverrides.pilotCommand;
-    return typeOverrides.default;
-  }
-
-  private isPilotCommand(card: any, type?: string) {
-    const normalized = type ?? (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-    if (normalized !== "command") return false;
-    if (card?.fromPilotDesignation) return true;
-    const rules: any[] = card?.cardData?.effects?.rules || [];
-    return rules.some((rule) => rule?.effectId === "pilot_designation" || rule?.effectId === "pilotDesignation" || rule?.action === "designate_pilot");
   }
 
   private toPreviewCard(card: any): HandCardView {

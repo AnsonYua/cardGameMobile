@@ -7,6 +7,7 @@ import type { EffectTargetController } from "../controllers/EffectTargetControll
 import type { GameEndInfo } from "../scene/gameEndHelpers";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import { createLogger } from "../utils/logger";
+import { handleGameEnvRefresh } from "./handlers/GameEnvRefreshHandler";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
 
@@ -52,16 +53,8 @@ export function buildNotificationHandlers(
     [
       "GAME_ENV_REFRESH",
       async (event, ctx) => {
-        const refresh = deps.refreshSnapshot;
-        if (!refresh) return;
         try {
-          const nextRaw = await Promise.resolve(refresh(event, ctx));
-          if (!nextRaw) return;
-          ctx.previousRaw = ctx.currentRaw ?? ctx.previousRaw;
-          ctx.currentRaw = nextRaw;
-          if (deps.getSlotsFromRaw) {
-            ctx.slots = deps.getSlotsFromRaw(nextRaw);
-          }
+          await handleGameEnvRefresh(deps, event, ctx);
         } catch (err) {
           void err;
           log.debug("GAME_ENV_REFRESH refresh failed");

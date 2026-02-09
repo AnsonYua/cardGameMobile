@@ -2,6 +2,7 @@ import { toPreviewKey } from "../ui/HandTypes";
 import type { SlotCardView, SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { resolveTargetTotals } from "./targeting/TargetTotals";
 
 export type SlotTarget = {
   slot: SlotViewModel;
@@ -19,26 +20,6 @@ export function mapAvailableTargetsToSlotTargets(
   const allSlots = slotPresenter.toSlots(raw, selfPlayerId);
   const mapped: SlotTarget[] = [];
   const debug = isDebugFlagEnabled("debugTargets");
-  const resolveComputedTotals = (target: any) => {
-    const ap =
-      target?.computed?.totalAP ??
-      target?.computed?.ap ??
-      target?.fieldCardValue?.totalAP ??
-      target?.cardData?.ap ??
-      target?.ap ??
-      0;
-    const hp =
-      target?.computed?.totalHP ??
-      target?.computed?.hp ??
-      target?.fieldCardValue?.totalHP ??
-      target?.cardData?.hp ??
-      target?.hp ??
-      0;
-    return {
-      totalAP: Number(ap) || 0,
-      totalHP: Number(hp) || 0,
-    };
-  };
 
   availableTargets.forEach((target) => {
     if (!target) return;
@@ -51,7 +32,7 @@ export function mapAvailableTargetsToSlotTargets(
       // cards from the trash zone). If we reuse the same SlotViewModel instance, the UI can't
       // uniquely identify selections and the API mapping collapses to a single target.
       // Clone the slot and stamp the target cardUid onto it so each entry is unique.
-      const computed = resolveComputedTotals(target);
+      const computed = resolveTargetTotals(target);
       const slotView: SlotViewModel = {
         ...existing,
         unit: undefined,
@@ -94,7 +75,7 @@ export function mapAvailableTargetsToSlotTargets(
       owner,
       slotId: zone || "unknown",
       fieldCardValue: {
-        ...resolveComputedTotals(target),
+        ...resolveTargetTotals(target),
       },
     };
     const cardView = buildSlotCardView(target);
