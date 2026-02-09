@@ -265,6 +265,14 @@ export class BoardScene extends Phaser.Scene {
       startGame: () => this.startGame(),
       renderSlots: (slots) => this.renderSlots(slots),
       renderBaseAndShield: (raw) => this.updateBaseAndShield(raw),
+      renderGameEnv: (raw) => {
+        if (!raw) return;
+        // Keep non-slot UI (header/energy/trash) aligned with refreshed snapshots while the animation queue runs.
+        this.updateHeaderPhaseStatus(raw);
+        this.updateHeaderOpponentHand(raw);
+        this.updateEnergyStatus(raw);
+        this.updateTrashTopCards(raw);
+      },
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
@@ -670,21 +678,25 @@ export class BoardScene extends Phaser.Scene {
     const allowAnimations = params.animate;
 
     const boardSlotPositions = this.slotControls?.getBoardSlotPositions?.();
-    const cardLookup = {
-      findBaseCard: (playerId?: string) => findBaseCard(raw, playerId),
-      findCardByUid: (cardUid?: string) => findCardByUid(raw, cardUid),
-    };
-    const ctx = {
+    const ctx: any = {
       notificationQueue,
       slots: currentSlots,
       boardSlotPositions,
       allowAnimations,
       currentPlayerId: this.gameContext.playerId,
       resolveSlotOwnerByPlayer: this.resolveSlotOwnerByPlayer.bind(this),
-      cardLookup,
+      cardLookup: {
+        findBaseCard: (playerId?: string) => findBaseCard(ctx.currentRaw ?? raw, playerId),
+        findCardByUid: (cardUid?: string) => findCardByUid(ctx.currentRaw ?? raw, cardUid),
+      },
       getRenderSlots: () => this.slotAnimationRender?.getRenderSlots(currentSlots) ?? currentSlots,
       previousRaw,
       currentRaw: raw,
+    };
+    ctx.getRenderSlots = () => {
+      const latestRaw = ctx.currentRaw ?? ctx.previousRaw ?? raw;
+      const latestSlots = this.slotPresenter.toSlots(latestRaw, playerId);
+      return this.slotAnimationRender?.getRenderSlots(latestSlots) ?? latestSlots;
     };
 
     if (!allowAnimations) {

@@ -1,5 +1,6 @@
 import { toPreviewKey } from "../ui/HandTypes";
 import type { SlotCardView } from "../ui/SlotTypes";
+import { resolveCardUid } from "./CardUid";
 
 export const findBaseCard = (raw: any, playerId?: string) => {
   const players = raw?.gameEnv?.players || {};
@@ -62,7 +63,7 @@ const extractCardFromZone = (zone: any, cardUid: string): SlotCardView | undefin
 
 const matchCard = (card: any, targetUid: string): SlotCardView | undefined => {
   if (!card) return undefined;
-  const uid = getCardUid(card);
+  const uid = resolveCardUid(card);
   if (!uid || uid !== targetUid) return undefined;
   const id = typeof card === "string" ? card : card.cardId ?? card.id ?? uid;
   const textureKey = typeof card === "string" ? undefined : toPreviewKey(card.cardId ?? card.id ?? uid);
@@ -73,10 +74,4 @@ const matchCard = (card: any, targetUid: string): SlotCardView | undefined => {
     cardType: card.cardData?.cardType,
     cardData: card.cardData,
   };
-};
-
-const getCardUid = (card: any) => {
-  if (!card) return undefined;
-  if (typeof card === "string") return card;
-  return card.carduid ?? card.cardUid ?? card.uid ?? card.id ?? card.cardId ?? undefined;
 };

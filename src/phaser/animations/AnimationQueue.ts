@@ -38,6 +38,8 @@ export class AnimationQueue {
       burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
       optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
       tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
+      refreshSnapshot?: (event: SlotNotification, ctx: AnimationContext) => Promise<any> | any;
+      getSlotsFromRaw?: (raw: any) => SlotViewModel[];
       phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
       mulliganDialog?: {
         showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;

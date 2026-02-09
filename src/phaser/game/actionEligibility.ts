@@ -1,57 +1,7 @@
 import type { SelectionTarget } from "./SelectionStore";
 import { getTurnOwnerId } from "./turnOwner";
-
-const SLOT_KEYS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"];
-
-function resolveCardUid(card: any): string | undefined {
-  return (
-    card?.carduid ??
-    card?.cardUid ??
-    card?.uid ??
-    card?.id ??
-    card?.cardId ??
-    undefined
-  );
-}
-
-function findPlayerSlotWithCardUid(raw: any, playerId: string, carduid: string) {
-  const zones = raw?.gameEnv?.players?.[playerId]?.zones ?? {};
-  for (const slotId of SLOT_KEYS) {
-    const slot = zones?.[slotId];
-    if (!slot) continue;
-    const unitUid = resolveCardUid(slot?.unit);
-    const pilotUid = resolveCardUid(slot?.pilot);
-    if (unitUid === carduid || pilotUid === carduid) {
-      return { slotId, slot };
-    }
-  }
-  return undefined;
-}
-
-function isCardLinkedInPlay(card: any, raw: any, playerId: string): boolean {
-  const uid = resolveCardUid(card);
-  if (!uid) return false;
-  const found = findPlayerSlotWithCardUid(raw, playerId, uid);
-  if (!found?.slot) return false;
-  return !!found.slot.unit && !!found.slot.pilot;
-}
-
-function ruleRequiresDuringLink(effectRule: any, cardData?: any): boolean {
-  const desc: string[] = Array.isArray(cardData?.effects?.description) ? cardData.effects.description : [];
-  const descText = desc.join(" ").toLowerCase();
-  const ruleText = (effectRule?.parameters?.text ?? "").toString().toLowerCase();
-  return descText.includes("during link") || ruleText.includes("during link");
-}
-
-function ruleRequiresSelfRested(effectRule: any, card: any): boolean {
-  const cardType = (card?.cardData?.cardType ?? "").toString().toLowerCase();
-  if (cardType !== "unit") return false;
-  const desc: string[] = Array.isArray(card?.cardData?.effects?.description) ? card.cardData.effects.description : [];
-  const descText = desc.join(" ").toLowerCase();
-  const ruleText = (effectRule?.parameters?.text ?? "").toString().toLowerCase();
-  // UX gating heuristic: abilities that "set this Unit as active" are only meaningful when the unit is rested.
-  return descText.includes("set this unit as active") || ruleText.includes("set this unit as active");
-}
+import { filterActivatedEffectRulesByAvailability } from "./activatedEffectAvailability";
+import { SLOT_KEYS } from "./slotUtils";
 
 export function getEnergyState(player: any) {
   const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
@@ -175,14 +125,8 @@ export type ActivatedEffectOption = {
 export function getActivatedEffectOptions(card: any, raw: any, playerId: string): ActivatedEffectOption[] {
   if (!card || !raw || !playerId) return [];
   const phase = raw?.gameEnv?.phase ?? raw?.phase ?? "";
-  const rules = getActivatedEffectRules(card?.cardData, phase)
-    .filter((rule) => !!rule?.effectId)
-    // Hard availability gates (e.g. "During Link") should hide the ability entirely when not satisfied.
-    .filter((rule) => {
-      if (ruleRequiresDuringLink(rule, card?.cardData) && !isCardLinkedInPlay(card, raw, playerId)) return false;
-      if (ruleRequiresSelfRested(rule, card) && card?.isRested !== true) return false;
-      return true;
-    });
+  const timingRules = getActivatedEffectRules(card?.cardData, phase).filter((rule) => !!rule?.effectId);
+  const rules = filterActivatedEffectRulesByAvailability({ card, raw, playerId, rules: timingRules });
   if (!rules.length) return [];
   const player = raw?.gameEnv?.players?.[playerId];
   const { availableEnergy } = getEnergyState(player);

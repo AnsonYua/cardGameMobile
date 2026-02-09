@@ -1,20 +1,10 @@
 import { findBaseCard } from "../utils/CardLookup";
+import { resolveCardUid } from "../utils/CardUid";
 import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import { getActivatedEffectOptions, getSlotCards } from "../game/actionEligibility";
 import type { AbilityChoiceDialog, AbilityChoiceDialogGroup, AbilityChoiceDialogOption } from "../ui/AbilityChoiceDialog";
 import type { ActionExecutor } from "./ActionExecutor";
-
-function resolveCardUid(card: any): string | undefined {
-  return (
-    card?.carduid ??
-    card?.cardUid ??
-    card?.uid ??
-    card?.id ??
-    card?.cardId ??
-    undefined
-  );
-}
 
 export class AbilityActivationFlowController {
   constructor(

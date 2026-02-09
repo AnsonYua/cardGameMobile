@@ -197,6 +197,16 @@ export class MultiTargetDialog {
       .setOrigin(0.5);
     dialog.add(counterText);
 
+    const errorText = this.scene.add
+      .text(0, header.y + 46, "", {
+        fontSize: "13px",
+        fontFamily: "Arial",
+        color: "#ff6b6b",
+        align: "center",
+      })
+      .setOrigin(0.5);
+    dialog.add(errorText);
+
     const confirmY = gridTopY + gridHeight + confirmGap + confirmH / 2;
     const confirmBtn = this.scene.add.rectangle(0, confirmY, confirmW, confirmH, 0x1f6feb, 0.85);
     confirmBtn.setStrokeStyle(2, 0xffffff, 0.25);
@@ -214,7 +224,17 @@ export class MultiTargetDialog {
     };
     setConfirmEnabled(false);
 
-    const isSameSlot = (a: SlotViewModel, b: SlotViewModel) => a.owner === b.owner && a.slotId === b.slotId;
+    const slotUid = (slot: SlotViewModel) =>
+      (slot?.unit?.cardUid || slot?.pilot?.cardUid || "").toString();
+    // Some target prompts (ex: selecting multiple cards from the trash) can contain several
+    // entries that share the same `slotId` (e.g. "trash"). In those cases, we must use the
+    // card uid for identity; otherwise selecting one item appears to select them all.
+    const isSameSlot = (a: SlotViewModel, b: SlotViewModel) => {
+      const aUid = slotUid(a);
+      const bUid = slotUid(b);
+      if (aUid && bUid) return aUid === bUid;
+      return a.owner === b.owner && a.slotId === b.slotId;
+    };
     const frames: Phaser.GameObjects.Rectangle[] = [];
     const ticks: Array<{ bg: Phaser.GameObjects.Arc; label: Phaser.GameObjects.Text }> = [];
 
@@ -222,6 +242,15 @@ export class MultiTargetDialog {
       const count = this.selectedTargets.length;
       counterText.setText(`Select ${min}-${max} (${count}/${max})`);
       setConfirmEnabled(count >= min && count <= max);
+      const needsMore = count < min;
+      if (needsMore) {
+        const msg = min === max ? `Select exactly ${min}.` : `Select at least ${min}.`;
+        errorText.setText(msg);
+        errorText.setVisible(true);
+      } else {
+        errorText.setText("");
+        errorText.setVisible(false);
+      }
       for (let i = 0; i < frames.length; i++) {
         const slot = targets[i];
         const frame = frames[i];

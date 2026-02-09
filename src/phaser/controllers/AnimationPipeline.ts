@@ -60,6 +60,7 @@ export function createAnimationPipeline(deps: {
   slotControls: SlotControls | null;
   handControls: HandControls | null;
   effectTargetController?: EffectTargetController;
+  refreshSnapshot?: (event: import("../animations/NotificationAnimationController").SlotNotification, ctx: import("../animations/AnimationTypes").AnimationContext) => Promise<any> | any;
   onGameEnded?: (info: GameEndInfo) => void;
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
@@ -137,6 +138,8 @@ export function createAnimationPipeline(deps: {
     burstChoiceGroupFlow: deps.burstGroupFlow,
     optionChoiceFlow: deps.optionChoiceFlow,
     tokenChoiceFlow: deps.tokenChoiceFlow,
+    refreshSnapshot: deps.refreshSnapshot,
+    getSlotsFromRaw: deps.getSlotsFromRaw,
     phasePopup: deps.phaseChangeDialog
       ? { showPhaseChange: (nextPhase) => deps.phaseChangeDialog?.showPhaseChange({ nextPhase }) }
       : undefined,

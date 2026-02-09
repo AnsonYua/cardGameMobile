@@ -5,6 +5,7 @@ import type { BattleAnimationManager } from "./BattleAnimationManager";
 import type { AttackIndicatorController } from "../controllers/AttackIndicatorController";
 import type { EffectTargetController } from "../controllers/EffectTargetController";
 import type { GameEndInfo } from "../scene/gameEndHelpers";
+import type { SlotViewModel } from "../ui/SlotTypes";
 import { createLogger } from "../utils/logger";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
@@ -20,6 +21,8 @@ export function buildNotificationHandlers(
     burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
     tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
+    refreshSnapshot?: (event: SlotNotification, ctx: AnimationContext) => Promise<any> | any;
+    getSlotsFromRaw?: (raw: any) => SlotViewModel[];
     phasePopup?: { showPhaseChange: (nextPhase: string) => Promise<void> | void };
     mulliganDialog?: {
       showPrompt: (opts: { prompt?: string; onYes?: () => Promise<void> | void; onNo?: () => Promise<void> | void }) => Promise<boolean>;
@@ -46,6 +49,25 @@ export function buildNotificationHandlers(
 ) {
   const log = createLogger("NotificationHandlers");
   return new Map<string, NotificationHandler>([
+    [
+      "GAME_ENV_REFRESH",
+      async (event, ctx) => {
+        const refresh = deps.refreshSnapshot;
+        if (!refresh) return;
+        try {
+          const nextRaw = await Promise.resolve(refresh(event, ctx));
+          if (!nextRaw) return;
+          ctx.previousRaw = ctx.currentRaw ?? ctx.previousRaw;
+          ctx.currentRaw = nextRaw;
+          if (deps.getSlotsFromRaw) {
+            ctx.slots = deps.getSlotsFromRaw(nextRaw);
+          }
+        } catch (err) {
+          void err;
+          log.debug("GAME_ENV_REFRESH refresh failed");
+        }
+      },
+    ],
     [
       "TOKEN_CHOICE",
       async (event, ctx) => {

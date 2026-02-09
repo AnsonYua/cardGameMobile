@@ -168,13 +168,15 @@ export class EffectTargetController {
         const targetUid = slot?.unit?.cardUid || slot?.pilot?.cardUid;
         const zone = slot?.slotId || "";
         const ownerPlayerId = slot?.owner === "player" ? selfId : otherId;
-        const matched = availableTargets.find(
-          (t) =>
-            ((t?.carduid || t?.cardUid) && targetUid && (t?.carduid || t?.cardUid) === targetUid) ||
-            (t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId),
-        );
+        const uidOf = (t: any) => (t?.carduid || t?.cardUid || "").toString();
+        // If we have a concrete card uid (ex: multi-select from trash), ONLY match by uid.
+        // Falling back to zone+player would always pick the first card in that zone and collapse
+        // multi-selections into a single target.
+        const matched = targetUid
+          ? availableTargets.find((t) => uidOf(t) && uidOf(t) === targetUid)
+          : availableTargets.find((t) => t?.zone && t?.playerId && t.zone === zone && t.playerId === ownerPlayerId);
         return {
-          carduid: (matched?.carduid || matched?.cardUid || targetUid || "").toString(),
+          carduid: (uidOf(matched) || targetUid || "").toString(),
           zone: (matched?.zone || zone || "").toString(),
           playerId: (matched?.playerId || ownerPlayerId || "").toString(),
         };
@@ -185,9 +187,12 @@ export class EffectTargetController {
           this.deps.dialog.showMulti({
             targets,
             header: "Choose Targets",
-            showCloseButton: false,
+            // Optional effects can be declined by closing; the minimum selection still applies
+            // when the player confirms.
+            showCloseButton: allowEmptySelection,
+            closeOnBackdrop: allowEmptySelection,
             allowPiloted: true,
-            min: allowEmptySelection ? 0 : min,
+            min,
             max: max,
             onClose: confirmEmptyIfAllowed,
             onConfirm: async (slots) => {

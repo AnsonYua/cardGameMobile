@@ -5,7 +5,6 @@ import type { ActionControls } from "./ControllerTypes";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { findCardByUid } from "../utils/CardLookup";
 import { getNotificationQueue } from "../utils/NotificationUtils";
-import { findTopDeckViewedCard } from "../utils/TutorNotificationUtils";
 import { createLogger } from "../utils/logger";
 
 type OptionChoiceDeps = {
@@ -153,28 +152,28 @@ export class OptionChoiceFlowManager {
     const selfId = this.deps.gameContext.playerId;
     const isOwner = this.queueEntry.playerId === selfId;
     if (!isOwner) {
-      // Opponent shouldn't see the looked-at card/options (pre-reveal). Action bar already shows waiting state.
-      dialog.hide();
+      dialog.show({
+        headerText: "Choose Option",
+        choices: [],
+        showChoices: false,
+        showOverlay: true,
+        showTimer: false,
+      });
       this.shownEntryId = this.queueEntry.id;
       return;
     }
 
     const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
-    const dialogOptions = options.map((o: any) => ({
+    const dialogChoices = options.map((o: any) => ({
       index: Number(o?.index ?? 0),
-      label: String(o?.label ?? `Option ${o?.index ?? ""}`),
+      cardId: this.resolveOptionCardId(raw, o),
       enabled: o?.enabled !== false,
     }));
 
-    const looked = this.queueEntry?.data?.context?.tutor?.lookedCarduids;
-    const lookedUid = Array.isArray(looked) ? looked[0] : undefined;
-    const card = isOwner ? this.resolveLookedCard(raw, lookedUid) : undefined;
-
     dialog.show({
       headerText: "Choose Option",
-      card,
-      options: dialogOptions,
-      showButtons: isOwner,
+      choices: dialogChoices,
+      showChoices: isOwner,
       showOverlay: true,
       showTimer: true,
       onSelect: async (index) => {
@@ -203,22 +202,81 @@ export class OptionChoiceFlowManager {
     return typeof first?.index === "number" ? first.index : 0;
   }
 
-  private resolveLookedCard(raw: any, cardUid?: string) {
-    if (!cardUid) return undefined;
-    const lookup = findCardByUid(raw, cardUid);
-    if (lookup) {
-      return { carduid: lookup.cardUid, cardId: lookup.id, cardData: lookup.cardData };
+  private resolveOptionCardId(raw: any, option: any): string | undefined {
+    const payload = option?.payload ?? {};
+    const direct =
+      payload?.cardId ??
+      payload?.sourceCardId ??
+      payload?.source?.cardId ??
+      option?.cardId;
+    if (direct) return String(direct);
+
+    const uid =
+      payload?.carduid ??
+      payload?.cardUid ??
+      payload?.sourceCarduid ??
+      payload?.sourceCardUid ??
+      payload?.source?.carduid ??
+      payload?.source?.cardUid;
+    if (uid) {
+      const lookup = findCardByUid(raw, String(uid));
+      if (lookup?.id) return String(lookup.id);
     }
-    const notifications = getNotificationQueue(raw);
-    const match = findTopDeckViewedCard(notifications as any, {
-      playerId: this.queueEntry?.playerId,
-      effectId: this.queueEntry?.data?.effect?.effectId ?? this.queueEntry?.data?.effectId,
-      cardUid,
-    });
-    if (match) {
-      const id = match?.cardId ?? match?.id ?? cardUid;
-      const cardData = match?.cardData ?? match;
-      return { carduid: cardUid, cardId: id, cardData };
+
+    const label = (option?.label ?? "").toString();
+    const name = this.extractCardName(label);
+    if (!name) return undefined;
+    const byName = this.findCardByName(raw, name);
+    return byName?.id ? String(byName.id) : undefined;
+  }
+
+  private extractCardName(label: string): string | undefined {
+    const idx = label.indexOf(":");
+    if (idx <= 0) return undefined;
+    const name = label.slice(0, idx).trim();
+    return name.length ? name : undefined;
+  }
+
+  private findCardByName(raw: any, name: string): { id?: string; cardUid?: string } | undefined {
+    const players = raw?.gameEnv?.players || {};
+    const values = Object.values(players);
+    for (const player of values) {
+      if (!player) continue;
+      const zones = player.zones || player.zone || {};
+      for (const zone of Object.values(zones)) {
+        const match = this.findCardByNameInZone(zone, name);
+        if (match) return match;
+      }
+      const deck = player.deck;
+      if (deck) {
+        const areas = [deck.hand, deck.discard, deck.graveyard, deck.command];
+        for (const area of areas) {
+          const match = this.findCardByNameInZone(area, name);
+          if (match) return match;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private findCardByNameInZone(zone: any, name: string): { id?: string; cardUid?: string } | undefined {
+    if (!zone) return undefined;
+    if (Array.isArray(zone)) {
+      for (const entry of zone) {
+        const match = this.findCardByNameInZone(entry, name);
+        if (match) return match;
+      }
+      return undefined;
+    }
+    if (typeof zone !== "object") return undefined;
+    if (zone.unit || zone.pilot) {
+      return this.findCardByNameInZone(zone.unit, name) ?? this.findCardByNameInZone(zone.pilot, name);
+    }
+    const cardDataName = (zone?.cardData?.name ?? "").toString();
+    if (cardDataName && cardDataName === name) {
+      const id = (zone.cardId ?? zone.id ?? "").toString() || undefined;
+      const cardUid = (zone.carduid ?? zone.cardUid ?? "").toString() || undefined;
+      return { id, cardUid };
     }
     return undefined;
   }

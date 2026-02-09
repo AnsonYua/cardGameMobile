@@ -54,6 +54,7 @@ export type AnimationPipelineParams = {
   startGame: () => void;
   renderSlots: (slots: SlotViewModel[]) => void;
   renderBaseAndShield: (raw?: any) => void;
+  renderGameEnv?: (raw?: any) => void;
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
   shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
@@ -82,6 +83,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     startGame,
     renderSlots,
     renderBaseAndShield,
+    renderGameEnv,
     updateHandArea,
     shouldRefreshHandForEvent,
     handleAnimationQueueIdle,
@@ -94,6 +96,14 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     slotControls: controls.slotControls,
     handControls: controls.handControls,
     effectTargetController: effectTargetController ?? undefined,
+    refreshSnapshot: async () => {
+      const gameId = gameContext.gameId;
+      const playerId = gameContext.playerId;
+      if (!gameId || !playerId) return undefined;
+      const snapshot = await engine.updateGameStatus(gameId, playerId);
+      dialogCoordinator.updateFromSnapshot(snapshot);
+      return snapshot.raw;
+    },
     onGameEnded: params.onGameEnded,
     drawPopupDialog: dialogs.drawPopupDialog,
     mulliganDialog: dialogs.mulliganDialog,
@@ -154,6 +164,17 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       renderSlots(slots);
     }
     baseShieldAnimationRender.handleEventEnd(event, ctx);
+    const type = (event?.type ?? "").toString().toUpperCase();
+    if (type === "GAME_ENV_REFRESH") {
+      const nextRaw = ctx.currentRaw ?? ctx.previousRaw;
+      const playerId = gameContext.playerId ?? "";
+      if (nextRaw && playerId) {
+        renderSlots(slotPresenter.toSlots(nextRaw, playerId));
+      }
+      renderBaseAndShield(nextRaw);
+      updateHandArea({ skipAnimation: true });
+      renderGameEnv?.(nextRaw);
+    }
     if ((event?.type ?? "").toString().toUpperCase() === "BATTLE_RESOLVED") {
       renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
     }

@@ -19,6 +19,26 @@ export function mapAvailableTargetsToSlotTargets(
   const allSlots = slotPresenter.toSlots(raw, selfPlayerId);
   const mapped: SlotTarget[] = [];
   const debug = isDebugFlagEnabled("debugTargets");
+  const resolveComputedTotals = (target: any) => {
+    const ap =
+      target?.computed?.totalAP ??
+      target?.computed?.ap ??
+      target?.fieldCardValue?.totalAP ??
+      target?.cardData?.ap ??
+      target?.ap ??
+      0;
+    const hp =
+      target?.computed?.totalHP ??
+      target?.computed?.hp ??
+      target?.fieldCardValue?.totalHP ??
+      target?.cardData?.hp ??
+      target?.hp ??
+      0;
+    return {
+      totalAP: Number(ap) || 0,
+      totalHP: Number(hp) || 0,
+    };
+  };
 
   availableTargets.forEach((target) => {
     if (!target) return;
@@ -26,7 +46,31 @@ export function mapAvailableTargetsToSlotTargets(
     const zone = (target.zone || target.location || target.zoneType || "").toString();
     const existing = allSlots.find((slot) => slot.owner === owner && slot.slotId === zone);
     if (existing) {
-      mapped.push({ slot: existing, data: target });
+      // IMPORTANT:
+      // Multiple selectable targets can share the same logical board "slot" (e.g. selecting multiple
+      // cards from the trash zone). If we reuse the same SlotViewModel instance, the UI can't
+      // uniquely identify selections and the API mapping collapses to a single target.
+      // Clone the slot and stamp the target cardUid onto it so each entry is unique.
+      const computed = resolveComputedTotals(target);
+      const slotView: SlotViewModel = {
+        ...existing,
+        unit: undefined,
+        pilot: undefined,
+        fieldCardValue: {
+          totalAP: computed.totalAP ?? existing.fieldCardValue?.totalAP ?? 0,
+          totalHP: computed.totalHP ?? existing.fieldCardValue?.totalHP ?? 0,
+        },
+      };
+      const cardView = buildSlotCardView(target);
+      if (cardView) {
+        const cardType = (cardView.cardType || "").toLowerCase();
+        if (cardType === "pilot" || cardType === "command") {
+          slotView.pilot = cardView;
+        } else {
+          slotView.unit = cardView;
+        }
+      }
+      mapped.push({ slot: slotView, data: target });
       return;
     }
     if (debug) {
@@ -50,8 +94,7 @@ export function mapAvailableTargetsToSlotTargets(
       owner,
       slotId: zone || "unknown",
       fieldCardValue: {
-        totalAP: target.cardData?.ap ?? 0,
-        totalHP: target.cardData?.hp ?? 0,
+        ...resolveComputedTotals(target),
       },
     };
     const cardView = buildSlotCardView(target);

@@ -135,14 +135,14 @@ export function computeDialogLayout(
   overrides: { cols?: number; visibleRows?: number } = {},
 ): DialogLayout {
   const cols = overrides.cols ?? config.dialog.cols;
-  const visibleRows = overrides.visibleRows ?? config.dialog.visibleRows;
+  const visibleRows = Math.max(0, overrides.visibleRows ?? config.dialog.visibleRows);
   const { margin, gap, widthFactor, minWidth, minHeight, extraHeight, headerOffset, headerWrapPad } = config.dialog;
   const { aspect, extraCellHeight } = config.card;
   const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
   const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
   const cardHeight = cellWidth * aspect;
   const cellHeight = cardHeight + extraCellHeight;
-  const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
+  const gridVisibleHeight = visibleRows > 0 ? visibleRows * cellHeight + (visibleRows - 1) * gap : 0;
   const dialogHeight = Math.max(minHeight, gridVisibleHeight + extraHeight);
   return {
     dialogWidth,
