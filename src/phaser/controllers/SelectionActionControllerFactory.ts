@@ -8,6 +8,7 @@ import { BlockerFlowManager } from "./BlockerFlowManager";
 import { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
+import { PromptChoiceFlowManager } from "./PromptChoiceFlowManager";
 import { TokenChoiceFlowManager } from "./TokenChoiceFlowManager";
 import { OpponentResolver } from "./OpponentResolver";
 import { SelectionHandler } from "./SelectionHandler";
@@ -79,6 +80,18 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
+  const promptChoiceFlow =
+    deps.promptChoiceFlow ??
+    new PromptChoiceFlowManager({
+      api: deps.api,
+      engine: deps.engine,
+      gameContext: deps.gameContext,
+      actionControls: deps.actionControls,
+      promptChoiceDialog: deps.promptChoiceDialog,
+      refreshActions: () => getController()?.refreshActions("neutral"),
+      onTimerPause: deps.onTimerPause,
+      onTimerResume: deps.onTimerResume,
+    });
   const tokenChoiceFlow =
     deps.tokenChoiceFlow ??
     new TokenChoiceFlowManager({
@@ -138,6 +151,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       onTriggerUnit: async (slot) => {
         await actionStepTriggerHandler.handleUnitEffectTrigger(slot);
       },
+      onActivateEffect: async () => {
+        await getController()!.runActionThenRefresh("activateEffect", "slot");
+      },
     },
   });
   selectionHandler = new SelectionHandler({
@@ -159,6 +175,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     burstGroupFlow,
     burstFlow,
     optionChoiceFlow,
+    promptChoiceFlow,
     tokenChoiceFlow,
   });
   const actionBarCoordinator = new ActionBarCoordinator({
@@ -173,6 +190,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     burstGroupFlow,
     burstFlow,
     optionChoiceFlow,
+    promptChoiceFlow,
     tokenChoiceFlow,
     getSelection: () => deps.engine.getSelection(),
     getSelectedSlot: () => selectionHandler.getSelectedSlot(),
@@ -200,6 +218,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     burstGroupFlow,
     burstFlow,
     optionChoiceFlow,
+    promptChoiceFlow,
     tokenChoiceFlow,
     actionStepCoordinator,
     abilityFlow,

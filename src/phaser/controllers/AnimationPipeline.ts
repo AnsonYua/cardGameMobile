@@ -65,6 +65,7 @@ export function createAnimationPipeline(deps: {
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   optionChoiceFlow?: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
+  promptChoiceFlow?: import("./PromptChoiceFlowManager").PromptChoiceFlowManager;
   tokenChoiceFlow?: import("./TokenChoiceFlowManager").TokenChoiceFlowManager;
   drawPopupDialog?: DrawPopupDialog;
   mulliganDialog?: MulliganDialog;
@@ -137,6 +138,7 @@ export function createAnimationPipeline(deps: {
     burstChoiceFlow: deps.burstFlow,
     burstChoiceGroupFlow: deps.burstGroupFlow,
     optionChoiceFlow: deps.optionChoiceFlow,
+    promptChoiceFlow: deps.promptChoiceFlow,
     tokenChoiceFlow: deps.tokenChoiceFlow,
     refreshSnapshot: deps.refreshSnapshot,
     getSlotsFromRaw: deps.getSlotsFromRaw,

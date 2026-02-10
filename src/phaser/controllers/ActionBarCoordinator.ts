@@ -10,6 +10,7 @@ import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
+import type { PromptChoiceFlowManager } from "./PromptChoiceFlowManager";
 import type { TokenChoiceFlowManager } from "./TokenChoiceFlowManager";
 import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import {
@@ -47,6 +48,7 @@ export class ActionBarCoordinator {
       burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
       optionChoiceFlow: OptionChoiceFlowManager;
+      promptChoiceFlow: PromptChoiceFlowManager;
       tokenChoiceFlow: TokenChoiceFlowManager;
       getSelection: () => any;
       getSelectedSlot: () => SlotViewModel | undefined;
@@ -72,10 +74,12 @@ export class ActionBarCoordinator {
       burstGroupActive: this.deps.burstGroupFlow.isActive(),
       burstActive: this.deps.burstFlow.isActive(),
       optionChoiceActive: this.deps.optionChoiceFlow.isActive(),
+      promptChoiceActive: this.deps.promptChoiceFlow.isActive(),
       tokenChoiceActive: this.deps.tokenChoiceFlow.isActive(),
     });
     if (this.deps.burstGroupFlow.applyActionBar()) return;
     if (this.deps.burstFlow.applyActionBar()) return;
+    if (this.deps.promptChoiceFlow.applyActionBar()) return;
     if (this.deps.optionChoiceFlow.applyActionBar()) return;
     if (this.deps.tokenChoiceFlow.applyActionBar()) return;
     const selection = opts.selection ?? this.deps.getSelection();

@@ -166,13 +166,14 @@ export class TrashCardGridRenderer {
   }
 
   private getCardTexture(card: any) {
+    const preferPreview = card?.preferPreview !== false;
     const explicit = card?.textureKey;
     if (explicit) {
-      return resolveDialogTextureKey(this.scene, String(explicit));
+      return resolveDialogTextureKey(this.scene, String(explicit), { preferPreview });
     }
     const cardId = card?.cardId ?? card?.cardData?.id ?? card?.cardData?.cardId;
     if (cardId === "base" || cardId === "base_default") return "baseCard";
-    return resolveDialogTextureKey(this.scene, toPreviewKey(cardId) || cardId);
+    return resolveDialogTextureKey(this.scene, toPreviewKey(cardId) || cardId, { preferPreview });
   }
 
   private getPreviewTexture(card: any) {

@@ -19,7 +19,7 @@ type PopupDeps = {
 
 type SlotNotificationLike = { type?: string; payload?: any };
 
-function buildPopupCardDataFromPartial(entry: any): PopupCard {
+function buildPopupCardDataFromPartial(entry: any, opts: { preferPreview?: boolean } = {}): PopupCard {
   const cardId = entry?.cardId ?? entry?.id ?? entry?.carduid ?? entry?.cardUid ?? "card";
   const textureKey = toBaseKey(String(cardId));
   const name = entry?.name ?? entry?.cardData?.name;
@@ -37,6 +37,7 @@ function buildPopupCardDataFromPartial(entry: any): PopupCard {
       cardType,
     },
     textureKey,
+    preferPreview: opts.preferPreview,
   };
 }
 
@@ -61,7 +62,8 @@ export function createTopDeckViewedTask(
         cardData: { id: "hidden", name: "Hidden Card", cardType: "command" },
       };
     }
-    return buildPopupCardDataFromPartial(entry);
+    // Reveal-style popup: prefer full art (non "-preview") when available.
+    return buildPopupCardDataFromPartial(entry, { preferPreview: false });
   });
 
   const header = "Top of Deck";
@@ -145,4 +147,3 @@ export function createCardsMovedToDeckBottomTask(
     });
   };
 }
-

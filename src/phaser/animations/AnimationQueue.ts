@@ -37,6 +37,7 @@ export class AnimationQueue {
       burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
       burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
       optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+      promptChoiceFlow?: import("../controllers/PromptChoiceFlowManager").PromptChoiceFlowManager;
       tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
       refreshSnapshot?: (event: SlotNotification, ctx: AnimationContext) => Promise<any> | any;
       getSlotsFromRaw?: (raw: any) => SlotViewModel[];

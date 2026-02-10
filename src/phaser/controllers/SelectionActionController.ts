@@ -46,6 +46,7 @@ export type SelectionActionControllerDeps = {
   abilityChoiceDialog?: import("../ui/AbilityChoiceDialog").AbilityChoiceDialog | null;
   burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
   optionChoiceDialog?: import("../ui/OptionChoiceDialog").OptionChoiceDialog | null;
+  promptChoiceDialog?: import("../ui/PromptChoiceDialog").PromptChoiceDialog | null;
   tokenChoiceDialog?: import("../ui/TokenChoiceDialog").TokenChoiceDialog | null;
   errorDialog?: import("../ui/ErrorDialog").ErrorDialog | null;
   onTimerPause?: () => void;
@@ -53,6 +54,7 @@ export type SelectionActionControllerDeps = {
   burstFlow?: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow?: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   optionChoiceFlow?: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
+  promptChoiceFlow?: import("./PromptChoiceFlowManager").PromptChoiceFlowManager;
   tokenChoiceFlow?: import("./TokenChoiceFlowManager").TokenChoiceFlowManager;
 };
 
@@ -63,6 +65,7 @@ export type SelectionActionControllerModules = {
   burstFlow: import("./BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow: import("./BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   optionChoiceFlow: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
+  promptChoiceFlow: import("./PromptChoiceFlowManager").PromptChoiceFlowManager;
   tokenChoiceFlow: import("./TokenChoiceFlowManager").TokenChoiceFlowManager;
   actionStepCoordinator: ActionStepCoordinator;
   abilityFlow: AbilityActivationFlowController;

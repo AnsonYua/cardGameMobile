@@ -48,6 +48,7 @@ export type AnimationPipelineParams = {
   burstFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
   burstGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
   optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+  promptChoiceFlow?: import("../controllers/PromptChoiceFlowManager").PromptChoiceFlowManager;
   tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
   resolveSlotOwnerByPlayer: (playerId?: string) => SlotOwner | undefined;
   getTargetAnchorProviders: () => TargetAnchorProviders;
@@ -77,6 +78,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     burstFlow,
     burstGroupFlow,
     optionChoiceFlow,
+    promptChoiceFlow,
     tokenChoiceFlow,
     resolveSlotOwnerByPlayer,
     getTargetAnchorProviders,
@@ -118,6 +120,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     burstFlow,
     burstGroupFlow,
     optionChoiceFlow,
+    promptChoiceFlow,
     tokenChoiceFlow,
     startGame: () => startGame(),
     startReady: async (isRedraw) => {

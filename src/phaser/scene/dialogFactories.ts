@@ -15,6 +15,7 @@ import { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 import { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
+import { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
 import { ErrorDialog } from "../ui/ErrorDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
@@ -67,6 +68,7 @@ export function createTimedDialogs(
     burstChoiceDialog: new BurstChoiceDialog(scene, timerController),
     burstChoiceGroupDialog: new BurstChoiceGroupDialog(scene),
     optionChoiceDialog: new OptionChoiceDialog(scene, timerController),
+    promptChoiceDialog: new PromptChoiceDialog(scene, timerController),
     tokenChoiceDialog: new TokenChoiceDialog(scene, timerController),
   };
 }

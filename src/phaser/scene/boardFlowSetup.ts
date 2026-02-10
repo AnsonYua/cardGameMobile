@@ -7,10 +7,12 @@ import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import type { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
+import type { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
 import type { ActionControls } from "../controllers/ControllerTypes";
 import { BurstChoiceFlowManager } from "../controllers/BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "../controllers/BurstChoiceGroupFlowManager";
 import { OptionChoiceFlowManager } from "../controllers/OptionChoiceFlowManager";
+import { PromptChoiceFlowManager } from "../controllers/PromptChoiceFlowManager";
 import { TokenChoiceFlowManager } from "../controllers/TokenChoiceFlowManager";
 import { EffectTargetController } from "../controllers/EffectTargetController";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
@@ -26,6 +28,7 @@ type BoardFlowSetupParams = {
     burstChoiceDialog: BurstChoiceDialog;
     burstChoiceGroupDialog: BurstChoiceGroupDialog;
     optionChoiceDialog: OptionChoiceDialog;
+    promptChoiceDialog: PromptChoiceDialog;
     tokenChoiceDialog: TokenChoiceDialog;
   };
   actionControls?: ActionControls | null;
@@ -54,6 +57,17 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     gameContext: params.gameContext,
     actionControls: params.actionControls,
     optionChoiceDialog: params.dialogs.optionChoiceDialog,
+    refreshActions: params.onRefreshActions,
+    onTimerPause: params.onTimerPause,
+    onTimerResume: params.onTimerResume,
+  });
+
+  const promptChoiceFlow = new PromptChoiceFlowManager({
+    api: params.api,
+    engine: params.engine,
+    gameContext: params.gameContext,
+    actionControls: params.actionControls,
+    promptChoiceDialog: params.dialogs.promptChoiceDialog,
     refreshActions: params.onRefreshActions,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
@@ -93,5 +107,5 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     onTimerResume: params.onTimerResume,
   });
 
-  return { burstFlow, burstGroupFlow, optionChoiceFlow, tokenChoiceFlow, effectTargetController };
+  return { burstFlow, burstGroupFlow, optionChoiceFlow, promptChoiceFlow, tokenChoiceFlow, effectTargetController };
 }

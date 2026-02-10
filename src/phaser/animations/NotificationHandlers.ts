@@ -21,6 +21,7 @@ export function buildNotificationHandlers(
     burstChoiceFlow?: import("../controllers/BurstChoiceFlowManager").BurstChoiceFlowManager;
     burstChoiceGroupFlow?: import("../controllers/BurstChoiceGroupFlowManager").BurstChoiceGroupFlowManager;
     optionChoiceFlow?: import("../controllers/OptionChoiceFlowManager").OptionChoiceFlowManager;
+    promptChoiceFlow?: import("../controllers/PromptChoiceFlowManager").PromptChoiceFlowManager;
     tokenChoiceFlow?: import("../controllers/TokenChoiceFlowManager").TokenChoiceFlowManager;
     refreshSnapshot?: (event: SlotNotification, ctx: AnimationContext) => Promise<any> | any;
     getSlotsFromRaw?: (raw: any) => SlotViewModel[];
@@ -74,6 +75,13 @@ export function buildNotificationHandlers(
         if (!deps.optionChoiceFlow) return;
         // Keep choice prompts sequenced after prior animations by running them inside the animation queue.
         await deps.optionChoiceFlow.handleNotification(event, ctx.currentRaw);
+      },
+    ],
+    [
+      "PROMPT_CHOICE",
+      async (event, ctx) => {
+        if (!deps.promptChoiceFlow) return;
+        await deps.promptChoiceFlow.handleNotification(event, ctx.currentRaw);
       },
     ],
     [

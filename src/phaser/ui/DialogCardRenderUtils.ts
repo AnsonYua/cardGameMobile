@@ -8,16 +8,29 @@ type CardLike = {
   cardData?: { cardType?: string; effects?: { rules?: any[] } };
 };
 
-export function resolveDialogTextureKey(scene: Phaser.Scene, textureKey?: string) {
+export function resolveDialogTextureKey(
+  scene: Phaser.Scene,
+  textureKey?: string,
+  opts: { preferPreview?: boolean } = {},
+) {
   if (!textureKey) return undefined;
+  const preferPreview = opts.preferPreview !== false;
   const key = String(textureKey);
   const baseKey = key.replace(/-preview$/i, "");
   const previewKey = key.toLowerCase().endsWith("-preview") ? key : `${key}-preview`;
 
-  // Prefer preview textures (same as trash grid), then fall back to the base key.
-  if (previewKey && scene.textures.exists(previewKey)) return previewKey;
+  if (preferPreview) {
+    // Prefer preview textures (same as trash grid), then fall back to the base key.
+    if (previewKey && scene.textures.exists(previewKey)) return previewKey;
+    if (scene.textures.exists(key)) return key;
+    if (baseKey && scene.textures.exists(baseKey)) return baseKey;
+    return undefined;
+  }
+
+  // Prefer full art when requested (used for reveal-style popups).
   if (scene.textures.exists(key)) return key;
   if (baseKey && scene.textures.exists(baseKey)) return baseKey;
+  if (previewKey && scene.textures.exists(previewKey)) return previewKey;
   return undefined;
 }
 
@@ -68,4 +81,3 @@ export function isPilotCommand(card: CardLike) {
       rule?.action === "designate_pilot",
   );
 }
-

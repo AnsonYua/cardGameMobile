@@ -4,6 +4,7 @@ import type { BlockerFlowManager } from "./BlockerFlowManager";
 import type { BurstChoiceFlowManager } from "./BurstChoiceFlowManager";
 import type { BurstChoiceGroupFlowManager } from "./BurstChoiceGroupFlowManager";
 import type { OptionChoiceFlowManager } from "./OptionChoiceFlowManager";
+import type { PromptChoiceFlowManager } from "./PromptChoiceFlowManager";
 import type { TokenChoiceFlowManager } from "./TokenChoiceFlowManager";
 import type { SlotInteractionGate } from "./SlotInteractionGate";
 import { getTurnOwnerId } from "../game/turnOwner";
@@ -20,6 +21,7 @@ export class TurnStateCoordinator {
       burstGroupFlow: BurstChoiceGroupFlowManager;
       burstFlow: BurstChoiceFlowManager;
       optionChoiceFlow: OptionChoiceFlowManager;
+      promptChoiceFlow: PromptChoiceFlowManager;
       tokenChoiceFlow: TokenChoiceFlowManager;
     },
   ) {}
@@ -39,12 +41,14 @@ export class TurnStateCoordinator {
       this.deps.burstFlow.syncDecisionState(raw);
     }
     this.deps.optionChoiceFlow.syncDecisionState(raw);
+    this.deps.promptChoiceFlow.syncDecisionState(raw);
     this.deps.tokenChoiceFlow.syncDecisionState(raw);
 
     if (
       this.deps.burstGroupFlow.isActive() ||
       this.deps.burstFlow.isActive() ||
       this.deps.optionChoiceFlow.isActive() ||
+      this.deps.promptChoiceFlow.isActive() ||
       this.deps.tokenChoiceFlow.isActive()
     ) {
       this.deps.slotGate.disable("burst-prompt");
@@ -56,6 +60,12 @@ export class TurnStateCoordinator {
       this.deps.slotGate.disable("option-choice");
     } else {
       this.deps.slotGate.enable("option-choice");
+    }
+
+    if (this.deps.promptChoiceFlow.isActive()) {
+      this.deps.slotGate.disable("prompt-choice");
+    } else {
+      this.deps.slotGate.enable("prompt-choice");
     }
 
     if (this.deps.tokenChoiceFlow.isActive()) {
