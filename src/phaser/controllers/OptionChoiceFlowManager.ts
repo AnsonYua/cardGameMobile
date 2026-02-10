@@ -4,8 +4,8 @@ import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { findCardByUid } from "../utils/CardLookup";
-import { getNotificationQueue } from "../utils/NotificationUtils";
 import { createLogger } from "../utils/logger";
+import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 
 type OptionChoiceDeps = {
   api: ApiManager;
@@ -31,7 +31,7 @@ export class OptionChoiceFlowManager {
   constructor(private deps: OptionChoiceDeps) {}
 
   async handleNotification(notification: any, raw: any): Promise<void> {
-    const entry = this.buildEntryFromNotification(notification);
+    const entry = buildChoiceEntryFromNotification(notification);
     if (!entry || !this.isOptionChoiceEntry(entry)) return;
     const decisionMade = entry?.data?.userDecisionMade === true;
     this.queueEntry = entry;
@@ -64,8 +64,7 @@ export class OptionChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
-    const active = this.getActiveChoiceEntry(raw);
-    const entry = active?.entry;
+    const entry = findActiveChoiceEntryFromRaw(raw, "OPTION_CHOICE");
     if (!entry || !this.isOptionChoiceEntry(entry)) {
       if (this.queueEntry) {
         this.log.debug("option choice cleared from snapshot", { entryId: this.queueEntry?.id });
@@ -313,39 +312,6 @@ export class OptionChoiceFlowManager {
     }
   }
 
-  private getActiveChoiceEntry(raw: any): { entry: any } | undefined {
-    const processingQueue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
-    if (Array.isArray(processingQueue) && processingQueue.length) {
-      for (let i = processingQueue.length - 1; i >= 0; i -= 1) {
-        const entry: any = processingQueue[i];
-        if (!entry) continue;
-        if (!this.isOptionChoiceEntry(entry)) continue;
-        const status = (entry?.status ?? "").toString().toUpperCase();
-        if (status && status === "RESOLVED") continue;
-        const decision = entry?.data?.userDecisionMade;
-        if (decision !== false) continue;
-        return { entry };
-      }
-    }
-
-    const notifications = getNotificationQueue(raw);
-    for (let i = notifications.length - 1; i >= 0; i -= 1) {
-      const note: any = notifications[i];
-      if (!note) continue;
-      const type = (note?.type ?? "").toString().toUpperCase();
-      if (type !== "OPTION_CHOICE") continue;
-      const payload = note.payload ?? {};
-      const event = payload.event ?? payload;
-      if (!this.isOptionChoiceEntry(event)) continue;
-      const status = (event?.status ?? "").toString().toUpperCase();
-      if (status && status === "RESOLVED") continue;
-      const decision = event?.data?.userDecisionMade;
-      if (decision !== false) continue;
-      return { entry: event };
-    }
-    return undefined;
-  }
-
   private isOptionChoiceEntry(entry?: any) {
     return !!entry && ((entry.type || "").toString().toUpperCase() === "OPTION_CHOICE");
   }
@@ -356,19 +322,6 @@ export class OptionChoiceFlowManager {
     this.pendingResolve = undefined;
     this.pendingPromise = undefined;
     resolve();
-  }
-
-  private buildEntryFromNotification(note: any) {
-    if (!note) return undefined;
-    const event = note?.payload?.event ?? note?.payload ?? {};
-    return {
-      id: event?.id ?? note?.id,
-      type: event?.type ?? note?.type,
-      status: event?.status,
-      playerId: event?.playerId ?? note?.payload?.playerId,
-      data: event?.data ?? note?.payload?.data,
-      rawNotification: note,
-    };
   }
 
   private clear() {

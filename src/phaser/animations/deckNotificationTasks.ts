@@ -108,7 +108,7 @@ export function createCardsMovedToDeckBottomTask(
   const popupCards = new Array(total).fill(null).map((_, idx) => {
     const uid = cardUids[idx];
     const found = uid ? ctx.cardLookup?.findCardByUid?.(uid) : undefined;
-    if (found) return deps.buildPopupCardData(found, uid);
+    if (found) return { ...deps.buildPopupCardData(found, uid), preferPreview: false };
     const partial = uid
       ? findTopDeckViewedCard(ctx.notificationQueue ?? [], {
           playerId: payload?.playerId,
@@ -116,11 +116,12 @@ export function createCardsMovedToDeckBottomTask(
           cardUid: uid,
         })
       : undefined;
-    if (partial) return buildPopupCardDataFromPartial(partial);
+    if (partial) return buildPopupCardDataFromPartial(partial, { preferPreview: false });
     return {
       cardId: uid || `hidden_bottom_${payload?.timestamp ?? "event"}_${idx + 1}`,
       cardType: "command",
       cardData: { id: "hidden", name: "Unknown Card", cardType: "command" },
+      preferPreview: false,
     };
   });
 
