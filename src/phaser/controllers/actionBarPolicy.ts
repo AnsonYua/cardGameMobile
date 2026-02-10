@@ -74,6 +74,48 @@ export function computeActionBarDecision(input: {
   return { kind: "mainFlow" };
 }
 
+export function findActiveTargetChoice(raw: any): { id: string; playerId?: string } | undefined {
+  const processingQueue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
+  if (Array.isArray(processingQueue) && processingQueue.length) {
+    for (let i = processingQueue.length - 1; i >= 0; i -= 1) {
+      const entry: any = processingQueue[i];
+      if (!entry) continue;
+      const type = (entry?.type ?? "").toString().toUpperCase();
+      if (type !== "TARGET_CHOICE") continue;
+      const status = (entry?.status ?? "").toString().toUpperCase();
+      if (status && status === "RESOLVED") continue;
+      const decision = entry?.data?.userDecisionMade;
+      if (decision !== false) continue;
+      const id = (entry?.id ?? "").toString();
+      if (!id) continue;
+      return { id, playerId: entry?.playerId };
+    }
+  }
+
+  const notificationQueue = raw?.gameEnv?.notificationQueue ?? raw?.notificationQueue;
+  const notifications = Array.isArray(notificationQueue) ? notificationQueue : [];
+  for (let i = notifications.length - 1; i >= 0; i -= 1) {
+    const note: any = notifications[i];
+    if (!note) continue;
+    const payload: any = note?.payload ?? {};
+    const event: any = payload?.event ?? payload ?? {};
+    const type = (event?.type ?? note?.type ?? "").toString().toUpperCase();
+    if (type !== "TARGET_CHOICE") continue;
+    const status = (event?.status ?? "").toString().toUpperCase();
+    if (status && status === "RESOLVED") continue;
+    const decision = event?.data?.userDecisionMade;
+    if (decision !== false) continue;
+    const isCompleted = payload?.isCompleted === true;
+    if (isCompleted) continue;
+    const id = (event?.id ?? note?.id ?? "").toString();
+    if (!id) continue;
+    const playerId = event?.playerId ?? payload?.playerId;
+    return { id, playerId };
+  }
+
+  return undefined;
+}
+
 export type SlotActionStateInput = {
   selection: any;
   opponentHasUnit: boolean;

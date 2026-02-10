@@ -141,6 +141,21 @@ export class BlockerFlowManager {
   }
 
   private getActiveQueueEntry(raw: any): { entry: any; notificationId?: string } | undefined {
+    const processingQueue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
+    if (Array.isArray(processingQueue) && processingQueue.length) {
+      for (let i = processingQueue.length - 1; i >= 0; i -= 1) {
+        const entry: any = processingQueue[i];
+        if (!entry) continue;
+        const type = (entry?.type ?? "").toString().toUpperCase();
+        if (type !== "BLOCKER_CHOICE") continue;
+        const status = (entry?.status ?? "").toString().toUpperCase();
+        const userDecisionMade = entry?.data?.userDecisionMade;
+        if (status && status === "RESOLVED") continue;
+        if (userDecisionMade !== false) continue;
+        return { entry };
+      }
+    }
+
     const notifications = getNotificationQueue(raw);
     // Prefer the most recent unresolved blocker choice.
     for (let i = notifications.length - 1; i >= 0; i -= 1) {

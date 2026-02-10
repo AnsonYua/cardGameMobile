@@ -15,6 +15,7 @@ import type { ActionStepCoordinator } from "./ActionStepCoordinator";
 import {
   computeActionBarDecision,
   computeMainPhaseState,
+  findActiveTargetChoice,
   getPhase,
   isMainPhase,
   isPlayersTurn,
@@ -83,6 +84,20 @@ export class ActionBarCoordinator {
     const isOpponentTurn = !isSelfTurn;
     const actionStepStatus = this.deps.actionStepCoordinator.getStatus(raw);
     const phase = getPhase(raw);
+
+    const activeTargetChoice = findActiveTargetChoice(raw);
+    if (activeTargetChoice) {
+      const selfId = this.deps.gameContext.playerId;
+      const ownerId = (activeTargetChoice.playerId ?? "").toString();
+      const isOwner = !!selfId && !!ownerId && ownerId === selfId;
+      if (!isOwner) {
+        this.applyWaitingState(actions, "Waiting for opponent choice...");
+        return;
+      }
+      actions.setWaitingForOpponent?.(false);
+      actions.setState?.({ descriptors: [] });
+      return;
+    }
 
     // Decision map (phase x turn):
     // Main Phase: opponent -> waiting, self -> existing defaults.
