@@ -8,6 +8,8 @@ import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { MultiTargetDialog, type MultiTargetDialogShowOpts } from "./MultiTargetDialog";
 import { ScrollList } from "./ScrollList";
+import { getDialogTimerHeaderGap } from "./timerBarStyles";
+import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -56,7 +58,7 @@ export class PilotTargetDialog {
     },
     card: {
       aspect: 88 / 64,
-      widthFactor: 1.04,
+      widthFactor: 1,
       framePadding: 4,
       frameExtra: { w: 0, h: 20 },
       frameStroke: 0,
@@ -145,7 +147,6 @@ export class PilotTargetDialog {
       widthFactor,
       minWidth,
       minHeight,
-      extraHeight,
       panelRadius,
       headerOffset,
       closeSize,
@@ -156,7 +157,18 @@ export class PilotTargetDialog {
       scrollbarMinThumb,
     } = this.cfg.dialog;
     const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight, frameExtra } = this.cfg.card;
+    const headerText = opts.header || "Choose a Unit";
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
+    const headerLayout = computeDialogHeaderLayout(this.scene, {
+      text: headerText,
+      dialogWidth,
+      headerWrapPad,
+      headerOffset,
+      showCloseButton,
+      closeSize,
+      closeOffset,
+    });
+
     const visibleRows = targets.length <= cols ? 1 : rows;
     const totalRows = Math.max(visibleRows, Math.ceil(targets.length / cols));
     const useScroll = totalRows > visibleRows;
@@ -168,8 +180,10 @@ export class PilotTargetDialog {
     const cellHeight = cardHeight + extraCellHeight;
     const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
     const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
-    const timerGap = 22;
-    const dialogHeight = Math.max(minHeight, gridVisibleHeight + extraHeight + timerGap);
+    const timerGap = getDialogTimerHeaderGap();
+    const footerPad = 22;
+    const topToGrid = headerLayout.headerOffsetUsed + headerLayout.height / 2 + timerGap;
+    const dialogHeight = Math.max(minHeight, topToGrid + gridVisibleHeight + footerPad);
 
     this.overlay = this.scene.add
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
@@ -211,21 +225,13 @@ export class PilotTargetDialog {
       dialog.add([closeButton, closeLabel]);
     }
 
-    const headerText = opts.header || "Choose a Unit";
     const header = this.scene.add
-      .text(0, -dialogHeight / 2 + headerOffset - 10, headerText, {
-        fontSize: "20px",
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
-        wordWrap: { width: dialogWidth - headerWrapPad },
-      })
+      .text(0, -dialogHeight / 2 + headerLayout.headerOffsetUsed, headerText, headerLayout.style)
       .setOrigin(0.5);
     dialog.add(header);
 
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
-    const startY = -dialogHeight / 2 + headerOffset + 40 + timerGap + cellHeight / 2;
+    const startY = -dialogHeight / 2 + topToGrid + cellHeight / 2;
 
     const maxCells = cols * totalRows;
     for (let i = 0; i < maxCells; i++) {
@@ -292,10 +298,11 @@ export class PilotTargetDialog {
     }
 
     if (useScroll) {
+      const overflowX = computeScrollMaskOverflowX({ framePadding, frameExtraW: frameExtra.w, extra: 2 });
       const scrollBounds = {
-        x: -dialogWidth / 2 + margin,
+        x: -dialogWidth / 2 + margin - overflowX,
         y: startY - cellHeight / 2,
-        width: dialogWidth - margin * 2,
+        width: gridWidth + overflowX * 2,
         height: gridVisibleHeight,
       };
       const trackX = dialogWidth / 2 - scrollbarWidth / 2 - scrollbarPad;
@@ -320,8 +327,9 @@ export class PilotTargetDialog {
         gridVisibleHeight,
         margin,
         gap,
-        headerOffset,
+        headerOffset: headerLayout.headerOffsetUsed,
         headerWrapPad,
+        headerHeight: headerLayout.height,
         cols,
         visibleRows,
       },

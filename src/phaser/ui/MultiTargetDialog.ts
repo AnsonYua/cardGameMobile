@@ -5,6 +5,7 @@ import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import type { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { ScrollList } from "./ScrollList";
+import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 
 export type MultiTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -130,7 +131,18 @@ export class MultiTargetDialog {
     } = this.cfg.dialog;
     const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight, frameStroke, frameColor, frameExtra } =
       this.cfg.card;
+    const headerText = opts.header || "Choose Targets";
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
+    const headerLayout = computeDialogHeaderLayout(this.scene, {
+      text: headerText,
+      dialogWidth,
+      headerWrapPad,
+      headerOffset,
+      showCloseButton,
+      closeSize,
+      closeOffset,
+    });
+
     const visibleRows = targets.length <= cols ? 1 : rows;
     const totalRows = Math.max(visibleRows, Math.ceil(targets.length / cols));
     const useScroll = totalRows > visibleRows;
@@ -142,15 +154,26 @@ export class MultiTargetDialog {
     const cellHeight = cardHeight + extraCellHeight;
     const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
     const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
-    const timerGap = 22;
-    const headerAndTimer = headerOffset + 58 + timerGap;
+    const counterGap = 10;
+    const counterHeight = 18;
+    const errorGap = 6;
+    const errorHeight = 16;
+    const belowErrorPad = 18;
     const confirmW = 170;
     const confirmH = 42;
     const confirmGap = 20;
     const footerPad = 18;
-    const dialogHeight = Math.max(minHeight, headerAndTimer + gridVisibleHeight + confirmGap + confirmH + footerPad);
+    const topToHeaderCenter = headerLayout.headerOffsetUsed;
+    const headerBottomFromTop = topToHeaderCenter + headerLayout.height / 2;
+    const counterCenterFromTop = headerBottomFromTop + counterGap + counterHeight / 2;
+    const errorCenterFromTop = counterCenterFromTop + counterHeight / 2 + errorGap + errorHeight / 2;
+    const gridTopFromTop = errorCenterFromTop + errorHeight / 2 + belowErrorPad;
+    const dialogHeight = Math.max(
+      minHeight,
+      gridTopFromTop + gridVisibleHeight + confirmGap + confirmH + footerPad,
+    );
 
-    const gridTopY = -dialogHeight / 2 + headerOffset + 58 + timerGap;
+    const gridTopY = -dialogHeight / 2 + gridTopFromTop;
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = gridTopY + cellHeight / 2;
 
@@ -194,21 +217,13 @@ export class MultiTargetDialog {
       dialog.add([closeButton, closeLabel]);
     }
 
-    const headerText = opts.header || "Choose Targets";
     const header = this.scene.add
-      .text(0, -dialogHeight / 2 + headerOffset - 10, headerText, {
-        fontSize: "20px",
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
-        wordWrap: { width: dialogWidth - headerWrapPad },
-      })
+      .text(0, -dialogHeight / 2 + topToHeaderCenter, headerText, headerLayout.style)
       .setOrigin(0.5);
     dialog.add(header);
 
     const counterText = this.scene.add
-      .text(0, header.y + 26, `Select ${min}-${max} (${this.selectedTargets.length}/${max})`, {
+      .text(0, -dialogHeight / 2 + counterCenterFromTop, `Select ${min}-${max} (${this.selectedTargets.length}/${max})`, {
         fontSize: "14px",
         fontFamily: "Arial",
         color: "#d7d9dd",
@@ -218,7 +233,7 @@ export class MultiTargetDialog {
     dialog.add(counterText);
 
     const errorText = this.scene.add
-      .text(0, header.y + 46, "", {
+      .text(0, -dialogHeight / 2 + errorCenterFromTop, "", {
         fontSize: "13px",
         fontFamily: "Arial",
         color: "#ff6b6b",
@@ -323,7 +338,7 @@ export class MultiTargetDialog {
       const cardH = cardW * aspect;
 
       const frameY = y + frameExtra.h / 2;
-      const frame = this.scene.add.rectangle(
+      const frameBg = this.scene.add.rectangle(
         x,
         frameY,
         cardW + framePadding + frameExtra.w,
@@ -331,11 +346,9 @@ export class MultiTargetDialog {
         0x1b1e24,
         0.75,
       );
-      frames.push(frame);
       const isSelectable = !!slot?.unit || (!!slot?.pilot && opts.allowPiloted);
-      frame.setStrokeStyle(frameStroke, frameColor, 0.95);
-      frame.setInteractive({ useHandCursor: isSelectable });
-      frame.on("pointerdown", () => {
+      frameBg.setInteractive({ useHandCursor: isSelectable });
+      frameBg.on("pointerdown", () => {
         if (!slot || !isSelectable) return;
         this.previewController.start((container) => {
           const cardW = UI_LAYOUT.slot.preview.cardWidth;
@@ -343,18 +356,18 @@ export class MultiTargetDialog {
           renderSlotPreviewCard({ scene: this.scene, container, slot, x: 0, y: 0, w: cardW, h: cardH, depthOffset: 0 });
         });
       });
-      frame.on("pointerup", () => {
+      frameBg.on("pointerup", () => {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
         toggleSelected(slot);
         updateUi();
       });
-      frame.on("pointerout", () => {
+      frameBg.on("pointerout", () => {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
       });
-      content.add(frame);
+      content.add(frameBg);
 
       const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
       if (slotSprite) {
@@ -375,6 +388,11 @@ export class MultiTargetDialog {
 
       const frameW = cardW + framePadding + frameExtra.w;
       const frameH = cardH + framePadding + frameExtra.h;
+      const outline = this.scene.add.rectangle(x, frameY, frameW, frameH, 0x000000, 0);
+      outline.setStrokeStyle(frameStroke, frameColor, 0.95);
+      frames.push(outline);
+      content.add(outline);
+
       const tickRadius = 10;
       const tickX = x + frameW / 2 - tickRadius - 6;
       const tickY = frameY + frameH / 2 - tickRadius - 10;
@@ -402,10 +420,11 @@ export class MultiTargetDialog {
     }
 
     if (useScroll) {
+      const overflowX = computeScrollMaskOverflowX({ framePadding, frameExtraW: frameExtra.w, extra: 4 });
       const scrollBounds = {
-        x: -dialogWidth / 2 + margin,
+        x: -dialogWidth / 2 + margin - overflowX,
         y: gridTopY,
-        width: dialogWidth - margin * 2,
+        width: gridWidth + overflowX * 2,
         height: gridVisibleHeight,
       };
       const trackX = dialogWidth / 2 - scrollbarWidth / 2 - scrollbarPad;

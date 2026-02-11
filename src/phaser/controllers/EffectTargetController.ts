@@ -9,6 +9,7 @@ import { mapAvailableTargetsToSlotTargets } from "./TargetSlotMapper";
 import type { SlotNotification } from "../animations/NotificationAnimationController";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { mapSlotToApiTargetRef } from "./targeting/TargetChoiceMapping";
+import { resolveTargetChoiceHeader } from "./targeting/TargetChoiceTitles";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -40,6 +41,7 @@ export class EffectTargetController {
     if (!raw) return;
 
     const selfId = this.deps.gameContext.playerId;
+    const notificationId = (note?.id ?? "").toString();
     const payload = note?.payload ?? {};
     const allowEmptySelection = payload?.allowEmptySelection === true;
     const targetCount = payload?.targetCount ?? payload?.targetcount ?? undefined;
@@ -114,12 +116,18 @@ export class EffectTargetController {
     if (!targets.length) {
       if (allowEmptySelection && selfId) {
         try {
-          await this.deps.api.confirmTargetChoice({
+          await this.deps.api.cancelChoice({
             gameId: this.deps.gameContext.gameId || "",
             playerId: selfId || "",
             eventId,
-            selectedTargets: [],
           });
+          if (notificationId) {
+            await this.deps.api.acknowledgeEvents({
+              gameId: this.deps.gameContext.gameId || "",
+              playerId: selfId || "",
+              eventIds: [notificationId],
+            });
+          }
           this.deps.onPlayerAction?.();
           await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
         } catch (err) {
@@ -141,6 +149,10 @@ export class EffectTargetController {
       const min = Number.isFinite(parsedMin) ? parsedMin : 1;
       const max = Number.isFinite(parsedMax) ? parsedMax : min;
       const isMulti = max > 1 || min > 1;
+      const header = resolveTargetChoiceHeader({
+        choiceKind: payload?.choiceKind ?? data?.choiceKind ?? event?.choiceKind,
+        isMulti,
+      });
 
       const confirmEmptyIfAllowed = () => {
         if (!allowEmptySelection || !selfId) {
@@ -154,6 +166,13 @@ export class EffectTargetController {
               playerId: selfId || "",
               eventId,
             });
+            if (notificationId) {
+              await this.deps.api.acknowledgeEvents({
+                gameId: this.deps.gameContext.gameId || "",
+                playerId: selfId || "",
+                eventIds: [notificationId],
+              });
+            }
             this.deps.onPlayerAction?.();
             await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
           } catch (err) {
@@ -177,7 +196,7 @@ export class EffectTargetController {
         try {
           this.deps.dialog.showMulti({
             targets,
-            header: "Choose Targets",
+            header,
             // Optional effects can be declined by closing; the minimum selection still applies
             // when the player confirms.
             showCloseButton: allowEmptySelection,
@@ -204,6 +223,13 @@ export class EffectTargetController {
                   eventId,
                   selectedTargets: deduped,
                 });
+                if (notificationId) {
+                  await this.deps.api.acknowledgeEvents({
+                    gameId: this.deps.gameContext.gameId || "",
+                    playerId: selfId || "",
+                    eventIds: [notificationId],
+                  });
+                }
                 this.deps.onPlayerAction?.();
                 await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
               } catch (err) {
@@ -224,7 +250,7 @@ export class EffectTargetController {
       try {
         this.deps.dialog.show({
           targets,
-          header: "Choose a Target",
+          header,
           showCloseButton: allowEmptySelection,
           allowPiloted: true,
           onClose: confirmEmptyIfAllowed,
@@ -240,6 +266,13 @@ export class EffectTargetController {
                 eventId,
                 selectedTargets: [mapSlotToTarget(slot)],
               });
+              if (notificationId) {
+                await this.deps.api.acknowledgeEvents({
+                  gameId: this.deps.gameContext.gameId || "",
+                  playerId: selfId || "",
+                  eventIds: [notificationId],
+                });
+              }
               this.deps.onPlayerAction?.();
               await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
             } catch (err) {
