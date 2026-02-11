@@ -171,7 +171,8 @@ export class DebugControls {
   //const targetScenario = scenarioPath || "ActionCase/GD01-044/pair_damage_1_choose_1_to_2_enemy_units"
   //const targetScenario = scenarioPath || "ActionCase/GD01-025/pair_place_rested_resource_then_first_strike"
   //const targetScenario = scenarioPath || "ActionCase/GD01-023/activate_discard_zeon_unit_then_pair_newtype_pilot_from_trash"
-  const targetScenario = scenarioPath || "ActionCase/GD01-019/gain_blocker_if_enemy_units_ge_4"
+  //const targetScenario = scenarioPath || "ActionCase/GD01-019/gain_blocker_if_enemy_units_ge_4"
+  const targetScenario = scenarioPath || "ActionCase/GD01-025/pair_place_rested_resource_then_first_strike"
 
   //const targetScenario = scenarioPath || "ActionCase/GD02-009/ap_reduced_by_enemy_effect_retaliate_damage_2"
   //const targetScenario = scenarioPath || "ActionCase/GD02-002/link_once_per_turn_set_active_on_friendly_battle_destroy_nopilot"
