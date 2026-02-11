@@ -10,6 +10,7 @@ import { MultiTargetDialog, type MultiTargetDialogShowOpts } from "./MultiTarget
 import { ScrollList } from "./ScrollList";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
+import { createTargetDialogShell } from "./TargetDialogShell";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -91,7 +92,7 @@ export class PilotTargetDialog {
       depth: 5000,
     });
     this.dialogTimer = new DialogTimerPresenter(scene, timerController);
-    this.multiDialog = new MultiTargetDialog(scene, this.cfg, this.previewController, createSlotSprite);
+    this.multiDialog = new MultiTargetDialog(scene, this.cfg, this.previewController, createSlotSprite, timerController);
   }
 
   isOpen() {
@@ -185,45 +186,26 @@ export class PilotTargetDialog {
     const topToGrid = headerLayout.headerOffsetUsed + headerLayout.height / 2 + timerGap;
     const dialogHeight = Math.max(minHeight, topToGrid + gridVisibleHeight + footerPad);
 
-    this.overlay = this.scene.add
-      .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
-      .setInteractive({ useHandCursor: closeOnBackdrop })
-      .setDepth(this.cfg.z.overlay);
-    if (closeOnBackdrop) {
-      this.overlay.on("pointerup", () => void this.hide());
-    }
-
-    const dialog = this.scene.add.container(cam.centerX, cam.centerY);
-    dialog.setDepth(this.cfg.z.dialog);
+    const shell = createTargetDialogShell(
+      this.scene,
+      {
+        z: this.cfg.z,
+        overlayAlpha: this.cfg.overlayAlpha,
+        panelRadius,
+        closeSize,
+        closeOffset,
+      },
+      { dialogWidth, dialogHeight },
+      {
+        closeOnBackdrop,
+        showCloseButton,
+        onClose: () => void this.hide(),
+      },
+    );
+    this.overlay = shell.overlay;
+    const dialog = shell.dialog;
     this.dialog = dialog;
-
-    const panel = this.scene.add.graphics({ x: 0, y: 0 });
-    panel.fillStyle(0x3a3d42, 0.95);
-    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    panel.lineStyle(2, 0x5b6068, 1);
-    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    dialog.add(panel);
-
-    const content = this.scene.add.container(0, 0);
-    dialog.add(content);
-
-    if (showCloseButton) {
-      const closeButton = this.scene.add.rectangle(
-        dialogWidth / 2 - closeSize - closeOffset,
-        -dialogHeight / 2 + closeSize + closeOffset - 10,
-        closeSize,
-        closeSize,
-        0xffffff,
-        0.12,
-      );
-      closeButton.setStrokeStyle(2, 0xffffff, 0.5);
-      closeButton.setInteractive({ useHandCursor: true });
-      closeButton.on("pointerup", () => void this.hide());
-      const closeLabel = this.scene.add
-        .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
-        .setOrigin(0.5);
-      dialog.add([closeButton, closeLabel]);
-    }
+    const content = shell.content;
 
     const header = this.scene.add
       .text(0, -dialogHeight / 2 + headerLayout.headerOffsetUsed, headerText, headerLayout.style)

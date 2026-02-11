@@ -6,6 +6,11 @@ import type { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { ScrollList } from "./ScrollList";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
+import type { DialogLayout } from "./CardDialogLayout";
+import { getDialogTimerHeaderGap } from "./timerBarStyles";
+import { DialogTimerPresenter } from "./DialogTimerPresenter";
+import type { TurnTimerController } from "../controllers/TurnTimerController";
+import { createTargetDialogShell } from "./TargetDialogShell";
 
 export type MultiTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -61,19 +66,24 @@ export class MultiTargetDialog {
   private lastOnConfirm?: ((slots: SlotViewModel[]) => Promise<void> | void) | undefined;
   private selectedTargets: SlotViewModel[] = [];
   private lastTargets: SlotViewModel[] = [];
+  private dialogTimer: DialogTimerPresenter;
 
   constructor(
     private scene: Phaser.Scene,
     private cfg: DialogConfig,
     private previewController: PreviewController,
     private createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined,
-  ) {}
+    timerController?: TurnTimerController,
+  ) {
+    this.dialogTimer = new DialogTimerPresenter(scene, timerController);
+  }
 
   isOpen() {
     return this.open;
   }
 
   async hide(): Promise<void> {
+    this.dialogTimer.stop();
     this.previewController.hide(true);
     const scrollList = this.scrollList;
     this.overlay?.destroy();
@@ -154,7 +164,6 @@ export class MultiTargetDialog {
     const cellHeight = cardHeight + extraCellHeight;
     const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
     const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
-    const counterGap = 10;
     const counterHeight = 18;
     const errorGap = 6;
     const errorHeight = 16;
@@ -163,9 +172,10 @@ export class MultiTargetDialog {
     const confirmH = 42;
     const confirmGap = 20;
     const footerPad = 18;
+    const timerGap = getDialogTimerHeaderGap();
     const topToHeaderCenter = headerLayout.headerOffsetUsed;
     const headerBottomFromTop = topToHeaderCenter + headerLayout.height / 2;
-    const counterCenterFromTop = headerBottomFromTop + counterGap + counterHeight / 2;
+    const counterCenterFromTop = headerBottomFromTop + timerGap + counterHeight / 2;
     const errorCenterFromTop = counterCenterFromTop + counterHeight / 2 + errorGap + errorHeight / 2;
     const gridTopFromTop = errorCenterFromTop + errorHeight / 2 + belowErrorPad;
     const dialogHeight = Math.max(
@@ -177,50 +187,48 @@ export class MultiTargetDialog {
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = gridTopY + cellHeight / 2;
 
-    this.overlay = this.scene.add
-      .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
-      .setInteractive({ useHandCursor: closeOnBackdrop })
-      .setDepth(this.cfg.z.overlay);
-    if (closeOnBackdrop) {
-      this.overlay.on("pointerup", () => void this.hide());
-    }
-
-    const dialog = this.scene.add.container(cam.centerX, cam.centerY);
-    dialog.setDepth(this.cfg.z.dialog);
+    const shell = createTargetDialogShell(
+      this.scene,
+      {
+        z: this.cfg.z,
+        overlayAlpha: this.cfg.overlayAlpha,
+        panelRadius,
+        closeSize,
+        closeOffset,
+      },
+      { dialogWidth, dialogHeight },
+      {
+        closeOnBackdrop,
+        showCloseButton,
+        onClose: () => void this.hide(),
+      },
+    );
+    this.overlay = shell.overlay;
+    const dialog = shell.dialog;
     this.dialog = dialog;
-
-    const panel = this.scene.add.graphics({ x: 0, y: 0 });
-    panel.fillStyle(0x3a3d42, 0.95);
-    panel.fillRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    panel.lineStyle(2, 0x5b6068, 1);
-    panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
-    dialog.add(panel);
-
-    const content = this.scene.add.container(0, 0);
-    dialog.add(content);
-
-    if (showCloseButton) {
-      const closeButton = this.scene.add.rectangle(
-        dialogWidth / 2 - closeSize - closeOffset,
-        -dialogHeight / 2 + closeSize + closeOffset - 10,
-        closeSize,
-        closeSize,
-        0xffffff,
-        0.12,
-      );
-      closeButton.setStrokeStyle(2, 0xffffff, 0.5);
-      closeButton.setInteractive({ useHandCursor: true });
-      closeButton.on("pointerup", () => void this.hide());
-      const closeLabel = this.scene.add
-        .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
-        .setOrigin(0.5);
-      dialog.add([closeButton, closeLabel]);
-    }
+    const content = shell.content;
 
     const header = this.scene.add
       .text(0, -dialogHeight / 2 + topToHeaderCenter, headerText, headerLayout.style)
       .setOrigin(0.5);
     dialog.add(header);
+
+    const timerLayout: DialogLayout = {
+      dialogWidth,
+      dialogHeight,
+      cellWidth,
+      cellHeight,
+      cardHeight,
+      gridVisibleHeight,
+      margin,
+      gap,
+      headerOffset: headerLayout.headerOffsetUsed,
+      headerWrapPad,
+      headerHeight: headerLayout.height,
+      headerGap: timerGap,
+      cols,
+      visibleRows,
+    };
 
     const counterText = this.scene.add
       .text(0, -dialogHeight / 2 + counterCenterFromTop, `Select ${min}-${max} (${this.selectedTargets.length}/${max})`, {
@@ -270,6 +278,29 @@ export class MultiTargetDialog {
       if (aUid && bUid) return aUid === bUid;
       return a.owner === b.owner && a.slotId === b.slotId;
     };
+
+    this.dialogTimer.attach(dialog, timerLayout, async () => {
+      if (!this.lastOnConfirm || !this.open) return;
+      const desired = Math.max(0, min);
+      const picked: SlotViewModel[] = [];
+      for (let i = 0; i < targets.length && picked.length < desired; i++) {
+        const slot = targets[i];
+        if (!slot) continue;
+        if (picked.some((p) => isSameSlot(p, slot))) continue;
+        picked.push(slot);
+      }
+      if (picked.length < desired) return;
+
+      const onConfirm = this.lastOnConfirm;
+      this.lastOnClose = undefined;
+      try {
+        await onConfirm([...picked]);
+        await this.hide();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[MultiTargetDialog] timeout auto-confirm failed", err);
+      }
+    });
     const frames: Phaser.GameObjects.Rectangle[] = [];
     const ticks: Array<{ bg: Phaser.GameObjects.Arc; label: Phaser.GameObjects.Text }> = [];
 
