@@ -7,6 +7,7 @@ import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { MultiTargetDialog, type MultiTargetDialogShowOpts } from "./MultiTargetDialog";
+import { ScrollList } from "./ScrollList";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -30,6 +31,7 @@ export class PilotTargetDialog {
   private previewController: PreviewController;
   private dialogTimer: DialogTimerPresenter;
   private multiDialog: MultiTargetDialog;
+  private scrollList?: ScrollList;
 
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
@@ -48,12 +50,15 @@ export class PilotTargetDialog {
       closeSize: 22,
       closeOffset: 12,
       headerWrapPad: 80,
+      scrollbarWidth: 8,
+      scrollbarPad: 6,
+      scrollbarMinThumb: 24,
     },
     card: {
       aspect: 88 / 64,
       widthFactor: 1.04,
       framePadding: 4,
-      frameExtra: { w: 0, h: 36 },
+      frameExtra: { w: 0, h: 20 },
       frameStroke: 0,
       frameColor: 0xffffff,
       extraCellHeight: 20,
@@ -95,11 +100,13 @@ export class PilotTargetDialog {
     const overlay = this.overlay;
     const dialog = this.dialog;
     const onClose = this.lastOnClose;
+    const scrollList = this.scrollList;
 
     // Clear references immediately to avoid a race where `show()` calls `void this.hide()` and
     // this async method destroys the newly-created dialog after the first await.
     this.overlay = undefined;
     this.dialog = undefined;
+    this.scrollList = undefined;
     this.lastTargets = [];
     this.lastOnSelect = undefined;
     this.lastOnClose = undefined;
@@ -108,6 +115,7 @@ export class PilotTargetDialog {
     await this.multiDialog.hide();
     this.previewController.hide(true);
     this.dialogTimer.stop();
+    scrollList?.destroy();
     overlay?.destroy();
     dialog?.destroy();
     onClose?.();
@@ -124,7 +132,7 @@ export class PilotTargetDialog {
       if (opts.allowPiloted) return hasUnit || hasPilot;
       return hasUnit && !hasPilot;
     });
-    const targets = filtered.slice(0, 6);
+    const targets = filtered;
     this.lastTargets = targets;
     this.lastOnSelect = opts.onSelect;
     this.lastOnClose = opts.onClose;
@@ -143,16 +151,25 @@ export class PilotTargetDialog {
       closeSize,
       closeOffset,
       headerWrapPad,
+      scrollbarWidth,
+      scrollbarPad,
+      scrollbarMinThumb,
     } = this.cfg.dialog;
-    const rowCount = targets.length <= cols ? 1 : rows;
-    const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight } = this.cfg.card;
+    const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight, frameExtra } = this.cfg.card;
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
-    const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
+    const visibleRows = targets.length <= cols ? 1 : rows;
+    const totalRows = Math.max(visibleRows, Math.ceil(targets.length / cols));
+    const useScroll = totalRows > visibleRows;
+    const reservedScrollbarWidth = useScroll ? scrollbarWidth : 0;
+    const reservedScrollbarPad = useScroll ? scrollbarPad : 0;
+    const gridWidth = dialogWidth - margin * 2 - reservedScrollbarWidth - reservedScrollbarPad;
+    const cellWidth = (gridWidth - gap * (cols - 1)) / cols;
     const cardHeight = cellWidth * aspect;
     const cellHeight = cardHeight + extraCellHeight;
-    const gridHeight = rowCount * cellHeight + (rowCount - 1) * gap;
+    const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
+    const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
     const timerGap = 22;
-    const dialogHeight = Math.max(minHeight, gridHeight + extraHeight + timerGap);
+    const dialogHeight = Math.max(minHeight, gridVisibleHeight + extraHeight + timerGap);
 
     this.overlay = this.scene.add
       .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, this.cfg.overlayAlpha)
@@ -172,6 +189,9 @@ export class PilotTargetDialog {
     panel.lineStyle(2, 0x5b6068, 1);
     panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
     dialog.add(panel);
+
+    const content = this.scene.add.container(0, 0);
+    dialog.add(content);
 
     if (showCloseButton) {
       const closeButton = this.scene.add.rectangle(
@@ -207,7 +227,7 @@ export class PilotTargetDialog {
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = -dialogHeight / 2 + headerOffset + 40 + timerGap + cellHeight / 2;
 
-    const maxCells = cols * rowCount;
+    const maxCells = cols * totalRows;
     for (let i = 0; i < maxCells; i++) {
       const slot = targets[i];
       const col = i % cols;
@@ -217,9 +237,10 @@ export class PilotTargetDialog {
       const cardW = cellWidth * cardWidthFactor;
       const cardH = cardW * aspect;
 
+      const frameY = y + frameExtra.h / 2;
       const frame = this.scene.add.rectangle(
         x,
-        y,
+        frameY,
         cardW + framePadding + this.cfg.card.frameExtra.w,
         cardH + framePadding + this.cfg.card.frameExtra.h,
         0x1b1e24,
@@ -243,16 +264,16 @@ export class PilotTargetDialog {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
       });
-      dialog.add(frame);
+      content.add(frame);
 
       const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
       if (slotSprite) {
         slotSprite.setPosition(x, y);
-        dialog.add(slotSprite);
+        content.add(slotSprite);
       } else {
         renderTargetDialogSlot({
           scene: this.scene,
-          container: dialog,
+          container: content,
           slot,
           x,
           y,
@@ -270,6 +291,24 @@ export class PilotTargetDialog {
       dialog.add(empty);
     }
 
+    if (useScroll) {
+      const scrollBounds = {
+        x: -dialogWidth / 2 + margin,
+        y: startY - cellHeight / 2,
+        width: dialogWidth - margin * 2,
+        height: gridVisibleHeight,
+      };
+      const trackX = dialogWidth / 2 - scrollbarWidth / 2 - scrollbarPad;
+      this.scrollList = new ScrollList(this.scene, dialog, content, scrollBounds, {
+        width: scrollbarWidth,
+        pad: scrollbarPad,
+        minThumb: scrollbarMinThumb,
+        trackX,
+      });
+      this.scrollList.setContentHeight(gridTotalHeight);
+      this.scrollList.attach();
+    }
+
     this.dialogTimer.attach(
       dialog,
       {
@@ -278,13 +317,13 @@ export class PilotTargetDialog {
         cellWidth,
         cellHeight,
         cardHeight,
-        gridVisibleHeight: gridHeight,
+        gridVisibleHeight,
         margin,
         gap,
         headerOffset,
         headerWrapPad,
         cols,
-        visibleRows: rowCount,
+        visibleRows,
       },
       async () => {
         const selected = await this.selectTarget(0);

@@ -4,6 +4,7 @@ import { renderTargetDialogSlot } from "./TargetDialogSlotRenderer";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import type { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
+import { ScrollList } from "./ScrollList";
 
 export type MultiTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -34,6 +35,9 @@ type DialogConfig = {
     closeSize: number;
     closeOffset: number;
     headerWrapPad: number;
+    scrollbarWidth: number;
+    scrollbarPad: number;
+    scrollbarMinThumb: number;
   };
   card: {
     aspect: number;
@@ -50,6 +54,7 @@ type DialogConfig = {
 export class MultiTargetDialog {
   private overlay?: Phaser.GameObjects.Rectangle;
   private dialog?: Phaser.GameObjects.Container;
+  private scrollList?: ScrollList;
   private open = false;
   private lastOnClose?: (() => void) | undefined;
   private lastOnConfirm?: ((slots: SlotViewModel[]) => Promise<void> | void) | undefined;
@@ -69,10 +74,13 @@ export class MultiTargetDialog {
 
   async hide(): Promise<void> {
     this.previewController.hide(true);
+    const scrollList = this.scrollList;
     this.overlay?.destroy();
+    scrollList?.destroy();
     this.dialog?.destroy();
     this.overlay = undefined;
     this.dialog = undefined;
+    this.scrollList = undefined;
     this.open = false;
     this.lastTargets = [];
     this.selectedTargets = [];
@@ -96,7 +104,7 @@ export class MultiTargetDialog {
       if (opts.allowPiloted) return hasUnit || hasPilot;
       return hasUnit && !hasPilot;
     });
-    const targets = filtered.slice(0, 6);
+    const targets = filtered;
     this.lastTargets = targets;
     this.selectedTargets = [];
     this.lastOnConfirm = opts.onConfirm;
@@ -116,22 +124,31 @@ export class MultiTargetDialog {
       closeSize,
       closeOffset,
       headerWrapPad,
+      scrollbarWidth,
+      scrollbarPad,
+      scrollbarMinThumb,
     } = this.cfg.dialog;
-    const rowCount = targets.length <= cols ? 1 : rows;
     const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight, frameStroke, frameColor, frameExtra } =
       this.cfg.card;
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
-    const cellWidth = (dialogWidth - margin * 2 - gap * (cols - 1)) / cols;
+    const visibleRows = targets.length <= cols ? 1 : rows;
+    const totalRows = Math.max(visibleRows, Math.ceil(targets.length / cols));
+    const useScroll = totalRows > visibleRows;
+    const reservedScrollbarWidth = useScroll ? scrollbarWidth : 0;
+    const reservedScrollbarPad = useScroll ? scrollbarPad : 0;
+    const gridWidth = dialogWidth - margin * 2 - reservedScrollbarWidth - reservedScrollbarPad;
+    const cellWidth = (gridWidth - gap * (cols - 1)) / cols;
     const cardHeight = cellWidth * aspect;
     const cellHeight = cardHeight + extraCellHeight;
-    const gridHeight = rowCount * cellHeight + (rowCount - 1) * gap;
+    const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
+    const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
     const timerGap = 22;
     const headerAndTimer = headerOffset + 58 + timerGap;
     const confirmW = 170;
     const confirmH = 42;
     const confirmGap = 20;
     const footerPad = 18;
-    const dialogHeight = Math.max(minHeight, headerAndTimer + gridHeight + confirmGap + confirmH + footerPad);
+    const dialogHeight = Math.max(minHeight, headerAndTimer + gridVisibleHeight + confirmGap + confirmH + footerPad);
 
     const gridTopY = -dialogHeight / 2 + headerOffset + 58 + timerGap;
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
@@ -155,6 +172,9 @@ export class MultiTargetDialog {
     panel.lineStyle(2, 0x5b6068, 1);
     panel.strokeRoundedRect(-dialogWidth / 2, -dialogHeight / 2, dialogWidth, dialogHeight, panelRadius);
     dialog.add(panel);
+
+    const content = this.scene.add.container(0, 0);
+    dialog.add(content);
 
     if (showCloseButton) {
       const closeButton = this.scene.add.rectangle(
@@ -207,7 +227,7 @@ export class MultiTargetDialog {
       .setOrigin(0.5);
     dialog.add(errorText);
 
-    const confirmY = gridTopY + gridHeight + confirmGap + confirmH / 2;
+    const confirmY = gridTopY + gridVisibleHeight + confirmGap + confirmH / 2;
     const confirmBtn = this.scene.add.rectangle(0, confirmY, confirmW, confirmH, 0x1f6feb, 0.85);
     confirmBtn.setStrokeStyle(2, 0xffffff, 0.25);
     const confirmLabel = this.scene.add
@@ -256,7 +276,7 @@ export class MultiTargetDialog {
         const frame = frames[i];
         if (!slot) continue;
         const selected = this.selectedTargets.some((s) => isSameSlot(s, slot));
-        frame.setStrokeStyle(selected ? 4 : frameStroke, selected ? 0x2ecc71 : frameColor, 0.95);
+        frame.setStrokeStyle(selected ? 3 : frameStroke, selected ? 0x2ecc71 : frameColor, 0.95);
         const tick = ticks[i];
         if (tick) {
           tick.bg.setVisible(selected);
@@ -292,7 +312,7 @@ export class MultiTargetDialog {
       }
     });
 
-    const maxCells = cols * rowCount;
+    const maxCells = cols * totalRows;
     for (let i = 0; i < maxCells; i++) {
       const slot = targets[i];
       const col = i % cols;
@@ -302,9 +322,10 @@ export class MultiTargetDialog {
       const cardW = cellWidth * cardWidthFactor;
       const cardH = cardW * aspect;
 
+      const frameY = y + frameExtra.h / 2;
       const frame = this.scene.add.rectangle(
         x,
-        y,
+        frameY,
         cardW + framePadding + frameExtra.w,
         cardH + framePadding + frameExtra.h,
         0x1b1e24,
@@ -333,16 +354,16 @@ export class MultiTargetDialog {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
       });
-      dialog.add(frame);
+      content.add(frame);
 
       const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
       if (slotSprite) {
         slotSprite.setPosition(x, y);
-        dialog.add(slotSprite);
+        content.add(slotSprite);
       } else {
         renderTargetDialogSlot({
           scene: this.scene,
-          container: dialog,
+          container: content,
           slot,
           x,
           y,
@@ -356,7 +377,7 @@ export class MultiTargetDialog {
       const frameH = cardH + framePadding + frameExtra.h;
       const tickRadius = 10;
       const tickX = x + frameW / 2 - tickRadius - 6;
-      const tickY = y + frameH / 2 - tickRadius - 10;
+      const tickY = frameY + frameH / 2 - tickRadius - 10;
       const tickBg = this.scene.add.circle(tickX, tickY, tickRadius, 0x2ecc71, 0.95);
       const tickLabel = this.scene.add
         .text(tickX, tickY + 0.5, "✓", { fontSize: "14px", fontFamily: "Arial", color: "#0b1b10" })
@@ -364,12 +385,12 @@ export class MultiTargetDialog {
       tickBg.setVisible(false);
       tickLabel.setVisible(false);
       ticks.push({ bg: tickBg, label: tickLabel });
-      dialog.add([tickBg, tickLabel]);
+      content.add([tickBg, tickLabel]);
     }
 
     if (!targets.length) {
       const empty = this.scene.add
-        .text(0, gridTopY + gridHeight / 2, "No units available", {
+        .text(0, gridTopY + gridVisibleHeight / 2, "No units available", {
           fontSize: "15px",
           fontFamily: "Arial",
           color: "#d7d9dd",
@@ -378,6 +399,24 @@ export class MultiTargetDialog {
         .setOrigin(0.5);
       dialog.add(empty);
       setConfirmEnabled(false);
+    }
+
+    if (useScroll) {
+      const scrollBounds = {
+        x: -dialogWidth / 2 + margin,
+        y: gridTopY,
+        width: dialogWidth - margin * 2,
+        height: gridVisibleHeight,
+      };
+      const trackX = dialogWidth / 2 - scrollbarWidth / 2 - scrollbarPad;
+      this.scrollList = new ScrollList(this.scene, dialog, content, scrollBounds, {
+        width: scrollbarWidth,
+        pad: scrollbarPad,
+        minThumb: scrollbarMinThumb,
+        trackX,
+      });
+      this.scrollList.setContentHeight(gridTotalHeight);
+      this.scrollList.attach();
     }
 
     updateUi();

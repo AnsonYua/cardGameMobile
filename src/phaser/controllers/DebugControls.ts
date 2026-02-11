@@ -172,8 +172,13 @@ export class DebugControls {
   //const targetScenario = scenarioPath || "ActionCase/GD01-025/pair_place_rested_resource_then_first_strike"
   //const targetScenario = scenarioPath || "ActionCase/GD01-023/activate_discard_zeon_unit_then_pair_newtype_pilot_from_trash"
   //const targetScenario = scenarioPath || "ActionCase/GD01-019/gain_blocker_if_enemy_units_ge_4"
-  const targetScenario = scenarioPath || "ActionCase/GD01-025/pair_place_rested_resource_then_first_strike"
-
+  //const targetScenario = scenarioPath || "ActionCase/GD01-025/pair_place_rested_resource_then_first_strike"
+   //const targetScenario = scenarioPath || "ActionCase/GD01-023/activate_discard_zeon_unit_then_pair_newtype_pilot_from_trash"
+  //const targetScenario = scenarioPath || "ActionCase/GD01-019/gain_blocker_if_enemy_units_ge_4"
+  
+  //const targetScenario = scenarioPath || "ActionCase/GD01-009/deploy_choose_white_base_team_unit_grant_high_maneuver"
+  //const targetScenario = scenarioPath || "ActionCase/GD01-005/destroyed_linked_return_pilot_then_discard"
+  const targetScenario = scenarioPath || "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike"
   //const targetScenario = scenarioPath || "ActionCase/GD02-009/ap_reduced_by_enemy_effect_retaliate_damage_2"
   //const targetScenario = scenarioPath || "ActionCase/GD02-002/link_once_per_turn_set_active_on_friendly_battle_destroy_nopilot"
   //const targetScenario = scenarioPath || "ActionCase/ST04-009/pair_draw_if_another_link_unit"

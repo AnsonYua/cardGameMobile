@@ -148,6 +148,10 @@ export class ApiManager {
     return this.postPlayerDecision("/api/game/player/confirmTokenChoice", payload);
   }
 
+  cancelChoice(payload: { gameId: string; playerId: string; eventId: string }) {
+    return this.postPlayerDecision("/api/game/player/cancelChoice", payload);
+  }
+
   acknowledgeEvents(payload: { gameId: string; playerId: string; eventIds: string[] }) {
     return this.postPlayerDecision("/api/game/player/acknowledgeEvents", payload);
   }

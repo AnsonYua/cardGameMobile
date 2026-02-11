@@ -149,11 +149,10 @@ export class EffectTargetController {
         }
         void (async () => {
           try {
-            await this.deps.api.confirmTargetChoice({
+            await this.deps.api.cancelChoice({
               gameId: this.deps.gameContext.gameId || "",
               playerId: selfId || "",
               eventId,
-              selectedTargets: [],
             });
             this.deps.onPlayerAction?.();
             await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
