@@ -11,4 +11,7 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: [".ondigitalocean.app", "plankton-app-hc4oo.ondigitalocean.app"],
+  },
 });
