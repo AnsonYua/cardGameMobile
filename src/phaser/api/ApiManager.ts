@@ -42,12 +42,7 @@ export class ApiManager {
   }
 
   getBaseUrl() {
-    if (this.baseUrl) return this.baseUrl;
-    if (typeof window !== "undefined" && window.location) {
-      const { protocol, hostname } = window.location;
-      return `${protocol}//${hostname}:8080`;
-    }
-    return this.fallbackUrl;
+    return this.baseUrl;
   }
 
   startGame(payload: StartGamePayload): Promise<any> {
@@ -180,8 +175,10 @@ export class ApiManager {
   }
 
   private resolveBaseUrl(baseUrl?: string) {
-    if (baseUrl) return baseUrl;
-    if (typeof window === "undefined" || !window.location) return this.fallbackUrl;
+    if (typeof baseUrl === "string" && baseUrl.length > 0) return baseUrl;
+    // Default to relative requests ("/api/...") so Vite's proxy can route to the backend
+    // in both `vite dev` and `vite preview`.
+    if (typeof window === "undefined" || !window.location) return "";
     const params = new URLSearchParams(window.location.search);
     const apiUrlParam = params.get("apiUrl") || params.get("apiurl");
     const apiHostParam = params.get("apiHost") || params.get("apihost");
@@ -191,9 +188,12 @@ export class ApiManager {
       return `${protocol}//${apiUrlParam}`;
     }
     if (apiHostParam) {
-      return `${protocol}//${apiHostParam}:8080`;
+      // allow specifying host:port via querystring
+      return apiHostParam.includes(":") ? `${protocol}//${apiHostParam}` : `${protocol}//${apiHostParam}:8080`;
     }
-    return `${protocol}//${hostname}:8080`;
+    // No explicit API host: use relative URLs (proxy-controlled).
+    void hostname; // keep destructure stable if used later
+    return "";
   }
 
   private postPlayerDecision(path: string, payload: Record<string, unknown>) {
