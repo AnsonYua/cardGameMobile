@@ -176,8 +176,15 @@ export class ApiManager {
 
   private resolveBaseUrl(baseUrl?: string) {
     if (typeof baseUrl === "string" && baseUrl.length > 0) return baseUrl;
-    // Default to relative requests ("/api/...") so Vite's proxy can route to the backend
-    // in both `vite dev` and `vite preview`.
+    // Allow configuring an explicit API origin at build-time (so the browser calls your backend domain directly).
+    // Example: VITE_API_BASE_URL="https://api.example.com"
+    const envBaseUrl =
+      (import.meta as any)?.env?.VITE_API_BASE_URL ||
+      (import.meta as any)?.env?.VITE_BACKEND_URL ||
+      "";
+    if (typeof envBaseUrl === "string" && envBaseUrl.length > 0) return envBaseUrl;
+
+    // Default to relative requests ("/api/...") so Vite's proxy can route to the backend.
     if (typeof window === "undefined" || !window.location) return "";
     const params = new URLSearchParams(window.location.search);
     const apiUrlParam = params.get("apiUrl") || params.get("apiurl");
