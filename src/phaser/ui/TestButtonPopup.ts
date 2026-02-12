@@ -1,8 +1,21 @@
 import Phaser from "phaser";
 
 type PopupButton = { label: string; onClick?: () => void };
-export type TestButtonPopupConfig = Partial<Record<"button1" | "button2" | "button3" | "button4" | "button5" | "button6", PopupButton>> & {
+type ScenarioPickerConfig = {
+  title?: string;
+  options: string[];
+  value?: string;
+  onChange?: (value: string) => void;
+};
+
+export type TestButtonPopupConfig = Partial<
+  Record<"button1" | "button2" | "button3" | "button4" | "button5" | "button6" | "button7" | "button8", PopupButton>
+> & {
   gameId?: string;
+  playerId?: string;
+  isAutoPolling?: boolean;
+  joinUrlBase?: string;
+  scenarioPicker?: ScenarioPickerConfig;
 };
 
 export class TestButtonPopup {
@@ -16,8 +29,10 @@ export class TestButtonPopup {
   show(config: TestButtonPopupConfig) {
     this.hide();
     const { width, height } = this.scene.scale;
+    const { gameId } = config;
     const popupW = 260;
-    const popupH = 480;
+    const desiredH = config.scenarioPicker ? 540 : 480;
+    const popupH = Math.max(260, Math.min(desiredH, height - 40));
     const centerX = width / 2;
     const centerY = height / 2;
 
@@ -34,20 +49,59 @@ export class TestButtonPopup {
     closeBtn.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
     closeLabel.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
 
-    const { gameId, ...btnConfig } = config;
-    const buttons = Object.keys(btnConfig)
-      .sort()
-      .map((key) => btnConfig[key as keyof typeof btnConfig])
-      .filter(Boolean) as PopupButton[];
+    const buttonKeys = ["button1", "button2", "button3", "button4", "button5", "button6", "button7", "button8"] as const;
+    const buttons = buttonKeys.map((key) => config[key]).filter(Boolean) as PopupButton[];
     const btnGap = 14;
     const btnH = 44;
     const btnW = popupW - 40;
-    const totalBtnHeight = buttons.length * btnH + (buttons.length - 1) * btnGap;
-    const startY = -totalBtnHeight / 2 + btnH / 2;
     const btnObjs: Phaser.GameObjects.GameObject[] = [];
+    const footerReserve = gameId ? 64 : 24;
+    const btnBlockHeight = buttons.length > 0 ? buttons.length * btnH + (buttons.length - 1) * btnGap : 0;
+
+    let yCursor = -popupH / 2 + 64;
+
+    const picker = config.scenarioPicker;
+    if (picker) {
+      const title = this.scene.add
+        .text(0, yCursor, picker.title ?? "Scenario", { fontSize: "16px", fontFamily: "Arial", color: "#000000" })
+        .setOrigin(0.5)
+        .setDepth(this.depth + 2);
+      btnObjs.push(title);
+      yCursor += 18;
+
+      const wrapper = document.createElement("div");
+      wrapper.style.width = `${btnW}px`;
+      wrapper.style.height = "34px";
+      wrapper.style.display = "flex";
+      wrapper.style.alignItems = "center";
+      wrapper.style.justifyContent = "center";
+
+      const select = document.createElement("select");
+      select.style.width = "100%";
+      select.style.height = "32px";
+      select.style.fontSize = "12px";
+      select.style.padding = "0 6px";
+
+      picker.options.forEach((opt) => {
+        const option = document.createElement("option");
+        option.value = opt;
+        option.text = opt;
+        select.appendChild(option);
+      });
+      if (picker.value && picker.options.includes(picker.value)) {
+        select.value = picker.value;
+      }
+      select.addEventListener("change", () => picker.onChange?.(select.value));
+      wrapper.appendChild(select);
+
+      const dropdown = this.scene.add.dom(0, yCursor + 18, wrapper).setOrigin(0.5).setDepth(this.depth + 2);
+      btnObjs.push(dropdown);
+
+      yCursor += 60;
+    }
 
     buttons.forEach((btn, idx) => {
-      const y = startY + idx * (btnH + btnGap);
+      const y = yCursor + idx * (btnH + btnGap);
       const rect = this.scene.add.rectangle(0, y, btnW, btnH, 0x11a9ff, 0.1).setDepth(this.depth + 1);
       rect.setStrokeStyle(2, 0x0000ff, 1);
       const label = this.scene.add
@@ -72,8 +126,18 @@ export class TestButtonPopup {
         .text(0, footerY, `Game ID: ${gameId}`, { fontSize: "14px", fontFamily: "Arial", color: "#ffffff" })
         .setOrigin(0.5)
         .setDepth(this.depth + 2);
-      footerBg.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.copyToClipboard(gameId));
-      footerText.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.copyToClipboard(gameId));
+      const handleCopyGameLink = () => {
+        const joinUrl = this.buildJoinUrl({
+          base: config.joinUrlBase,
+          gameId,
+          playerId: config.playerId,
+          isAutoPolling: config.isAutoPolling,
+        });
+        this.copyToClipboard(joinUrl);
+        void this.hide();
+      };
+      footerBg.setInteractive({ useHandCursor: true }).on("pointerdown", handleCopyGameLink);
+      footerText.setInteractive({ useHandCursor: true }).on("pointerdown", handleCopyGameLink);
       btnObjs.push(footerBg, footerText);
     }
 
@@ -113,6 +177,18 @@ export class TestButtonPopup {
       return;
     }
     this.execFallbackCopy(text);
+  }
+
+  private buildJoinUrl(opts: { base?: string; gameId: string; playerId?: string; isAutoPolling?: boolean }): string {
+    const origin =
+      opts.base ??
+      (typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost:5173");
+    const url = new URL("/game", origin);
+    url.searchParams.set("mode", "join");
+    url.searchParams.set("gameId", opts.gameId);
+    url.searchParams.set("isAutoPolling", String(opts.isAutoPolling ?? true));
+    if (opts.playerId) url.searchParams.set("playerId", opts.playerId);
+    return url.toString();
   }
 
   private execFallbackCopy(text: string) {

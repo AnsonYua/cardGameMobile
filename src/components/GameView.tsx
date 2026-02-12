@@ -16,6 +16,9 @@ export function GameView() {
       width: BASE_W,
       height: BASE_H,
       backgroundColor: "#4765d2ff",
+      dom: {
+        createContainer: true,
+      },
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
