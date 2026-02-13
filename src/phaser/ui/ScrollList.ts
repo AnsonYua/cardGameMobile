@@ -142,13 +142,15 @@ export class ScrollList {
   }
 
   private isPointerInScrollArea(pointer: Phaser.Input.Pointer) {
+    const cam = this.scene.cameras.main;
+    const world = cam.getWorldPoint(pointer.x, pointer.y);
     const left = this.container.x + this.bounds.x;
     const top = this.container.y + this.bounds.y;
     return (
-      pointer.x >= left &&
-      pointer.x <= left + this.bounds.width &&
-      pointer.y >= top &&
-      pointer.y <= top + this.bounds.height
+      world.x >= left &&
+      world.x <= left + this.bounds.width &&
+      world.y >= top &&
+      world.y <= top + this.bounds.height
     );
   }
 }

@@ -78,7 +78,8 @@ export class CardResourceLoader {
 
   private normalizePath(path: string | undefined | null) {
     if (!path) return null;
-    return path.endsWith(".jpeg") ? path : `${path}.jpeg`;
+    // Backend may send paths with or without extension; keep existing extensions intact.
+    return /\.(png|jpe?g)$/i.test(path) ? path : `${path}.jpeg`;
   }
 
   private resolveBaseUrl(payload: any): string | null {
@@ -98,7 +99,7 @@ export class CardResourceLoader {
   private getImageKey(path: string) {
     const parts = path.split("/");
     const filename = parts[parts.length - 1];
-    return filename.replace(/\.jpeg$/i, "");
+    return filename.replace(/\.(png|jpe?g)$/i, "");
   }
 
   private getImageUrl(path: string, baseUrl: string) {
@@ -140,13 +141,14 @@ export class CardResourceLoader {
         this.stats.totalRequests += 1;
         load.image(k, u);
         const start = performance.now();
-        load.once(`${Phaser.Loader.Events.FILE_COMPLETE}-${k}`, () => {
+        // Phaser emits filecomplete-<type>-<key> for per-file completion.
+        load.once(`filecomplete-image-${k}`, () => {
           this.loadingKeys.delete(k);
           this.loadedResources.set(k, { path, isPreview, loadTime: performance.now() - start, attempts: 1 });
           this.stats.successfulLoads += 1;
           this.stats.loadedResourcesCount = this.loadedResources.size;
         });
-        load.once(`${Phaser.Loader.Events.FILE_LOAD_ERROR}-${k}`, () => {
+        load.once(`loaderror-image-${k}`, () => {
           this.loadingKeys.delete(k);
           this.stats.failedLoads += 1;
           this.stats.failedResourcesCount += 1;

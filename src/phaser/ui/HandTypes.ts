@@ -10,7 +10,12 @@ export type HandCardView = {
   cardId?: string;
 };
 
-export const toBaseKey = (cardId?: string | null) => (cardId ? cardId.replace(/\.png$/i, "") : undefined);
+const stripPathAndExtension = (id: string) => {
+  const base = id.split("/").pop() ?? id;
+  return base.replace(/\.(png|jpe?g)$/i, "");
+};
+
+export const toBaseKey = (cardId?: string | null) => (cardId ? stripPathAndExtension(cardId) : undefined);
 
 export const toPreviewKey = (cardId?: string | null) =>
-  cardId ? cardId.replace(/\.png$/i, "") + "-preview" : undefined;
+  cardId ? stripPathAndExtension(cardId) + "-preview" : undefined;
