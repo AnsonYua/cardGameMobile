@@ -242,6 +242,7 @@ export class PilotTargetDialog {
         this.startPreviewTimer(slot);
       });
       frame.on("pointerup", async () => {
+        if (this.scrollList?.shouldSuppressClick()) return;
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
@@ -293,6 +294,10 @@ export class PilotTargetDialog {
         pad: scrollbarPad,
         minThumb: scrollbarMinThumb,
         trackX,
+      }, {
+        onDragStart: () => {
+          this.previewController.hide(true);
+        },
       });
       this.scrollList.setContentHeight(gridTotalHeight);
       this.scrollList.attach();

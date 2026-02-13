@@ -388,6 +388,7 @@ export class MultiTargetDialog {
         });
       });
       frameBg.on("pointerup", () => {
+        if (this.scrollList?.shouldSuppressClick()) return;
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
@@ -464,6 +465,10 @@ export class MultiTargetDialog {
         pad: scrollbarPad,
         minThumb: scrollbarMinThumb,
         trackX,
+      }, {
+        onDragStart: () => {
+          this.previewController.hide(true);
+        },
       });
       this.scrollList.setContentHeight(gridTotalHeight);
       this.scrollList.attach();

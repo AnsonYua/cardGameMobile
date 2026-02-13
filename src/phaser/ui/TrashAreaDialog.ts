@@ -153,6 +153,10 @@ export class TrashAreaDialog {
       pad: this.cfg.dialog.scrollbarPad,
       minThumb: this.cfg.dialog.scrollbarMinThumb,
       trackX,
+    }, {
+      onDragStart: () => {
+        this.previewController.hide(true);
+      },
     });
     this.scrollList.setContentHeight(contentHeight);
     this.scrollList.attach();
