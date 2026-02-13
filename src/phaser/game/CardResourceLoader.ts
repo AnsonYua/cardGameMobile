@@ -1,6 +1,17 @@
 import Phaser from "phaser";
 import type { GameStatusResponse } from "./GameTypes";
 
+export type GameResourceBundle = {
+  contentType: string;
+  data: ArrayBuffer;
+};
+
+type MultipartPart = {
+  headers: Record<string, string>;
+  body: Uint8Array;
+};
+
+
 type LoadStats = {
   totalRequests: number;
   successfulLoads: number;
@@ -116,6 +127,150 @@ export class CardResourceLoader {
     return `${trimmedBase}/api/game/image/previews/${trimmedPath}`;
   }
 
+
+  async loadFromResourceBundle(bundle: GameResourceBundle) {
+    const boundary = this.extractBoundary(bundle.contentType);
+    if (!boundary) {
+      return { success: false, stats: this.stats, loadedCount: 0, failedCount: 0 };
+    }
+
+    const parts = this.parseMultipartMixed(new Uint8Array(bundle.data), boundary);
+    if (!parts.length) {
+      return { success: true, stats: this.stats, loadedCount: 0, failedCount: 0 };
+    }
+
+    this.stats = initialStats();
+    this.stats.loadStartTime = Date.now();
+
+    const queueResult = this.queueLoadsFromBundle(parts);
+    if (queueResult.totalQueued === 0) {
+      this.finishStats();
+      return {
+        success: true,
+        stats: this.stats,
+        loadedCount: this.stats.loadedResourcesCount,
+        failedCount: this.stats.failedResourcesCount,
+      };
+    }
+
+    await this.startLoader();
+    this.finishStats();
+    const success = this.stats.failedResourcesCount === 0;
+    return {
+      success,
+      stats: this.stats,
+      loadedCount: this.stats.loadedResourcesCount,
+      failedCount: this.stats.failedResourcesCount,
+    };
+  }
+
+  private extractBoundary(contentType: string) {
+    if (!contentType) return null;
+    const match = contentType.match(/boundary=([^;]+)/i);
+    if (!match) return null;
+    return match[1].trim().replace(/^"|"$/g, "");
+  }
+
+  private parseMultipartMixed(data: Uint8Array, boundary: string): MultipartPart[] {
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    const boundaryBytes = enc.encode(`--${boundary}`);
+    const headerSep = enc.encode(`\r\n\r\n`);
+    const crlf = enc.encode(`\r\n`);
+
+    const parts: MultipartPart[] = [];
+    let pos = this.indexOfBytes(data, boundaryBytes, 0);
+    while (pos !== -1) {
+      const afterBoundary = pos + boundaryBytes.length;
+      // Final boundary: --boundary--
+
+      if (data[afterBoundary] === 45 && data[afterBoundary + 1] === 45) {
+        break;
+      }
+
+      let partStart = afterBoundary;
+      if (data[partStart] === crlf[0] && data[partStart + 1] === crlf[1]) {
+        partStart += 2;
+      }
+
+      const headerEnd = this.indexOfBytes(data, headerSep, partStart);
+      if (headerEnd === -1) break;
+      const headerText = dec.decode(data.slice(partStart, headerEnd));
+      const headers: Record<string, string> = {};
+      for (const line of headerText.split('\r\n')) {
+        const idx = line.indexOf(':');
+        if (idx === -1) continue;
+        const name = line.slice(0, idx).trim().toLowerCase();
+        const value = line.slice(idx + 1).trim();
+        if (name) headers[name] = value;
+      }
+
+      const bodyStart = headerEnd + headerSep.length;
+      const nextBoundary = this.indexOfBytes(data, boundaryBytes, bodyStart);
+      if (nextBoundary === -1) break;
+      let bodyEnd = nextBoundary;
+      if (bodyEnd >= 2 && data[bodyEnd - 2] === crlf[0] && data[bodyEnd - 1] === crlf[1]) {
+        bodyEnd -= 2;
+      }
+
+      parts.push({ headers, body: data.slice(bodyStart, bodyEnd) });
+      pos = nextBoundary;
+    }
+
+    return parts;
+  }
+
+  private indexOfBytes(haystack: Uint8Array, needle: Uint8Array, start: number) {
+    outer: for (let i = Math.max(0, start); i <= haystack.length - needle.length; i += 1) {
+      for (let j = 0; j < needle.length; j += 1) {
+        if (haystack[i + j] !== needle[j]) continue outer;
+      }
+      return i;
+    }
+    return -1;
+  }
+
+  private queueLoadsFromBundle(parts: MultipartPart[]) {
+    const load = this.scene.load;
+    let totalQueued = 0;
+
+    parts.forEach((part) => {
+      const contentType = part.headers['content-type'] || 'application/octet-stream';
+      const key = part.headers['x-texture-key'];
+      if (!key) return;
+
+      if (this.scene.textures.exists(key)) {
+        this.stats.cachedHits += 1;
+        return;
+      }
+      if (this.loadingKeys.has(key)) return;
+
+      const blob = new Blob([part.body], { type: contentType });
+      const objectUrl = URL.createObjectURL(blob);
+
+      this.loadingKeys.add(key);
+      totalQueued += 1;
+      this.stats.totalRequests += 1;
+
+      load.image(key, objectUrl);
+      const start = performance.now();
+      load.once(`filecomplete-image-${key}`, () => {
+        URL.revokeObjectURL(objectUrl);
+        this.loadingKeys.delete(key);
+        this.loadedResources.set(key, { path: key, isPreview: key.endsWith('-preview'), loadTime: performance.now() - start, attempts: 1 });
+        this.stats.successfulLoads += 1;
+        this.stats.loadedResourcesCount = this.loadedResources.size;
+      });
+      load.once(`loaderror-image-${key}`, () => {
+        URL.revokeObjectURL(objectUrl);
+        this.loadingKeys.delete(key);
+        this.stats.failedLoads += 1;
+        this.stats.failedResourcesCount += 1;
+      });
+    });
+
+    return { totalQueued };
+  }
   private queueLoads(paths: string[], baseUrl: string) {
     const load = this.scene.load;
     let totalQueued = 0;

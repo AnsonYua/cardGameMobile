@@ -12,5 +12,7 @@ export type GameStatusResponse = {
     [key: string]: any;
   };
   phase?: GamePhase | string;
+  resourceBundleToken?: string;
+
   [key: string]: any;
 };

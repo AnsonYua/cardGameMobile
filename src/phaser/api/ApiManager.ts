@@ -22,6 +22,12 @@ export type LobbyListResponse = {
   timestamp: string;
 };
 
+export type GameResourceBundleResponse = {
+  contentType: string;
+  data: ArrayBuffer;
+};
+
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -85,6 +91,25 @@ export class ApiManager {
       `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`,
     );
     return this.requestGetWithFallback(url);
+  }
+
+  async getGameResourceBundle(
+    token: string,
+    opts: { includePreviews?: boolean } = {},
+  ): Promise<GameResourceBundleResponse> {
+    const url = this.buildUrl("/api/game/player/gameResourceBundle");
+    const includePreviews = opts.includePreviews !== false;
+    return this.requestRawWithFallback(url, { includePreviews }, token);
+  }
+
+  async getGameResourceBundleByIds(
+    gameId: string,
+    playerId: string,
+    opts: { includePreviews?: boolean } = {},
+  ): Promise<GameResourceBundleResponse> {
+    const url = this.buildUrl("/api/game/player/gameResourceBundle");
+    const includePreviews = opts.includePreviews !== false;
+    return this.requestRawNoAuthWithFallback(url, { includePreviews, gameId });
   }
 
   playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
@@ -249,6 +274,57 @@ export class ApiManager {
     }
   }
 
+
+  private async requestRawWithFallback(url: string, body: Record<string, any>, token: string) {
+    try {
+      return await this.doFetchRaw(url, body, token);
+    } catch (err) {
+      if (!this.baseUrl) throw err;
+      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
+        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
+        try {
+          return await this.doFetchRaw(fallbackUrl, body, token);
+        } catch {
+          // fall through to rethrow original error
+        }
+      }
+      throw err;
+    }
+  }
+
+  private async doFetchRaw(url: string, body: Record<string, any>, token: string): Promise<GameResourceBundleResponse> {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    const data = await res.arrayBuffer();
+
+    if (!res.ok) {
+      let message = `request failed: ${res.status} ${res.statusText}`;
+      let parsed: any = null;
+      try {
+        if (contentType.includes("application/json")) {
+          parsed = JSON.parse(new TextDecoder().decode(new Uint8Array(data)));
+          message = (parsed && (parsed.error || parsed.message)) ? String(parsed.error || parsed.message) : message;
+        } else {
+          const text = new TextDecoder().decode(new Uint8Array(data).slice(0, 4096));
+          if (text) message = text;
+        }
+      } catch {
+        // ignore parse errors
+      }
+      throw new ApiError(message, res.status, parsed);
+    }
+
+    return { contentType, data };
+  }
   private async doFetch(url: string, body?: Record<string, any>, method: "POST" | "GET" = "POST") {
     const res = await fetch(url, {
       method,

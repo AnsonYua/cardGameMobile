@@ -328,9 +328,14 @@ export class GameEngine {
 
   private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse) {
     try {
-      const resources = await this.match.getGameResource(gameId, playerId);
-      const loadResult = await this.resourceLoader.loadFromGameStatus(resources, this.match.getApiBaseUrl());
-      this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources, loadResult, statusPayload });
+      const token = (statusPayload as any)?.resourceBundleToken || (this.lastRaw as any)?.resourceBundleToken;
+      const bundle = token
+        ? await this.match.getGameResourceBundle(token, { includePreviews: true })
+        : await this.match.getGameResourceBundleByIds(gameId, playerId, { includePreviews: true });
+      const loadResult = await this.resourceLoader.loadFromResourceBundle(bundle);
+      this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources: { bundled: true }, loadResult, statusPayload });
+      return;
+
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
     }

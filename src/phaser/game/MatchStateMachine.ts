@@ -44,6 +44,14 @@ export class MatchStateMachine {
     return this.session.getGameResource(gameId, playerId);
   }
 
+  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean } = {}) {
+    return this.session.getGameResourceBundle(token, opts);
+  }
+
+  async getGameResourceBundleByIds(gameId: string, playerId: string, opts: { includePreviews?: boolean } = {}) {
+    return this.session.getGameResourceBundleByIds(gameId, playerId, opts);
+  }
+
   getApiBaseUrl() {
     return this.session.getApiBaseUrl();
   }
