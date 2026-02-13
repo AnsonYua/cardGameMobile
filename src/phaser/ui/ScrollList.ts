@@ -10,9 +10,12 @@ export class ScrollList {
   private scrollY = 0;
   private maxScroll = 0;
   private wheelHandler?: (pointer: Phaser.Input.Pointer, gameObjects: any[], dx: number, dy: number) => void;
-  private dragState?: { startY: number; startScroll: number };
+  private pointerDownHandler?: (pointer: Phaser.Input.Pointer) => void;
+  private thumbDragState?: { startWorldY: number; startScroll: number };
+  private contentDragState?: { startWorldY: number; startScroll: number; active: boolean };
   private pointerMoveHandler?: (pointer: Phaser.Input.Pointer) => void;
   private pointerUpHandler?: () => void;
+  private readonly dragThreshold = 6;
 
   constructor(
     private scene: Phaser.Scene,
@@ -37,19 +40,40 @@ export class ScrollList {
       if (!this.isPointerInScrollArea(pointer)) return;
       this.updateScroll(this.scrollY + dy * 0.5);
     };
+    this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
+      if (this.maxScroll <= 0) return;
+      if (!this.isPointerInScrollArea(pointer)) return;
+      if (this.isPointerOnThumb(pointer)) return;
+      const world = this.getPointerWorld(pointer);
+      this.contentDragState = { startWorldY: world.y, startScroll: this.scrollY, active: false };
+    };
     this.pointerMoveHandler = (pointer: Phaser.Input.Pointer) => {
-      if (!this.dragState || !this.scrollbarThumb) return;
-      const trackHeight = this.bounds.height;
-      const thumbHeight = this.scrollbarThumb.height;
-      const range = Math.max(1, trackHeight - thumbHeight);
-      const deltaY = pointer.y - this.dragState.startY;
-      const ratio = deltaY / range;
-      this.updateScroll(this.dragState.startScroll + ratio * this.maxScroll);
+      const world = this.getPointerWorld(pointer);
+
+      if (this.thumbDragState && this.scrollbarThumb) {
+        const trackHeight = this.bounds.height;
+        const thumbHeight = this.scrollbarThumb.height;
+        const range = Math.max(1, trackHeight - thumbHeight);
+        const deltaY = world.y - this.thumbDragState.startWorldY;
+        const ratio = deltaY / range;
+        this.updateScroll(this.thumbDragState.startScroll + ratio * this.maxScroll);
+        return;
+      }
+
+      if (!pointer.isDown || !this.contentDragState) return;
+      const deltaY = world.y - this.contentDragState.startWorldY;
+      if (!this.contentDragState.active) {
+        if (Math.abs(deltaY) < this.dragThreshold) return;
+        this.contentDragState.active = true;
+      }
+      this.updateScroll(this.contentDragState.startScroll - deltaY);
     };
     this.pointerUpHandler = () => {
-      this.dragState = undefined;
+      this.thumbDragState = undefined;
+      this.contentDragState = undefined;
     };
     this.scene.input.on("wheel", this.wheelHandler);
+    this.scene.input.on("pointerdown", this.pointerDownHandler);
     this.scene.input.on("pointermove", this.pointerMoveHandler);
     this.scene.input.on("pointerup", this.pointerUpHandler);
   }
@@ -69,6 +93,10 @@ export class ScrollList {
       this.scene.input.off("wheel", this.wheelHandler);
       this.wheelHandler = undefined;
     }
+    if (this.pointerDownHandler) {
+      this.scene.input.off("pointerdown", this.pointerDownHandler);
+      this.pointerDownHandler = undefined;
+    }
     if (this.pointerMoveHandler) {
       this.scene.input.off("pointermove", this.pointerMoveHandler);
       this.pointerMoveHandler = undefined;
@@ -77,7 +105,8 @@ export class ScrollList {
       this.scene.input.off("pointerup", this.pointerUpHandler);
       this.pointerUpHandler = undefined;
     }
-    this.dragState = undefined;
+    this.thumbDragState = undefined;
+    this.contentDragState = undefined;
   }
 
   private updateScroll(next: number) {
@@ -133,7 +162,8 @@ export class ScrollList {
     );
     thumb.setInteractive({ useHandCursor: true });
     thumb.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.dragState = { startY: pointer.y, startScroll: this.scrollY };
+      const world = this.getPointerWorld(pointer);
+      this.thumbDragState = { startWorldY: world.y, startScroll: this.scrollY };
     });
     this.container.add(track);
     this.container.add(thumb);
@@ -141,9 +171,20 @@ export class ScrollList {
     this.scrollbarThumb = thumb;
   }
 
-  private isPointerInScrollArea(pointer: Phaser.Input.Pointer) {
+  private getPointerWorld(pointer: Phaser.Input.Pointer) {
     const cam = this.scene.cameras.main;
-    const world = cam.getWorldPoint(pointer.x, pointer.y);
+    return cam.getWorldPoint(pointer.x, pointer.y);
+  }
+
+  private isPointerOnThumb(pointer: Phaser.Input.Pointer) {
+    if (!this.scrollbarThumb) return false;
+    const world = this.getPointerWorld(pointer);
+    const bounds = this.scrollbarThumb.getBounds();
+    return bounds.contains(world.x, world.y);
+  }
+
+  private isPointerInScrollArea(pointer: Phaser.Input.Pointer) {
+    const world = this.getPointerWorld(pointer);
     const left = this.container.x + this.bounds.x;
     const top = this.container.y + this.bounds.y;
     return (
