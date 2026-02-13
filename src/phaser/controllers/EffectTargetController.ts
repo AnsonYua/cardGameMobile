@@ -200,7 +200,7 @@ export class EffectTargetController {
             // Optional effects can be declined by closing; the minimum selection still applies
             // when the player confirms.
             showCloseButton: allowEmptySelection,
-            closeOnBackdrop: allowEmptySelection,
+            closeOnBackdrop: false,
             allowPiloted: true,
             min,
             max: max,

@@ -71,7 +71,7 @@ export class TrashAreaDialog {
   show(opts: TrashAreaDialogShowOpts) {
     this.hide();
     const cam = this.scene.cameras.main;
-    const closeOnBackdrop = opts.closeOnBackdrop ?? true;
+    const closeOnBackdrop = false;
     const showCloseButton = opts.showCloseButton ?? true;
     this.lastOnClose = opts.onClose;
     const cards = Array.isArray(opts.cards) ? opts.cards : [];

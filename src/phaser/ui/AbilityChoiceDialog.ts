@@ -108,7 +108,7 @@ export class AbilityChoiceDialog {
       centerY: cam.centerY,
       headerText,
       showOverlay: true,
-      closeOnBackdrop: true,
+      closeOnBackdrop: false,
       showCloseButton: true,
       onClose: () => void this.hide(opts.onClose),
     });
@@ -180,7 +180,7 @@ export class AbilityChoiceDialog {
         },
       ],
       showOverlay: true,
-      closeOnBackdrop: true,
+      closeOnBackdrop: false,
       showCloseButton: true,
       onClose: () => void this.hide(opts.onClose),
     });

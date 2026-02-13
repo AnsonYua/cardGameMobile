@@ -127,7 +127,7 @@ export class PilotTargetDialog {
   show(opts: PilotTargetDialogShowOpts) {
     void this.hide();
     const cam = this.scene.cameras.main;
-    const closeOnBackdrop = opts.closeOnBackdrop ?? true;
+    const closeOnBackdrop = false;
     const showCloseButton = opts.showCloseButton ?? true;
     const filtered = opts.targets.filter((t) => {
       const hasUnit = !!t.unit;

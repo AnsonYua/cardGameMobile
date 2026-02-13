@@ -65,7 +65,7 @@ export class PilotDesignationDialog {
       headerText,
       buttons,
       showOverlay: true,
-      closeOnBackdrop: true,
+      closeOnBackdrop: false,
       showCloseButton: true,
       onClose: () => void this.hide(opts.onClose),
       headerGap: getDialogTimerHeaderGap(),
