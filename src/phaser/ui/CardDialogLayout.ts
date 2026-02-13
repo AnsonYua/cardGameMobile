@@ -209,6 +209,12 @@ export function createDialogShell(
     onClose?: () => void;
   },
 ) {
+  let closing = false;
+  const requestClose = () => {
+    if (closing) return;
+    closing = true;
+    opts.onClose?.();
+  };
   const dialog = scene.add.container(opts.centerX, opts.centerY);
   dialog.setDepth(config.z.dialog);
 
@@ -218,7 +224,7 @@ export function createDialogShell(
       .rectangle(0, 0, scene.cameras.main.width, scene.cameras.main.height, 0x000000, config.overlayAlpha)
       .setInteractive({ useHandCursor: !!opts.closeOnBackdrop });
     if (opts.closeOnBackdrop) {
-      overlay.on("pointerup", () => opts.onClose?.());
+      overlay.on("pointerup", () => requestClose());
     }
     dialog.add(overlay);
   }
@@ -229,6 +235,10 @@ export function createDialogShell(
   panel.lineStyle(2, 0x5b6068, 1);
   panel.strokeRoundedRect(-layout.dialogWidth / 2, -layout.dialogHeight / 2, layout.dialogWidth, layout.dialogHeight, config.dialog.panelRadius);
   dialog.add(panel);
+
+  // Content should be below header/close button so it can't steal clicks outside the scroll mask.
+  const content = scene.add.container(0, 0);
+  dialog.add(content);
 
   let header: Phaser.GameObjects.Text | undefined;
   if (opts.headerText && opts.headerText.trim().length > 0) {
@@ -259,18 +269,17 @@ export function createDialogShell(
     );
     closeButton.setStrokeStyle(2, 0xffffff, 0.5);
     closeButton.setInteractive({ useHandCursor: true });
-    closeButton.on("pointerup", () => opts.onClose?.());
+    closeButton.on("pointerdown", () => requestClose());
+    closeButton.on("pointerup", () => requestClose());
     closeLabel = scene.add
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
     closeLabel.setInteractive({ useHandCursor: true });
-    closeLabel.on("pointerup", () => opts.onClose?.());
+    closeLabel.on("pointerdown", () => requestClose());
+    closeLabel.on("pointerup", () => requestClose());
     dialog.add(closeButton);
     dialog.add(closeLabel);
   }
-
-  const content = scene.add.container(0, 0);
-  dialog.add(content);
 
   return { dialog, overlay, header, content, closeButton, closeLabel };
 }

@@ -18,18 +18,22 @@ export function createTargetDialogShell(
     onClose: () => void;
   },
 ) {
+  let closing = false;
+  const requestClose = () => {
+    if (closing) return;
+    closing = true;
+    opts.onClose();
+  };
   const cam = scene.cameras.main;
-
-  const overlay = scene.add
-    .rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x000000, cfg.overlayAlpha)
-    .setInteractive({ useHandCursor: opts.closeOnBackdrop })
-    .setDepth(cfg.z.overlay);
-  if (opts.closeOnBackdrop) {
-    overlay.on("pointerup", () => opts.onClose());
-  }
 
   const dialog = scene.add.container(cam.centerX, cam.centerY);
   dialog.setDepth(cfg.z.dialog);
+
+  const overlay = scene.add
+    .rectangle(0, 0, cam.width, cam.height, 0x000000, cfg.overlayAlpha)
+    .setInteractive({ useHandCursor: opts.closeOnBackdrop });
+  if (opts.closeOnBackdrop) overlay.on("pointerup", () => requestClose());
+  dialog.add(overlay);
 
   const panel = scene.add.graphics({ x: 0, y: 0 });
   panel.fillStyle(0x3a3d42, 0.95);
@@ -37,6 +41,10 @@ export function createTargetDialogShell(
   panel.lineStyle(2, 0x5b6068, 1);
   panel.strokeRoundedRect(-layout.dialogWidth / 2, -layout.dialogHeight / 2, layout.dialogWidth, layout.dialogHeight, cfg.panelRadius);
   dialog.add(panel);
+
+  // Content should be below the close button so it can't steal clicks outside the scroll mask.
+  const content = scene.add.container(0, 0);
+  dialog.add(content);
 
   let closeButton: Phaser.GameObjects.Rectangle | undefined;
   let closeLabel: Phaser.GameObjects.Text | undefined;
@@ -53,18 +61,16 @@ export function createTargetDialogShell(
     );
     closeButton.setStrokeStyle(2, 0xffffff, 0.5);
     closeButton.setInteractive({ useHandCursor: true });
-    closeButton.on("pointerup", () => opts.onClose());
+    closeButton.on("pointerdown", () => requestClose());
+    closeButton.on("pointerup", () => requestClose());
     closeLabel = scene.add
       .text(closeButton.x, closeButton.y, "✕", { fontSize: "15px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
       .setOrigin(0.5);
     closeLabel.setInteractive({ useHandCursor: true });
-    closeLabel.on("pointerup", () => opts.onClose());
+    closeLabel.on("pointerdown", () => requestClose());
+    closeLabel.on("pointerup", () => requestClose());
     dialog.add([closeButton, closeLabel]);
   }
 
-  const content = scene.add.container(0, 0);
-  dialog.add(content);
-
   return { overlay, dialog, content, closeButton, closeLabel };
 }
-
