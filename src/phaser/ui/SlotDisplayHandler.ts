@@ -8,6 +8,7 @@ import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { toBaseKey, toPreviewKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { HAND_CARD_ASPECT, HAND_GAP_X, HAND_PADDING_X, HAND_TARGET_CARD_W, HAND_VISIBLE_COUNT } from "../../config/gameLayout";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -56,8 +57,13 @@ export class SlotDisplayHandler {
   private hiddenSlots = new Set<string>();
   private debugSlotVisibility = isDebugFlagEnabled("debugSlotVisibility");
   private debugSlotTextures = isDebugFlagEnabled("debugSlotTextures");
+  private debugPreview = isDebugFlagEnabled("debug.cardPreview");
+  private slotPreviewEnabled = true;
 
   private previewController: PreviewController;
+  private readonly onGlobalPointerUp = () => {
+    this.previewController.cancelPending();
+  };
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene);
@@ -67,7 +73,9 @@ export class SlotDisplayHandler {
       fadeOut: this.config.preview.fadeOut,
       holdDelay: this.config.preview.holdDelay,
       depth: 5000,
+      debugName: "slot",
     });
+    this.scene.input.on("pointerup", this.onGlobalPointerUp);
   }
   private onSlotClick?: (slot: SlotViewModel) => void;
   private slotClicksEnabled = true;
@@ -82,6 +90,13 @@ export class SlotDisplayHandler {
 
   setPlayAnimations(enabled: boolean) {
     this.entryAnimationsEnabled = enabled;
+  }
+
+  setSlotPreviewEnabled(enabled: boolean) {
+    this.slotPreviewEnabled = enabled;
+    if (!enabled) {
+      this.hidePreview(true);
+    }
   }
 
   setSlotVisible(owner: SlotOwner, slotId: string, visible: boolean) {
@@ -163,6 +178,8 @@ export class SlotDisplayHandler {
       container.setInteractive({ useHandCursor: false });
       container.on("pointerdown", () => this.startPreviewTimer(slot));
       container.on("pointerup", () => this.handlePointerUp(slot));
+      container.on("pointerupoutside", () => this.handlePointerOut());
+      container.on("pointercancel", () => this.handlePointerOut());
       container.on("pointerout", () => this.handlePointerOut());
 
       // No background frame; rely on card art only.
@@ -284,8 +301,13 @@ export class SlotDisplayHandler {
   }
 
   destroy() {
+    this.scene.input.off("pointerup", this.onGlobalPointerUp);
     this.previewController.destroy();
     this.clear();
+  }
+
+  hidePreviewNow() {
+    this.hidePreview(true);
   }
 
   private drawSlot(
@@ -629,6 +651,15 @@ export class SlotDisplayHandler {
   }
 
   private startPreviewTimer(slot: SlotViewModel) {
+    if (!this.slotPreviewEnabled) return;
+    if (this.debugPreview) {
+      // eslint-disable-next-line no-console
+      console.debug("[cardPreview] slot:schedule", {
+        key: `${slot.owner}-${slot.slotId}`,
+        unitUid: slot.unit?.cardUid,
+        pilotUid: slot.pilot?.cardUid,
+      });
+    }
     const cardW = this.config.preview.cardWidth;
     const cardH = cardW * this.config.preview.cardAspect;
     this.previewController.start((container) => {
@@ -647,7 +678,15 @@ export class SlotDisplayHandler {
   }
 
   private handlePointerUp(slot?: SlotViewModel) {
-    if (this.previewController.isActive()) return;
+    if (this.previewController.isActive()) {
+      if (this.debugPreview) {
+        // eslint-disable-next-line no-console
+        console.debug("[cardPreview] slot:pointerUpIgnored(activePreview)", {
+          key: slot ? `${slot.owner}-${slot.slotId}` : undefined,
+        });
+      }
+      return;
+    }
     this.previewController.cancelPending();
     if (slot) {
       if (this.slotClicksEnabled) {
@@ -672,10 +711,11 @@ export class SlotDisplayHandler {
 
   private animateCardEntry(
     slot: SlotViewModel,
-    pos: { x: number; y: number; isOpponent: boolean },
+    pos: { x: number; y: number; isOpponent: boolean; w?: number; h?: number },
     incomingCard?: SlotCardView,
     startOverride?: { x: number; y: number; isOpponent?: boolean },
   ) {
+    this.hidePreview(true);
     const isOpponent = startOverride?.isOpponent ?? slot.owner === "opponent";
     const cam = this.scene.cameras.main;
     const start = startOverride ?? {
@@ -688,6 +728,7 @@ export class SlotDisplayHandler {
       ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
       hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
     };
+    const size = this.computeHandFlightSize();
     
     this.playAnimator.play({
       textureKey: card?.textureKey,
@@ -697,7 +738,20 @@ export class SlotDisplayHandler {
       isOpponent,
       cardName,
       stats,
+      size,
+      preserveSize: true,
     });
+  }
+
+  private computeHandFlightSize() {
+    const camW = this.scene.scale.width;
+    const viewW = Math.max(120, camW * 0.95 - HAND_PADDING_X * 2);
+    const cardW = Math.max(
+      60,
+      Math.min(HAND_TARGET_CARD_W, (viewW - HAND_GAP_X * (HAND_VISIBLE_COUNT - 1)) / HAND_VISIBLE_COUNT),
+    );
+    const cardH = cardW * HAND_CARD_ASPECT;
+    return { w: cardW, h: cardH };
   }
 
   private isCommandCard(card?: SlotCardView) {

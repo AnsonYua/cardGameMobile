@@ -9,6 +9,7 @@ import { PreviewController } from "./PreviewController";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { getBadgeLabel } from "./HandPreviewHelper";
 import type { DrawHelpers } from "./HeaderHandler";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 export class HandAreaHandler {
   private handCards: HandCardView[] = [];
@@ -23,6 +24,10 @@ export class HandAreaHandler {
   private renderer: HandRenderer;
   private scroll: HandScrollController;
   private previewController: PreviewController;
+  private debugPreview = isDebugFlagEnabled("debug.cardPreview");
+  private readonly onGlobalPointerUp = () => {
+    this.previewController.cancelPending();
+  };
 
   constructor(private scene: Phaser.Scene, palette: Palette, drawHelpers: DrawHelpers) {
     this.layout = new HandLayoutRenderer(scene, palette, drawHelpers);
@@ -39,7 +44,9 @@ export class HandAreaHandler {
       fadeOut: UI_LAYOUT.hand.preview.fadeOut,
       holdDelay: UI_LAYOUT.hand.preview.holdDelay,
       depth: 5000,
+      debugName: "hand",
     });
+    this.scene.input.on("pointerup", this.onGlobalPointerUp);
     this.renderer.setArrowHandlers(() => this.scroll.scrollByStep(-1), () => this.scroll.scrollByStep(1));
     this.scroll.bind();
   }
@@ -105,8 +112,17 @@ export class HandAreaHandler {
     this.draw(this.lastOffset);
   }
 
+  hidePreviewNow() {
+    this.hidePreview(true);
+  }
+
   setCardClickHandler(handler: (card: HandCardView) => void) {
     this.onCardClick = handler;
+  }
+
+  getCardSize() {
+    if (!this.layoutState) return undefined;
+    return { w: this.layoutState.cardW, h: this.layoutState.cardH };
   }
 
   fadeIn() {
@@ -129,12 +145,17 @@ export class HandAreaHandler {
   }
 
   destroy() {
+    this.scene.input.off("pointerup", this.onGlobalPointerUp);
     this.previewController.destroy();
     this.scroll.destroy();
     this.renderer.destroy();
   }
 
   private startPreviewTimer(card: HandCardView) {
+    if (this.debugPreview) {
+      // eslint-disable-next-line no-console
+      console.debug("[cardPreview] hand:schedule", { uid: card.uid, cardId: card.cardId, textureKey: card.textureKey });
+    }
     const cardW = UI_LAYOUT.hand.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
     this.previewController.start((container) => {
@@ -153,7 +174,13 @@ export class HandAreaHandler {
       this.scroll.resetDragSuppressClick();
       return;
     }
-    if (this.previewController.isActive()) return;
+    if (this.previewController.isActive()) {
+      if (this.debugPreview) {
+        // eslint-disable-next-line no-console
+        console.debug("[cardPreview] hand:pointerUpIgnored(activePreview)", { uid: card?.uid });
+      }
+      return;
+    }
     if (card && this.onCardClick) {
       this.selectedCardUid = card.uid || undefined;
       this.onCardClick(card);

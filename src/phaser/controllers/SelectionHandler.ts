@@ -43,6 +43,7 @@ export class SelectionHandler {
     this.selectedHandCard = undefined;
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
+    this.deps.slotControls?.setSlotPreviewEnabled?.(true);
     this.deps.handControls?.clearSelection?.();
     if (opts.clearEngine) {
       this.deps.engine.clearSelection();
@@ -85,6 +86,7 @@ export class SelectionHandler {
     }
     this.selectedHandCard = card;
     this.selectedSlot = undefined;
+    this.deps.slotControls?.setSlotPreviewEnabled?.(false);
     this.deps.slotControls?.setSelectedSlot?.();
     this.deps.engine.select({
       kind: "hand",
@@ -98,6 +100,7 @@ export class SelectionHandler {
 
   async handleSlotCardSelected(slot: SlotViewModel) {
     const raw = this.deps.engine.getSnapshot().raw as any;
+    this.deps.slotControls?.hidePreviewNow?.();
     if (hasActiveBurstPrompt(raw)) {
       this.clearSelectionUI({ clearEngine: true });
       this.deps.refreshActions("neutral");
@@ -141,6 +144,7 @@ export class SelectionHandler {
     // mark this slot as the current action source and refresh UI
     this.selectedSlot = slot;
     this.selectedHandCard = undefined;
+    this.deps.slotControls?.setSlotPreviewEnabled?.(true);
     this.deps.handControls?.clearSelection?.();
     this.deps.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
     this.deps.engine.select({ kind: "slot", slotId: slot.slotId, owner: slot.owner });
@@ -156,6 +160,7 @@ export class SelectionHandler {
     }
     this.selectedHandCard = undefined;
     this.selectedSlot = undefined;
+    this.deps.slotControls?.setSlotPreviewEnabled?.(true);
     this.deps.slotControls?.setSelectedSlot?.();
     if (!payload?.card) return;
     if (this.deps.actionStepCoordinator.isInActionStep() && !this.deps.actionStepCoordinator.cardDataHasActionStepWindow(payload.card?.cardData)) {

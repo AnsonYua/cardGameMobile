@@ -22,10 +22,12 @@ import { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { createLogger } from "../utils/logger";
 import { showActionError } from "./ActionErrorUtils";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearSelection?: () => void;
+  hidePreviewNow?: () => void;
 };
 
 export type SelectionActionControllerDeps = {
@@ -79,6 +81,7 @@ export type SelectionActionControllerModules = {
 
 export class SelectionActionController {
   private readonly log = createLogger("SelectionAction");
+  private readonly debugCardAnimation = isDebugFlagEnabled("debug.cardAnimation");
   private slotControls?: SlotControls | null;
   private slotGate: SlotInteractionGate;
   private attackCoordinator: AttackTargetCoordinator;
@@ -145,6 +148,18 @@ export class SelectionActionController {
   }
 
   async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {
+    if (this.debugCardAnimation) {
+      const selectedSlot = this.selectionHandler.getSelectedSlot();
+      // eslint-disable-next-line no-console
+      console.debug("[cardAnimation] action:run", {
+        actionId,
+        source: actionSource,
+        selectedHandUid: this.selectionHandler.getSelectedHandCard()?.uid,
+        selectedSlotKey: selectedSlot ? `${selectedSlot.owner}-${selectedSlot.slotId}` : undefined,
+      });
+    }
+    this.deps.handControls?.hidePreviewNow?.();
+    this.slotControls?.hidePreviewNow?.();
     // Slot-specific actions are handled directly to avoid engine placeholders.
     if (actionId === "attackUnit") {
       await this.actionExecutor.handleAttackUnit();

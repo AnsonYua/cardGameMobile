@@ -75,6 +75,8 @@ export class HandRenderer {
       const hit = this.scene.add.zone(x, y, cardW, cardH).setOrigin(0.5).setInteractive({ useHandCursor: false });
       hit.on("pointerdown", () => onPointerDown(card));
       hit.on("pointerup", () => onPointerUp(card));
+      hit.on("pointerupoutside", () => onPointerOut());
+      hit.on("pointercancel", () => onPointerOut());
       hit.on("pointerout", () => onPointerOut());
       this.cardContainer?.add(hit);
       this.cardObjects.push(hit);

@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { FxToolkit } from "./FxToolkit";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type Vector2 = { x: number; y: number };
 
@@ -13,10 +14,12 @@ type PlayAnimationPayload = {
   stats?: { ap?: number; hp?: number };
   size?: { w: number; h: number };
   angle?: number;
+  preserveSize?: boolean;
 };
 
 export class PlayCardAnimationManager {
   private fx: FxToolkit;
+  private debugCardAnimation = isDebugFlagEnabled("debug.cardAnimation");
 
   constructor(private scene: Phaser.Scene) {
     this.fx = new FxToolkit(scene);
@@ -28,7 +31,7 @@ export class PlayCardAnimationManager {
     this.playImpact(payload.end, payload.isOpponent);
   }
 
-  private playFlight({ textureKey, fallbackLabel, start, end, size, angle }: PlayAnimationPayload) {
+  private playFlight({ textureKey, fallbackLabel, start, end, size, angle, preserveSize }: PlayAnimationPayload) {
     return new Promise<void>((resolve) => {
       // Bail if geometry is invalid to avoid runtime errors.
       const valid =
@@ -47,11 +50,35 @@ export class PlayCardAnimationManager {
       const targetW = Math.min(size?.w ?? 80, maxW);
       const targetH = Math.min(size?.h ?? 110, maxH);
       const hasTexture = textureKey && this.scene.textures.exists(textureKey);
+      const sourceImage = hasTexture ? this.scene.textures.get(textureKey!).getSourceImage() as any : undefined;
       const createdNodes: Phaser.GameObjects.GameObject[] = [];
       const sprite = hasTexture
-        ? this.scene.add.image(start.x, start.y, textureKey!).setDisplaySize(targetW, targetH)
+        ? this.scene.add.image(start.x, start.y, textureKey!)
         : (this.scene.add.rectangle(start.x, start.y, targetW * 0.9, targetH * 0.86, 0x5e48f0) as Phaser.GameObjects.Rectangle);
-      sprite.setDepth(2000).setOrigin(0.5).setScale(0.9).setAngle(angle ?? 0);
+      const initialScale = preserveSize ? 1 : 0.9;
+      sprite.setDepth(2000).setOrigin(0.5).setAngle(angle ?? 0);
+      if (sprite instanceof Phaser.GameObjects.Image) {
+        const startW = targetW * initialScale;
+        const startH = targetH * initialScale;
+        sprite.setDisplaySize(startW, startH);
+      } else {
+        sprite.setScale(initialScale);
+      }
+      if (this.debugCardAnimation) {
+        // eslint-disable-next-line no-console
+        console.debug("[cardAnimation] flight:start", {
+          textureKey,
+          hasTexture,
+          sourceW: sourceImage?.width ?? null,
+          sourceH: sourceImage?.height ?? null,
+          requestedSize: size ?? null,
+          clampedSize: { w: targetW, h: targetH },
+          initialScale,
+          start,
+          end,
+          preserveSize: !!preserveSize,
+        });
+      }
       createdNodes.push(sprite);
       if (!hasTexture && fallbackLabel) {
         const label = this.scene.add
@@ -71,12 +98,24 @@ export class PlayCardAnimationManager {
         new Phaser.Math.Vector2(end.x, end.y),
       );
 
-      this.scene.tweens.add({
-        targets: sprite,
-        scale: 1.2,
-        duration: 180,
-        ease: "Sine.easeOut",
-      });
+      if (!preserveSize) {
+        if (sprite instanceof Phaser.GameObjects.Image) {
+          this.scene.tweens.add({
+            targets: sprite,
+            displayWidth: targetW * 1.2,
+            displayHeight: targetH * 1.2,
+            duration: 180,
+            ease: "Sine.easeOut",
+          });
+        } else {
+          this.scene.tweens.add({
+            targets: sprite,
+            scale: 1.2,
+            duration: 180,
+            ease: "Sine.easeOut",
+          });
+        }
+      }
 
       const flightDuration = 520;
       this.scene.tweens.addCounter({
@@ -90,6 +129,18 @@ export class PlayCardAnimationManager {
           sprite.setPosition(p.x, p.y);
         },
         onComplete: () => {
+          if (this.debugCardAnimation) {
+            // eslint-disable-next-line no-console
+            console.debug("[cardAnimation] flight:end", {
+              textureKey,
+              displayW: (sprite as any).displayWidth ?? null,
+              displayH: (sprite as any).displayHeight ?? null,
+              scaleX: (sprite as any).scaleX ?? null,
+              scaleY: (sprite as any).scaleY ?? null,
+              x: (sprite as any).x ?? null,
+              y: (sprite as any).y ?? null,
+            });
+          }
           createdNodes.forEach((node) => node.destroy());
           resolve();
         },

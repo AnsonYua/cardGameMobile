@@ -24,6 +24,7 @@ type SlotControls = {
 
 type HandControls = {
   renderPreviewCard?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
+  getCardSize?: () => { w: number; h: number } | undefined;
 };
 
 type DrawPopupDialog = {
@@ -123,6 +124,7 @@ export function createAnimationPipeline(deps: {
         showOverlay: false,
       }) ?? Promise.resolve(),
     setSlotVisible: (owner, slotId, visible) => deps.slotControls?.setSlotVisible?.(owner, slotId, visible),
+    getHandCardSize: () => deps.handControls?.getCardSize?.(),
   });
   const attackIndicatorController = new AttackIndicatorController({
     scene: deps.scene,

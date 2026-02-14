@@ -11,9 +11,11 @@ export type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
   clearHand: () => void;
   clearSelection?: () => void;
+  hidePreviewNow?: () => void;
   scrollToEnd?: (animate?: boolean) => void;
   renderPreviewCard?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
   setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
+  getCardSize?: () => { w: number; h: number } | undefined;
 };
 
 export type ActionControls = {
@@ -46,9 +48,11 @@ export function createHandControls(hand: HandAreaHandler): HandControls {
     setHand: (cards, opts) => hand.setHand(cards, opts),
     clearHand: () => hand.clearHand(),
     clearSelection: () => hand.clearSelection(),
+    hidePreviewNow: () => hand.hidePreviewNow(),
     scrollToEnd: (animate?: boolean) => hand.scrollToEnd(animate),
     renderPreviewCard: (container, card) => hand.renderPreviewCard(container, card),
     setCardClickHandler: (handler) => hand.setCardClickHandler?.(handler),
+    getCardSize: () => hand.getCardSize(),
   };
 }
 

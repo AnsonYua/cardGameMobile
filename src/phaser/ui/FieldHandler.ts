@@ -232,6 +232,8 @@ export class FieldHandler {
         this.slotDisplay.setSlotVisible(owner, slotId, visible),
       createSlotSprite: (slot: SlotViewModel, size: { w: number; h: number }) =>
         this.slotDisplay.createSlotSprite(slot, size),
+      hidePreviewNow: () => this.slotDisplay.hidePreviewNow(),
+      setSlotPreviewEnabled: (enabled: boolean) => this.slotDisplay.setSlotPreviewEnabled(enabled),
     };
   }
 

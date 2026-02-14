@@ -6,6 +6,7 @@ import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
 import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
 import { createCardsMovedToDeckBottomTask, createTopDeckViewedTask } from "./deckNotificationTasks";
+import { HAND_CARD_ASPECT, HAND_GAP_X, HAND_PADDING_X, HAND_TARGET_CARD_W, HAND_VISIBLE_COUNT } from "../../config/gameLayout";
 
 export type SlotNotification = {
   id: string;
@@ -53,6 +54,7 @@ export class NotificationAnimationController {
         cards: any[],
         opts: Pick<DrawPopupOpts, "header" | "fadeInMs" | "holdMs" | "fadeOutMs" | "centerY">,
       ) => Promise<void>;
+      getHandCardSize?: () => { w: number; h: number } | undefined;
       onSlotAnimationStart?: (slotKey: string) => void;
       onSlotAnimationEnd?: (slotKey: string) => void;
       setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
@@ -240,6 +242,7 @@ export class NotificationAnimationController {
       ap: slot.fieldCardValue?.totalAP ?? slot.ap ?? 0,
       hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
     };
+    const size = this.computeHandFlightSize();
     const end = { x: target.x, y: target.y };
     const cardName = card?.cardData?.name ?? card?.id ?? payload.carduid;
     const fallbackLabel = card?.id ?? payload.carduid;
@@ -255,6 +258,7 @@ export class NotificationAnimationController {
         isOpponent: !isSelf,
         cardName,
         stats,
+        size,
         textureKey,
         fallbackLabel,
         shouldHide,
@@ -270,6 +274,7 @@ export class NotificationAnimationController {
     isOpponent: boolean;
     cardName: string;
     stats: { ap?: number; hp?: number };
+    size?: { w: number; h: number };
     textureKey?: string;
     fallbackLabel?: string;
     shouldHide: boolean;
@@ -288,6 +293,8 @@ export class NotificationAnimationController {
         isOpponent: spec.isOpponent,
         cardName: spec.cardName,
         stats: spec.stats,
+        size: spec.size,
+        preserveSize: true,
       });
     } finally {
       this.deps.onSlotAnimationEnd?.(spec.slotKey);
@@ -296,6 +303,19 @@ export class NotificationAnimationController {
         this.showSlot(spec.owner, spec.slotId);
       }
     }
+  }
+
+  private computeHandFlightSize() {
+    const live = this.deps.getHandCardSize?.();
+    if (live?.w && live?.h) return live;
+    const camW = this.deps.scene.scale.width;
+    const viewW = Math.max(120, camW * 0.95 - HAND_PADDING_X * 2);
+    const cardW = Math.max(
+      60,
+      Math.min(HAND_TARGET_CARD_W, (viewW - HAND_GAP_X * (HAND_VISIBLE_COUNT - 1)) / HAND_VISIBLE_COUNT),
+    );
+    const cardH = cardW * HAND_CARD_ASPECT;
+    return { w: cardW, h: cardH };
   }
 
   private async animateBase(payload: any, isSelf: boolean, baseCard?: any) {
