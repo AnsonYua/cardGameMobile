@@ -86,11 +86,11 @@ export class ApiManager {
     return this.requestWithFallback(url, { gameId, gameEnv });
   }
 
-  getGameResource(gameId: string, playerId: string): Promise<any> {
+  getGameResource(token: string, gameId: string, playerId: string): Promise<any> {
     const url = this.buildUrl(
       `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`,
     );
-    return this.requestGetWithFallback(url);
+    return this.requestGetWithAuthWithFallback(url, token);
   }
 
   async getGameResourceBundle(
@@ -100,16 +100,6 @@ export class ApiManager {
     const url = this.buildUrl("/api/game/player/gameResourceBundle");
     const includePreviews = opts.includePreviews !== false;
     return this.requestRawWithFallback(url, { includePreviews }, token);
-  }
-
-  async getGameResourceBundleByIds(
-    gameId: string,
-    playerId: string,
-    opts: { includePreviews?: boolean } = {},
-  ): Promise<GameResourceBundleResponse> {
-    const url = this.buildUrl("/api/game/player/gameResourceBundle");
-    const includePreviews = opts.includePreviews !== false;
-    return this.requestRawNoAuthWithFallback(url, { includePreviews, gameId });
   }
 
   playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
@@ -274,6 +264,22 @@ export class ApiManager {
     }
   }
 
+  private async requestGetWithAuthWithFallback(url: string, token: string) {
+    try {
+      return await this.doFetchJsonWithAuth(url, token, "GET");
+    } catch (err) {
+      if (!this.baseUrl) throw err;
+      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
+        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
+        try {
+          return await this.doFetchJsonWithAuth(fallbackUrl, token, "GET");
+        } catch {
+          // fall through to rethrow original error
+        }
+      }
+      throw err;
+    }
+  }
 
   private async requestRawWithFallback(url: string, body: Record<string, any>, token: string) {
     try {
@@ -325,11 +331,38 @@ export class ApiManager {
 
     return { contentType, data };
   }
+
   private async doFetch(url: string, body?: Record<string, any>, method: "POST" | "GET" = "POST") {
     const res = await fetch(url, {
       method,
       headers: {
         Accept: "*/*",
+        "Content-Type": "application/json",
+      },
+      body: method === "POST" ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const serverMsg =
+        (json && typeof json === "object" && (json as any).error && String((json as any).error)) ||
+        (json && typeof json === "object" && (json as any).message && String((json as any).message)) ||
+        "";
+      throw new ApiError(serverMsg || `request failed: ${res.status} ${res.statusText}`, res.status, json);
+    }
+    return json;
+  }
+
+  private async doFetchJsonWithAuth(
+    url: string,
+    token: string,
+    method: "POST" | "GET" = "POST",
+    body?: Record<string, any>,
+  ) {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Accept: "*/*",
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: method === "POST" ? JSON.stringify(body) : undefined,

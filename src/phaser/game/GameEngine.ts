@@ -37,6 +37,8 @@ export class GameEngine {
   private previousRaw: GameStatusResponse | null = null;
   private pendingBattleTransition?: { prevBattle: any; nextBattle: any };
   private resourceLoader: CardResourceLoader;
+  private resourceLoadInFlight = false;
+  private lastPreloadedSnapshotKey: string | null = null;
   private selection = new SelectionStore();
   private actions = new ActionRegistry();
   private api: ApiManager;
@@ -83,6 +85,13 @@ export class GameEngine {
         battle: this.getBattle(response),
         status: derivedStatus,
       };
+      const entersRedrawPhase = previousGameEnv.phase !== GamePhase.Redraw && nextGameEnv.phase === GamePhase.Redraw;
+
+      // Proactively preload bundle on new snapshots so visible cards are already in texture cache.
+      // Redraw phase has its own loading/status flow below, so skip duplicate preload here.
+      if (!entersRedrawPhase) {
+        await this.preloadResourcesForSnapshot(gameId, playerId, response, previousGameEnv.raw);
+      }
 
       this.previousRaw = previousGameEnv.raw;
       this.lastRaw = response;
@@ -95,11 +104,15 @@ export class GameEngine {
       if (silent) {
         // Scenario loads should update UI without animations.
         this.events.emit(ENGINE_EVENTS.MAIN_PHASE_UPDATE_SILENT, snapshotNow());
-      } else if (previousGameEnv.phase !== GamePhase.Redraw && nextGameEnv.phase === GamePhase.Redraw) {
+      } else if (entersRedrawPhase) {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
-        await this.fetchGameResources(gameId, playerId, response);
+        const didLoad = await this.fetchGameResources(gameId, playerId, response);
+        if (didLoad) {
+          const preloadKey = this.buildResourceSnapshotKey(response);
+          if (preloadKey) this.lastPreloadedSnapshotKey = preloadKey;
+        }
         this.contextStore.update({ lastStatus: nextGameEnv.status });
         this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
         this.events.emit(ENGINE_EVENTS.PHASE_REDRAW, snapshotNow());
@@ -326,18 +339,56 @@ export class GameEngine {
     return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {});
   }
 
-  private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse) {
+  private buildResourceSnapshotKey(response: GameStatusResponse | null | undefined): string | null {
+    if (!response) return null;
+    const version = (response as any)?.gameEnv?.version;
+    if (version !== undefined && version !== null) return `version:${String(version)}`;
+    const lastEventId = (response as any)?.gameEnv?.lastEventId;
+    if (lastEventId !== undefined && lastEventId !== null) return `event:${String(lastEventId)}`;
+    return null;
+  }
+
+  private async preloadResourcesForSnapshot(
+    gameId: string,
+    playerId: string,
+    response: GameStatusResponse,
+    previousRaw: GameStatusResponse | null,
+  ) {
+    const token = (response as any)?.resourceBundleToken || (previousRaw as any)?.resourceBundleToken;
+    if (!token) return;
+    const currentKey = this.buildResourceSnapshotKey(response);
+    const previousKey = this.buildResourceSnapshotKey(previousRaw);
+    const isFirstSnapshot = !previousRaw;
+    const keyChanged = currentKey ? currentKey !== previousKey : false;
+    const alreadyPreloaded = currentKey ? this.lastPreloadedSnapshotKey === currentKey : false;
+    if (!isFirstSnapshot && !keyChanged && !currentKey) return;
+    if (alreadyPreloaded) return;
+
+    const didLoad = await this.fetchGameResources(gameId, playerId, response);
+    if (didLoad && currentKey) {
+      this.lastPreloadedSnapshotKey = currentKey;
+    }
+  }
+
+  private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse): Promise<boolean> {
     try {
+      if (this.resourceLoadInFlight) return false;
       const token = (statusPayload as any)?.resourceBundleToken || (this.lastRaw as any)?.resourceBundleToken;
-      const bundle = token
-        ? await this.match.getGameResourceBundle(token, { includePreviews: true })
-        : await this.match.getGameResourceBundleByIds(gameId, playerId, { includePreviews: true });
+      if (!token) {
+        this.log.debug("skip resource bundle fetch (missing resourceBundleToken)", { gameId, playerId });
+        return false;
+      }
+      this.resourceLoadInFlight = true;
+      const bundle = await this.match.getGameResourceBundle(token, { includePreviews: true });
       const loadResult = await this.resourceLoader.loadFromResourceBundle(bundle);
       this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources: { bundled: true }, loadResult, statusPayload });
-      return;
+      return true;
 
     } catch (err) {
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
+      return false;
+    } finally {
+      this.resourceLoadInFlight = false;
     }
   }
 

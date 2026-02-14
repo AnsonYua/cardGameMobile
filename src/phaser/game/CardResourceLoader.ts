@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { GameStatusResponse } from "./GameTypes";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 export type GameResourceBundle = {
   contentType: string;
@@ -11,6 +12,13 @@ type MultipartPart = {
   body: Uint8Array;
 };
 
+const resourceDebugSeen = new Set<string>();
+
+const toArrayBuffer = (body: Uint8Array): ArrayBuffer => {
+  const copy = new Uint8Array(body.byteLength);
+  copy.set(body);
+  return copy.buffer;
+};
 
 type LoadStats = {
   totalRequests: number;
@@ -245,7 +253,7 @@ export class CardResourceLoader {
       }
       if (this.loadingKeys.has(key)) return;
 
-      const blob = new Blob([part.body], { type: contentType });
+      const blob = new Blob([toArrayBuffer(part.body)], { type: contentType });
       const objectUrl = URL.createObjectURL(blob);
 
       this.loadingKeys.add(key);
@@ -260,12 +268,22 @@ export class CardResourceLoader {
         this.loadedResources.set(key, { path: key, isPreview: key.endsWith('-preview'), loadTime: performance.now() - start, attempts: 1 });
         this.stats.successfulLoads += 1;
         this.stats.loadedResourcesCount = this.loadedResources.size;
+        if (isDebugFlagEnabled("debug.textures") && !resourceDebugSeen.has(key)) {
+          resourceDebugSeen.add(key);
+          // eslint-disable-next-line no-console
+          console.debug("[textures] loaded", { key, contentType });
+        }
       });
       load.once(`loaderror-image-${key}`, () => {
         URL.revokeObjectURL(objectUrl);
         this.loadingKeys.delete(key);
         this.stats.failedLoads += 1;
         this.stats.failedResourcesCount += 1;
+        if (isDebugFlagEnabled("debug.textures") && !resourceDebugSeen.has(`err:${key}`)) {
+          resourceDebugSeen.add(`err:${key}`);
+          // eslint-disable-next-line no-console
+          console.debug("[textures] loaderror", { key, contentType });
+        }
       });
     });
 

@@ -2,7 +2,10 @@ import Phaser from "phaser";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
-import type { HandCardView } from "./HandTypes";
+import { toBaseKey, toPreviewKey, type HandCardView } from "./HandTypes";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
+
+const textureDebugSeen = new Set<string>();
 
 export type HandPreviewConfig = {
   badgeSize: { w: number; h: number };
@@ -49,6 +52,27 @@ export class HandLayoutRenderer {
       strokeWidth: 1,
     });
     drawn.push(inner);
+    if (isDebugFlagEnabled("debug.textures") && card.textureKey && !this.scene.textures.exists(card.textureKey)) {
+      const key = card.textureKey;
+      if (!textureDebugSeen.has(key)) {
+        textureDebugSeen.add(key);
+        const baseFromKey = key.replace(/-preview$/i, "");
+        const previewFromId = toPreviewKey(card.cardId ?? null);
+        const baseFromId = toBaseKey(card.cardId ?? null);
+        // eslint-disable-next-line no-console
+        console.debug("[textures] missing hand texture", {
+          key,
+          baseFromKey,
+          baseFromKeyExists: this.scene.textures.exists(baseFromKey),
+          previewFromId,
+          previewFromIdExists: previewFromId ? this.scene.textures.exists(previewFromId) : false,
+          baseFromId,
+          baseFromIdExists: baseFromId ? this.scene.textures.exists(baseFromId) : false,
+          cardId: card.cardId,
+          cardType: card.cardType,
+        });
+      }
+    }
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
       const img = this.scene.add.image(x, y, card.textureKey).setDepth((bg.depth || 0) + 1);
       const baseW = img.width || w;

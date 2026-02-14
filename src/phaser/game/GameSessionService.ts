@@ -43,16 +43,12 @@ export class GameSessionService {
     return this.api.getGameStatus(gameId, playerId);
   }
 
-  async getGameResource(gameId: string, playerId: string) {
-    return this.api.getGameResource(gameId, playerId);
+  async getGameResource(token: string, gameId: string, playerId: string) {
+    return this.api.getGameResource(token, gameId, playerId);
   }
 
   async getGameResourceBundle(token: string, opts: { includePreviews?: boolean } = {}) {
     return this.api.getGameResourceBundle(token, opts);
-  }
-
-  async getGameResourceBundleByIds(gameId: string, playerId: string, opts: { includePreviews?: boolean } = {}) {
-    return this.api.getGameResourceBundleByIds(gameId, playerId, opts);
   }
 
   async joinRoom(gameId: string, playerId: string, playerName: string) {

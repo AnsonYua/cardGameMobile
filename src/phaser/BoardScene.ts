@@ -64,6 +64,8 @@ import { createTurnTimerBindings } from "./scene/boardTimerBindings";
 import { setupBoardFlows } from "./scene/boardFlowSetup";
 import { getEnergyStatus, getOpponentHandCount, resolvePlayerIds } from "./scene/boardStatusHelpers";
 import { shouldHideHandForStartGame, shouldRefreshHandForEvent } from "./scene/boardHandHelpers";
+import { toPreviewKey } from "./ui/HandTypes";
+import { isDebugFlagEnabled } from "./utils/debugFlags";
 import {
   createTimerPauseResumeHandlers,
   createTurnStartDrawHandlers,
@@ -104,6 +106,9 @@ export class BoardScene extends Phaser.Scene {
   private handPresenter = new HandPresenter();
   private slotPresenter = new SlotPresenter();
   private turnController = new TurnStateController();
+  private handResourceReloadInFlight = false;
+  private lastHandResourceReloadAt = 0;
+  private handMissingTextureAttempts = new Map<string, number>();
 
   private headerControls: BoardUiControls["headerControls"] | null = null;
   private actionDispatcher = new ActionDispatcher();
@@ -457,12 +462,16 @@ export class BoardScene extends Phaser.Scene {
         this.startGameAnimating = false;
         this.startGameCompleted = true;
         this.showDefaultUI();
+        // INIT_HAND remains in-flight until the mulligan prompt resolves, so ensure cards are visible now.
+        this.updateHandArea({ skipAnimation: true });
         this.refreshPhase(false);
         this.log.debug("shuffle animation finished");
       } else {
         this.startGameAnimating = false;
         this.startGameCompleted = true;
         this.showDefaultUI();
+        // INIT_HAND remains in-flight until the mulligan prompt resolves, so ensure cards are visible now.
+        this.updateHandArea({ skipAnimation: true });
         this.refreshPhase(false);
       }
     } finally {
@@ -649,6 +658,48 @@ export class BoardScene extends Phaser.Scene {
     const playerId = this.gameContext.playerId;
     const cards = this.handPresenter.toHandCards(raw, playerId);
     if (!cards.length) return;
+
+    // If new cards appear (draw/redraw), their textures may not be in the current cache yet.
+    // When we detect missing textures, re-fetch the resource bundle and re-render the hand after load.
+    const gameId = this.gameContext.gameId;
+    if (gameId && playerId && !this.handResourceReloadInFlight) {
+      const missingKeySet = new Set<string>();
+      cards.forEach((card) => {
+        const previewKey = toPreviewKey(card.cardId ?? null);
+        const baseKey = card.textureKey;
+        // Hand cards should render preview art when cardId exists.
+        const requiredKey = previewKey ?? baseKey;
+        if (!requiredKey) return;
+        if (this.textures.exists(requiredKey)) return;
+        missingKeySet.add(requiredKey);
+      });
+      const missingKeys = Array.from(missingKeySet);
+
+      const shouldAttempt = missingKeys.some((key) => (this.handMissingTextureAttempts.get(key) ?? 0) < 2);
+      const now = Date.now();
+      if (missingKeys.length > 0 && shouldAttempt && now - this.lastHandResourceReloadAt > 1200) {
+        this.lastHandResourceReloadAt = now;
+        missingKeys.forEach((key) =>
+          this.handMissingTextureAttempts.set(key, (this.handMissingTextureAttempts.get(key) ?? 0) + 1),
+        );
+        this.handResourceReloadInFlight = true;
+        if (isDebugFlagEnabled("debug.textures")) {
+          // eslint-disable-next-line no-console
+          console.debug("[textures] reload bundle (hand missing)", {
+            missingKeys: missingKeys.slice(0, 8),
+            total: missingKeys.length,
+          });
+        }
+        void this.engine
+          .loadGameResources(gameId, playerId)
+          .catch(() => null)
+          .finally(() => {
+            this.handResourceReloadInFlight = false;
+            this.updateHandArea({ skipAnimation: true });
+          });
+      }
+    }
+
     const selectedUid = this.selectionAction?.getSelectedHandCard()?.uid;
     this.handControls?.setHand(cards, { preserveSelectionUid: selectedUid });
     this.handControls?.setVisible(true);

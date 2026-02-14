@@ -6,11 +6,14 @@ import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
+import { toBaseKey, toPreviewKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type RenderOptions = {
   positions: SlotPositionMap;
 };
+
+const slotTextureDebugSeen = new Set<string>();
 
 export class SlotDisplayHandler {
   private cardAspect = 63 / 88;
@@ -361,6 +364,25 @@ export class SlotDisplayHandler {
     pilotSliceRatio = this.config.slot.pilotSliceRatio
   ) {
     const hasTexture = textureKey && this.scene.textures.exists(textureKey);
+    if (isDebugFlagEnabled("debug.textures") && textureKey && !hasTexture && !slotTextureDebugSeen.has(textureKey)) {
+      slotTextureDebugSeen.add(textureKey);
+      const baseFromKey = textureKey.replace(/-preview$/i, "");
+      const cardId = fallbackLabel;
+      const previewFromId = toPreviewKey(cardId ?? null);
+      const baseFromId = toBaseKey(cardId ?? null);
+      // eslint-disable-next-line no-console
+      console.debug("[textures] missing slot texture", {
+        textureKey,
+        baseFromKey,
+        baseFromKeyExists: this.scene.textures.exists(baseFromKey),
+        fallbackLabel,
+        fallbackLabelExists: fallbackLabel ? this.scene.textures.exists(fallbackLabel) : false,
+        previewFromId,
+        previewFromIdExists: previewFromId ? this.scene.textures.exists(previewFromId) : false,
+        baseFromId,
+        baseFromIdExists: baseFromId ? this.scene.textures.exists(baseFromId) : false,
+      });
+    }
     const scale = isPilot ? pilotSliceRatio : 1;
     const fitted = this.fitCardSize(w * scale, h * scale);
     if (hasTexture && textureKey) {

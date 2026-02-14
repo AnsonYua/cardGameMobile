@@ -40,16 +40,12 @@ export class MatchStateMachine {
     return this.session.getGameStatus(gameId, playerId);
   }
 
-  async getGameResource(gameId: string, playerId: string) {
-    return this.session.getGameResource(gameId, playerId);
+  async getGameResource(token: string, gameId: string, playerId: string) {
+    return this.session.getGameResource(token, gameId, playerId);
   }
 
   async getGameResourceBundle(token: string, opts: { includePreviews?: boolean } = {}) {
     return this.session.getGameResourceBundle(token, opts);
-  }
-
-  async getGameResourceBundleByIds(gameId: string, playerId: string, opts: { includePreviews?: boolean } = {}) {
-    return this.session.getGameResourceBundleByIds(gameId, playerId, opts);
   }
 
   getApiBaseUrl() {

@@ -1,7 +1,9 @@
 import { toPreviewKey } from "./HandTypes";
 import { SlotCardView, SlotOwner, SlotViewModel } from "./SlotTypes";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 const SLOT_KEYS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6"];
+const slotPresenterDebugSeen = new Set<string>();
 
 export class SlotPresenter {
   toSlots(raw: any, selfPlayerId: string): SlotViewModel[] {
@@ -50,6 +52,11 @@ export class SlotPresenter {
     const textureKey = toPreviewKey(id);
     const cardType = typeof card === "string" ? undefined : card.cardData?.cardType;
     const cardUid = typeof card === "string" ? undefined : card.carduid ?? card.cardUid ?? card.uid ?? card.id;
+    if (isDebugFlagEnabled("debug.textures") && !id && cardUid && !slotPresenterDebugSeen.has(String(cardUid))) {
+      slotPresenterDebugSeen.add(String(cardUid));
+      // eslint-disable-next-line no-console
+      console.debug("[textures] slot card missing id", { cardUid, keys: Object.keys(card ?? {}), cardType });
+    }
     return {
       id,
       textureKey,

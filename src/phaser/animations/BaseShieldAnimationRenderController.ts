@@ -173,12 +173,18 @@ export class BaseShieldAnimationRenderController {
     if (!player) return null;
     const zones = player.zones || player.zone || {};
     const shieldArea = zones.shieldArea || player.shieldArea || [];
+    const shieldCount = zones.shieldCount ?? player?.shieldCount;
     const baseArr = zones.base || player.base;
     const baseCard = Array.isArray(baseArr) ? baseArr[0] : baseArr ?? null;
     const field = baseCard?.fieldCardValue || {};
     return {
       baseCard: this.cloneBaseCard(baseCard),
-      shieldCount: Array.isArray(shieldArea) ? shieldArea.length : 0,
+      shieldCount:
+        typeof shieldCount === "number" && Number.isFinite(shieldCount)
+          ? shieldCount
+          : Array.isArray(shieldArea)
+            ? shieldArea.length
+            : 0,
       ap: Number(field.totalAP ?? 0),
       hp: Number(field.totalHP ?? 0),
       rested: Boolean(baseCard?.isRested ?? field.isRested ?? false),

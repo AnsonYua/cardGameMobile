@@ -21,6 +21,8 @@ export function resolvePlayerIds(players: PlayerMap, selfId?: string | null) {
 export function getOpponentHandCount(players: PlayerMap, selfId?: string | null) {
   const { opponentId } = resolvePlayerIds(players, selfId);
   const opponent = opponentId ? players?.[opponentId] : undefined;
+  const handCount = opponent?.deck?.handCount;
+  if (typeof handCount === "number" && Number.isFinite(handCount)) return handCount;
   const hand = opponent?.deck?.hand;
   const handUids = opponent?.deck?.handUids;
   if (typeof hand?.length === "number") return hand.length;
@@ -39,7 +41,13 @@ export function getEnergyStatus(players: PlayerMap, selfId?: string | null) {
     const zones = player?.zones || player?.zone || {};
     const shieldArea = zones.shieldArea || player?.shieldArea || [];
     const energyArea = zones.energyArea || player?.energyArea || [];
-    const shield = Array.isArray(shieldArea) ? shieldArea.length : 0;
+    const shieldCount = zones.shieldCount ?? player?.shieldCount;
+    const shield =
+      typeof shieldCount === "number" && Number.isFinite(shieldCount)
+        ? shieldCount
+        : Array.isArray(shieldArea)
+          ? shieldArea.length
+          : 0;
     const energies = Array.isArray(energyArea) ? energyArea : [];
     const active = energies.filter((e) => e && e.isRested === false && e.isExtraEnergy === false).length;
     const rested = energies.filter((e) => e && e.isRested === true && e.isExtraEnergy === false).length;

@@ -104,6 +104,7 @@ export class DebugControls {
   private readonly shouldDeferPolling?: () => boolean;
   private deferredPollPending = false;
   private deferredPollLogged = false;
+  private pollInFlight = false;
   private selectedScenarioPath = DEFAULT_SCENARIO_PATH;
 
   constructor(
@@ -219,8 +220,8 @@ export class DebugControls {
 
       //alert(gameId)
       await this.api.injectGameState(gameId, gameEnv);
-      await this.engine.loadGameResources(gameId, this.context.playerId, { gameEnv } as any);
-      await this.engine.updateGameStatus(gameId, this.context.playerId, { fromScenario: true, silent: true });
+      await this.engine.updateGameStatus(gameId, this.context.playerId, { fromScenario: false, silent: true });
+      await this.engine.loadGameResources(gameId, this.context.playerId);
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
     } catch (err) {
       console.error("Set scenario failed", err);
@@ -231,6 +232,7 @@ export class DebugControls {
       if (!opts?.skipPopupHide) {
         await this.popup?.hide();
       }
+      if (this.pollInFlight) return;
       if (this.shouldDeferPolling?.()) {
         this.deferredPollPending = true;
         if (!this.deferredPollLogged) {
@@ -238,6 +240,7 @@ export class DebugControls {
         }
         return;
       }
+      this.pollInFlight = true;
       const snapshot = await this.engine.updateGameStatus(this.context.gameId ?? undefined, this.context.playerId, {
         silent: silentRefresh,
         fromScenario: false,
@@ -247,6 +250,8 @@ export class DebugControls {
       }
     } catch (err) {
       void err;
+    } finally {
+      this.pollInFlight = false;
     }
   }
 

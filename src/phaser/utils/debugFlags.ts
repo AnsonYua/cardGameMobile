@@ -1,4 +1,5 @@
 export function isDebugFlagEnabled(flag: string): boolean {
+  //return true
   if (!flag) return false;
   if (typeof window === "undefined") return false;
   try {
