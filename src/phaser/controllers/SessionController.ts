@@ -25,7 +25,9 @@ export class SessionController {
       const gameId = parsed.gameId;
       const playerIdParam = parsed.playerId;
       const playerNameParam = parsed.playerName;
+      const joinTokenParam = parsed.joinToken;
       const isAutoPolling = parsed.isAutoPolling;
+      const aiMode = parsed.aiMode;
 
       if (!mode) throw new Error("Invalid mode");
 
@@ -38,12 +40,16 @@ export class SessionController {
         if (!gameId) {
           throw new Error("Missing game id for join mode");
         }
-        // Default join identity aligns with backend sample if none provided.
-        const joinId = playerIdParam || "playerId_2";
+        if (!joinTokenParam) {
+          throw new Error("Missing join token for join mode");
+        }
         const joinName = playerNameParam || "Demo Opponent";
-        contextStore.update({ playerId: joinId, playerName: joinName });
-        await match.joinRoom(gameId, joinId, joinName);
-        const resolvedPlayerId = contextStore.get().playerId || joinId;
+        const joinResp = await match.joinRoom(gameId, joinTokenParam);
+        const resolvedPlayerId = joinResp?.playerId || contextStore.get().playerId || "";
+        if (!resolvedPlayerId) {
+          throw new Error("Join failed: missing player id");
+        }
+        contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
         const statusPayload = (await match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
         await engine.loadGameResources(gameId, resolvedPlayerId, statusPayload);
         await engine.updateGameStatus(gameId, resolvedPlayerId, {
@@ -57,10 +63,16 @@ export class SessionController {
 
       const hostName = playerNameParam || context.playerName || "Demo Player";
       contextStore.update({ playerName: hostName });
-      await match.startAsHost(context.playerId, { playerName: hostName });
+      const hostResp = await match.startAsHost({ playerName: hostName }, { aiMode });
       const state = match.getState();
       if (state.gameId) {
         contextStore.update({ gameId: state.gameId });
+      }
+      if (hostResp?.playerId) {
+        contextStore.update({ playerId: hostResp.playerId });
+      }
+      if (hostResp?.joinToken) {
+        contextStore.update({ joinToken: hostResp.joinToken });
       }
       if (isAutoPolling) {
         await debugControls?.startAutoPolling();

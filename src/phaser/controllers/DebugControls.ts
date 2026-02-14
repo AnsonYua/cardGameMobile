@@ -145,7 +145,7 @@ export class DebugControls {
         },
       },
       gameId: this.context.gameId ?? undefined,
-      playerId: this.context.playerId ?? undefined,
+      joinToken: this.context.joinToken ?? undefined,
       isAutoPolling: true,
     };
     this.popup.show(config);
@@ -294,7 +294,11 @@ export class DebugControls {
     await this.popup?.hide();
     const id = this.context.gameId ?? `demo-${Date.now()}`;
     try {
-      await this.match.joinRoom(id, "playerId_2", "Demo Opponent");
+      const joinToken = this.context.joinToken;
+      if (!joinToken) {
+        throw new Error("Missing join token for test join.");
+      }
+      await this.match.joinRoom(id, joinToken);
     } catch (err) {
       console.error("Test join failed", err);
     }

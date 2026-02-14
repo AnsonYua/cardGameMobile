@@ -12,7 +12,7 @@ export type TestButtonPopupConfig = Partial<
   Record<"button1" | "button2" | "button3" | "button4" | "button5" | "button6" | "button7" | "button8", PopupButton>
 > & {
   gameId?: string;
-  playerId?: string;
+  joinToken?: string;
   isAutoPolling?: boolean;
   joinUrlBase?: string;
   scenarioPicker?: ScenarioPickerConfig;
@@ -130,7 +130,7 @@ export class TestButtonPopup {
         const joinUrl = this.buildJoinUrl({
           base: config.joinUrlBase,
           gameId,
-          playerId: config.playerId,
+          joinToken: config.joinToken,
           isAutoPolling: config.isAutoPolling,
         });
         this.copyToClipboard(joinUrl);
@@ -179,7 +179,7 @@ export class TestButtonPopup {
     this.execFallbackCopy(text);
   }
 
-  private buildJoinUrl(opts: { base?: string; gameId: string; playerId?: string; isAutoPolling?: boolean }): string {
+  private buildJoinUrl(opts: { base?: string; gameId: string; joinToken?: string; isAutoPolling?: boolean }): string {
     const origin =
       opts.base ??
       (typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost:5173");
@@ -187,7 +187,7 @@ export class TestButtonPopup {
     url.searchParams.set("mode", "join");
     url.searchParams.set("gameId", opts.gameId);
     url.searchParams.set("isAutoPolling", String(opts.isAutoPolling ?? true));
-    if (opts.playerId) url.searchParams.set("playerId", opts.playerId);
+    if (opts.joinToken) url.searchParams.set("joinToken", opts.joinToken);
     return url.toString();
   }
 

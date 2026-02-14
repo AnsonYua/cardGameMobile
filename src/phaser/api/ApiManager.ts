@@ -1,6 +1,28 @@
+import { ApiClient, ApiError, type GameResourceBundleResponse } from "./apiClient";
+
+export { ApiError };
+
 export type StartGamePayload = {
-  playerId: string;
   gameConfig: { playerName: string };
+  aimode?: boolean;
+};
+export type StartGameResponse = {
+  success: boolean;
+  gameId?: string;
+  roomId?: string;
+  playerId?: string;
+  sessionToken?: string;
+  sessionExpiresAt?: number;
+  joinToken?: string;
+  gameEnv?: any;
+};
+export type JoinRoomResponse = {
+  success: boolean;
+  gameId?: string;
+  playerId?: string;
+  sessionToken?: string;
+  sessionExpiresAt?: number;
+  gameEnv?: any;
 };
 export type StartReadyPayload = {
   gameId: string;
@@ -22,94 +44,66 @@ export type LobbyListResponse = {
   timestamp: string;
 };
 
-export type GameResourceBundleResponse = {
-  contentType: string;
-  data: ArrayBuffer;
-};
-
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly data: any,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
 export class ApiManager {
-  private baseUrl: string;
-  private fallbackUrl = "http://localhost:8080";
+  private client: ApiClient;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = this.resolveBaseUrl(baseUrl);
+    this.client = new ApiClient(baseUrl);
   }
 
   getBaseUrl() {
-    return this.baseUrl;
+    return this.client.getBaseUrl();
   }
 
-  startGame(payload: StartGamePayload): Promise<any> {
-    const url = this.buildUrl("/api/game/player/startGame");
-    return this.requestWithFallback(url, payload);
+  startGame(payload: StartGamePayload): Promise<StartGameResponse> {
+    return this.client.postJson("/api/game/player/startGame", payload);
   }
 
   startReady(payload: StartReadyPayload): Promise<any> {
-    const url = this.buildUrl("/api/game/player/startReady");
-    return this.requestWithFallback(url, payload);
+    return this.client.postJson("/api/game/player/startReady", payload, { auth: true });
   }
 
   chooseFirstPlayer(payload: ChooseFirstPlayerPayload): Promise<any> {
-    const url = this.buildUrl("/api/game/player/chooseFirstPlayer");
-    return this.requestWithFallback(url, payload);
+    return this.client.postJson("/api/game/player/chooseFirstPlayer", payload, { auth: true });
   }
 
   getLobbyList(): Promise<LobbyListResponse> {
-    const url = this.buildUrl("/api/game/lobbylist");
-    return this.requestGetWithFallback(url);
+    return this.client.getJson("/api/game/lobbylist");
   }
 
   getGameStatus(gameId: string, playerId: string): Promise<any> {
-    const url = this.buildUrl(`/api/game/player/${playerId}?gameId=${encodeURIComponent(gameId)}`);
-    return this.requestGetWithFallback(url);
+    const path = `/api/game/player/${playerId}?gameId=${encodeURIComponent(gameId)}`;
+    return this.client.getJson(path, { auth: true });
   }
 
   getTestScenario(scenarioPath: string): Promise<any> {
-    const url = this.buildUrl(`/api/game/test/getTestScenario?scenarioPath=${encodeURIComponent(scenarioPath)}`);
-    return this.requestGetWithFallback(url);
+    const path = `/api/game/test/getTestScenario?scenarioPath=${encodeURIComponent(scenarioPath)}`;
+    return this.client.getJson(path);
   }
 
   injectGameState(gameId: string, gameEnv: any): Promise<any> {
-    const url = this.buildUrl(`/api/game/test/injectGameState`);
-    return this.requestWithFallback(url, { gameId, gameEnv });
+    return this.client.postJson("/api/game/test/injectGameState", { gameId, gameEnv });
   }
 
   getGameResource(token: string, gameId: string, playerId: string): Promise<any> {
-    const url = this.buildUrl(
-      `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`,
-    );
-    return this.requestGetWithAuthWithFallback(url, token);
+    const path = `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`;
+    return this.client.getJson(path, { authToken: token });
   }
 
   async getGameResourceBundle(
     token: string,
     opts: { includePreviews?: boolean } = {},
   ): Promise<GameResourceBundleResponse> {
-    const url = this.buildUrl("/api/game/player/gameResourceBundle");
     const includePreviews = opts.includePreviews !== false;
-    return this.requestRawWithFallback(url, { includePreviews }, token);
+    return this.client.postRaw("/api/game/player/gameResourceBundle", { includePreviews }, { authToken: token });
   }
 
   playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
-    const url = this.buildUrl("/api/game/player/playCard");
-    return this.requestWithFallback(url, payload);
+    return this.client.postJson("/api/game/player/playCard", payload, { auth: true });
   }
 
   endTurn(payload: { playerId: string; gameId: string }) {
-    const url = this.buildUrl("/api/game/player/endTurn");
-    return this.requestWithFallback(url, payload);
+    return this.client.postJson("/api/game/player/endTurn", payload, { auth: true });
   }
 
   confirmTargetChoice(payload: {
@@ -178,203 +172,14 @@ export class ApiManager {
     targetPlayerId?: string;
     targetPilotUid?: string | null;
   }) {
-    const url = this.buildUrl("/api/game/player/playerAction");
-    return this.requestWithFallback(url, payload);
+    return this.client.postJson("/api/game/player/playerAction", payload, { auth: true });
   }
 
-  joinRoom(gameId: string, playerId: string, playerName?: string): Promise<any> {
-    const url = this.buildUrl("/api/game/player/joinRoom");
-    const payload: Record<string, string> = { gameId, playerId };
-    if (playerName) payload.playerName = playerName;
-    return this.requestWithFallback(url, payload);
-  }
-
-  private resolveBaseUrl(baseUrl?: string) {
-    if (typeof baseUrl === "string" && baseUrl.length > 0) return baseUrl;
-    // Allow configuring an explicit API origin at build-time (so the browser calls your backend domain directly).
-    // Example: VITE_API_BASE_URL="https://api.example.com"
-    const envBaseUrl =
-      (import.meta as any)?.env?.VITE_API_BASE_URL ||
-      (import.meta as any)?.env?.VITE_BACKEND_URL ||
-      "";
-    if (typeof envBaseUrl === "string" && envBaseUrl.length > 0) return envBaseUrl;
-
-    // Default to relative requests ("/api/...") so Vite's proxy can route to the backend.
-    if (typeof window === "undefined" || !window.location) return "";
-    const params = new URLSearchParams(window.location.search);
-    const apiUrlParam = params.get("apiUrl") || params.get("apiurl");
-    const apiHostParam = params.get("apiHost") || params.get("apihost");
-    const { protocol, hostname } = window.location;
-    if (apiUrlParam) {
-      if (apiUrlParam.startsWith("http")) return apiUrlParam;
-      return `${protocol}//${apiUrlParam}`;
-    }
-    if (apiHostParam) {
-      // allow specifying host:port via querystring
-      return apiHostParam.includes(":") ? `${protocol}//${apiHostParam}` : `${protocol}//${apiHostParam}:8080`;
-    }
-    // No explicit API host: use relative URLs (proxy-controlled).
-    void hostname; // keep destructure stable if used later
-    return "";
+  joinRoom(gameId: string, joinToken: string): Promise<JoinRoomResponse> {
+    return this.client.postJson("/api/game/player/joinRoom", { gameId, joinToken });
   }
 
   private postPlayerDecision(path: string, payload: Record<string, unknown>) {
-    const url = this.buildUrl(path);
-    return this.requestWithFallback(url, payload);
-  }
-
-  private async requestWithFallback(url: string, body: Record<string, any>) {
-    try {
-      return await this.doFetch(url, body);
-    } catch (err) {
-      if (!this.baseUrl) throw err; // relative path already tried through proxy
-      // If primary host failed and isn't localhost, try localhost as a fallback (helps when API bound only to loopback).
-      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
-        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
-        try {
-          return await this.doFetch(fallbackUrl, body);
-        } catch {
-          // fall through to rethrow original error
-        }
-      }
-      throw err;
-    }
-  }
-
-  private buildUrl(path: string) {
-    const base = this.getBaseUrl();
-    if (!base) return path;
-    return `${base}${path}`;
-  }
-
-  private async requestGetWithFallback(url: string) {
-    try {
-      return await this.doFetch(url, undefined, "GET");
-    } catch (err) {
-      if (!this.baseUrl) throw err;
-      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
-        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
-        try {
-          return await this.doFetch(fallbackUrl, undefined, "GET");
-        } catch {
-          // fall through to rethrow original error
-        }
-      }
-      throw err;
-    }
-  }
-
-  private async requestGetWithAuthWithFallback(url: string, token: string) {
-    try {
-      return await this.doFetchJsonWithAuth(url, token, "GET");
-    } catch (err) {
-      if (!this.baseUrl) throw err;
-      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
-        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
-        try {
-          return await this.doFetchJsonWithAuth(fallbackUrl, token, "GET");
-        } catch {
-          // fall through to rethrow original error
-        }
-      }
-      throw err;
-    }
-  }
-
-  private async requestRawWithFallback(url: string, body: Record<string, any>, token: string) {
-    try {
-      return await this.doFetchRaw(url, body, token);
-    } catch (err) {
-      if (!this.baseUrl) throw err;
-      if (!this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1")) {
-        const fallbackUrl = url.replace(this.baseUrl, this.fallbackUrl);
-        try {
-          return await this.doFetchRaw(fallbackUrl, body, token);
-        } catch {
-          // fall through to rethrow original error
-        }
-      }
-      throw err;
-    }
-  }
-
-  private async doFetchRaw(url: string, body: Record<string, any>, token: string): Promise<GameResourceBundleResponse> {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Accept: "*/*",
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const contentType = res.headers.get("content-type") || "";
-    const data = await res.arrayBuffer();
-
-    if (!res.ok) {
-      let message = `request failed: ${res.status} ${res.statusText}`;
-      let parsed: any = null;
-      try {
-        if (contentType.includes("application/json")) {
-          parsed = JSON.parse(new TextDecoder().decode(new Uint8Array(data)));
-          message = (parsed && (parsed.error || parsed.message)) ? String(parsed.error || parsed.message) : message;
-        } else {
-          const text = new TextDecoder().decode(new Uint8Array(data).slice(0, 4096));
-          if (text) message = text;
-        }
-      } catch {
-        // ignore parse errors
-      }
-      throw new ApiError(message, res.status, parsed);
-    }
-
-    return { contentType, data };
-  }
-
-  private async doFetch(url: string, body?: Record<string, any>, method: "POST" | "GET" = "POST") {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        Accept: "*/*",
-        "Content-Type": "application/json",
-      },
-      body: method === "POST" ? JSON.stringify(body) : undefined,
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const serverMsg =
-        (json && typeof json === "object" && (json as any).error && String((json as any).error)) ||
-        (json && typeof json === "object" && (json as any).message && String((json as any).message)) ||
-        "";
-      throw new ApiError(serverMsg || `request failed: ${res.status} ${res.statusText}`, res.status, json);
-    }
-    return json;
-  }
-
-  private async doFetchJsonWithAuth(
-    url: string,
-    token: string,
-    method: "POST" | "GET" = "POST",
-    body?: Record<string, any>,
-  ) {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        Accept: "*/*",
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: method === "POST" ? JSON.stringify(body) : undefined,
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const serverMsg =
-        (json && typeof json === "object" && (json as any).error && String((json as any).error)) ||
-        (json && typeof json === "object" && (json as any).message && String((json as any).message)) ||
-        "";
-      throw new ApiError(serverMsg || `request failed: ${res.status} ${res.statusText}`, res.status, json);
-    }
-    return json;
+    return this.client.postJson(path, payload, { auth: true });
   }
 }

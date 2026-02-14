@@ -15,11 +15,12 @@ export class MatchStateMachine {
     return { status: this.status, gameId: this.gameId, mode: this.mode };
   }
 
-  async startAsHost(playerId: string, gameConfig: { playerName: string }) {
+  async startAsHost(gameConfig: { playerName: string }, opts?: { aiMode?: boolean }) {
     this.transition(GameStatus.CreatingRoom);
-    const resp = await this.session.startAsHost(playerId, gameConfig);
+    const resp = await this.session.startAsHost(gameConfig, opts);
     this.gameId = resp?.gameId ?? resp?.roomId ?? null;
     this.transition(GameStatus.WaitingOpponent);
+    return resp;
     /*
     // Placeholder: simulate opponent join after short delay.
     setTimeout(() => {
@@ -28,12 +29,13 @@ export class MatchStateMachine {
     */
   }
 
-  async joinRoom(gameId: string, playerId: string, playerName: string) {
+  async joinRoom(gameId: string, joinToken: string) {
     this.mode = GameMode.Join;
     this.transition(GameStatus.CreatingRoom);
-    await this.session.joinRoom(gameId, playerId, playerName);
+    const resp = await this.session.joinRoom(gameId, joinToken);
     this.gameId = gameId;
     this.transition(GameStatus.Ready);
+    return resp;
   }
 
   async getGameStatus(gameId: string, playerId: string) {

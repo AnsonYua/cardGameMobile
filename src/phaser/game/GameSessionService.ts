@@ -1,4 +1,5 @@
 import { ApiManager } from "../api/ApiManager";
+import { updateSession } from "./SessionStore";
 
 export enum GameStatus {
   Idle = "idle",
@@ -30,11 +31,20 @@ export class GameSessionService {
     };
   }
 
-  async startAsHost(playerId: string, gameConfig: { playerName: string }) {
+  async startAsHost(gameConfig: { playerName: string }, opts?: { aiMode?: boolean }) {
     this.gameMode = GameMode.Host;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.startGame({ playerId, gameConfig });
+    const payload: { gameConfig: { playerName: string }; aimode?: boolean } = { gameConfig };
+    if (opts?.aiMode) payload.aimode = true;
+    const resp = await this.api.startGame(payload);
     this.gameId = resp?.gameId ?? resp?.roomId ?? null;
+    updateSession({
+      gameId: resp?.gameId ?? resp?.roomId ?? undefined,
+      playerId: resp?.playerId,
+      joinToken: resp?.joinToken,
+      sessionToken: resp?.sessionToken,
+      sessionExpiresAt: resp?.sessionExpiresAt,
+    });
     this.status = GameStatus.WaitingOpponent;
     return resp;
   }
@@ -51,11 +61,17 @@ export class GameSessionService {
     return this.api.getGameResourceBundle(token, opts);
   }
 
-  async joinRoom(gameId: string, playerId: string, playerName: string) {
+  async joinRoom(gameId: string, joinToken: string) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.joinRoom(gameId, playerId, playerName);
+    const resp = await this.api.joinRoom(gameId, joinToken);
     this.gameId = gameId;
+    updateSession({
+      gameId,
+      playerId: resp?.playerId,
+      sessionToken: resp?.sessionToken,
+      sessionExpiresAt: resp?.sessionExpiresAt,
+    });
     this.status = GameStatus.Ready;
     return resp;
   }

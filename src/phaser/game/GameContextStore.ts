@@ -4,6 +4,7 @@ export type GameContext = {
   playerId: string;
   playerName: string;
   gameId: string | null;
+  joinToken?: string | null;
   mode: GameMode;
   lastStatus: any;
 };
@@ -13,6 +14,7 @@ export class GameContextStore {
     playerId: "playerId_1",
     playerName: "Demo Player",
     gameId: null,
+    joinToken: null,
     mode: GameMode.Host,
     lastStatus: null,
   };

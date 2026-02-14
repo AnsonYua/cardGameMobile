@@ -7,7 +7,6 @@ type LobbyViewProps = {
 
 type LobbyStatus = "idle" | "loading" | "error";
 
-const DEFAULT_PLAYER_ID = "playerId_2";
 const POLL_INTERVAL_MS = 7000;
 
 const formatTimestamp = (value: string) => {
@@ -22,8 +21,6 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
   const [status, setStatus] = useState<LobbyStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [playerId] = useState(() => (typeof window === "undefined" ? "player_guest" : DEFAULT_PLAYER_ID));
-
   useEffect(() => {
     let isActive = true;
 
@@ -55,11 +52,15 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
     setJoiningId(gameId);
     setErrorMessage(null);
     try {
-      await api.joinRoom(gameId, playerId);
+      const joinToken = window.prompt("Enter join token for this game:");
+      if (!joinToken || !joinToken.trim()) {
+        setJoiningId(null);
+        return;
+      }
       const params = new URLSearchParams({
         mode: "join",
         gameId,
-        playerId,
+        joinToken: joinToken.trim(),
         isAutoPolling: "true",
       });
       window.location.href = `/game?${params.toString()}`;
@@ -75,11 +76,34 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
         <div className="lobby-header">
           <h1>Lobby</h1>
           <span className="lobby-subtitle">Live rooms update automatically.</span>
+          <div className="lobby-actions-row">
+            <button className="lobby-create-button" type="button">
+              Setup deck
+            </button>
+            <button
+              className="lobby-create-button"
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  mode: "host",
+                  aimode: "true",
+                  isAutoPolling: "true",
+                });
+                window.location.href = `/game?${params.toString()}`;
+              }}
+            >
+              Player with AI
+            </button>
+          </div>
           <button
-            className="lobby-create-button"
+            className="lobby-create-button lobby-create-full"
             type="button"
             onClick={() => {
-              window.location.href = "/game?mode=host&isAutoPolling=true";
+              const params = new URLSearchParams({
+                mode: "host",
+                isAutoPolling: "true",
+              });
+              window.location.href = `/game?${params.toString()}`;
             }}
           >
             Create Room
