@@ -8,7 +8,7 @@ import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { toBaseKey, toPreviewKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
-import { HAND_CARD_ASPECT, HAND_GAP_X, HAND_PADDING_X, HAND_TARGET_CARD_W, HAND_VISIBLE_COUNT } from "../../config/gameLayout";
+import { computeHandCardSize } from "../utils/handCardSizing";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -744,14 +744,7 @@ export class SlotDisplayHandler {
   }
 
   private computeHandFlightSize() {
-    const camW = this.scene.scale.width;
-    const viewW = Math.max(120, camW * 0.95 - HAND_PADDING_X * 2);
-    const cardW = Math.max(
-      60,
-      Math.min(HAND_TARGET_CARD_W, (viewW - HAND_GAP_X * (HAND_VISIBLE_COUNT - 1)) / HAND_VISIBLE_COUNT),
-    );
-    const cardH = cardW * HAND_CARD_ASPECT;
-    return { w: cardW, h: cardH };
+    return computeHandCardSize(this.scene.scale.width);
   }
 
   private isCommandCard(card?: SlotCardView) {
