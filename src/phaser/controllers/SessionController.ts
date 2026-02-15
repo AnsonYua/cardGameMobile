@@ -1,10 +1,10 @@
-import type { GameStatusResponse } from "../game/GameTypes";
 import { GameMode, GameStatus } from "../game/GameSessionService";
 import type { GameEngine } from "../game/GameEngine";
 import type { MatchStateMachine } from "../game/MatchStateMachine";
 import type { GameContextStore } from "../game/GameContextStore";
 import { parseSessionParams } from "../game/SessionParams";
 import type { DebugControls } from "./DebugControls";
+import { runHostFlow, runJoinFlow } from "./sessionFlows";
 
 export class SessionController {
   constructor(
@@ -35,7 +35,6 @@ export class SessionController {
       if (playerIdParam) contextStore.update({ playerId: playerIdParam });
       if (gameId) contextStore.update({ gameId });
 
-      const context = contextStore.get();
       if (mode === GameMode.Join) {
         if (!gameId) {
           throw new Error("Missing game id for join mode");
@@ -43,40 +42,17 @@ export class SessionController {
         if (!joinTokenParam) {
           throw new Error("Missing join token for join mode");
         }
-        const joinName = playerNameParam || "Demo Opponent";
-        const joinResp = await match.joinRoom(gameId, joinTokenParam);
-        const resolvedPlayerId = joinResp?.playerId || contextStore.get().playerId || "";
-        if (!resolvedPlayerId) {
-          throw new Error("Join failed: missing player id");
-        }
-        contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
-        const statusPayload = (await match.getGameStatus(gameId, resolvedPlayerId)) as GameStatusResponse;
-        await engine.loadGameResources(gameId, resolvedPlayerId, statusPayload);
-        await engine.updateGameStatus(gameId, resolvedPlayerId, {
-          statusPayload,
-        });
-        if (isAutoPolling) {
-          await debugControls?.startAutoPolling();
-        }
+        await runJoinFlow(
+          { match, engine, contextStore, debugControls },
+          { gameId, joinToken: joinTokenParam, playerName: playerNameParam, isAutoPolling },
+        );
         return;
       }
 
-      const hostName = playerNameParam || context.playerName || "Demo Player";
-      contextStore.update({ playerName: hostName });
-      const hostResp = await match.startAsHost({ playerName: hostName }, { aiMode });
-      const state = match.getState();
-      if (state.gameId) {
-        contextStore.update({ gameId: state.gameId });
-      }
-      if (hostResp?.playerId) {
-        contextStore.update({ playerId: hostResp.playerId });
-      }
-      if (hostResp?.joinToken) {
-        contextStore.update({ joinToken: hostResp.joinToken });
-      }
-      if (isAutoPolling) {
-        await debugControls?.startAutoPolling();
-      }
+      await runHostFlow(
+        { match, engine, contextStore, debugControls },
+        { playerName: playerNameParam, aiMode, isAutoPolling },
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
       const context = contextStore.get();

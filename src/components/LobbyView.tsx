@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiManager, type LobbyRoomSummary } from "../phaser/api/ApiManager";
+import { requestJoinToken } from "./JoinTokenPrompt";
 
 type LobbyViewProps = {
   isFallback?: boolean;
@@ -52,8 +53,8 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
     setJoiningId(gameId);
     setErrorMessage(null);
     try {
-      const joinToken = window.prompt("Enter join token for this game:");
-      if (!joinToken || !joinToken.trim()) {
+      const joinToken = requestJoinToken();
+      if (!joinToken) {
         setJoiningId(null);
         return;
       }
