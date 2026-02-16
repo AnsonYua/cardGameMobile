@@ -78,7 +78,13 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
           <h1>Lobby</h1>
           <span className="lobby-subtitle">Live rooms update automatically.</span>
           <div className="lobby-actions-row">
-            <button className="lobby-create-button" type="button">
+            <button
+              className="lobby-create-button"
+              type="button"
+              onClick={() => {
+                window.location.href = "/setup-deck";
+              }}
+            >
               Setup deck
             </button>
             <button

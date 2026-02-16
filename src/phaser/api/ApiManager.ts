@@ -44,6 +44,18 @@ export type LobbyListResponse = {
   timestamp: string;
 };
 
+export type CardSetSummary = {
+  id: string;
+  name: string;
+  cardCount?: number;
+};
+
+export type CardSetsResponse = {
+  success: boolean;
+  sets: CardSetSummary[];
+  timestamp?: string;
+};
+
 export class ApiManager {
   private client: ApiClient;
 
@@ -69,6 +81,22 @@ export class ApiManager {
 
   getLobbyList(): Promise<LobbyListResponse> {
     return this.client.getJson("/api/game/lobbylist");
+  }
+
+  // Current backend: GET /api/game/cards returns st01Card.json.
+  getCardData(): Promise<any> {
+    return this.client.getJson("/api/game/cards");
+  }
+
+  // Proposed backend: GET /api/game/cardSets returns available sets (gd01/st01/...).
+  getCardSets(): Promise<CardSetsResponse> {
+    return this.client.getJson("/api/game/cardSets");
+  }
+
+  // Proposed backend: GET /api/game/cards?set=st02 returns that set's JSON.
+  getCardsBySet(setId: string): Promise<any> {
+    const path = `/api/game/cards?set=${encodeURIComponent(setId)}`;
+    return this.client.getJson(path);
   }
 
   getGameStatus(gameId: string, playerId: string): Promise<any> {

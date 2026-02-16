@@ -179,6 +179,447 @@ body,
   line-height: 1.5;
 }
 
+.deck-setup {
+  width: min(1120px, 96vw);
+  margin-top: 28px;
+  margin-bottom: 28px;
+  border-radius: 18px;
+  border: 1px solid rgba(124, 196, 255, 0.2);
+  background: linear-gradient(160deg, rgba(71, 101, 210, 0.14), rgba(13, 15, 22, 0.88) 70%);
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.deck-setup-topbar {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(124, 196, 255, 0.16);
+  background: rgba(12, 16, 26, 0.45);
+}
+
+.deck-setup-toprow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.deck-setup-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.deck-setup-back {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.5);
+  background: rgba(12, 16, 26, 0.7);
+  color: rgba(230, 232, 239, 0.9);
+  cursor: pointer;
+}
+
+.deck-setup-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.deck-setup-heading h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.deck-setup-subtitle {
+  font-size: 13px;
+  color: rgba(230, 232, 239, 0.65);
+}
+
+.deck-setup-controls {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px;
+}
+
+.deck-setup-savewrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.deck-setup-savenote {
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.65);
+}
+
+.deck-setup-savenote.is-error {
+  color: #ffb5b5;
+}
+
+.deck-setup-save {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.75);
+  background: rgba(71, 101, 210, 0.55);
+  color: rgba(230, 232, 239, 0.95);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.deck-setup-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.deck-setup-control {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.7);
+}
+
+.deck-setup-control select,
+.deck-setup-control input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 196, 255, 0.22);
+  background: rgba(12, 16, 26, 0.72);
+  color: rgba(230, 232, 239, 0.92);
+  outline: none;
+}
+
+.deck-setup-banner {
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(124, 196, 255, 0.12);
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.7);
+}
+
+.deck-setup-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 16px;
+}
+
+.deck-setup-cards,
+.deck-setup-deck {
+  background: rgba(12, 16, 26, 0.7);
+  border: 1px solid rgba(124, 196, 255, 0.16);
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 560px;
+}
+
+.deck-setup-deckwide {
+  min-height: 300px;
+}
+
+.deck-setup-cardswide {
+  min-height: 560px;
+}
+
+.deck-setup-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(124, 196, 255, 0.12);
+}
+
+.deck-setup-panel-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.deck-setup-panel-meta {
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.62);
+}
+
+.deck-setup-empty {
+  padding: 18px 16px;
+  display: grid;
+  gap: 6px;
+  color: rgba(230, 232, 239, 0.8);
+}
+
+.deck-setup-empty p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.deck-setup-empty span {
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.62);
+  line-height: 1.4;
+}
+
+.deck-setup-hint {
+  margin-top: 6px;
+  color: rgba(124, 196, 255, 0.8);
+}
+
+.deck-setup-cardlist {
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-content: start;
+}
+
+.deck-card {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(124, 196, 255, 0.14);
+  background: rgba(9, 12, 18, 0.85);
+  color: rgba(230, 232, 239, 0.92);
+  cursor: pointer;
+  text-align: left;
+}
+
+.deck-card.is-selected {
+  border-color: rgba(124, 196, 255, 0.55);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+}
+
+.deck-card-imagewrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5/7;
+  border-radius: 12px;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, rgba(124, 196, 255, 0.16), rgba(12, 16, 26, 0.85) 70%);
+  border: 1px solid rgba(124, 196, 255, 0.12);
+}
+
+.deck-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.deck-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(12, 16, 26, 0.75);
+  border: 1px solid rgba(124, 196, 255, 0.3);
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(230, 232, 239, 0.95);
+}
+
+.deck-card-footer {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.deck-card-footer--deck {
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+}
+
+.deck-card-step {
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.35);
+  background: rgba(12, 16, 26, 0.7);
+  color: rgba(230, 232, 239, 0.95);
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.deck-card-step:active {
+  transform: translateY(1px);
+}
+
+.deck-card-add {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.55);
+  background: rgba(71, 101, 210, 0.38);
+  font-size: 16px;
+  font-weight: 900;
+  user-select: none;
+  justify-self: end;
+  grid-row: 2;
+}
+
+.deck-setup-decklist {
+  padding: 10px;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+}
+
+.deck-setup-deckgrid {
+  padding: 10px;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-content: start;
+}
+
+.deck-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(124, 196, 255, 0.14);
+  background: rgba(9, 12, 18, 0.85);
+}
+
+.deck-entry-imagewrap {
+  width: 34px;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(124, 196, 255, 0.12);
+  background: rgba(12, 16, 26, 0.7);
+  flex-shrink: 0;
+}
+
+.deck-entry-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.deck-entry-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.deck-entry-title {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-entry-sub {
+  font-size: 11px;
+  color: rgba(230, 232, 239, 0.55);
+}
+
+.deck-entry-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-entry-controls button {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(124, 196, 255, 0.35);
+  background: rgba(12, 16, 26, 0.7);
+  color: rgba(230, 232, 239, 0.9);
+  cursor: pointer;
+}
+
+.deck-entry-qty {
+  width: 22px;
+  text-align: center;
+  font-weight: 800;
+  color: rgba(124, 196, 255, 0.92);
+}
+
+.deck-setup-detail {
+  border-top: 1px solid rgba(124, 196, 255, 0.12);
+  background: rgba(12, 16, 26, 0.45);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.deck-setup-detail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deck-setup-detail-header h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.deck-setup-detail-body {
+  display: grid;
+  gap: 6px;
+}
+
+.deck-detail-title {
+  font-weight: 900;
+}
+
+.deck-detail-sub {
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.62);
+}
+
+.deck-detail-effects {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: rgba(230, 232, 239, 0.86);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.deck-setup-detail-empty {
+  color: rgba(230, 232, 239, 0.62);
+  font-size: 12px;
+}
+
+@media (max-width: 940px) {
+  .deck-setup-controls {
+    grid-template-columns: 1fr;
+  }
+  .deck-setup-toprow {
+    align-items: flex-start;
+  }
+  .deck-setup-body {
+    grid-template-columns: 1fr;
+  }
+  .deck-setup-cards,
+  .deck-setup-deck {
+    min-height: 480px;
+  }
+  .deck-setup-deckwide {
+    min-height: 260px;
+  }
+}
+
 @media (orientation: landscape) {
   .game-container {
      max-width: 420px;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getRoute, type AppRoute } from "../routes";
 import { GameView } from "./GameView";
 import { LobbyView } from "./LobbyView";
+import { SetupDeckView } from "./SetupDeckView";
 
 export function Router() {
   const [route, setRoute] = useState<AppRoute>(() => getRoute(window.location.pathname));
@@ -14,6 +15,10 @@ export function Router() {
 
   if (route === "game") {
     return <GameView />;
+  }
+
+  if (route === "setup-deck") {
+    return <SetupDeckView />;
   }
 
   return <LobbyView isFallback={route === "not-found"} />;
