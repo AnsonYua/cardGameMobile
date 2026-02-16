@@ -53,18 +53,22 @@ export class GameSessionService {
     return this.api.getGameStatus(gameId, playerId);
   }
 
-  async getGameResource(token: string, gameId: string, playerId: string) {
-    return this.api.getGameResource(token, gameId, playerId);
+  async getGameResource(token: string, gameId: string, playerId: string, opts?: { includeBothDecks?: boolean }) {
+    return this.api.getGameResource(token, gameId, playerId, opts);
   }
 
-  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean } = {}) {
+  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {}) {
     return this.api.getGameResourceBundle(token, opts);
   }
 
-  async joinRoom(gameId: string, joinToken: string) {
+  async submitDeck(gameId: string, playerId: string, deck: Array<{ id: string; qty: number; setId?: string; name?: string }>) {
+    return this.api.submitDeck({ gameId, playerId, deck });
+  }
+
+  async joinRoom(gameId: string) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.joinRoom(gameId, joinToken);
+    const resp = await this.api.joinRoom(gameId);
     this.gameId = gameId;
     updateSession({
       gameId,

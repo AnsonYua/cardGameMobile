@@ -2,6 +2,7 @@ import type { GameStatusResponse } from "../game/GameTypes";
 import type { GameEngine } from "../game/GameEngine";
 import type { MatchStateMachine } from "../game/MatchStateMachine";
 import type { GameContextStore } from "../game/GameContextStore";
+import { submitDeckFromStorage } from "../game/deckSubmissionFlow";
 import type { DebugControls } from "./DebugControls";
 
 type FlowDeps = {
@@ -15,21 +16,26 @@ export async function runJoinFlow(
   deps: FlowDeps,
   params: {
     gameId: string;
-    joinToken: string;
     playerName?: string | null;
     isAutoPolling?: boolean;
   },
 ) {
   const { match, engine, contextStore, debugControls } = deps;
   const joinName = params.playerName || "Demo Opponent";
-  const joinResp = await match.joinRoom(params.gameId, params.joinToken);
+  const joinResp = await match.joinRoom(params.gameId);
   const resolvedPlayerId = joinResp?.playerId || contextStore.get().playerId || "";
   if (!resolvedPlayerId) {
     throw new Error("Join failed: missing player id");
   }
+  await submitDeckFromStorage({
+    gameId: params.gameId,
+    playerId: resolvedPlayerId,
+    source: "join",
+    emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
+    submit: (deck) => match.submitDeck(params.gameId, resolvedPlayerId, deck),
+  });
   contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
   const statusPayload = (await match.getGameStatus(params.gameId, resolvedPlayerId)) as GameStatusResponse;
-  await engine.loadGameResources(params.gameId, resolvedPlayerId, statusPayload);
   await engine.updateGameStatus(params.gameId, resolvedPlayerId, {
     statusPayload,
   });
@@ -61,6 +67,18 @@ export async function runHostFlow(
   if (hostResp?.joinToken) {
     contextStore.update({ joinToken: hostResp.joinToken });
   }
+  const hostGameId = state.gameId || hostResp?.gameId || hostResp?.roomId;
+  const hostPlayerId = hostResp?.playerId || contextStore.get().playerId || "";
+  if (!hostGameId || !hostPlayerId) {
+    throw new Error("Host flow missing game/player id.");
+  }
+  await submitDeckFromStorage({
+    gameId: hostGameId,
+    playerId: hostPlayerId,
+    source: "host",
+    emptyDeckMessage: "Deck is empty. Please setup your deck before creating a room.",
+    submit: (deck) => match.submitDeck(hostGameId, hostPlayerId, deck),
+  });
   if (params.isAutoPolling) {
     await debugControls?.startAutoPolling();
   }

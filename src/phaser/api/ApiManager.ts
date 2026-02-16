@@ -29,6 +29,17 @@ export type StartReadyPayload = {
   playerId: string;
   isRedraw: boolean;
 };
+export type DeckEntry = {
+  id: string;
+  qty: number;
+  setId?: string;
+  name?: string;
+};
+export type SubmitDeckPayload = {
+  gameId: string;
+  playerId: string;
+  deck: DeckEntry[];
+};
 export type ChooseFirstPlayerPayload = {
   gameId: string;
   playerId: string;
@@ -75,6 +86,15 @@ export class ApiManager {
     return this.client.postJson("/api/game/player/startReady", payload, { auth: true });
   }
 
+  submitDeck(payload: SubmitDeckPayload): Promise<any> {
+    console.log("[api] submitDeck request", {
+      gameId: payload.gameId,
+      playerId: payload.playerId,
+      deckCount: Array.isArray(payload.deck) ? payload.deck.length : 0,
+    });
+    return this.client.postJson("/api/game/player/submitDeck", payload, { auth: true });
+  }
+
   chooseFirstPlayer(payload: ChooseFirstPlayerPayload): Promise<any> {
     return this.client.postJson("/api/game/player/chooseFirstPlayer", payload, { auth: true });
   }
@@ -113,17 +133,23 @@ export class ApiManager {
     return this.client.postJson("/api/game/test/injectGameState", { gameId, gameEnv });
   }
 
-  getGameResource(token: string, gameId: string, playerId: string): Promise<any> {
-    const path = `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}`;
+  getGameResource(token: string, gameId: string, playerId: string, opts?: { includeBothDecks?: boolean }): Promise<any> {
+    const includeBothDecks = opts?.includeBothDecks ? "&includeBothDecks=true" : "";
+    const path = `/api/game/player/gameResource?gameId=${encodeURIComponent(gameId)}&playerId=${encodeURIComponent(playerId)}${includeBothDecks}`;
     return this.client.getJson(path, { authToken: token });
   }
 
   async getGameResourceBundle(
     token: string,
-    opts: { includePreviews?: boolean } = {},
+    opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {},
   ): Promise<GameResourceBundleResponse> {
     const includePreviews = opts.includePreviews !== false;
-    return this.client.postRaw("/api/game/player/gameResourceBundle", { includePreviews }, { authToken: token });
+    const includeBothDecks = opts.includeBothDecks === true;
+    return this.client.postRaw(
+      "/api/game/player/gameResourceBundle",
+      { includePreviews, includeBothDecks },
+      { authToken: token },
+    );
   }
 
   playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
@@ -203,8 +229,8 @@ export class ApiManager {
     return this.client.postJson("/api/game/player/playerAction", payload, { auth: true });
   }
 
-  joinRoom(gameId: string, joinToken: string): Promise<JoinRoomResponse> {
-    return this.client.postJson("/api/game/player/joinRoom", { gameId, joinToken });
+  joinRoom(gameId: string): Promise<JoinRoomResponse> {
+    return this.client.postJson("/api/game/player/joinRoom", { gameId });
   }
 
   private postPlayerDecision(path: string, payload: Record<string, unknown>) {

@@ -29,10 +29,10 @@ export class MatchStateMachine {
     */
   }
 
-  async joinRoom(gameId: string, joinToken: string) {
+  async joinRoom(gameId: string) {
     this.mode = GameMode.Join;
     this.transition(GameStatus.CreatingRoom);
-    const resp = await this.session.joinRoom(gameId, joinToken);
+    const resp = await this.session.joinRoom(gameId);
     this.gameId = gameId;
     this.transition(GameStatus.Ready);
     return resp;
@@ -46,8 +46,12 @@ export class MatchStateMachine {
     return this.session.getGameResource(token, gameId, playerId);
   }
 
-  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean } = {}) {
+  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {}) {
     return this.session.getGameResourceBundle(token, opts);
+  }
+
+  async submitDeck(gameId: string, playerId: string, deck: Array<{ id: string; qty: number; setId?: string; name?: string }>) {
+    return this.session.submitDeck(gameId, playerId, deck);
   }
 
   getApiBaseUrl() {

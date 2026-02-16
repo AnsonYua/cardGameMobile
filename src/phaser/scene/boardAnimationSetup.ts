@@ -19,6 +19,7 @@ import type { PhaseChangeDialog } from "../ui/PhaseChangeDialog";
 import type { BoardUiControls } from "./boardUiSetup";
 import type { GameEndInfo } from "./gameEndHelpers";
 import type { EffectTargetController } from "../controllers/EffectTargetController";
+import { submitDeckFromStorage } from "../game/deckSubmissionFlow";
 
 export type AnimationPipelineSetup = {
   animationQueue: AnimationQueue;
@@ -129,10 +130,23 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       if (!gameId || !playerId) {
         return;
       }
+      try {
+        await submitDeckFromStorage({
+          gameId,
+          playerId,
+          source: "ready",
+          emptyDeckMessage: "Deck is empty. Please build a deck before readying up.",
+          submit: (deck) => api.submitDeck({ gameId, playerId, deck }),
+        });
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Deck submission failed.");
+        return;
+      }
       dialogCoordinator.markMulliganDecisionSubmitted();
       await api.startReady({ gameId, playerId, isRedraw });
       const snapshot = await engine.updateGameStatus(gameId, playerId);
       dialogCoordinator.updateFromSnapshot(snapshot);
+      await engine.loadGameResources(gameId, playerId, snapshot.raw);
     },
     chooseFirstPlayer: async (chosenFirstPlayerId) => {
       const gameId = gameContext.gameId;

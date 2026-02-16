@@ -373,23 +373,50 @@ export class GameEngine {
   private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse): Promise<boolean> {
     try {
       if (this.resourceLoadInFlight) return false;
+      if (!this.shouldFetchCombinedResourceBundle(statusPayload)) {
+        this.log.debug("skip resource bundle fetch (phase not ready)", {
+          gameId,
+          playerId,
+          phase: this.getPhase(statusPayload),
+        });
+        return false;
+      }
       const token = (statusPayload as any)?.resourceBundleToken || (this.lastRaw as any)?.resourceBundleToken;
       if (!token) {
         this.log.debug("skip resource bundle fetch (missing resourceBundleToken)", { gameId, playerId });
         return false;
       }
       this.resourceLoadInFlight = true;
-      const bundle = await this.match.getGameResourceBundle(token, { includePreviews: true });
+      const bundle = await this.match.getGameResourceBundle(token, {
+        includePreviews: true,
+        includeBothDecks: true,
+      });
       const loadResult = await this.resourceLoader.loadFromResourceBundle(bundle);
       this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources: { bundled: true }, loadResult, statusPayload });
       return true;
 
     } catch (err) {
+      const status = (err as any)?.status;
+      const pending = (err as any)?.data?.pending === true;
+      if (status === 409 && pending) {
+        this.log.debug("skip resource bundle fetch (deck pending)", { gameId, playerId });
+        return false;
+      }
       this.events.emit(ENGINE_EVENTS.STATUS_ERROR, err);
       return false;
     } finally {
       this.resourceLoadInFlight = false;
     }
+  }
+
+  private shouldFetchCombinedResourceBundle(statusPayload: GameStatusResponse): boolean {
+    const phase = String(this.getPhase(statusPayload) || "").toUpperCase();
+    const blockedPhases = new Set(["WAITING_FOR_PLAYERS", "DECIDE_FIRST_PLAYER_PHASE"]);
+    if (blockedPhases.has(phase)) return false;
+    const env: any = statusPayload?.gameEnv || {};
+    const players = env?.players && typeof env.players === "object" ? Object.keys(env.players).length : 0;
+    if (players >= 2) return true;
+    return !!env.playerId_1 && !!env.playerId_2;
   }
 
   private buildActionContext(): ActionContext {

@@ -294,11 +294,7 @@ export class DebugControls {
     await this.popup?.hide();
     const id = this.context.gameId ?? `demo-${Date.now()}`;
     try {
-      const joinToken = this.context.joinToken;
-      if (!joinToken) {
-        throw new Error("Missing join token for test join.");
-      }
-      await this.match.joinRoom(id, joinToken);
+      await this.match.joinRoom(id);
     } catch (err) {
       console.error("Test join failed", err);
     }

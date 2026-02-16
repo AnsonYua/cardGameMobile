@@ -25,7 +25,6 @@ export class SessionController {
       const gameId = parsed.gameId;
       const playerIdParam = parsed.playerId;
       const playerNameParam = parsed.playerName;
-      const joinTokenParam = parsed.joinToken;
       const isAutoPolling = parsed.isAutoPolling;
       const aiMode = parsed.aiMode;
 
@@ -39,12 +38,9 @@ export class SessionController {
         if (!gameId) {
           throw new Error("Missing game id for join mode");
         }
-        if (!joinTokenParam) {
-          throw new Error("Missing join token for join mode");
-        }
         await runJoinFlow(
           { match, engine, contextStore, debugControls },
-          { gameId, joinToken: joinTokenParam, playerName: playerNameParam, isAutoPolling },
+          { gameId, playerName: playerNameParam, isAutoPolling },
         );
         return;
       }
@@ -55,6 +51,18 @@ export class SessionController {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Init failed (using local fallback)";
+      const normalized = msg.toLowerCase();
+      const isDeckValidationError =
+        normalized.includes("deck is empty") ||
+        normalized.includes("submit deck") ||
+        normalized.includes("both players must submit deck");
+      if (isDeckValidationError) {
+        if (typeof window !== "undefined") {
+          window.alert(msg);
+          window.location.href = "/setup-deck";
+        }
+        return;
+      }
       const context = contextStore.get();
       const params = new URLSearchParams(locationSearch);
       const fallbackGameId =
