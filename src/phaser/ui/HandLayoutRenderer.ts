@@ -19,12 +19,16 @@ export class HandLayoutRenderer {
 
   renderCard(x: number, y: number, w: number, h: number, card: HandCardView, isSelected: boolean) {
     const drawn: Phaser.GameObjects.GameObject[] = [];
+    const px = Math.round(x);
+    const py = Math.round(y);
+    const pw = Math.max(1, Math.round(w));
+    const ph = Math.max(1, Math.round(h));
 
     const bg = this.drawHelpers.drawRoundedRect({
-      x,
-      y,
-      width: w,
-      height: h,
+      x: px,
+      y: py,
+      width: pw,
+      height: ph,
       radius: 0,
       fillColor: card.color,
       fillAlpha: 1,
@@ -36,14 +40,14 @@ export class HandLayoutRenderer {
     drawn.push(bg);
 
     if (card.cost !== undefined) {
-      drawn.push(...this.drawCostBadge(x, y, w, h, card.cost, bg.depth || 0));
+      drawn.push(...this.drawCostBadge(px, py, pw, ph, card.cost, bg.depth || 0));
     }
 
     const inner = this.drawHelpers.drawRoundedRect({
-      x,
-      y,
-      width: w - 7,
-      height: h - 10,
+      x: px,
+      y: py,
+      width: pw - 7,
+      height: ph - 10,
       radius: 8,
       fillColor: 0x00000,
       fillAlpha: 0.4,
@@ -74,18 +78,19 @@ export class HandLayoutRenderer {
       }
     }
     if (card.textureKey && this.scene.textures.exists(card.textureKey)) {
-      const img = this.scene.add.image(x, y, card.textureKey).setDepth((bg.depth || 0) + 1);
+      const img = this.scene.add.image(px, py, card.textureKey).setDepth((bg.depth || 0) + 1);
       const baseW = img.width || w;
       const baseH = img.height || h;
-      const scale = Math.min(w / baseW, h / baseH);
-      img.setScale(scale);
+      const displayW = Math.max(1, Math.round(baseW * Math.min(pw / baseW, ph / baseH)));
+      const displayH = Math.max(1, Math.round(baseH * Math.min(pw / baseW, ph / baseH)));
+      img.setDisplaySize(displayW, displayH);
       drawn.push(img);
     }
 
     const type = (card.cardType || "").toLowerCase();
     const shouldShowStats = type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation;
     if (shouldShowStats) {
-      drawn.push(...this.drawStatsBadge(x, y, w, h, card, bg.depth || 0));
+      drawn.push(...this.drawStatsBadge(px, py, pw, ph, card, bg.depth || 0));
     }
 
     return drawn;
@@ -103,14 +108,19 @@ export class HandLayoutRenderer {
     config: HandPreviewConfig,
   ) {
     const hasTex = textureKey && this.scene.textures.exists(textureKey);
-    const fitted = this.fitCardSize(w, h);
+    const fitted = this.fitCardSize(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    const px = Math.round(x);
+    const py = Math.round(y);
     const img = hasTex
-      ? this.scene.add.image(x, y, textureKey!).setDisplaySize(fitted.w, fitted.h).setOrigin(0.5)
+      ? this.scene.add
+          .image(px, py, textureKey!)
+          .setDisplaySize(Math.max(1, Math.round(fitted.w)), Math.max(1, Math.round(fitted.h)))
+          .setOrigin(0.5)
       : this.drawHelpers.drawRoundedRect({
-          x,
-          y,
-          width: fitted.w,
-          height: fitted.h,
+          x: px,
+          y: py,
+          width: Math.max(1, Math.round(fitted.w)),
+          height: Math.max(1, Math.round(fitted.h)),
           radius: 12,
           fillColor: "#cbd3df",
           fillAlpha: 0.9,
@@ -133,8 +143,8 @@ export class HandLayoutRenderer {
     drawPreviewBadge({
       container,
       drawHelpers: this.drawHelpers,
-      x: x + fitted.w / 2 - badgeW / 2,
-      y: y + fitted.h / 2 - badgeH / 2 + extraSpace,
+      x: Math.round(px + fitted.w / 2 - badgeW / 2),
+      y: Math.round(py + fitted.h / 2 - badgeH / 2 + extraSpace),
       width: badgeW,
       height: badgeH,
       label,

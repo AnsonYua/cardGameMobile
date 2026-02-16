@@ -40,7 +40,8 @@ export function buildHandLayout({ offset, camW, handCount }: HandLayoutParams): 
   const cardH = cardW * HAND_CARD_ASPECT;
   const viewH = Math.max(cardH + 6, HAND_AREA_HEIGHT);
   const viewX = (camW - viewW) / 2;
-  const viewY = BASE_H - viewH - 12 + offset.y;
+  // Keep the same hand area size, but sit it slightly lower to avoid crowding status text.
+  const viewY = BASE_H - viewH - 6 + offset.y;
   const centerY = viewY + viewH / 2;
   const totalW = handCount ? innerPaddingX * 2 + handCount * cardW + gapX * (handCount - 1) : 0;
   const centeredX = totalW < viewW ? (viewW - totalW) / 2 : 0;

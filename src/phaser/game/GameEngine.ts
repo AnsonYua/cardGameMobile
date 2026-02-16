@@ -335,7 +335,7 @@ export class GameEngine {
     return handler(ctx);
   }
 
-  async loadGameResources(gameId: string, playerId: string, statusPayload?: GameStatusResponse) {
+  async loadGameResources(gameId: string, playerId: string, statusPayload?: GameStatusResponse | null) {
     return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {});
   }
 

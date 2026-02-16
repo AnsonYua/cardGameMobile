@@ -66,10 +66,8 @@ export class ActionButtonBarHandler {
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = {
-    cardH: HAND_AREA_HEIGHT - UI_LAYOUT.hand.bar.cardHOffset,
-    gap: UI_LAYOUT.hand.bar.gap,
-    rows: UI_LAYOUT.hand.bar.rows,
-    bottomPadding: UI_LAYOUT.hand.bar.bottomPadding,
+    topGap: 6,
+    barToHandGap: 2,
   };
   private buttonStyle = {
     outerColor: 0x2f6ad9,
@@ -183,24 +181,24 @@ export class ActionButtonBarHandler {
     this.hitAreas = [];
 
     // Geometry and positioning.
-    const { cardH, gap, rows, bottomPadding } = this.handLayout;
-    const totalHandHeight = rows * cardH + (rows - 1) * gap ;
-    const handTop = BASE_H - bottomPadding - totalHandHeight + offset.y;
-    const barY = handTop - this.barHeight / 2 - 3 ;
+    const { topGap, barToHandGap } = this.handLayout;
+    const handTop = BASE_H - HAND_AREA_HEIGHT - topGap + offset.y;
+    const barY = handTop - this.barHeight / 2 - barToHandGap;
     const camW = this.scene.scale.width;
     const barX = camW / 2;
     const btnGap = 12;
     const btnHeight = this.barHeight;
-    const bgHeight = HAND_AREA_HEIGHT + 120;
+    const bgHeight = HAND_AREA_HEIGHT + this.barHeight + 16;
     const viewX = 0;
     const viewW = camW;
     const viewY = barY - btnHeight / 2;
     const viewH = btnHeight;
 
     // Always draw the background bar.
+    const bgTopY = handTop - (this.barHeight + 8);
     const bg = this.drawRoundedRectOrigin({
       x: 0,
-      y: barY - 25,
+      y: bgTopY,
       width: camW,
       height: bgHeight,
       radius: 0,

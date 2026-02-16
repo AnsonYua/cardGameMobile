@@ -9,13 +9,22 @@ export function GameView() {
 
   useEffect(() => {
     if (gameRef.current || !containerRef.current) return;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const renderResolution = Math.min(2, Math.max(1, dpr));
 
-    gameRef.current = new Phaser.Game({
+    const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       parent: containerRef.current,
       width: BASE_W,
       height: BASE_H,
+      autoRound: false,
       backgroundColor: "#4765d2ff",
+      render: {
+        antialias: true,
+        antialiasGL: true,
+        roundPixels: false,
+        mipmapFilter: "LINEAR_MIPMAP_LINEAR",
+      },
       dom: {
         createContainer: true,
       },
@@ -24,7 +33,9 @@ export function GameView() {
         autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
       },
       scene: [BoardScene],
-    });
+    };
+    (config as Phaser.Types.Core.GameConfig & { resolution?: number }).resolution = renderResolution;
+    gameRef.current = new Phaser.Game(config);
 
     return () => {
       gameRef.current?.destroy(true);

@@ -4,7 +4,7 @@ export const BASE_H = 800;
 
 // Hand area layout (shared so UI stays consistent)
 export const HAND_AREA_HEIGHT = 130;
-export const HAND_VISIBLE_COUNT = 5;
+export const HAND_VISIBLE_COUNT = 4;
 export const HAND_GAP_X = 10;
 export const HAND_PADDING_X = 10;
 export const HAND_INNER_PADDING_X = 12;
