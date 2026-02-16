@@ -1,5 +1,5 @@
 import type { CardListItem } from "./types";
-import { buildApiImageUrl, getCardPreviewPath } from "./utils";
+import { CardImage } from "./CardImage";
 
 type Props = {
   apiBaseUrl: string;
@@ -49,9 +49,6 @@ export function CardBrowser({
         <div className="deck-setup-cardlist" aria-busy={status === "loading"}>
           {filteredCards.map((card) => {
             const qty = deckQtyById.get(card.id) || 0;
-            const previewPath = getCardPreviewPath(selectedSet, card.id);
-            const imgSrc = buildApiImageUrl(apiBaseUrl, previewPath);
-            const fallbackSrc = buildApiImageUrl(apiBaseUrl, "previews/cardback.png");
             return (
               <button
                 key={card.id}
@@ -59,22 +56,13 @@ export function CardBrowser({
                 className={`deck-card ${selectedCardId === card.id ? "is-selected" : ""}`}
                 onClick={() => onSelectCard(card.id)}
               >
-                <div className="deck-card-imagewrap">
-                  <img
-                    className="deck-card-image"
-                    src={imgSrc}
-                    alt={card.name || card.id}
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      if (img.dataset.fallbackApplied === "1") return;
-                      img.dataset.fallbackApplied = "1";
-                      img.src = fallbackSrc;
-                    }}
-                  />
-                  {qty > 0 && <span className="deck-card-badge">x{qty}</span>}
-                </div>
+                <CardImage
+                  apiBaseUrl={apiBaseUrl}
+                  setId={selectedSet}
+                  cardId={card.id}
+                  alt={card.name || card.id}
+                  badgeText={qty > 0 ? `x${qty}` : null}
+                />
                 <div className="deck-card-footer">
                   <span
                     className="deck-card-add"

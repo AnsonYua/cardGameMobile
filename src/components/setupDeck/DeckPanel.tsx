@@ -1,5 +1,6 @@
 import type { DeckEntry } from "./types";
-import { buildApiImageUrl, getCardPreviewPath, normalizeSetId } from "./utils";
+import { normalizeSetId } from "./utils";
+import { CardImage } from "./CardImage";
 
 type Props = {
   apiBaseUrl: string;
@@ -34,27 +35,15 @@ export function DeckPanel({ apiBaseUrl, deck, deckCount, onChangeDeck }: Props) 
             .sort((a, b) => a.id.localeCompare(b.id))
             .map((entry) => {
               const setId = entry.setId || inferSetIdFromCardId(entry.id) || "st01";
-              const previewPath = getCardPreviewPath(setId, entry.id);
-              const imgSrc = buildApiImageUrl(apiBaseUrl, previewPath);
-              const fallbackSrc = buildApiImageUrl(apiBaseUrl, "previews/cardback.png");
               return (
                 <div key={entry.id} className="deck-card deck-card--deck">
-                  <div className="deck-card-imagewrap">
-                    <img
-                      className="deck-card-image"
-                      src={imgSrc}
-                      alt={entry.name || entry.id}
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => {
-                        const img = e.currentTarget;
-                        if (img.dataset.fallbackApplied === "1") return;
-                        img.dataset.fallbackApplied = "1";
-                        img.src = fallbackSrc;
-                      }}
-                    />
-                    <span className="deck-card-badge">x{entry.qty}</span>
-                  </div>
+                  <CardImage
+                    apiBaseUrl={apiBaseUrl}
+                    setId={setId}
+                    cardId={entry.id}
+                    alt={entry.name || entry.id}
+                    badgeText={`x${entry.qty}`}
+                  />
                   <div className="deck-card-footer deck-card-footer--deck">
                     <button
                       type="button"
