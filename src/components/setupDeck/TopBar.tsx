@@ -30,15 +30,6 @@ export function TopBar({
     <header className="deck-setup-topbar">
       <div className="deck-setup-toprow">
         <div className="deck-setup-title">
-          <button
-            className="deck-setup-back"
-            type="button"
-            onClick={() => {
-              window.location.href = "/lobby";
-            }}
-          >
-            Back
-          </button>
           <div className="deck-setup-heading">
             <h1>Setup Deck</h1>
             <span className="deck-setup-subtitle">Pick an epic, browse cards, build your deck.</span>
@@ -78,4 +69,3 @@ export function TopBar({
     </header>
   );
 }
-

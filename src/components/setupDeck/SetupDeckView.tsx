@@ -87,10 +87,7 @@ export function SetupDeckView() {
       window.localStorage.setItem(STORAGE_SELECTED_SET, selectedSet);
       window.localStorage.setItem(STORAGE_DECK, JSON.stringify(deck));
       setSaveStatus("saved");
-      setSaveNote(`Saved ${new Date().toLocaleTimeString()}`);
-      window.setTimeout(() => {
-        setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
-      }, 1800);
+      window.location.href = "/lobby";
     } catch (err) {
       setSaveStatus("error");
       setSaveNote(err instanceof Error ? err.message : "Save failed.");
