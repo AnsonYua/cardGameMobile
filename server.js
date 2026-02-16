@@ -1,4 +1,5 @@
 import http from "http";
+import https from "https";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.join(__dirname, "dist");
 const assetsDir = path.join(distDir, "assets");
+const apiBaseUrl = process.env.API_BASE_URL || process.env.BACKEND_URL || "";
 
 const contentTypeByExt = {
   ".html": "text/html; charset=utf-8",
@@ -54,12 +56,54 @@ const sendFile = (res, filePath) => {
   });
 };
 
+const proxyApiRequest = (req, res) => {
+  if (!apiBaseUrl) {
+    res.statusCode = 502;
+    res.end("API base URL not configured");
+    return;
+  }
+  const target = new URL(apiBaseUrl);
+  const isHttps = target.protocol === "https:";
+  const client = isHttps ? https : http;
+
+  const upstreamPath = (req.url || "/").replace(/^\/+/, "/");
+  const options = {
+    protocol: target.protocol,
+    hostname: target.hostname,
+    port: target.port || (isHttps ? 443 : 80),
+    method: req.method,
+    path: upstreamPath,
+    headers: {
+      ...req.headers,
+      host: target.host,
+    },
+  };
+
+  const upstreamReq = client.request(options, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+    upstreamRes.pipe(res);
+  });
+
+  upstreamReq.on("error", () => {
+    res.statusCode = 502;
+    res.end("API proxy error");
+  });
+
+  req.pipe(upstreamReq);
+};
+
 const server = http.createServer((req, res) => {
   if (!req.url) {
     res.statusCode = 400;
     res.end("Bad request");
     return;
   }
+
+  if (req.url.startsWith("/api/")) {
+    proxyApiRequest(req, res);
+    return;
+  }
+
   const resolved = safeResolvePath(req.url);
   if (resolved) {
     fs.stat(resolved, (err, stat) => {
