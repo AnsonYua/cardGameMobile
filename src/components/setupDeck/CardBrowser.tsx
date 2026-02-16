@@ -53,7 +53,7 @@ export function CardBrowser({
               <button
                 key={card.id}
                 type="button"
-                className={`deck-card ${selectedCardId === card.id ? "is-selected" : ""}`}
+                className={`deck-card deck-card--catalog ${selectedCardId === card.id ? "is-selected" : ""}`}
                 onClick={() => onSelectCard(card.id)}
               >
                 <CardImage
@@ -61,7 +61,7 @@ export function CardBrowser({
                   setId={selectedSet}
                   cardId={card.id}
                   alt={card.name || card.id}
-                  badgeText={qty > 0 ? `x${qty}` : null}
+                  badgeText={null}
                 />
                 <div className="deck-card-footer">
                   <span

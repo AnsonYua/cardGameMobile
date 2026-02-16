@@ -13,7 +13,7 @@ export function CardImage({ apiBaseUrl, setId, cardId, alt, badgeText = null }: 
   const imgSrc = buildApiImageUrl(apiBaseUrl, previewPath);
   const fallbackSrc = buildApiImageUrl(apiBaseUrl, "previews/cardback.png");
 
-  return (
+  const imageElement = (
     <div className="deck-card-imagewrap">
       <img
         className="deck-card-image"
@@ -28,8 +28,19 @@ export function CardImage({ apiBaseUrl, setId, cardId, alt, badgeText = null }: 
           img.src = fallbackSrc;
         }}
       />
-      {badgeText ? <span className="deck-card-badge">{badgeText}</span> : null}
+    </div>
+  );
+
+  if (!badgeText) {
+    return imageElement;
+  }
+
+  return (
+    <div className="deck-card-imageblock">
+      {imageElement}
+      <div className="deck-card-badgerow">
+        {badgeText ? <span className="deck-card-badge">{badgeText}</span> : null}
+      </div>
     </div>
   );
 }
-

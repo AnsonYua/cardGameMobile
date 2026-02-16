@@ -7,6 +7,7 @@ import { getQueryParam, normalizeSetId, toCardList } from "./utils";
 import { TopBar } from "./TopBar";
 import { DeckPanel } from "./DeckPanel";
 import { CardBrowser } from "./CardBrowser";
+import "./setupDeck.css";
 
 export function SetupDeckView() {
   const api = useMemo(() => new ApiManager(), []);
