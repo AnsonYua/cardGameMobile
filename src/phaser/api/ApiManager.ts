@@ -67,6 +67,24 @@ export type CardSetsResponse = {
   timestamp?: string;
 };
 
+export type TopDeckEntry = {
+  id: string;
+  qty: number;
+};
+
+export type TopDeckItem = {
+  id: string;
+  name: string;
+  entries: TopDeckEntry[];
+  cardCount: number;
+};
+
+export type TopDeckListResponse = {
+  success: boolean;
+  decks: TopDeckItem[];
+  timestamp?: string;
+};
+
 export class ApiManager {
   private client: ApiClient;
 
@@ -117,6 +135,11 @@ export class ApiManager {
   getCardsBySet(setId: string): Promise<any> {
     const path = `/api/game/cards?set=${encodeURIComponent(setId)}`;
     return this.client.getJson(path);
+  }
+
+  // Top deck pick list parsed from backend requirement/topDeck.md.
+  getTopDecks(): Promise<TopDeckListResponse> {
+    return this.client.getJson("/api/game/topDecks");
   }
 
   getGameStatus(gameId: string, playerId: string): Promise<any> {

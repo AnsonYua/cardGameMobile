@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiManager } from "../../phaser/api/ApiManager";
+import { ApiManager, type TopDeckItem } from "../../phaser/api/ApiManager";
 import { DEFAULT_SETS, STORAGE_DECK, STORAGE_SELECTED_SET } from "./constants";
-import { useCardsBySet, useCardSets, useDeckStorage } from "./hooks";
+import { useCardsBySet, useCardSets, useDeckStorage, useTopDeckPicker } from "./hooks";
 import type { CardListItem } from "./types";
 import { getQueryParam, normalizeSetId, toCardList } from "./utils";
 import { TopBar } from "./TopBar";
@@ -25,6 +25,8 @@ export function SetupDeckView() {
   });
 
   const { deck, setDeck } = useDeckStorage();
+  const { topDecks, topDeckStatus, topDeckError, topDeckOpen, toggleTopDeck, closeTopDeck, clearTopDeckError } =
+    useTopDeckPicker(api);
   const [search, setSearch] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
@@ -94,6 +96,15 @@ export function SetupDeckView() {
     }
   };
 
+  const applyTopDeck = (selected: TopDeckItem) => {
+    const nextDeck = selected.entries.map(({ id, qty }) => ({ id, qty }));
+    setDeck(nextDeck);
+    closeTopDeck();
+    setSaveStatus("idle");
+    setSaveNote(`Loaded top deck: ${selected.name}`);
+    clearTopDeckError();
+  };
+
   return (
     <div className="page">
       <div className="deck-setup">
@@ -108,6 +119,12 @@ export function SetupDeckView() {
           saveLabel={saveStatus === "saving" ? "Saving..." : "Save"}
           saveNote={saveNote}
           saveNoteIsError={saveStatus === "error"}
+          topDecks={topDecks}
+          topDeckOpen={topDeckOpen}
+          topDeckStatus={topDeckStatus}
+          topDeckError={topDeckError}
+          onTopDeckToggle={toggleTopDeck}
+          onTopDeckSelect={applyTopDeck}
         />
 
         {(setsStatus === "error" || setsStatus === "loading") && (

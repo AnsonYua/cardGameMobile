@@ -19,15 +19,18 @@
 
 .deck-setup-toprow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .deck-setup-title {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 1 1 280px;
+  min-width: 220px;
 }
 
 .deck-setup-heading {
@@ -52,15 +55,89 @@
 }
 
 .deck-setup-savewrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 1 1 320px;
+  min-width: 260px;
+}
+
+.deck-setup-saveactions {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  flex-shrink: 0;
+  width: 100%;
+}
+
+.deck-setup-topdeck {
+  position: relative;
+}
+
+.deck-setup-topdeck-btn {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 196, 255, 0.45);
+  background: rgba(12, 16, 26, 0.85);
+  color: rgba(230, 232, 239, 0.95);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.deck-setup-topdeck-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: min(360px, 72vw);
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 196, 255, 0.28);
+  background: rgba(9, 12, 18, 0.96);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+}
+
+.deck-setup-topdeck-item {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(230, 232, 239, 0.94);
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.deck-setup-topdeck-item:hover {
+  background: rgba(124, 196, 255, 0.15);
+}
+
+.deck-setup-topdeck-empty {
+  padding: 10px;
+  font-size: 12px;
+  color: rgba(230, 232, 239, 0.7);
+}
+
+.deck-setup-topdeck-error {
+  font-size: 12px;
+  color: #ffb5b5;
 }
 
 .deck-setup-savenote {
   font-size: 12px;
   color: rgba(230, 232, 239, 0.65);
+  width: 100%;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .deck-setup-savenote.is-error {
@@ -324,9 +401,21 @@
   .deck-setup-controls {
     grid-template-columns: 1fr;
   }
-  .deck-setup-toprow {
-    align-items: flex-start;
+
+  .deck-setup-savewrap {
+    min-width: 0;
+    align-items: stretch;
   }
+
+  .deck-setup-saveactions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .deck-setup-savenote {
+    text-align: left;
+  }
+
   .deck-setup-body {
     grid-template-columns: 1fr;
   }

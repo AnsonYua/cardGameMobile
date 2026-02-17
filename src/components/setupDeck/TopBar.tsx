@@ -1,5 +1,6 @@
-import type { CardSetSummary } from "../../phaser/api/ApiManager";
+import type { CardSetSummary, TopDeckItem } from "../../phaser/api/ApiManager";
 import { normalizeSetId } from "./utils";
+import { TopDeckPicker } from "./TopDeckPicker";
 
 type Props = {
   sets: CardSetSummary[];
@@ -11,6 +12,12 @@ type Props = {
   saveLabel: string;
   saveNote: string | null;
   saveNoteIsError: boolean;
+  topDecks: TopDeckItem[];
+  topDeckOpen: boolean;
+  topDeckStatus: "idle" | "loading" | "error";
+  topDeckError: string | null;
+  onTopDeckToggle: () => void;
+  onTopDeckSelect: (deck: TopDeckItem) => void;
   onSave: () => void;
 };
 
@@ -24,6 +31,12 @@ export function TopBar({
   saveLabel,
   saveNote,
   saveNoteIsError,
+  topDecks,
+  topDeckOpen,
+  topDeckStatus,
+  topDeckError,
+  onTopDeckToggle,
+  onTopDeckSelect,
   onSave,
 }: Props) {
   return (
@@ -37,14 +50,23 @@ export function TopBar({
         </div>
 
         <div className="deck-setup-savewrap">
-          {saveNote && (
-            <span className={`deck-setup-savenote ${saveNoteIsError ? "is-error" : ""}`}>{saveNote}</span>
-          )}
-          <button type="button" className="deck-setup-save" onClick={onSave} disabled={saveDisabled}>
-            {saveLabel}
-          </button>
+          <div className="deck-setup-saveactions">
+            <TopDeckPicker
+              topDecks={topDecks}
+              topDeckOpen={topDeckOpen}
+              topDeckStatus={topDeckStatus}
+              onTopDeckToggle={onTopDeckToggle}
+              onTopDeckSelect={onTopDeckSelect}
+            />
+            <button type="button" className="deck-setup-save" onClick={onSave} disabled={saveDisabled}>
+              {saveLabel}
+            </button>
+          </div>
+          {saveNote && <span className={`deck-setup-savenote ${saveNoteIsError ? "is-error" : ""}`}>{saveNote}</span>}
         </div>
       </div>
+
+      {topDeckError && <div className="deck-setup-topdeck-error">{topDeckError}</div>}
 
       <div className="deck-setup-controls">
         <label className="deck-setup-control">

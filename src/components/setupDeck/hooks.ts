@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, type ApiManager, type CardSetSummary } from "../../phaser/api/ApiManager";
+import { ApiError, type ApiManager, type CardSetSummary, type TopDeckItem } from "../../phaser/api/ApiManager";
 import { DEFAULT_SETS } from "./constants";
 import type { CardDataResponse, DeckEntry } from "./types";
 import { safeJsonParse } from "./utils";
@@ -103,3 +103,44 @@ export function useDeckStorage() {
   return { deck, setDeck };
 }
 
+export function useTopDeckPicker(api: ApiManager) {
+  const [topDecks, setTopDecks] = useState<TopDeckItem[]>([]);
+  const [topDeckStatus, setTopDeckStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [topDeckError, setTopDeckError] = useState<string | null>(null);
+  const [topDeckOpen, setTopDeckOpen] = useState(false);
+
+  const loadTopDecks = async () => {
+    if (topDeckStatus === "loading") return;
+    setTopDeckStatus("loading");
+    setTopDeckError(null);
+    try {
+      const response = await api.getTopDecks();
+      setTopDecks(Array.isArray(response.decks) ? response.decks : []);
+      setTopDeckStatus("idle");
+    } catch (err) {
+      setTopDeckStatus("error");
+      setTopDeckError(err instanceof Error ? err.message : "Unable to load top decks.");
+    }
+  };
+
+  const toggleTopDeck = () => {
+    const nextOpen = !topDeckOpen;
+    setTopDeckOpen(nextOpen);
+    if (nextOpen && topDecks.length === 0 && topDeckStatus !== "loading") {
+      void loadTopDecks();
+    }
+  };
+
+  const closeTopDeck = () => setTopDeckOpen(false);
+  const clearTopDeckError = () => setTopDeckError(null);
+
+  return {
+    topDecks,
+    topDeckStatus,
+    topDeckError,
+    topDeckOpen,
+    toggleTopDeck,
+    closeTopDeck,
+    clearTopDeckError,
+  };
+}
