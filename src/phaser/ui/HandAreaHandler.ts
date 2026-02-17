@@ -19,6 +19,7 @@ export class HandAreaHandler {
   private previewCardUid?: string;
   private layoutState?: HandLayoutState;
   private onCardClick?: (card: HandCardView) => void;
+  private visible = true;
 
   private layout: HandLayoutRenderer;
   private renderer: HandRenderer;
@@ -103,6 +104,7 @@ export class HandAreaHandler {
   }
 
   setVisible(visible: boolean) {
+    this.visible = visible;
     this.renderer.setVisible(visible);
   }
 
@@ -118,6 +120,24 @@ export class HandAreaHandler {
 
   setCardClickHandler(handler: (card: HandCardView) => void) {
     this.onCardClick = handler;
+  }
+
+  getAutomationState() {
+    return {
+      visible: this.visible,
+      selectedUid: this.selectedCardUid,
+      cards: [...this.handCards],
+    };
+  }
+
+  clickCard(uid: string): boolean {
+    if (!uid || !this.onCardClick) return false;
+    const card = this.handCards.find((item) => item.uid === uid);
+    if (!card) return false;
+    this.selectedCardUid = card.uid || undefined;
+    this.onCardClick(card);
+    this.draw(this.lastOffset);
+    return true;
   }
 
   getCardSize() {

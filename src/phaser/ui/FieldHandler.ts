@@ -234,6 +234,8 @@ export class FieldHandler {
         this.slotDisplay.createSlotSprite(slot, size),
       hidePreviewNow: () => this.slotDisplay.hidePreviewNow(),
       setSlotPreviewEnabled: (enabled: boolean) => this.slotDisplay.setSlotPreviewEnabled(enabled),
+      getAutomationState: () => this.slotDisplay.getAutomationState(),
+      clickSlot: (owner: SlotOwner, slotId: string) => this.slotDisplay.clickSlot(owner, slotId),
     };
   }
 

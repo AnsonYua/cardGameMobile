@@ -1,5 +1,5 @@
 import type { SlotNotification } from "../animations/NotificationAnimationController";
-import { getNotificationQueue } from "./NotificationUtils";
+import { getNotificationQueue, isNotificationExpired } from "./NotificationUtils";
 
 export type TokenChoiceNote = {
   id: string;
@@ -37,23 +37,40 @@ export function findLatestTokenChoiceFromRaw(raw: any, opts: { preferId?: string
   return findLatestTokenChoiceFromQueue(queue, opts);
 }
 
+export function findActiveTokenChoiceFromRaw(raw: any, opts: { preferId?: string } = {}): TokenChoiceNote | undefined {
+  const preferId = opts.preferId ? String(opts.preferId) : "";
+  const queue = getNotificationQueue(raw);
+  return findLatestTokenChoiceFromQueue(queue, { preferId, unresolvedOnly: true, skipExpired: true });
+}
+
 export function findLatestTokenChoiceFromQueue(
   queue: SlotNotification[],
-  opts: { preferId?: string } = {},
+  opts: { preferId?: string; unresolvedOnly?: boolean; skipExpired?: boolean } = {},
 ): TokenChoiceNote | undefined {
   if (!Array.isArray(queue) || queue.length === 0) return undefined;
 
   const preferId = opts.preferId ? String(opts.preferId) : "";
+  const unresolvedOnly = opts.unresolvedOnly === true;
+  const skipExpired = opts.skipExpired === true;
   if (preferId) {
     const preferred = queue.find((n: any) => String(n?.id ?? "") === preferId);
     const normalized = preferred ? normalizeTokenChoiceNotification(preferred) : undefined;
-    if (normalized) return normalized;
+    if (
+      normalized &&
+      (!unresolvedOnly || (!normalized.isCompleted && !normalized.decisionMade)) &&
+      (!skipExpired || !isNotificationExpired(preferred))
+    ) {
+      return normalized;
+    }
   }
 
   for (let i = queue.length - 1; i >= 0; i -= 1) {
-    const normalized = normalizeTokenChoiceNotification(queue[i]);
-    if (normalized) return normalized;
+    const note = queue[i];
+    const normalized = normalizeTokenChoiceNotification(note);
+    if (!normalized) continue;
+    if (unresolvedOnly && (normalized.isCompleted || normalized.decisionMade)) continue;
+    if (skipExpired && isNotificationExpired(note)) continue;
+    return normalized;
   }
   return undefined;
 }
-

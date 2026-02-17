@@ -49,4 +49,15 @@ export class ChooseFirstPlayerDialog {
   private destroy() {
     this.prompt.destroy();
   }
+
+  getAutomationState() {
+    return this.prompt.getAutomationState();
+  }
+
+  async choose(decision: "first" | "second"): Promise<boolean> {
+    const state = this.prompt.getAutomationState();
+    if (!state) return false;
+    if (decision === "first") return this.prompt.choose(0);
+    return this.prompt.choose(1);
+  }
 }

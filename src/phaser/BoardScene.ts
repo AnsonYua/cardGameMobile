@@ -73,6 +73,9 @@ import {
   updateTurnTimerWithGate,
 } from "./scene/boardTimerGate";
 import { createBoardSlotOnlySprite } from "./scene/dialogSlotSpritePolicy";
+import { CardAutomationBridge } from "./automation/CardAutomationBridge";
+import { isAutomationEnabled } from "./automation/automationFlag";
+import type { CardAutomation } from "./automation/AutomationTypes";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -159,6 +162,7 @@ export class BoardScene extends Phaser.Scene {
   private updateTurnTimerFromSnapshot?: (raw: any) => void;
   private gameEnded = false;
   private gameEndInfo?: GameEndInfo;
+  private automationBridge?: CardAutomationBridge;
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -443,6 +447,37 @@ export class BoardScene extends Phaser.Scene {
     });
     this.ui.drawAll(this.offset);
     this.hideDefaultUI();
+
+    if (isAutomationEnabled()) {
+      this.automationBridge = new CardAutomationBridge({
+        engine: this.engine,
+        contextStore: this.contextStore,
+        selectionAction: this.selectionAction,
+        handPresenter: this.handPresenter,
+        slotPresenter: this.slotPresenter,
+        controls: {
+          actionControls: this.actionControls,
+          handControls: this.handControls,
+          slotControls: this.slotControls,
+        },
+        dialogs: {
+          promptChoiceDialog: this.promptChoiceDialogUi,
+          optionChoiceDialog: this.optionChoiceDialogUi,
+          tokenChoiceDialog: this.tokenChoiceDialogUi,
+          burstChoiceDialog: this.burstChoiceDialogUi,
+          pilotTargetDialog: this.pilotTargetDialogUi,
+          effectTargetDialog: this.effectTargetDialogUi,
+          mulliganDialog: this.mulliganDialogUi,
+          chooseFirstPlayerDialog: this.chooseFirstPlayerDialogUi,
+        },
+        debugControls: this.debugControls,
+        animationQueue: this.animationQueue,
+        offlineFallback: () => this.offlineFallback,
+      });
+      if (typeof window !== "undefined") {
+        (window as Window & { __card?: CardAutomation }).__card = this.automationBridge.buildPublicApi();
+      }
+    }
 
     // Kick off game session on load (host flow placeholder).
     this.initSession();

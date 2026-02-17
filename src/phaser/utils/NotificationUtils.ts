@@ -6,9 +6,19 @@ export function getNotificationQueue(raw: any): SlotNotification[] {
   return queue;
 }
 
-function getNotificationType(note: SlotNotification | undefined): string {
+export function getNotificationEvent(note: SlotNotification | undefined): any {
   const payload: any = note?.payload ?? {};
-  const event: any = payload?.event ?? {};
+  return payload?.event ?? payload ?? {};
+}
+
+export function isNotificationExpired(note: SlotNotification | undefined, nowMs = Date.now()): boolean {
+  const expiresAt = Number((note as any)?.metadata?.expiresAt ?? NaN);
+  if (!Number.isFinite(expiresAt)) return false;
+  return nowMs > expiresAt;
+}
+
+function getNotificationType(note: SlotNotification | undefined): string {
+  const event: any = getNotificationEvent(note);
   return (event?.type ?? note?.type ?? "").toString().toUpperCase();
 }
 

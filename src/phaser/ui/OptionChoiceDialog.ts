@@ -32,6 +32,12 @@ type RenderCard = {
 export class OptionChoiceDialog {
   private dialog: CardRowChoiceDialog<RenderCard>;
   private fallbackTextureKey = "deckBack";
+  private automationState?: {
+    headerText: string;
+    choices: OptionChoiceDialogChoice[];
+    isOwnerView: boolean;
+    onSelect?: (index: number) => Promise<void> | void;
+  };
 
   constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
     const cfg = {
@@ -47,6 +53,7 @@ export class OptionChoiceDialog {
 
   hide() {
     this.dialog.hide();
+    this.automationState = undefined;
   }
 
   show(opts: OptionChoiceDialogOptions) {
@@ -63,6 +70,17 @@ export class OptionChoiceDialog {
         textureKey: this.resolveTextureKey(cardId) ?? this.fallbackTextureKey,
       };
     });
+
+    this.automationState = {
+      headerText: opts.headerText ?? "Choose Option",
+      choices: choices.map((choice) => ({
+        index: Number(choice.index ?? 0),
+        cardId: choice.cardId,
+        enabled: choice.enabled !== false,
+      })),
+      isOwnerView: opts.showChoices ?? true,
+      onSelect: opts.onSelect,
+    };
 
     this.dialog.show({
       headerText: opts.headerText ?? "Choose Option",
@@ -87,6 +105,28 @@ export class OptionChoiceDialog {
         await opts.onTimeout?.();
       },
     });
+  }
+
+  getAutomationState() {
+    if (!this.dialog.isOpen() || !this.automationState) return null;
+    return {
+      open: true,
+      headerText: this.automationState.headerText,
+      choices: this.automationState.choices.map((choice) => ({
+        index: choice.index,
+        cardId: choice.cardId,
+        enabled: choice.enabled !== false,
+      })),
+      isOwnerView: this.automationState.isOwnerView,
+    };
+  }
+
+  async choose(index: number): Promise<boolean> {
+    if (!this.dialog.isOpen() || !this.automationState) return false;
+    const target = this.automationState.choices.find((choice) => choice.index === index);
+    if (!target || target.enabled === false || !this.automationState.onSelect) return false;
+    await Promise.resolve(this.automationState.onSelect(index));
+    return true;
   }
 
   private resolveTextureKey(cardId?: string) {

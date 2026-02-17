@@ -16,6 +16,8 @@ export type HandControls = {
   renderPreviewCard?: (container: Phaser.GameObjects.Container, card: HandCardView) => void;
   setCardClickHandler?: (handler: (card: HandCardView) => void) => void;
   getCardSize?: () => { w: number; h: number } | undefined;
+  getAutomationState?: () => { visible: boolean; selectedUid?: string; cards: HandCardView[] };
+  clickCard?: (uid: string) => boolean;
 };
 
 export type ActionControls = {
@@ -30,6 +32,14 @@ export type ActionControls = {
     overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[],
   ) => void;
   setWaitingLabel: (label: string) => void;
+  getAutomationState?: () => {
+    visible: boolean;
+    waitingMode: boolean;
+    waitingLabel: string;
+    buttons: { label: string; enabled: boolean; primary?: boolean }[];
+  };
+  invokeByIndex?: (index: number) => Promise<boolean> | boolean;
+  invokePrimary?: () => Promise<boolean> | boolean;
 };
 
 export type HeaderControls = {
@@ -53,6 +63,8 @@ export function createHandControls(hand: HandAreaHandler): HandControls {
     renderPreviewCard: (container, card) => hand.renderPreviewCard(container, card),
     setCardClickHandler: (handler) => hand.setCardClickHandler?.(handler),
     getCardSize: () => hand.getCardSize(),
+    getAutomationState: () => hand.getAutomationState(),
+    clickCard: (uid: string) => hand.clickCard(uid),
   };
 }
 
@@ -66,6 +78,9 @@ export function createActionControls(actions: ActionButtonBarHandler): ActionCon
     setState: (state: { descriptors: any[] }) => actions.setState(state),
     setWaitingForOpponent: (waiting, overrideButtons) => actions.setWaitingForOpponent(waiting, overrideButtons),
     setWaitingLabel: (label: string) => actions.setWaitingLabel(label),
+    getAutomationState: () => actions.getAutomationState(),
+    invokeByIndex: (index: number) => actions.invokeByIndex(index),
+    invokePrimary: () => actions.invokePrimary(),
   };
 }
 

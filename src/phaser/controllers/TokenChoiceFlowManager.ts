@@ -5,6 +5,7 @@ import type { ActionControls } from "./ControllerTypes";
 import type { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
 import { createLogger } from "../utils/logger";
 import {
+  findActiveTokenChoiceFromRaw,
   findLatestTokenChoiceFromRaw,
   normalizeTokenChoiceNotification,
   type TokenChoiceNote,
@@ -75,7 +76,7 @@ export class TokenChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
-    const note = findLatestTokenChoiceFromRaw(raw, { preferId: this.note?.id });
+    const note = findActiveTokenChoiceFromRaw(raw, { preferId: this.note?.id });
     if (!note) {
       if (this.note) {
         this.log.debug("token choice cleared from snapshot", { id: this.note.id });

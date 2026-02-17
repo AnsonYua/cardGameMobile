@@ -99,6 +99,23 @@ export class SlotDisplayHandler {
     }
   }
 
+  getAutomationState() {
+    return {
+      slots: [...this.lastSlots],
+      selectedKey: this.selectedKey,
+      clicksEnabled: this.slotClicksEnabled,
+      previewEnabled: this.slotPreviewEnabled,
+    };
+  }
+
+  clickSlot(owner: SlotOwner, slotId: string): boolean {
+    if (!this.slotClicksEnabled || !this.onSlotClick) return false;
+    const slot = this.lastSlots.find((item) => item.owner === owner && item.slotId === slotId);
+    if (!slot) return false;
+    this.onSlotClick(slot);
+    return true;
+  }
+
   setSlotVisible(owner: SlotOwner, slotId: string, visible: boolean) {
     const key = `${owner}-${slotId}`;
     if (!visible) {

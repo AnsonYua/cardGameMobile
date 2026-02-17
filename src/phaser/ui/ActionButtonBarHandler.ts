@@ -140,6 +140,35 @@ export class ActionButtonBarHandler {
     }
   }
 
+  getAutomationState() {
+    const buttons = this.getRenderableDescriptors().map((button) => ({
+      label: String(button.label || ""),
+      enabled: button.enabled !== false,
+      primary: button.primary === true,
+    }));
+    return {
+      visible: this.visible,
+      waitingMode: this.waitingMode,
+      waitingLabel: this.waitingLabelText,
+      buttons,
+    };
+  }
+
+  async invokeByIndex(index: number): Promise<boolean> {
+    const buttons = this.getRenderableDescriptors();
+    const target = buttons[index];
+    if (!target || target.enabled === false || typeof target.onClick !== "function") return false;
+    await Promise.resolve(target.onClick());
+    return true;
+  }
+
+  async invokePrimary(): Promise<boolean> {
+    const buttons = this.getRenderableDescriptors();
+    const primaryIndex = buttons.findIndex((button) => button.primary === true);
+    const targetIndex = primaryIndex >= 0 ? primaryIndex : 0;
+    return this.invokeByIndex(targetIndex);
+  }
+
   setVisible(visible: boolean) {
     this.visible = visible;
     // Keep the background panel visible; only hide the buttons/label above the hand.
@@ -569,5 +598,10 @@ export class ActionButtonBarHandler {
       repeat: -1,
       ease: "Sine.easeInOut",
     });
+  }
+
+  private getRenderableDescriptors(): ActionButtonConfig[] {
+    const sourceDescriptors = this.waitingOverride ?? this.state.descriptors;
+    return sourceDescriptors.filter((btn) => !!btn.label && !!btn.label.trim() && btn.enabled !== false);
   }
 }

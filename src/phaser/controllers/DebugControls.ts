@@ -151,7 +151,7 @@ export class DebugControls {
     this.popup.show(config);
   }
 
-  // Public helpers for external triggers (unitTestSpec): allow triggering scenarios/polling without clicking UI.
+  // Public helpers for external triggers (uiTestSpec): allow triggering scenarios/polling without clicking UI.
   async setScenario(scenarioPath?: string) {
     await this.handleSetScenario(scenarioPath, { hidePopup: false });
   }

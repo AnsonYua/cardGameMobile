@@ -343,6 +343,13 @@ export class PilotTargetDialog {
     return true;
   }
 
+  getAutomationState() {
+    return {
+      open: this.isOpen(),
+      targets: this.lastTargets.length,
+    };
+  }
+
   private startPreviewTimer(slot: SlotViewModel) {
     const cardW = UI_LAYOUT.slot.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.slot.preview.cardAspect;

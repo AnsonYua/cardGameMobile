@@ -24,6 +24,11 @@ export type PromptChoiceDialogOptions = {
 export class PromptChoiceDialog {
   private container?: Phaser.GameObjects.Container;
   private dialogTimer: DialogTimerPresenter;
+  private automationState?: {
+    headerText: string;
+    promptText: string;
+    buttons: Array<{ label: string; enabled: boolean; onClick: () => Promise<void> | void }>;
+  };
   private cfg = {
     ...DEFAULT_CARD_DIALOG_CONFIG,
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3050 },
@@ -43,6 +48,15 @@ export class PromptChoiceDialog {
 
   show(opts: PromptChoiceDialogOptions) {
     this.destroy();
+    this.automationState = {
+      headerText: opts.headerText,
+      promptText: opts.promptText ?? "",
+      buttons: opts.buttons.map((button) => ({
+        label: button.label,
+        enabled: button.enabled !== false,
+        onClick: button.onClick,
+      })),
+    };
     const dialog = createPromptDialog(this.scene, this.cfg, {
       headerText: opts.headerText,
       promptText: opts.promptText,
@@ -61,12 +75,37 @@ export class PromptChoiceDialog {
     animateDialogIn(this.scene, this.container);
   }
 
+  getAutomationState() {
+    if (!this.container || !this.automationState) return null;
+    return {
+      open: true,
+      headerText: this.automationState.headerText,
+      promptText: this.automationState.promptText,
+      buttons: this.automationState.buttons.map((button) => ({
+        label: button.label,
+        enabled: button.enabled,
+      })),
+    };
+  }
+
+  async choose(labelOrIndex: string | number): Promise<boolean> {
+    if (!this.container || !this.automationState) return false;
+    const buttons = this.automationState.buttons;
+    let target = typeof labelOrIndex === "number" ? buttons[labelOrIndex] : undefined;
+    if (!target && typeof labelOrIndex === "string") {
+      target = buttons.find((button) => button.label.toLowerCase() === labelOrIndex.toLowerCase());
+    }
+    if (!target || target.enabled === false) return false;
+    await Promise.resolve(target.onClick());
+    return true;
+  }
+
   private destroy() {
     this.dialogTimer.stop();
     if (!this.container) return;
     const target = this.container;
     this.container = undefined;
+    this.automationState = undefined;
     animateDialogOut(this.scene, target, () => target.destroy());
   }
 }
-

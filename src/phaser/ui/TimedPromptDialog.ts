@@ -31,6 +31,13 @@ export class TimedPromptDialog<T> {
   private buttonTargets: Phaser.GameObjects.Rectangle[] = [];
   private dialogTimer: DialogTimerPresenter;
   private cfg: CardDialogConfig;
+  private lastState?: {
+    headerText: string;
+    promptText: string;
+    buttons: Array<{ label: string; enabled: boolean }>;
+  };
+  private chooseHandlers: Array<() => Promise<void>> = [];
+  private closing = false;
 
   constructor(
     private scene: Phaser.Scene,
@@ -44,10 +51,9 @@ export class TimedPromptDialog<T> {
   async showPrompt(opts: TimedPromptDialogOptions<T>): Promise<T> {
     this.destroy();
     return new Promise<T>((resolve) => {
-      let closing = false;
       const close = async (result: T, cb?: () => Promise<void> | void) => {
-        if (closing) return;
-        closing = true;
+        if (this.closing) return;
+        this.closing = true;
         if (!this.container) return;
         this.dialogTimer.stop();
         this.buttonTargets.forEach((btn) => btn.disableInteractive());
@@ -58,14 +64,23 @@ export class TimedPromptDialog<T> {
         });
       };
 
+      this.lastState = {
+        headerText: opts.headerText,
+        promptText: opts.promptText ?? "",
+        buttons: opts.buttons.map((button) => ({ label: button.label, enabled: true })),
+      };
+      this.chooseHandlers = opts.buttons.map(
+        (button) => async () => {
+          await close(button.result, button.onClick);
+        },
+      );
+
       const dialog = createPromptDialog(this.scene, this.cfg, {
         headerText: opts.headerText,
         promptText: opts.promptText ?? "",
-        buttons: opts.buttons.map((btn) => ({
+        buttons: opts.buttons.map((btn, index) => ({
           label: btn.label,
-          onClick: async () => {
-            await close(btn.result, btn.onClick);
-          },
+          onClick: async () => this.chooseHandlers[index]?.(),
         })),
         showOverlay: opts.showOverlay ?? false,
         closeOnBackdrop: opts.closeOnBackdrop ?? false,
@@ -88,5 +103,40 @@ export class TimedPromptDialog<T> {
     this.container?.destroy();
     this.container = undefined;
     this.buttonTargets = [];
+    this.lastState = undefined;
+    this.chooseHandlers = [];
+    this.closing = false;
+  }
+
+  isOpen() {
+    return !!this.container;
+  }
+
+  getAutomationState() {
+    if (!this.container || !this.lastState) return null;
+    return {
+      open: true,
+      headerText: this.lastState.headerText,
+      promptText: this.lastState.promptText,
+      buttons: this.lastState.buttons.map((button) => ({
+        label: button.label,
+        enabled: button.enabled,
+      })),
+    };
+  }
+
+  async choose(labelOrIndex: string | number): Promise<boolean> {
+    if (!this.container || !this.lastState) return false;
+    let index = -1;
+    if (typeof labelOrIndex === "number") {
+      index = labelOrIndex;
+    } else {
+      index = this.lastState.buttons.findIndex((button) => button.label.toLowerCase() === labelOrIndex.toLowerCase());
+    }
+    if (index < 0 || index >= this.chooseHandlers.length) return false;
+    const handler = this.chooseHandlers[index];
+    if (!handler) return false;
+    await handler();
+    return true;
   }
 }

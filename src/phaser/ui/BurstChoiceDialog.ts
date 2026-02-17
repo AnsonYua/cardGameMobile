@@ -32,6 +32,13 @@ export class BurstChoiceDialog {
   private previewLayout: HandLayoutRenderer;
   private buttonTargets: Phaser.GameObjects.Rectangle[] = [];
   private open = false;
+  private automationState?: {
+    headerText: string;
+    showButtons: boolean;
+    showTimer: boolean;
+    onTrigger?: () => Promise<void> | void;
+    onCancel?: () => Promise<void> | void;
+  };
 
   private cfg = DEFAULT_CARD_DIALOG_CONFIG;
 
@@ -71,6 +78,7 @@ export class BurstChoiceDialog {
     this.dialog = undefined;
     this.content = undefined;
     this.open = false;
+    this.automationState = undefined;
   }
 
   show(opts: BurstChoiceDialogOptions) {
@@ -82,6 +90,14 @@ export class BurstChoiceDialog {
     const showTimer = opts.showTimer ?? false;
     const showOverlay = opts.showOverlay ?? false;
     const extraButtonHeight = showButtons ? 70 : 0;
+    this.automationState = {
+      headerText,
+      showButtons,
+      showTimer,
+      onTrigger: opts.onTrigger,
+      onCancel: opts.onCancel,
+    };
+
     const cfg = {
       ...this.cfg,
       dialog: {
@@ -195,6 +211,28 @@ export class BurstChoiceDialog {
         await opts.onTimeout?.();
       });
     }
+  }
+
+  getAutomationState() {
+    if (!this.open || !this.automationState) return null;
+    return {
+      open: true,
+      headerText: this.automationState.headerText,
+      showButtons: this.automationState.showButtons,
+    };
+  }
+
+  async choose(decision: "trigger" | "cancel"): Promise<boolean> {
+    if (!this.open || !this.automationState || !this.automationState.showButtons) return false;
+    if (decision === "trigger" && this.automationState.onTrigger) {
+      await Promise.resolve(this.automationState.onTrigger());
+      return true;
+    }
+    if (decision === "cancel" && this.automationState.onCancel) {
+      await Promise.resolve(this.automationState.onCancel());
+      return true;
+    }
+    return false;
   }
 
   private startPreview(card: any) {

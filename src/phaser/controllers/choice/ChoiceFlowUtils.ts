@@ -1,4 +1,4 @@
-import { getNotificationQueue } from "../../utils/NotificationUtils";
+import { getNotificationEvent, getNotificationQueue, isNotificationExpired } from "../../utils/NotificationUtils";
 
 export type NormalizedChoiceEntry = {
   id?: string;
@@ -45,10 +45,10 @@ export function findActiveChoiceEntryFromRaw(raw: any, type: string): any | unde
   for (let i = notifications.length - 1; i >= 0; i -= 1) {
     const note: any = notifications[i];
     if (!note) continue;
+    if (isNotificationExpired(note)) continue;
     const noteType = (note?.type ?? "").toString().toUpperCase();
     if (noteType !== targetType) continue;
-    const payload = note.payload ?? {};
-    const event = payload.event ?? payload;
+    const event = getNotificationEvent(note);
     const eventType = (event?.type ?? noteType).toString().toUpperCase();
     if (eventType !== targetType) continue;
     const status = (event?.status ?? "").toString().toUpperCase();
@@ -60,4 +60,3 @@ export function findActiveChoiceEntryFromRaw(raw: any, type: string): any | unde
 
   return undefined;
 }
-
