@@ -1,10 +1,12 @@
 import { GameMode } from "./GameSessionService";
+import type { ScenarioPlayerSelector } from "./SeatSelector";
 
 export type GameContext = {
   playerId: string;
   playerName: string;
   gameId: string | null;
   joinToken?: string | null;
+  playerSelector: ScenarioPlayerSelector;
   mode: GameMode;
   lastStatus: any;
 };
@@ -15,6 +17,7 @@ export class GameContextStore {
     playerName: "Demo Player",
     gameId: null,
     joinToken: null,
+    playerSelector: "currentPlayer",
     mode: GameMode.Host,
     lastStatus: null,
   };

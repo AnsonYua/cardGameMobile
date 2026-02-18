@@ -4,6 +4,8 @@ import type { MatchStateMachine } from "../game/MatchStateMachine";
 import type { GameContextStore } from "../game/GameContextStore";
 import { submitDeckFromStorage } from "../game/deckSubmissionFlow";
 import type { DebugControls } from "./DebugControls";
+import { updateSession } from "../game/SessionStore";
+import type { ScenarioPlayerSelector } from "../game/SeatSelector";
 
 type FlowDeps = {
   match: MatchStateMachine;
@@ -18,22 +20,56 @@ export async function runJoinFlow(
     gameId: string;
     playerName?: string | null;
     isAutoPolling?: boolean;
+    playerSelector?: ScenarioPlayerSelector;
+    hasPlayerOverride?: boolean;
   },
 ) {
   const { match, engine, contextStore, debugControls } = deps;
   const joinName = params.playerName || "Demo Opponent";
-  const joinResp = await match.joinRoom(params.gameId);
+  let joinedViaRoom = true;
+  let joinResp: any = null;
+
+  try {
+    joinResp = await match.joinRoom(params.gameId);
+  } catch (err) {
+    if (!params.hasPlayerOverride) {
+      throw err;
+    }
+    const selector = params.playerSelector || "currentPlayer";
+    const seatResp = await match.resolveSeatSession(params.gameId, selector);
+    if (!seatResp?.success || !seatResp?.resolvedPlayerId || !seatResp?.sessionToken) {
+      throw err;
+    }
+    joinedViaRoom = false;
+    joinResp = {
+      success: true,
+      gameId: params.gameId,
+      playerId: seatResp.resolvedPlayerId,
+      sessionToken: seatResp.sessionToken,
+      sessionExpiresAt: seatResp.sessionExpiresAt,
+    };
+    updateSession({
+      gameId: params.gameId,
+      playerId: seatResp.resolvedPlayerId,
+      sessionToken: seatResp.sessionToken,
+      sessionExpiresAt: seatResp.sessionExpiresAt ?? null,
+    });
+    match.adoptJoinSession(params.gameId);
+  }
+
   const resolvedPlayerId = joinResp?.playerId || contextStore.get().playerId || "";
   if (!resolvedPlayerId) {
     throw new Error("Join failed: missing player id");
   }
-  await submitDeckFromStorage({
-    gameId: params.gameId,
-    playerId: resolvedPlayerId,
-    source: "join",
-    emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
-    submit: (payload) => match.submitDeck(params.gameId, resolvedPlayerId, payload),
-  });
+  if (joinedViaRoom) {
+    await submitDeckFromStorage({
+      gameId: params.gameId,
+      playerId: resolvedPlayerId,
+      source: "join",
+      emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
+      submit: (payload) => match.submitDeck(params.gameId, resolvedPlayerId, payload),
+    });
+  }
   contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
   const statusPayload = (await match.getGameStatus(params.gameId, resolvedPlayerId)) as GameStatusResponse;
   await engine.updateGameStatus(params.gameId, resolvedPlayerId, {

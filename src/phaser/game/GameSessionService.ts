@@ -1,6 +1,7 @@
 import { ApiManager } from "../api/ApiManager";
 import { updateSession } from "./SessionStore";
 import type { DeckEntry } from "../api/ApiManager";
+import type { ScenarioPlayerSelector } from "./SeatSelector";
 
 export enum GameStatus {
   Idle = "idle",
@@ -95,6 +96,10 @@ export class GameSessionService {
     });
     this.status = GameStatus.Ready;
     return resp;
+  }
+
+  async resolveSeatSession(gameId: string, player?: ScenarioPlayerSelector) {
+    return this.api.resolveSeatSession(gameId, player);
   }
 
   getApiBaseUrl() {

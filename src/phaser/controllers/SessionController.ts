@@ -23,7 +23,8 @@ export class SessionController {
       const parsed = parseSessionParams(locationSearch);
       const mode = parsed.mode;
       const gameId = parsed.gameId;
-      const playerIdParam = parsed.playerId;
+      const playerSelector = parsed.player;
+      const hasPlayerOverride = parsed.hasPlayerOverride;
       const playerNameParam = parsed.playerName;
       const isAutoPolling = parsed.isAutoPolling;
       const aiMode = parsed.aiMode;
@@ -31,7 +32,7 @@ export class SessionController {
       if (!mode) throw new Error("Invalid mode");
 
       contextStore.update({ mode });
-      if (playerIdParam) contextStore.update({ playerId: playerIdParam });
+      contextStore.update({ playerSelector });
       if (gameId) contextStore.update({ gameId });
 
       if (mode === GameMode.Join) {
@@ -40,7 +41,7 @@ export class SessionController {
         }
         await runJoinFlow(
           { match, engine, contextStore, debugControls },
-          { gameId, playerName: playerNameParam, isAutoPolling },
+          { gameId, playerName: playerNameParam, isAutoPolling, playerSelector, hasPlayerOverride },
         );
         return;
       }

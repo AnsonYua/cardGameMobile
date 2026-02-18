@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { GameSessionService, GameStatus, GameMode } from "./GameSessionService";
 import type { DeckEntry } from "../api/ApiManager";
+import type { ScenarioPlayerSelector } from "./SeatSelector";
 
 export type MatchState = { status: GameStatus; gameId: string | null; mode: GameMode };
 
@@ -37,6 +38,17 @@ export class MatchStateMachine {
     this.gameId = gameId;
     this.transition(GameStatus.Ready);
     return resp;
+  }
+
+  async resolveSeatSession(gameId: string, player?: ScenarioPlayerSelector) {
+    this.mode = GameMode.Join;
+    return this.session.resolveSeatSession(gameId, player);
+  }
+
+  adoptJoinSession(gameId: string) {
+    this.mode = GameMode.Join;
+    this.gameId = gameId;
+    this.transition(GameStatus.Ready);
   }
 
   async getGameStatus(gameId: string, playerId: string) {

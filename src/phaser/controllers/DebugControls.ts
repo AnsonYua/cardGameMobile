@@ -6,6 +6,7 @@ import { TestButtonPopup } from "../ui/TestButtonPopup";
 import type { GameContext } from "../game/GameContextStore";
 import { ApiManager } from "../api/ApiManager";
 import { updateSession } from "../game/SessionStore";
+import { resolveScenarioPlayerId, type ScenarioPlayerSelector } from "../game/SeatSelector";
 
 const DEFAULT_SCENARIO_PATH = "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike";
 const SCENARIO_PRESETS: readonly string[] = [
@@ -19,6 +20,9 @@ const SCENARIO_PRESETS: readonly string[] = [
   "ST03/ST03-008/attack_ap_boost_self_only",
   "ST03/ST03-015/deploy_full_board_from_capture_multi_effect_order",
   "ST03/ST03-016/deploy_full_board_from_capture_multi_effect_order",
+
+  "GD01/GD01-118/draw2_dis1",
+  
   "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike",
   "ActionCase/GD01-005/destroyed_linked_return_pilot_then_discard",
   "ActionCase/GD01-009/deploy_choose_white_base_team_unit_grant_high_maneuver",
@@ -212,10 +216,13 @@ export class DebugControls {
         throw new Error("Scenario response missing initialGameEnv");
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
-      const desiredPlayerId = gameEnv?.currentPlayer || this.context.playerId;
+      const playerSelector: ScenarioPlayerSelector = this.context.playerSelector || "currentPlayer";
 
       //alert(gameId)
-      const injectResp = await this.api.injectGameState(gameId, gameEnv);
+      const injectResp = await this.api.injectGameState(gameId, gameEnv, playerSelector);
+      const desiredPlayerId =
+        (typeof injectResp?.resolvedPlayerId === "string" && injectResp.resolvedPlayerId) ||
+        resolveScenarioPlayerId(gameEnv, playerSelector, this.context.playerId);
       const matchingSession = Array.isArray(injectResp?.testSessions)
         ? injectResp.testSessions.find((entry: any) => entry?.playerId === desiredPlayerId)
         : null;

@@ -1,4 +1,5 @@
 import { ApiClient, ApiError, type GameResourceBundleResponse } from "./apiClient";
+import type { ScenarioPlayerSelector } from "../game/SeatSelector";
 
 export { ApiError };
 
@@ -23,6 +24,14 @@ export type JoinRoomResponse = {
   sessionToken?: string;
   sessionExpiresAt?: number;
   gameEnv?: any;
+};
+export type ResolveSeatSessionResponse = {
+  success: boolean;
+  gameId?: string;
+  requestedPlayerSelector?: ScenarioPlayerSelector;
+  resolvedPlayerId?: string;
+  sessionToken?: string;
+  sessionExpiresAt?: number;
 };
 export type StartReadyPayload = {
   gameId: string;
@@ -154,8 +163,12 @@ export class ApiManager {
     return this.client.getJson(path);
   }
 
-  injectGameState(gameId: string, gameEnv: any): Promise<any> {
-    return this.client.postJson("/api/game/test/injectGameState", { gameId, gameEnv });
+  injectGameState(gameId: string, gameEnv: any, player?: ScenarioPlayerSelector): Promise<any> {
+    return this.client.postJson("/api/game/test/injectGameState", { gameId, gameEnv, player });
+  }
+
+  resolveSeatSession(gameId: string, player?: ScenarioPlayerSelector): Promise<ResolveSeatSessionResponse> {
+    return this.client.postJson("/api/game/test/resolveSeatSession", { gameId, player });
   }
 
   getGameResource(token: string, gameId: string, playerId: string, opts?: { includeBothDecks?: boolean }): Promise<any> {
