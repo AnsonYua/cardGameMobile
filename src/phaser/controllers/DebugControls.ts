@@ -22,6 +22,11 @@ const SCENARIO_PRESETS: readonly string[] = [
   "ST03/ST03-016/deploy_full_board_from_capture_multi_effect_order",
 
   "GD01/GD01-118/draw2_dis1",
+  "GD02/GD02-058/deploy_draw1_dis1",
+  "GD02/GD02-070/deploy_draw2_dis2_if_trash_4_gjallarhorn",
+  "GD02/GD02-098/pair_draw1_dis1_if_aeug",
+  "GD02/GD02-117/draw3_dis2",
+  "GD03/GD03-072/deploy_draw1_dis1_if_another_tsa",
   
   "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike",
   "ActionCase/GD01-005/destroyed_linked_return_pilot_then_discard",
