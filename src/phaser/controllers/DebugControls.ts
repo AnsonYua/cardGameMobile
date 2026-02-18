@@ -5,6 +5,7 @@ import type { TestButtonPopupConfig } from "../ui/TestButtonPopup";
 import { TestButtonPopup } from "../ui/TestButtonPopup";
 import type { GameContext } from "../game/GameContextStore";
 import { ApiManager } from "../api/ApiManager";
+import { updateSession } from "../game/SessionStore";
 
 const DEFAULT_SCENARIO_PATH = "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike";
 const SCENARIO_PRESETS: readonly string[] = [
@@ -110,6 +111,7 @@ export class DebugControls {
   private deferredPollPending = false;
   private deferredPollLogged = false;
   private pollInFlight = false;
+  private scenarioResourceFallbackEnabled = false;
   private selectedScenarioPath = DEFAULT_SCENARIO_PATH;
 
   constructor(
@@ -198,14 +200,33 @@ export class DebugControls {
         throw new Error("Scenario response missing initialGameEnv");
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
-      if (gameEnv?.currentPlayer && gameEnv.currentPlayer !== this.context.playerId) {
-        this.context.playerId = gameEnv.currentPlayer;
-      }
+      const desiredPlayerId = gameEnv?.currentPlayer || this.context.playerId;
 
       //alert(gameId)
-      await this.api.injectGameState(gameId, gameEnv);
-      await this.engine.updateGameStatus(gameId, this.context.playerId, { fromScenario: false, silent: true });
-      await this.engine.loadGameResources(gameId, this.context.playerId);
+      const injectResp = await this.api.injectGameState(gameId, gameEnv);
+      const matchingSession = Array.isArray(injectResp?.testSessions)
+        ? injectResp.testSessions.find((entry: any) => entry?.playerId === desiredPlayerId)
+        : null;
+
+      this.context.gameId = gameId;
+      this.context.playerId = desiredPlayerId;
+      this.scenarioResourceFallbackEnabled = true;
+
+      if (matchingSession?.sessionToken) {
+        updateSession({
+          gameId,
+          playerId: desiredPlayerId,
+          sessionToken: matchingSession.sessionToken,
+          sessionExpiresAt: matchingSession.sessionExpiresAt ?? null,
+        });
+      }
+
+      await this.engine.updateGameStatus(gameId, this.context.playerId, {
+        fromScenario: false,
+        silent: true,
+        allowEnvScanFallback: true,
+      });
+      await this.engine.loadGameResources(gameId, this.context.playerId, undefined, { allowEnvScanFallback: true });
       //check the response of initialGameEnv. if currentPlayer = playerId_2 set this.context.playerId to that value
     } catch (err) {
       console.error("Set scenario failed", err);
@@ -228,6 +249,7 @@ export class DebugControls {
       const snapshot = await this.engine.updateGameStatus(this.context.gameId ?? undefined, this.context.playerId, {
         silent: silentRefresh,
         fromScenario: false,
+        allowEnvScanFallback: this.scenarioResourceFallbackEnabled,
       });
       if (snapshot) {
         this.context.lastStatus = snapshot.status ?? this.context.lastStatus;

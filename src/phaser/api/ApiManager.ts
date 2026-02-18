@@ -166,13 +166,14 @@ export class ApiManager {
 
   async getGameResourceBundle(
     token: string,
-    opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {},
+    opts: { includePreviews?: boolean; includeBothDecks?: boolean; allowEnvScanFallback?: boolean } = {},
   ): Promise<GameResourceBundleResponse> {
     const includePreviews = opts.includePreviews !== false;
     const includeBothDecks = opts.includeBothDecks === true;
+    const allowEnvScanFallback = opts.allowEnvScanFallback === true;
     return this.client.postRaw(
       "/api/game/player/gameResourceBundle",
-      { includePreviews, includeBothDecks },
+      { includePreviews, includeBothDecks, allowEnvScanFallback },
       { authToken: token },
     );
   }

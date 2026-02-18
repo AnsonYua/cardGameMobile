@@ -56,7 +56,12 @@ export class GameEngine {
   async updateGameStatus(
     gameId?: string,
     playerId?: string,
-    opts: { fromScenario?: boolean; silent?: boolean; statusPayload?: GameStatusResponse | null } = {},
+    opts: {
+      fromScenario?: boolean;
+      silent?: boolean;
+      statusPayload?: GameStatusResponse | null;
+      allowEnvScanFallback?: boolean;
+    } = {},
   ) {
     if (!gameId || !playerId) return this.getSnapshot();
     const snapshotNow = () => this.getSnapshot();
@@ -91,7 +96,9 @@ export class GameEngine {
       // Proactively preload bundle on new snapshots so visible cards are already in texture cache.
       // Redraw phase has its own loading/status flow below, so skip duplicate preload here.
       if (!entersRedrawPhase) {
-        await this.preloadResourcesForSnapshot(gameId, playerId, normalizedResponse, previousGameEnv.raw);
+        await this.preloadResourcesForSnapshot(gameId, playerId, normalizedResponse, previousGameEnv.raw, {
+          allowEnvScanFallback: opts.allowEnvScanFallback === true,
+        });
       }
 
       this.previousRaw = previousGameEnv.raw;
@@ -109,7 +116,9 @@ export class GameEngine {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
-        const didLoad = await this.fetchGameResources(gameId, playerId, normalizedResponse);
+        const didLoad = await this.fetchGameResources(gameId, playerId, normalizedResponse, {
+          allowEnvScanFallback: opts.allowEnvScanFallback === true,
+        });
         if (didLoad) {
           const preloadKey = this.buildResourceSnapshotKey(normalizedResponse);
           if (preloadKey) this.lastPreloadedSnapshotKey = preloadKey;
@@ -357,8 +366,13 @@ export class GameEngine {
     return handler(ctx);
   }
 
-  async loadGameResources(gameId: string, playerId: string, statusPayload?: GameStatusResponse | null) {
-    return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {});
+  async loadGameResources(
+    gameId: string,
+    playerId: string,
+    statusPayload?: GameStatusResponse | null,
+    opts: { allowEnvScanFallback?: boolean } = {},
+  ) {
+    return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {}, opts);
   }
 
   private buildResourceSnapshotKey(response: GameStatusResponse | null | undefined): string | null {
@@ -375,6 +389,7 @@ export class GameEngine {
     playerId: string,
     response: GameStatusResponse,
     previousRaw: GameStatusResponse | null,
+    opts: { allowEnvScanFallback?: boolean } = {},
   ) {
     const token = (response as any)?.resourceBundleToken || (previousRaw as any)?.resourceBundleToken;
     if (!token) return;
@@ -386,13 +401,18 @@ export class GameEngine {
     if (!isFirstSnapshot && !keyChanged && !currentKey) return;
     if (alreadyPreloaded) return;
 
-    const didLoad = await this.fetchGameResources(gameId, playerId, response);
+    const didLoad = await this.fetchGameResources(gameId, playerId, response, opts);
     if (didLoad && currentKey) {
       this.lastPreloadedSnapshotKey = currentKey;
     }
   }
 
-  private async fetchGameResources(gameId: string, playerId: string, statusPayload: GameStatusResponse): Promise<boolean> {
+  private async fetchGameResources(
+    gameId: string,
+    playerId: string,
+    statusPayload: GameStatusResponse,
+    opts: { allowEnvScanFallback?: boolean } = {},
+  ): Promise<boolean> {
     try {
       if (this.resourceLoadInFlight) return false;
       if (!this.shouldFetchCombinedResourceBundle(statusPayload)) {
@@ -412,6 +432,7 @@ export class GameEngine {
       const bundle = await this.match.getGameResourceBundle(token, {
         includePreviews: true,
         includeBothDecks: true,
+        allowEnvScanFallback: opts.allowEnvScanFallback === true,
       });
       const loadResult = await this.resourceLoader.loadFromResourceBundle(bundle);
       this.events.emit(ENGINE_EVENTS.GAME_RESOURCE, { gameId, playerId, resources: { bundled: true }, loadResult, statusPayload });

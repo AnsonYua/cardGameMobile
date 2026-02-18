@@ -58,7 +58,10 @@ export class GameSessionService {
     return this.api.getGameResource(token, gameId, playerId, opts);
   }
 
-  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {}) {
+  async getGameResourceBundle(
+    token: string,
+    opts: { includePreviews?: boolean; includeBothDecks?: boolean; allowEnvScanFallback?: boolean } = {},
+  ) {
     return this.api.getGameResourceBundle(token, opts);
   }
 

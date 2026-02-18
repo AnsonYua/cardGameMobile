@@ -47,7 +47,10 @@ export class MatchStateMachine {
     return this.session.getGameResource(token, gameId, playerId);
   }
 
-  async getGameResourceBundle(token: string, opts: { includePreviews?: boolean; includeBothDecks?: boolean } = {}) {
+  async getGameResourceBundle(
+    token: string,
+    opts: { includePreviews?: boolean; includeBothDecks?: boolean; allowEnvScanFallback?: boolean } = {},
+  ) {
     return this.session.getGameResourceBundle(token, opts);
   }
 
