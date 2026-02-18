@@ -56,7 +56,6 @@ import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
 import { setupBoardDialogs } from "./scene/boardDialogSetup";
 import { BOARD_THEME } from "./scene/boardTheme";
 import { wireBoardUiHandlers } from "./scene/boardSceneUiBindings";
-import { buildBoardSceneTestHooks } from "./scene/boardSceneTestHooks";
 import { bindBoardSceneEvents } from "./scene/boardSceneEventBindings";
 import { registerBoardSceneActions } from "./scene/boardSceneActionBindings";
 import type { TurnTimerController } from "./controllers/TurnTimerController";
@@ -409,20 +408,6 @@ export class BoardScene extends Phaser.Scene {
       onShowLoading: () => this.showLoading(),
       onHideLoading: () => this.hideLoading(),
     });
-    this.debugControls.exposeTestHooks(
-      buildBoardSceneTestHooks({
-        engineSnapshot: () => this.engine.getSnapshot(),
-        engineGetAvailableActions: (source) => this.engine.getAvailableActions(source),
-        handPresenter: this.handPresenter,
-        playerId: this.gameContext.playerId,
-        selectionAction: this.selectionAction,
-        runActionThenRefresh: this.runActionThenRefresh.bind(this),
-        effectTargetDialog: this.effectTargetDialogUi,
-        pilotTargetDialog: this.pilotTargetDialogUi,
-        pilotFlow: this.pilotFlow,
-      }),
-    );
-
     registerBoardSceneActions({
       actionDispatcher: this.actionDispatcher,
       shuffleManager: this.shuffleManager,

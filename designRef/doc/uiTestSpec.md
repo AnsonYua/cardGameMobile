@@ -1,8 +1,7 @@
 # UI Test Spec (`/game`) - Chrome MCP + Console
 
-This document replaces the old `unitTestSpec.md` and merges:
-- Legacy test hooks: `window.__cardTest` (existing implementation)
-- New semantic automation bridge: `window.__card` (current implementation)
+This document replaces the old `unitTestSpec.md`.
+It now uses only the semantic automation bridge: `window.__card`.
 
 ## 1) Start URL
 
@@ -15,22 +14,8 @@ Optional query flags:
 
 Notes:
 - `window.__card` is exposed only when `automation=1` or `automation=true`.
-- `window.__cardTest` remains available for backward compatibility.
 
-## 2) Legacy Hooks (`window.__cardTest`)
-
-These existed before and still work:
-- `window.__cardTest.setScenario(path?)`
-- `window.__cardTest.pollOnce()`
-- `window.__cardTest.startAutoPolling()`
-- `window.__cardTest.stopAutoPolling()`
-
-Example:
-```js
-() => window.__cardTest.setScenario('BasicCase/basicMainBasest01_016_1')
-```
-
-## 3) New Automation API (`window.__card`)
+## 2) Automation API (`window.__card`)
 
 ### Core
 - `window.__card.snapshot()`
@@ -78,7 +63,7 @@ Example:
 - `await window.__card.engine.stopAutoPolling()`
 - `await window.__card.engine.setScenario(path)`
 
-## 4) Typical MCP Agent Flow
+## 3) Typical MCP Agent Flow
 
 1. Initialize game state:
 ```js
@@ -115,7 +100,7 @@ await window.__card.waitFor(
 await window.__card.dialogs.promptChoose(0);
 ```
 
-## 5) Target String IDs for `click(...)`
+## 4) Target String IDs for `click(...)`
 
 Supported examples:
 - `action:primary`
@@ -134,7 +119,7 @@ Supported examples:
 - `dialog:pilot:0`
 - `dialog:effect:0`
 
-## 6) Behavior Contract
+## 5) Behavior Contract
 
 - APIs are semantic (controller callbacks), not pixel-coordinate clicks.
 - Most actions return `false` when unavailable instead of throwing.

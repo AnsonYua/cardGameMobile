@@ -5,7 +5,6 @@ import type { TestButtonPopupConfig } from "../ui/TestButtonPopup";
 import { TestButtonPopup } from "../ui/TestButtonPopup";
 import type { GameContext } from "../game/GameContextStore";
 import { ApiManager } from "../api/ApiManager";
-import type { ActionSource } from "../game/GameEngine";
 
 const DEFAULT_SCENARIO_PATH = "ActionCase/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike";
 const SCENARIO_PRESETS: readonly string[] = [
@@ -173,27 +172,6 @@ export class DebugControls {
     this.deferredPollPending = false;
     this.deferredPollLogged = false;
     await this.handleTestPolling(false, { skipPopupHide: true, source: "Deferred polling (flush)" });
-  }
-
-  // Expose testing hooks on window.__cardTest using provided helpers from the scene.
-  exposeTestHooks(hooks: {
-    selectHandCard: (uid?: string) => boolean;
-    clickPrimaryAction: (source?: ActionSource) => Promise<boolean>;
-    runAction: (id: string, source?: ActionSource) => Promise<boolean>;
-    selectEffectTarget: (targetIndex?: number) => Promise<boolean>;
-    selectPilotTarget: (targetIndex?: number, actionId?: string) => Promise<boolean>;
-    choosePilotDesignationPilot: () => Promise<boolean>;
-    choosePilotDesignationCommand: () => Promise<boolean>;
-  }) {
-    if (typeof window === "undefined") return;
-    const globalKey = "__cardTest";
-    const baseHooks = {
-      setScenario: (path?: string) => this.setScenario(path),
-      pollOnce: () => this.pollOnce(),
-      startAutoPolling: () => this.startAutoPolling(),
-      stopAutoPolling: () => this.stopAutoPolling(),
-    };
-    (window as any)[globalKey] = { ...baseHooks, ...hooks };
   }
 
   private async handleSetScenario(scenarioPath?: string, opts?: { hidePopup?: boolean }) {
