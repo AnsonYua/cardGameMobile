@@ -49,11 +49,18 @@ export function createPromptDialog(
   const tempHeader = hasHeader ? scene.add.text(-10000, -10000, opts.headerText, headerStyle).setOrigin(0.5) : undefined;
   const tempPrompt = hasPrompt ? scene.add.text(-10000, -10000, promptText, promptStyle).setOrigin(0.5) : undefined;
   const gap = opts.headerGap ?? 14;
-  const buttonHeight = 46;
+  const count = opts.buttons.length;
+  const hasLongButtonLabel = opts.buttons.some((btn) => (btn?.label ?? "").toString().length > 24);
+  const useStackedButtons = count > 1 && (cam.width <= 900 || hasLongButtonLabel);
+  const buttonHeight = useStackedButtons ? 52 : 46;
+  const buttonGap = useStackedButtons ? 12 : 24;
+  const buttonRows = hasButtons ? (useStackedButtons ? count : 1) : 0;
   const promptHeight = tempPrompt?.height ?? 0;
-  const buttonContentHeight = promptHeight + (hasPrompt && hasButtons ? gap : 0) + (hasButtons ? buttonHeight : 0);
+  const buttonsBlockHeight = buttonRows > 0 ? buttonRows * buttonHeight + Math.max(0, buttonRows - 1) * buttonGap : 0;
+  const buttonContentHeight = promptHeight + (hasPrompt && hasButtons ? gap : 0) + buttonsBlockHeight;
+  const minButtonContentWidth = useStackedButtons ? 260 : hasButtons ? 200 : 260;
   const layout = computePromptDialogLayout(cam, cfg, {
-    contentWidth: Math.max(tempPrompt?.width ?? 0, hasButtons ? 200 : 260),
+    contentWidth: Math.max(tempPrompt?.width ?? 0, minButtonContentWidth),
     contentHeight: buttonContentHeight,
     headerHeight: tempHeader?.height ?? 0,
     headerGap: gap,
@@ -80,11 +87,11 @@ export function createPromptDialog(
   if (prompt) prompt.setY(promptY);
 
   const dialogMargin = cfg.dialog.margin;
-  const buttonGap = 24;
   const availableForButtons = Math.max(200, layout.dialogWidth - dialogMargin * 2);
-  const count = opts.buttons.length;
-  const buttonWidth =
+  const inlineButtonWidth =
     count > 1 ? Math.min(220, (availableForButtons - buttonGap * (count - 1)) / count) : Math.min(240, availableForButtons);
+  const stackedButtonWidth = Math.min(340, availableForButtons);
+  const buttonWidth = useStackedButtons ? stackedButtonWidth : inlineButtonWidth;
   const btnY = hasPrompt
     ? promptY + (prompt?.height ?? 0) / 2 + gap + buttonHeight / 2
     : contentTop + buttonHeight / 2;
@@ -92,10 +99,13 @@ export function createPromptDialog(
   const buttons = opts.buttons.map((btn, index) => {
     const totalWidth = count * buttonWidth + buttonGap * (count - 1);
     const startX = -totalWidth / 2 + buttonWidth / 2;
-    const x = startX + index * (buttonWidth + buttonGap);
+    const x = useStackedButtons ? 0 : startX + index * (buttonWidth + buttonGap);
+    const y = useStackedButtons ? btnY + index * (buttonHeight + buttonGap) : btnY;
     const enabled = btn.enabled !== false;
-    const rect = scene.add.rectangle(x, btnY, buttonWidth, buttonHeight, 0x2f3238, enabled ? 1 : 0.45);
-    rect.setStrokeStyle(2, 0x5b6068, enabled ? 1 : 0.45);
+    const fillColor = enabled ? 0x353a43 : 0x2f3238;
+    const borderColor = enabled ? 0x8ea8ff : 0x5b6068;
+    const rect = scene.add.rectangle(x, y, buttonWidth, buttonHeight, fillColor, enabled ? 1 : 0.45);
+    rect.setStrokeStyle(2, borderColor, enabled ? 1 : 0.45);
     if (enabled) {
       rect.setInteractive({ useHandCursor: true });
       rect.on("pointerup", async () => {
@@ -103,7 +113,7 @@ export function createPromptDialog(
       });
     }
 
-    const txt = scene.add.text(x, btnY, btn.label, {
+    const txt = scene.add.text(x, y, btn.label, {
       fontSize: "15px",
       fontFamily: "Arial",
       fontStyle: "bold",
