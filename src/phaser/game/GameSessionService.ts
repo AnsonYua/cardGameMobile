@@ -1,5 +1,6 @@
 import { ApiManager } from "../api/ApiManager";
 import { updateSession } from "./SessionStore";
+import type { DeckEntry } from "../api/ApiManager";
 
 export enum GameStatus {
   Idle = "idle",
@@ -61,8 +62,21 @@ export class GameSessionService {
     return this.api.getGameResourceBundle(token, opts);
   }
 
-  async submitDeck(gameId: string, playerId: string, deck: Array<{ id: string; qty: number; setId?: string; name?: string }>) {
-    return this.api.submitDeck({ gameId, playerId, deck });
+  async submitDeck(
+    gameId: string,
+    playerId: string,
+    payload: DeckEntry[] | { deck?: DeckEntry[]; topDeck?: string },
+  ) {
+    const body =
+      Array.isArray(payload)
+        ? { gameId, playerId, deck: payload }
+        : {
+            gameId,
+            playerId,
+            deck: Array.isArray(payload.deck) ? payload.deck : undefined,
+            topDeck: typeof payload.topDeck === "string" ? payload.topDeck : undefined,
+          };
+    return this.api.submitDeck(body);
   }
 
   async joinRoom(gameId: string) {

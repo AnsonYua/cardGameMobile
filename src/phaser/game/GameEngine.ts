@@ -18,7 +18,7 @@ import {
   getSlotCards,
   hasPairableUnit,
 } from "./actionEligibility";
-import { isBattleActionStep } from "./battleUtils";
+import { isBattleActionStep, isBattleStateConsistent } from "./battleUtils";
 import { createLogger } from "../utils/logger";
 import { hasPilotDesignationRule } from "../utils/pilotDesignation";
 
@@ -73,16 +73,17 @@ export class GameEngine {
         fromScenario,
         forcedPayload: opts.statusPayload ?? null,
       });
-      this.logStatusPoll(gameId, playerId, response);
-      this.logStatusQueues(response);
+      const normalizedResponse = this.normalizeBattleState(response);
+      this.logStatusPoll(gameId, playerId, normalizedResponse);
+      this.logStatusQueues(normalizedResponse);
 
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
       // Only fall back to the full response if it's a string; otherwise use the previous status.
-      const derivedStatus = this.deriveStatus(response, previousGameEnv.status);
+      const derivedStatus = this.deriveStatus(normalizedResponse, previousGameEnv.status);
       const nextGameEnv = {
-        phase: this.getPhase(response),
-        battle: this.getBattle(response),
+        phase: this.getPhase(normalizedResponse),
+        battle: this.getBattle(normalizedResponse),
         status: derivedStatus,
       };
       const entersRedrawPhase = previousGameEnv.phase !== GamePhase.Redraw && nextGameEnv.phase === GamePhase.Redraw;
@@ -90,11 +91,11 @@ export class GameEngine {
       // Proactively preload bundle on new snapshots so visible cards are already in texture cache.
       // Redraw phase has its own loading/status flow below, so skip duplicate preload here.
       if (!entersRedrawPhase) {
-        await this.preloadResourcesForSnapshot(gameId, playerId, response, previousGameEnv.raw);
+        await this.preloadResourcesForSnapshot(gameId, playerId, normalizedResponse, previousGameEnv.raw);
       }
 
       this.previousRaw = previousGameEnv.raw;
-      this.lastRaw = response;
+      this.lastRaw = normalizedResponse;
       this.pendingBattleTransition = { prevBattle: previousGameEnv.battle, nextBattle: nextGameEnv.battle };
 
       this.contextStore.update({ lastStatus: nextGameEnv.status });
@@ -108,9 +109,9 @@ export class GameEngine {
         // Mark status as loading resources while fetching textures, then emit redraw after load.
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
-        const didLoad = await this.fetchGameResources(gameId, playerId, response);
+        const didLoad = await this.fetchGameResources(gameId, playerId, normalizedResponse);
         if (didLoad) {
-          const preloadKey = this.buildResourceSnapshotKey(response);
+          const preloadKey = this.buildResourceSnapshotKey(normalizedResponse);
           if (preloadKey) this.lastPreloadedSnapshotKey = preloadKey;
         }
         this.contextStore.update({ lastStatus: nextGameEnv.status });
@@ -149,6 +150,27 @@ export class GameEngine {
   private deriveStatus(response: GameStatusResponse, previousStatus: any) {
     const fallback = typeof response === "string" ? response : previousStatus;
     return response?.status ?? response?.gameStatus ?? fallback;
+  }
+
+  private normalizeBattleState(response: GameStatusResponse): GameStatusResponse {
+    if (!response || typeof response !== "object") return response;
+    const battle = this.getBattle(response);
+    if (!battle) return response;
+    if (isBattleStateConsistent(response)) return response;
+    this.log.debug("normalize stale currentBattle", {
+      attackerCarduid: battle?.attackerCarduid ?? battle?.attackerUnitUid,
+      status: battle?.status,
+    });
+    const gameEnv = (response as any)?.gameEnv;
+    if (!gameEnv || typeof gameEnv !== "object") return response;
+    return {
+      ...(response as any),
+      gameEnv: {
+        ...gameEnv,
+        currentBattle: null,
+        currentbattle: null,
+      },
+    } as GameStatusResponse;
   }
 
   private logStatusPoll(gameId: string, playerId: string, response: GameStatusResponse) {

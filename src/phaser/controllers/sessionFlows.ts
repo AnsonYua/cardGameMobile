@@ -32,7 +32,7 @@ export async function runJoinFlow(
     playerId: resolvedPlayerId,
     source: "join",
     emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
-    submit: (deck) => match.submitDeck(params.gameId, resolvedPlayerId, deck),
+    submit: (payload) => match.submitDeck(params.gameId, resolvedPlayerId, payload),
   });
   contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
   const statusPayload = (await match.getGameStatus(params.gameId, resolvedPlayerId)) as GameStatusResponse;
@@ -77,7 +77,7 @@ export async function runHostFlow(
     playerId: hostPlayerId,
     source: "host",
     emptyDeckMessage: "Deck is empty. Please setup your deck before creating a room.",
-    submit: (deck) => match.submitDeck(hostGameId, hostPlayerId, deck),
+    submit: (payload) => match.submitDeck(hostGameId, hostPlayerId, payload),
   });
   if (params.isAutoPolling) {
     await debugControls?.startAutoPolling();

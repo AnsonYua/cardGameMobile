@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { GameSessionService, GameStatus, GameMode } from "./GameSessionService";
+import type { DeckEntry } from "../api/ApiManager";
 
 export type MatchState = { status: GameStatus; gameId: string | null; mode: GameMode };
 
@@ -50,8 +51,8 @@ export class MatchStateMachine {
     return this.session.getGameResourceBundle(token, opts);
   }
 
-  async submitDeck(gameId: string, playerId: string, deck: Array<{ id: string; qty: number; setId?: string; name?: string }>) {
-    return this.session.submitDeck(gameId, playerId, deck);
+  async submitDeck(gameId: string, playerId: string, payload: DeckEntry[] | { deck?: DeckEntry[]; topDeck?: string }) {
+    return this.session.submitDeck(gameId, playerId, payload);
   }
 
   getApiBaseUrl() {

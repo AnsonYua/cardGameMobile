@@ -87,6 +87,10 @@ export class AnimationQueue {
     return this.running;
   }
 
+  clearAttackIndicator() {
+    this.deps.attackIndicator.clear();
+  }
+
   isProcessed(id: string) {
     return this.completedIds.has(id);
   }

@@ -136,7 +136,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
           playerId,
           source: "ready",
           emptyDeckMessage: "Deck is empty. Please build a deck before readying up.",
-          submit: (deck) => api.submitDeck({ gameId, playerId, deck }),
+          submit: (payload) => api.submitDeck({ gameId, playerId, ...payload }),
         });
       } catch (err) {
         window.alert(err instanceof Error ? err.message : "Deck submission failed.");

@@ -38,7 +38,8 @@ export type DeckEntry = {
 export type SubmitDeckPayload = {
   gameId: string;
   playerId: string;
-  deck: DeckEntry[];
+  deck?: DeckEntry[];
+  topDeck?: string;
 };
 export type ChooseFirstPlayerPayload = {
   gameId: string;
@@ -109,6 +110,7 @@ export class ApiManager {
       gameId: payload.gameId,
       playerId: payload.playerId,
       deckCount: Array.isArray(payload.deck) ? payload.deck.length : 0,
+      topDeck: typeof payload.topDeck === "string" ? payload.topDeck : undefined,
     });
     return this.client.postJson("/api/game/player/submitDeck", payload, { auth: true });
   }

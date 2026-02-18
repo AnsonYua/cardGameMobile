@@ -68,6 +68,10 @@ export class CardAutomationBridge {
         setScenario: async (path: string) => {
           await this.deps.debugControls?.setScenario(path);
         },
+        // Backward-compat alias used by older test snippets.
+        saveExceptionScenario: async (path?: string) => {
+          await this.deps.debugControls?.setScenario(path);
+        },
       },
     };
   }

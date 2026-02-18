@@ -75,6 +75,7 @@ import { createBoardSlotOnlySprite } from "./scene/dialogSlotSpritePolicy";
 import { CardAutomationBridge } from "./automation/CardAutomationBridge";
 import { isAutomationEnabled } from "./automation/automationFlag";
 import type { CardAutomation } from "./automation/AutomationTypes";
+import { isBattleActionStep, isBattleStateConsistent } from "./game/battleUtils";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -540,6 +541,7 @@ export class BoardScene extends Phaser.Scene {
   private refreshPhase(skipAnimation: boolean) {
     const ctx = this.buildRefreshContext(skipAnimation);
     if (!ctx) return;
+    this.syncAttackIndicatorWithBattleState(ctx.raw);
 
     // Derive a stable turn owner for UI gating (avoids Burst temporarily repurposing `currentPlayer`).
     this.turnController.update(ctx.raw, this.gameContext.playerId);
@@ -569,6 +571,12 @@ export class BoardScene extends Phaser.Scene {
     if (!uiBlocked) {
       this.updateMainPhaseUI(ctx.raw, skipAnimation);
     }
+  }
+
+  private syncAttackIndicatorWithBattleState(raw: any) {
+    if (this.animationQueue?.isRunning?.()) return;
+    if (isBattleActionStep(raw) && isBattleStateConsistent(raw)) return;
+    this.animationQueue?.clearAttackIndicator();
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {

@@ -249,5 +249,6 @@ export type CardAutomation = {
     startAutoPolling: () => Promise<void>;
     stopAutoPolling: () => Promise<void>;
     setScenario: (path: string) => Promise<void>;
+    saveExceptionScenario: (path?: string) => Promise<void>;
   };
 };

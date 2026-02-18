@@ -56,6 +56,7 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
         mode: "join",
         gameId,
         isAutoPolling: "true",
+        automation: "1",
       });
       window.location.href = `/game?${params.toString()}`;
     } catch (err) {
@@ -88,6 +89,7 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
                   mode: "host",
                   aimode: "true",
                   isAutoPolling: "true",
+                  automation: "1",
                 });
                 window.location.href = `/game?${params.toString()}`;
               }}
@@ -102,6 +104,7 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
               const params = new URLSearchParams({
                 mode: "host",
                 isAutoPolling: "true",
+                automation: "1",
               });
               window.location.href = `/game?${params.toString()}`;
             }}

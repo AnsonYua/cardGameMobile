@@ -54,6 +54,7 @@ export class SessionController {
       const normalized = msg.toLowerCase();
       const isDeckValidationError =
         normalized.includes("deck is empty") ||
+        normalized.includes("unknown top deck") ||
         normalized.includes("submit deck") ||
         normalized.includes("both players must submit deck");
       if (isDeckValidationError) {
