@@ -38,6 +38,7 @@ export class GameEngine {
   private pendingBattleTransition?: { prevBattle: any; nextBattle: any };
   private resourceLoader: CardResourceLoader;
   private resourceLoadInFlight = false;
+  private allowEnvScanFallbackDefault = false;
   private lastPreloadedSnapshotKey: string | null = null;
   private selection = new SelectionStore();
   private actions = new ActionRegistry();
@@ -51,6 +52,10 @@ export class GameEngine {
     this.api = new ApiManager(this.match.getApiBaseUrl());
     this.registerDefaultActions();
     this.registerBattleTransitionListeners();
+  }
+
+  setAllowEnvScanFallbackDefault(enabled: boolean) {
+    this.allowEnvScanFallbackDefault = enabled === true;
   }
   // Optional: call after scenario injection; when `fromScenario` is true we reuse any cached payload if present.
   async updateGameStatus(
@@ -67,6 +72,10 @@ export class GameEngine {
     const snapshotNow = () => this.getSnapshot();
     const fromScenario = opts.fromScenario === true;
     const silent = opts.silent === true || fromScenario;
+    const allowEnvScanFallback =
+      opts.allowEnvScanFallback === undefined
+        ? this.allowEnvScanFallbackDefault
+        : opts.allowEnvScanFallback === true;
     const previousGameEnv = {
       phase: this.getPhase(this.lastRaw),
       battle: this.getBattle(this.lastRaw),
@@ -97,7 +106,7 @@ export class GameEngine {
       // Redraw phase has its own loading/status flow below, so skip duplicate preload here.
       if (!entersRedrawPhase) {
         await this.preloadResourcesForSnapshot(gameId, playerId, normalizedResponse, previousGameEnv.raw, {
-          allowEnvScanFallback: opts.allowEnvScanFallback === true,
+          allowEnvScanFallback,
         });
       }
 
@@ -117,7 +126,7 @@ export class GameEngine {
         this.contextStore.update({ lastStatus: GameStatus.LoadingResources });
         this.events.emit(ENGINE_EVENTS.STATUS, snapshotNow());
         const didLoad = await this.fetchGameResources(gameId, playerId, normalizedResponse, {
-          allowEnvScanFallback: opts.allowEnvScanFallback === true,
+          allowEnvScanFallback,
         });
         if (didLoad) {
           const preloadKey = this.buildResourceSnapshotKey(normalizedResponse);
@@ -372,7 +381,11 @@ export class GameEngine {
     statusPayload?: GameStatusResponse | null,
     opts: { allowEnvScanFallback?: boolean } = {},
   ) {
-    return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {}, opts);
+    const allowEnvScanFallback =
+      opts.allowEnvScanFallback === undefined
+        ? this.allowEnvScanFallbackDefault
+        : opts.allowEnvScanFallback === true;
+    return this.fetchGameResources(gameId, playerId, statusPayload ?? this.lastRaw ?? {}, { allowEnvScanFallback });
   }
 
   private buildResourceSnapshotKey(response: GameStatusResponse | null | undefined): string | null {

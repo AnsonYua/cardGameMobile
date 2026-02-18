@@ -58,7 +58,6 @@ const SCENARIO_PRESETS: readonly string[] = [
   "ActionCase/GD03-008/during_pair_grant_repair_2_then_end_phase_heal",
   "ActionCase/GD03-028/attack_if_target_unit_ap_plus_2_auto_target_source",
   "ActionCase/GD02-095/attack_damaged_le_5_grant_high_maneuver_skip_blocker",
-  "ActionCase/GD02-095/attack_damaged_le_5_grant_high_maneuver_source_paired_unit",
   "ActionCase/GD02-054/attack_cost_destroy_friendly_then_damage_2_to_enemy_le_4",
   "ActionCase/ST05-010/deploy_damage_other_then_ap_plus_1_multiple_unit",
   "ActionCase/GD02-034/pair_ap_boost_if_paired_red_pilot",
@@ -211,6 +210,7 @@ export class DebugControls {
       this.context.gameId = gameId;
       this.context.playerId = desiredPlayerId;
       this.scenarioResourceFallbackEnabled = true;
+      this.engine.setAllowEnvScanFallbackDefault(true);
 
       if (matchingSession?.sessionToken) {
         updateSession({
