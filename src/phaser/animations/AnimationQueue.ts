@@ -21,6 +21,8 @@ export class AnimationQueue {
   private pendingIds = new Set<string>();
   private completedIds = new Set<string>();
   private completedOrder: string[] = [];
+  private incompleteCommandPlayIds = new Set<string>();
+  private replayedCompletedCommandIds = new Set<string>();
   private onIdle?: () => void;
   private onEventStart?: (event: SlotNotification, ctx: AnimationContext) => void;
   private onEventEnd?: (event: SlotNotification, ctx: AnimationContext) => void;
@@ -124,16 +126,20 @@ export class AnimationQueue {
     orderedQueue.forEach((note) => {
       if (!note || !note.id) return;
       const type = (note.type || "").toUpperCase();
+      const replayCompletedCommand = this.shouldReplayCompletedCommand(note);
       if (hasBurstGroup && (type === "BURST_EFFECT_CHOICE" || type === "BURST_EFFECT_CHOICE_RESOLVED")) {
         return;
       }
       // Only return events that will actually be enqueued/animated.
       // BoardScene uses this list to seed render snapshots; including already-processed events can
       // cause stale "ghost" visuals (e.g. destroyed units reappearing briefly).
-      if (!this.isNewEventId(note.id)) {
+      if (!this.isNewEventId(note.id) && !replayCompletedCommand) {
         return;
       }
       if (!this.handlers.has(type)) return;
+      if (replayCompletedCommand) {
+        this.replayedCompletedCommandIds.add(note.id);
+      }
       events.push(note);
     });
     if (this.debug) {
@@ -181,7 +187,7 @@ export class AnimationQueue {
       void err;
     } finally {
       if (item.event?.id) {
-        this.markCompleted(item.event.id);
+        this.markCompleted(item.event);
       }
       this.onEventEnd?.(item.event, item.ctx);
       this.runNext();
@@ -192,10 +198,12 @@ export class AnimationQueue {
     this.pendingIds.add(id);
   }
 
-  private markCompleted(id: string) {
+  private markCompleted(event: SlotNotification) {
+    const id = event.id;
     this.pendingIds.delete(id);
     this.completedIds.add(id);
     this.completedOrder.push(id);
+    this.trackCommandPlayLifecycle(event);
     const max = this.opts.maxProcessed ?? 1000;
     while (this.completedOrder.length > max) {
       const oldest = this.completedOrder.shift();
@@ -210,6 +218,45 @@ export class AnimationQueue {
     const handler = this.handlers.get(type);
     if (!handler) return;
     await handler(event, ctx);
+  }
+
+  private shouldReplayCompletedCommand(note: SlotNotification): boolean {
+    if (!note?.id) return false;
+    if (this.pendingIds.has(note.id)) return false;
+    if (!this.completedIds.has(note.id)) return false;
+    if (this.replayedCompletedCommandIds.has(note.id)) return false;
+    if (!this.incompleteCommandPlayIds.has(note.id)) return false;
+    return this.isCompletedCommandPlay(note);
+  }
+
+  private trackCommandPlayLifecycle(note: SlotNotification) {
+    if (!note?.id) return;
+    if (this.isIncompleteCommandPlay(note)) {
+      this.incompleteCommandPlayIds.add(note.id);
+      return;
+    }
+    if (this.isCompletedCommandPlay(note)) {
+      this.replayedCompletedCommandIds.add(note.id);
+    }
+  }
+
+  private isIncompleteCommandPlay(note: SlotNotification): boolean {
+    if (!this.isCommandPlayType(note)) return false;
+    const payload: any = note.payload ?? {};
+    return payload?.isCompleted === false;
+  }
+
+  private isCompletedCommandPlay(note: SlotNotification): boolean {
+    if (!this.isCommandPlayType(note)) return false;
+    const payload: any = note.payload ?? {};
+    return payload?.isCompleted !== false;
+  }
+
+  private isCommandPlayType(note: SlotNotification): boolean {
+    const type = (note?.type ?? "").toString().toUpperCase();
+    if (type !== "CARD_PLAYED" && type !== "CARD_PLAYED_COMPLETED") return false;
+    const playAs = (note?.payload as any)?.playAs;
+    return (playAs ?? "").toString().toLowerCase() === "command";
   }
 
   private async triggerStatPulse(event: SlotNotification, ctx: AnimationContext) {
