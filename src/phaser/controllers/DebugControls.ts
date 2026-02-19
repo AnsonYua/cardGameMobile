@@ -104,6 +104,8 @@ const SCENARIO_PRESETS: readonly string[] = [
   "ST04/ST04-009/destroyed_draw_if_another_link_unit",
   "ST04/ST04-009/pair_draw_if_another_link_unit",
   "ST04/ST04-011/pair_attack_active",
+  "ST07/ST07-011/pair_allow_attack_target_active_enemy_le_source_no_prechoice",
+  "GD03/GD03-035/linked_allow_attack_target_active_enemy_ap_le_source_no_prechoice",
   "ST04/ST04-012/burst_deploy_aile_token_if_none",
   "ST04/ST04-012/choose_one_then_deploy_token_option_a",
   "ST05/ST05-001/deploy_damage_other_then_ap_plus_1_on_same_unit",
