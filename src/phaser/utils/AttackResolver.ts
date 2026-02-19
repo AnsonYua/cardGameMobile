@@ -1,4 +1,5 @@
 import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotPosition } from "../ui/SlotTypes";
+import { getBattleType, isAttackUnitBattle } from "./BattleAnimationPolicy";
 
 export type TargetAnchorProviders = {
   getBaseAnchor?: (isOpponent: boolean) => { x: number; y: number } | undefined;
@@ -52,16 +53,19 @@ export function resolveAttackTargetPoint(
   defenderOwner: SlotOwner,
   context: TargetResolutionContext,
 ) {
+  const battleType = getBattleType(payload);
+  const unitBattle = isAttackUnitBattle(payload);
   const targetSlotId =
     payload.forcedTargetZone ??
     payload.targetSlotName ??
     payload.targetSlot ??
     payload.target?.slot ??
     undefined;
-  const battleType = (payload.battleType ?? "").toString().toLowerCase();
   const targetZoneType = (payload.target?.zoneType ?? payload.targetZoneType ?? "").toString().toLowerCase();
   const inferredSlot =
-    battleType.includes("shield") || targetZoneType.includes("shield")
+    unitBattle
+      ? ""
+      : battleType.includes("shield") || targetZoneType.includes("shield")
       ? "shield"
       : battleType.includes("base") || targetZoneType.includes("base")
       ? "base"
@@ -84,8 +88,23 @@ export function resolveAttackTargetPoint(
 
   const isBase = isBaseTarget(normalizedSlot, normalizedName);
   const isShield = isShieldTarget(normalizedSlot, normalizedName);
+  const targetCarduid =
+    payload.forcedTargetCarduid ??
+    payload.targetCarduid ??
+    payload.targetUnitUid ??
+    payload.target?.unit?.carduid ??
+    payload.target?.carduid;
+  const slotVm = findSlotForAttack(slots, targetCarduid, targetOwner, targetSlotId);
+  const slotPoint = getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
+  if (slotPoint) {
+    return slotPoint;
+  }
+
+  if (unitBattle) {
+    return undefined;
+  }
+
   void targetSlotId;
-  void battleType;
   void targetZoneType;
   void hasForcedTarget;
   void isBase;
@@ -111,14 +130,7 @@ export function resolveAttackTargetPoint(
     }
   }
 
-  const targetCarduid =
-    payload.forcedTargetCarduid ??
-    payload.targetCarduid ??
-    payload.targetUnitUid ??
-    payload.target?.unit?.carduid ??
-    payload.target?.carduid;
-  const slotVm = findSlotForAttack(slots, targetCarduid, targetOwner, targetSlotId);
-  return getSlotCenterFromMap(positions, slotVm, targetOwner, targetSlotId);
+  return undefined;
 }
 
 function isBaseTarget(normalizedSlot: string, normalizedName: string) {

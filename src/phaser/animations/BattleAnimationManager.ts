@@ -3,6 +3,7 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "../ui/SlotTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import { findSlotForAttack, getSlotPositionEntry, resolveAttackTargetPoint } from "../utils/AttackResolver";
+import { isAttackUnitBattle, shouldSuppressMissingTargetPlaceholder } from "../utils/BattleAnimationPolicy";
 import { FxToolkit } from "./FxToolkit";
 import { toPreviewKey } from "../ui/HandTypes";
 
@@ -79,7 +80,7 @@ export class BattleAnimationManager {
       payload.attackerUnitUid;
     const attackerSlot = findSlotForAttack(slots, attackerCarduid, attackerOwner, attackerSlotId);
     const attackerPosition = getSlotPositionEntry(positions, attackerSlot, attackerOwner, attackerSlotId);
-    const targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
+    let targetPoint = resolveAttackTargetPoint(payload, slots, positions, defenderOwner ?? "opponent", {
       resolveSlotOwnerByPlayer: this.config.resolveSlotOwnerByPlayer,
       anchors: this.config.anchors,
     });
@@ -94,14 +95,25 @@ export class BattleAnimationManager {
       payload.forcedTargetCarduid ?? payload.target?.carduid ?? payload.targetCarduid ?? payload.targetUnitUid;
     const targetSlot = findSlotForAttack(slots, targetCarduid, defenderOwner, targetSlotId);
     const targetPosition = getSlotPositionEntry(positions, targetSlot, defenderOwner, targetSlotId);
+    if (isAttackUnitBattle(payload)) {
+      const slotPoint = targetPosition
+        ? { x: targetPosition.x, y: targetPosition.y }
+        : getSlotPositionEntry(positions, undefined, defenderOwner, targetSlotId);
+      if (slotPoint) {
+        targetPoint = { x: slotPoint.x, y: slotPoint.y };
+      }
+    }
 
     const attackerSeed =
       this.buildBattleSpriteSeed(attackerSlot, attackerPosition) ||
       this.buildPayloadSeed(payload, "attacker", attackerOwner, attackerSlotId, attackerPosition);
     if (!attackerSeed) return undefined;
+    const shouldSuppressTargetPlaceholder = shouldSuppressMissingTargetPlaceholder(payload);
     const targetSeed =
       this.buildBattleSpriteSeed(targetSlot, targetPosition) ||
-      this.buildPayloadSeed(payload, "target", defenderOwner, targetSlotId, targetPosition);
+      (shouldSuppressTargetPlaceholder
+        ? undefined
+        : this.buildPayloadSeed(payload, "target", defenderOwner, targetSlotId, targetPosition));
 
     return {
       attacker: attackerSeed,
