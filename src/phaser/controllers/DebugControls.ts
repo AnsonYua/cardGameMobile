@@ -10,6 +10,9 @@ import { resolveScenarioPlayerId, type ScenarioPlayerSelector } from "../game/Se
 
 const DEFAULT_SCENARIO_PATH = "GD01/GD01-118/draw2_dis1";
 const SCENARIO_PRESETS: readonly string[] = [
+  "exception/noActionButton",
+  "BasicCase/basicMainBaseBurstBase",
+  "BasicCase/basicMainBaseBurstCharacter",
   "ST01/ST01-008/blocker_choice_multiple_active",
   "ST01/ST01-011/burst_add_to_hand",
   "ST01/ST01-015/token_deploy_one_unit",

@@ -83,7 +83,7 @@ export class NotificationAnimationController {
       return Promise.resolve();
     }
     const header = type === "CARD_ADDED_TO_HAND" ? "Card Added to Hand" : "Card Drawn";
-    const task = this.buildCardDrawnTask(note.payload ?? {}, args, header);
+    const task = this.buildCardDrawnTask(note.payload ?? {}, args, header, type);
     if (!task) return Promise.resolve();
     return task();
   }
@@ -149,9 +149,49 @@ export class NotificationAnimationController {
     return task();
   }
 
-  private buildCardDrawnTask(payload: any, ctx: ProcessArgs, header: string): (() => Promise<void>) | null {
+  private buildCardDrawnTask(
+    payload: any,
+    ctx: ProcessArgs,
+    header: string,
+    eventType: string,
+  ): (() => Promise<void>) | null {
     const playerId = payload?.playerId ?? "";
-    if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
+    if (!ctx.currentPlayerId || !playerId) return null;
+    const isSelf = playerId === ctx.currentPlayerId;
+    const reason = (payload?.reason ?? "").toString().toLowerCase();
+    const isOpponentBurstAddToHand = !isSelf && eventType === "CARD_ADDED_TO_HAND" && reason === "burst";
+    if (!isSelf && !isOpponentBurstAddToHand) return null;
+    if (isOpponentBurstAddToHand) {
+      const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
+      const previewCard = this.buildPreviewCard(card);
+      const fallbackCardId = payload?.cardId ?? payload?.carduid ?? "burst_card";
+      const fallbackCardName = payload?.cardName ?? payload?.displayName ?? payload?.name ?? "Burst Card";
+      const popupCard = card
+        ? this.buildPopupCardData(card, payload.carduid)
+        : {
+            carduid: payload?.carduid,
+            cardId: fallbackCardId,
+            cardType: payload?.cardType ?? "command",
+            textureKey: toBaseKey(fallbackCardId),
+            cardData: {
+              id: fallbackCardId,
+              cardId: fallbackCardId,
+              name: fallbackCardName,
+              cardType: payload?.cardType ?? "command",
+            },
+          };
+      return () =>
+        this.showDrawPopup(
+          previewCard ?? {
+            color: 0x2a2d38,
+            cardType: "command",
+            textureKey: card?.textureKey,
+            cardId: card?.id ?? fallbackCardId,
+          },
+          popupCard,
+          "Burst - Opponent added card to hand",
+        );
+    }
     const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
     const previewCard = this.buildPreviewCard(card);
     const popupCard = this.buildPopupCardData(card, payload.carduid);

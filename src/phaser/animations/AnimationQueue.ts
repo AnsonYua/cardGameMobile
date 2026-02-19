@@ -1,5 +1,5 @@
 import type { AnimationContext } from "./AnimationTypes";
-import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
+import type { SlotOwner, SlotPositionMap, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotNotification } from "./NotificationAnimationController";
 import type { NotificationAnimationController } from "./NotificationAnimationController";
 import type { BattleAnimationManager } from "./BattleAnimationManager";
@@ -89,6 +89,14 @@ export class AnimationQueue {
 
   clearAttackIndicator() {
     this.deps.attackIndicator.clear();
+  }
+
+  async syncAttackIndicator(
+    event: SlotNotification | undefined,
+    slots: SlotViewModel[],
+    boardSlotPositions?: SlotPositionMap | null,
+  ) {
+    await this.deps.attackIndicator.updateFromNotification(event, slots, boardSlotPositions ?? undefined);
   }
 
   isProcessed(id: string) {

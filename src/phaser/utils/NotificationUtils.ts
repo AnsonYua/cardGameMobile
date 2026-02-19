@@ -136,6 +136,60 @@ function findAttackNotification(
   return undefined;
 }
 
+function getBattleResolvedAttackIds(notifications: SlotNotification[]): Set<string> {
+  const resolved = new Set<string>();
+  if (!Array.isArray(notifications) || notifications.length === 0) return resolved;
+  for (const note of notifications) {
+    if (!note) continue;
+    if ((note.type || "").toUpperCase() !== "BATTLE_RESOLVED") continue;
+    const attackId =
+      note.payload?.attackNotificationId ??
+      note.payload?.sourceNotificationId ??
+      note.payload?.notificationId ??
+      "";
+    if (!attackId) continue;
+    resolved.add(String(attackId));
+  }
+  return resolved;
+}
+
+export function hasBattleResolvedAttackNotification(
+  notifications: SlotNotification[],
+  attackNotificationId?: string,
+): boolean {
+  if (!attackNotificationId) return false;
+  const resolved = getBattleResolvedAttackIds(notifications);
+  return resolved.has(String(attackNotificationId));
+}
+
+export function findLiveAttackNotification(notifications: SlotNotification[]): SlotNotification | undefined {
+  if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
+  const resolvedAttackIds = getBattleResolvedAttackIds(notifications);
+  let hasAnonymousBattleResolved = false;
+  for (let i = notifications.length - 1; i >= 0; i -= 1) {
+    const note = notifications[i];
+    if (!note) continue;
+    const type = (note.type || "").toUpperCase();
+    if (type === "BATTLE_RESOLVED") {
+      const attackId =
+        note.payload?.attackNotificationId ??
+        note.payload?.sourceNotificationId ??
+        note.payload?.notificationId ??
+        "";
+      if (!attackId) {
+        hasAnonymousBattleResolved = true;
+      }
+      continue;
+    }
+    if (type !== "UNIT_ATTACK_DECLARED") continue;
+    if (hasAnonymousBattleResolved) return undefined;
+    if (note.payload?.battleEnd === true) continue;
+    if (note.id && resolvedAttackIds.has(String(note.id))) continue;
+    return note;
+  }
+  return undefined;
+}
+
 export function findLatestAttackNotification(
   notifications: SlotNotification[],
   opts: { includeBattleEnd?: boolean } = {},

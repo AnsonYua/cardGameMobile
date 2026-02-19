@@ -94,7 +94,7 @@ export class BurstChoiceFlowManager {
     }
     this.applyActionBar();
     if (!isOwner) {
-      this.showDialog(raw);
+      this.deps.burstChoiceDialog?.hide();
       return;
     }
     this.pendingPromise =
@@ -160,6 +160,13 @@ export class BurstChoiceFlowManager {
     }
     const selfId = this.deps.gameContext.playerId;
     const isOwner = this.queueEntry.playerId === selfId;
+    if (!isOwner) {
+      dialog.hide();
+      this.log.debug("showDialog skipped: non-owner", {
+        entryId: this.queueEntry.id,
+      });
+      return;
+    }
     const card = this.resolveCard(raw);
     if (!card) {
       this.log.debug("showDialog skipped: card not resolved", {

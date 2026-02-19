@@ -44,7 +44,7 @@ import type { BaseShieldAnimationRenderController } from "./animations/BaseShiel
 import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
-import { getNotificationQueue } from "./utils/NotificationUtils";
+import { findLiveAttackNotification, getNotificationQueue } from "./utils/NotificationUtils";
 import type { GameEndInfo } from "./scene/gameEndHelpers";
 import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
@@ -75,7 +75,6 @@ import { createBoardSlotOnlySprite } from "./scene/dialogSlotSpritePolicy";
 import { CardAutomationBridge } from "./automation/CardAutomationBridge";
 import { isAutomationEnabled } from "./automation/automationFlag";
 import type { CardAutomation } from "./automation/AutomationTypes";
-import { isBattleActionStep, isBattleStateConsistent } from "./game/battleUtils";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -541,7 +540,7 @@ export class BoardScene extends Phaser.Scene {
   private refreshPhase(skipAnimation: boolean) {
     const ctx = this.buildRefreshContext(skipAnimation);
     if (!ctx) return;
-    this.syncAttackIndicatorWithBattleState(ctx.raw);
+    this.syncAttackIndicatorWithNotifications(ctx.raw);
 
     // Derive a stable turn owner for UI gating (avoids Burst temporarily repurposing `currentPlayer`).
     this.turnController.update(ctx.raw, this.gameContext.playerId);
@@ -573,10 +572,17 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
-  private syncAttackIndicatorWithBattleState(raw: any) {
+  private syncAttackIndicatorWithNotifications(raw: any) {
     if (this.animationQueue?.isRunning?.()) return;
-    if (isBattleActionStep(raw) && isBattleStateConsistent(raw)) return;
-    this.animationQueue?.clearAttackIndicator();
+    const notificationQueue = getNotificationQueue(raw);
+    const activeAttack = findLiveAttackNotification(notificationQueue);
+    if (!activeAttack) {
+      this.animationQueue?.clearAttackIndicator();
+      return;
+    }
+    const slots = this.slotPresenter.toSlots(raw, this.gameContext.playerId);
+    const boardSlotPositions = this.slotControls?.getBoardSlotPositions?.();
+    void this.animationQueue?.syncAttackIndicator(activeAttack, slots, boardSlotPositions ?? undefined);
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {
