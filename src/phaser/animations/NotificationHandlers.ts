@@ -50,6 +50,42 @@ export function buildNotificationHandlers(
   },
 ) {
   const log = createLogger("NotificationHandlers");
+  const runWithTurnStartDrawDelay = async (
+    event: SlotNotification,
+    ctx: AnimationContext,
+    eventType: "CARD_DRAWN" | "CARDS_DRAWN",
+    runner: () => Promise<void>,
+  ) => {
+    const drawContext = (event?.payload?.drawContext ?? "").toString().toLowerCase();
+    const playerId = event?.payload?.playerId;
+    const isSelf = !!playerId && !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
+    const contextPlayerId = ctx.currentRaw?.gameEnv?.currentPlayer ?? ctx.currentRaw?.currentPlayer;
+    const isContextPlayer = !!playerId && !!contextPlayerId && playerId === contextPlayerId;
+    const isGroupedPerCardDraw = eventType === "CARD_DRAWN" && !!event?.payload?.drawBatchId;
+    const shouldDelayTimer =
+      drawContext === "turn_start" && isSelf && isContextPlayer && !isGroupedPerCardDraw;
+    if (shouldDelayTimer) {
+      log.debug(`${eventType} turn_start delay start`, {
+        eventId: event?.id,
+        playerId,
+        contextPlayerId,
+        drawContext,
+      });
+      deps.onTurnStartDrawPopupStart?.();
+    }
+    try {
+      await runner();
+    } finally {
+      if (shouldDelayTimer) {
+        log.debug(`${eventType} turn_start delay end`, {
+          eventId: event?.id,
+          playerId,
+          contextPlayerId,
+        });
+        deps.onTurnStartDrawPopupEnd?.();
+      }
+    }
+  };
   return new Map<string, NotificationHandler>([
     [
       "GAME_ENV_REFRESH",
@@ -154,25 +190,7 @@ export function buildNotificationHandlers(
     [
       "CARD_DRAWN",
       async (event, ctx) => {
-        const drawContext = (event?.payload?.drawContext ?? "").toString().toLowerCase();
-        const playerId = event?.payload?.playerId;
-        const isSelf = !!playerId && !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
-        const contextPlayerId =
-          ctx.currentRaw?.gameEnv?.currentPlayer ?? ctx.currentRaw?.currentPlayer;
-        const isContextPlayer = !!playerId && !!contextPlayerId && playerId === contextPlayerId;
-        const shouldDelayTimer = drawContext === "turn_start" && isSelf && isContextPlayer;
-        if (shouldDelayTimer) {
-          log.debug("CARD_DRAWN turn_start delay start", {
-            eventId: event?.id,
-            playerId,
-            contextPlayerId,
-            drawContext,
-          });
-        }
-        if (shouldDelayTimer) {
-          deps.onTurnStartDrawPopupStart?.();
-        }
-        try {
+        await runWithTurnStartDrawDelay(event, ctx, "CARD_DRAWN", async () => {
           await deps.cardPlayAnimator.playCardDrawn(event, {
             slots: ctx.slots,
             currentPlayerId: ctx.currentPlayerId,
@@ -180,16 +198,21 @@ export function buildNotificationHandlers(
             cardLookup: ctx.cardLookup,
             resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
           });
-        } finally {
-          if (shouldDelayTimer) {
-            log.debug("CARD_DRAWN turn_start delay end", {
-              eventId: event?.id,
-              playerId,
-              contextPlayerId,
-            });
-            deps.onTurnStartDrawPopupEnd?.();
-          }
-        }
+        });
+      },
+    ],
+    [
+      "CARDS_DRAWN",
+      async (event, ctx) => {
+        await runWithTurnStartDrawDelay(event, ctx, "CARDS_DRAWN", async () => {
+          await deps.cardPlayAnimator.playCardsDrawn(event, {
+            slots: ctx.slots,
+            currentPlayerId: ctx.currentPlayerId,
+            allowAnimations: ctx.allowAnimations,
+            cardLookup: ctx.cardLookup,
+            resolveSlotOwnerByPlayer: ctx.resolveSlotOwnerByPlayer,
+          });
+        });
       },
     ],
     [

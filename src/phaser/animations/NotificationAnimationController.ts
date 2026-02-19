@@ -6,6 +6,7 @@ import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
 import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
 import { createCardsMovedToDeckBottomTask, createTopDeckViewedTask } from "./deckNotificationTasks";
+import { createCardsDrawnTask } from "./drawNotificationTasks";
 import { computeHandCardSize } from "../utils/handCardSizing";
 
 export type SlotNotification = {
@@ -78,8 +79,28 @@ export class NotificationAnimationController {
     if (!note || !note.id) return Promise.resolve();
     const type = (note.type || "").toUpperCase();
     if (type !== "CARD_DRAWN" && type !== "CARD_ADDED_TO_HAND") return Promise.resolve();
+    if (type === "CARD_DRAWN" && note.payload?.drawBatchId) {
+      return Promise.resolve();
+    }
     const header = type === "CARD_ADDED_TO_HAND" ? "Card Added to Hand" : "Card Drawn";
     const task = this.buildCardDrawnTask(note.payload ?? {}, args, header);
+    if (!task) return Promise.resolve();
+    return task();
+  }
+
+  playCardsDrawn(note: SlotNotification, args: ProcessArgs): Promise<void> {
+    const { allowAnimations } = args;
+    if (!allowAnimations) return Promise.resolve();
+    if (!note || !note.id) return Promise.resolve();
+    const type = (note.type || "").toUpperCase();
+    if (type !== "CARDS_DRAWN") return Promise.resolve();
+    const task = createCardsDrawnTask(note.payload ?? {}, args, {
+      scene: this.deps.scene,
+      showCardsPopup: this.deps.showCardsPopup,
+      showCardPopup: this.deps.showCardPopup,
+      timings: this.drawPopupTimings,
+      buildPopupCardData: this.buildPopupCardData.bind(this),
+    });
     if (!task) return Promise.resolve();
     return task();
   }
