@@ -7,6 +7,7 @@ export type OptionDialogChoiceView = {
   cardId?: string;
   label?: string;
   enabled: boolean;
+  interactionState?: "read_only" | "selectable";
 };
 
 export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialogChoiceView {
@@ -25,5 +26,6 @@ export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialog
     cardId: cardId ? String(cardId) : undefined,
     label,
     enabled: option?.enabled !== false,
+    interactionState: mode === "card" && option?.enabled !== false ? "selectable" : "read_only",
   };
 }

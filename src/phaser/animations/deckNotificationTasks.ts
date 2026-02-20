@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 import { toBaseKey } from "../ui/HandTypes";
-import { findTopDeckViewedCard } from "../utils/TutorNotificationUtils";
+import { findTopDeckViewedCard, hasActiveTutorRevealPrompt } from "../utils/TutorNotificationUtils";
 
 type PopupCard = any;
 
@@ -43,11 +43,20 @@ function buildPopupCardDataFromPartial(entry: any, opts: { preferPreview?: boole
 
 export function createTopDeckViewedTask(
   payload: any,
-  ctx: { currentPlayerId: string | null },
+  ctx: { currentPlayerId: string | null; notificationQueue?: SlotNotificationLike[] },
   deps: PopupDeps,
 ): (() => Promise<void>) | null {
   const playerId = payload?.playerId ? String(payload.playerId) : "";
   if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
+  if (
+    hasActiveTutorRevealPrompt(ctx.notificationQueue ?? [], {
+      playerId,
+      sourceCarduid: payload?.sourceCarduid,
+      effectId: payload?.effectId,
+    })
+  ) {
+    return null;
+  }
   const cards = Array.isArray(payload?.cards) ? payload.cards.filter(Boolean) : [];
   const count = Number(payload?.count ?? cards.length);
   const total = cards.length || (Number.isFinite(count) ? Math.max(0, count) : 0);

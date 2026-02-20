@@ -19,6 +19,7 @@ describe("mapOptionChoiceToDialogView", () => {
       cardId: "ST03-001",
       label: "Pick ST03-001",
       enabled: true,
+      interactionState: "selectable",
     });
   });
 
@@ -36,6 +37,7 @@ describe("mapOptionChoiceToDialogView", () => {
     expect(view.mode).toBe("text");
     expect(view.label).toBe("Bottom");
     expect(view.cardId).toBeUndefined();
+    expect(view.interactionState).toBe("read_only");
   });
 
   it("falls back to payload cardId when display is missing", () => {
@@ -51,5 +53,6 @@ describe("mapOptionChoiceToDialogView", () => {
     expect(view.mode).toBe("card");
     expect(view.cardId).toBe("GD03-035");
     expect(view.label).toBe("Deploy GD03-035");
+    expect(view.interactionState).toBe("selectable");
   });
 });

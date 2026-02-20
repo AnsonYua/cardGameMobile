@@ -6,24 +6,17 @@ import {
 } from "../CardDialogLayout";
 import { createPromptDialog } from "../PromptDialog";
 import { DialogTimerPresenter } from "../DialogTimerPresenter";
-import { TrashCardGridRenderer } from "../TrashCardGridRenderer";
 import type { NormalizedOptionChoice } from "./OptionChoiceDialogModel";
-
-type RenderCard = {
-  __choiceIndex: number;
-  __enabled: boolean;
-  cardId?: string;
-  cardType?: string;
-  cardData?: { id?: string; name?: string; cardType?: string };
-  textureKey?: string;
-};
+import { DIALOG_TEXT, createDialogActionButton } from "../dialog/DialogStyleTokens";
+import { resolveDialogHeaderGap } from "../dialog/DialogHeaderGap";
+import { renderChoiceCardPlate } from "../choice/ChoiceCardPlateRenderer";
+import {
+  computeChoiceCardPlateGridLayout,
+  forEachChoiceCardPlatePosition,
+} from "../choice/ChoiceCardPlateGrid";
 
 const PROMPT_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  fontSize: "16px",
-  fontFamily: "Arial",
-  fontStyle: "bold",
-  color: "#f5f6f7",
-  align: "center",
+  ...DIALOG_TEXT.prompt,
 };
 
 export function renderOptionChoiceTextDialog(params: {
@@ -38,6 +31,7 @@ export function renderOptionChoiceTextDialog(params: {
   onSelect?: (index: number) => Promise<void> | void;
   options: NormalizedOptionChoice[];
 }): Phaser.GameObjects.Container {
+  const headerGap = resolveDialogHeaderGap(params.showTimer, params.cfg.dialog.gap);
   const buttons = params.options.map((option) => ({
     label: option.label,
     enabled: option.enabled,
@@ -54,6 +48,7 @@ export function renderOptionChoiceTextDialog(params: {
     showOverlay: params.showOverlay,
     closeOnBackdrop: false,
     showCloseButton: false,
+    headerGap,
   });
 
   if (params.showTimer) {
@@ -69,7 +64,6 @@ export function renderOptionChoiceHybridDialog(params: {
   scene: Phaser.Scene;
   cfg: CardDialogConfig;
   dialogTimer: DialogTimerPresenter;
-  gridRenderer: TrashCardGridRenderer;
   headerText: string;
   promptText: string;
   showOverlay: boolean;
@@ -86,6 +80,7 @@ export function renderOptionChoiceHybridDialog(params: {
   const buttonGap = 10;
   const sectionGap = 14;
   const maxContentWidth = Math.min(540, Math.max(280, cam.width * 0.74));
+  const headerGap = resolveDialogHeaderGap(params.showTimer, params.cfg.dialog.gap);
 
   const promptWidth = Math.min(maxContentWidth, cam.width * 0.72);
   const promptText = params.promptText.trim();
@@ -101,15 +96,18 @@ export function renderOptionChoiceHybridDialog(params: {
   const promptMeasuredWidth = tempPrompt?.width ?? 0;
   tempPrompt?.destroy();
 
-  const cardCols = Math.max(1, Math.min(3, params.cardChoices.length || 1));
-  const baseCardCell = Math.floor((maxContentWidth - gap * (cardCols - 1)) / cardCols);
-  const cardCellWidth = Math.max(96, Math.min(170, baseCardCell));
-  const cardCellHeight = cardCellWidth * params.cfg.card.aspect + params.cfg.card.extraCellHeight;
-  const cardRows = params.cardChoices.length > 0 ? Math.ceil(params.cardChoices.length / cardCols) : 0;
-  const cardGridWidth =
-    params.cardChoices.length > 0 ? cardCols * cardCellWidth + (cardCols - 1) * gap : 0;
-  const cardGridHeight =
-    params.cardChoices.length > 0 ? cardRows * cardCellHeight + Math.max(0, cardRows - 1) * gap : 0;
+  const plateGrid = computeChoiceCardPlateGridLayout({
+    itemCount: params.cardChoices.length,
+    maxContentWidth,
+    cardAspect: params.cfg.card.aspect,
+    colsMax: 3,
+    gap,
+    minCellWidth: 96,
+    maxCellWidth: 170,
+    extraCellHeight: 36,
+  });
+  const cardGridWidth = params.cardChoices.length > 0 ? plateGrid.gridWidth : 0;
+  const cardGridHeight = params.cardChoices.length > 0 ? plateGrid.gridHeight : 0;
 
   const buttonWidth = Math.min(340, maxContentWidth);
   const buttonsHeight =
@@ -155,7 +153,7 @@ export function renderOptionChoiceHybridDialog(params: {
     contentWidth,
     contentHeight,
     headerHeight: tempHeader.height,
-    headerGap: params.cfg.dialog.gap,
+    headerGap,
   });
   tempHeader.destroy();
 
@@ -172,7 +170,7 @@ export function renderOptionChoiceHybridDialog(params: {
     -layout.dialogHeight / 2 +
     layout.headerOffset +
     (layout.headerHeight ?? 0) / 2 +
-    (layout.headerGap ?? params.cfg.dialog.gap);
+    (layout.headerGap ?? headerGap);
 
   if (hasPrompt) {
     const promptNode = params.scene
@@ -187,41 +185,35 @@ export function renderOptionChoiceHybridDialog(params: {
   }
 
   if (hasCards) {
-    const cards: RenderCard[] = params.cardChoices.map((choice) => ({
-      __choiceIndex: choice.index,
-      __enabled: choice.enabled,
-      cardId: choice.cardId,
-      cardType: "option",
-      cardData: {
-        id: choice.cardId,
-        name: choice.label,
-        cardType: "option",
+    forEachChoiceCardPlatePosition(
+      params.cardChoices.length,
+      plateGrid,
+      {
+        startX: -cardGridWidth / 2 + plateGrid.cellWidth / 2,
+        startY: cursorY + plateGrid.cellHeight / 2,
       },
-      textureKey: params.resolveTextureKey(choice.cardId) ?? "deckBack",
-    }));
-
-    params.gridRenderer.render({
-      container: shell.content,
-      cards,
-      cols: cardCols,
-      gap,
-      startX: -cardGridWidth / 2 + cardCellWidth / 2,
-      startY: cursorY + cardCellHeight / 2,
-      cellWidth: cardCellWidth,
-      cellHeight: cardCellHeight,
-      cardConfig: {
-        ...params.cfg.card,
-        frameExtra: { ...params.cfg.card.frameExtra, h: 0 },
-        extraCellHeight: 0,
+      ({ index, x, y }) => {
+        const choice = params.cardChoices[index];
+      renderChoiceCardPlate({
+        scene: params.scene,
+        container: shell.content,
+        x,
+        y,
+        cardWidth: plateGrid.cellWidth,
+        cardHeight: plateGrid.imageHeight,
+        state: choice.interactionState,
+        enabled: choice.enabled,
+        card: {
+          cardId: choice.cardId,
+          label: choice.label,
+          textureKey: params.resolveTextureKey(choice.cardId) ?? "deckBack",
+        },
+        onSelect: async () => {
+          await params.onSelect?.(choice.index);
+        },
+      });
       },
-      badgeConfig: params.cfg.badge,
-      typeOverrides: params.cfg.cardTypeOverrides,
-      isCardInteractive: (card: RenderCard) => card.__enabled,
-      onPointerUp: async (card: RenderCard) => {
-        if (!card.__enabled) return;
-        await params.onSelect?.(card.__choiceIndex);
-      },
-    });
+    );
 
     cursorY += cardGridHeight;
     if (hasTextButtons) cursorY += sectionGap;
@@ -231,29 +223,19 @@ export function renderOptionChoiceHybridDialog(params: {
     for (let i = 0; i < params.textChoices.length; i += 1) {
       const option = params.textChoices[i];
       const y = cursorY + buttonHeight / 2 + i * (buttonHeight + buttonGap);
-      const fillColor = option.enabled ? 0x353a43 : 0x2f3238;
-      const borderColor = option.enabled ? 0x8ea8ff : 0x5b6068;
-      const rect = params.scene.add.rectangle(0, y, buttonWidth, buttonHeight, fillColor, option.enabled ? 1 : 0.45);
-      rect.setStrokeStyle(2, borderColor, option.enabled ? 1 : 0.45);
-      if (option.enabled) {
-        rect.setInteractive({ useHandCursor: true });
-        rect.on("pointerup", async () => {
+      const button = createDialogActionButton({
+        scene: params.scene,
+        x: 0,
+        y,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: option.label,
+        enabled: option.enabled,
+        onClick: async () => {
           await params.onSelect?.(option.index);
-        });
-      }
-
-      const text = params.scene
-        .add.text(0, y, option.label, {
-          fontSize: "15px",
-          fontFamily: "Arial",
-          fontStyle: "bold",
-          color: option.enabled ? "#f5f6f7" : "#98a0aa",
-          align: "center",
-          wordWrap: { width: buttonWidth - 18 },
-        })
-        .setOrigin(0.5);
-
-      shell.content.add([rect, text]);
+        },
+      });
+      shell.content.add([button.rect, button.txt]);
     }
   }
 

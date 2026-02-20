@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
+import { DIALOG_TEXT, createDialogActionButton } from "./dialog/DialogStyleTokens";
 
 export type PromptDialogButton = {
   label: string;
@@ -30,18 +31,11 @@ export function createPromptDialog(
   const hasButtons = opts.buttons.length > 0;
   const headerFontSize = opts.headerFontSize ?? cfg.dialog.headerFontSize ?? 20;
   const headerStyle = {
+    ...DIALOG_TEXT.header,
     fontSize: `${headerFontSize}px`,
-    fontFamily: "Arial",
-    fontStyle: "bold",
-    color: "#f5f6f7",
-    align: "center",
   };
   const promptStyle = {
-    fontSize: "16px",
-    fontFamily: "Arial",
-    fontStyle: "bold",
-    color: "#f5f6f7",
-    align: "center",
+    ...DIALOG_TEXT.prompt,
     wordWrap: { width: Math.min(420, cam.width * 0.75) },
   };
 
@@ -101,28 +95,16 @@ export function createPromptDialog(
     const startX = -totalWidth / 2 + buttonWidth / 2;
     const x = useStackedButtons ? 0 : startX + index * (buttonWidth + buttonGap);
     const y = useStackedButtons ? btnY + index * (buttonHeight + buttonGap) : btnY;
-    const enabled = btn.enabled !== false;
-    const fillColor = enabled ? 0x353a43 : 0x2f3238;
-    const borderColor = enabled ? 0x8ea8ff : 0x5b6068;
-    const rect = scene.add.rectangle(x, y, buttonWidth, buttonHeight, fillColor, enabled ? 1 : 0.45);
-    rect.setStrokeStyle(2, borderColor, enabled ? 1 : 0.45);
-    if (enabled) {
-      rect.setInteractive({ useHandCursor: true });
-      rect.on("pointerup", async () => {
-        await btn.onClick();
-      });
-    }
-
-    const txt = scene.add.text(x, y, btn.label, {
-      fontSize: "15px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: enabled ? "#f5f6f7" : "#98a0aa",
-      align: "center",
-      wordWrap: { width: buttonWidth - 18 },
+    return createDialogActionButton({
+      scene,
+      x,
+      y,
+      width: buttonWidth,
+      height: buttonHeight,
+      label: btn.label,
+      enabled: btn.enabled !== false,
+      onClick: btn.onClick,
     });
-    txt.setOrigin(0.5);
-    return { rect, txt };
   });
 
   const nodes: Phaser.GameObjects.GameObject[] = [];

@@ -2,7 +2,14 @@ import type { SlotCardView, SlotViewModel } from "../ui/SlotTypes";
 
 type AllowAttackRule = {
   action?: string;
-  parameters?: { status?: string; level?: string };
+  sourceConditions?: Array<{ type?: string } | string>;
+  parameters?: {
+    status?: string;
+    level?: string;
+    ap?: string | number;
+    damaged?: boolean;
+    allowActiveTarget?: boolean;
+  };
 };
 
 export function getAttackUnitTargets(attacker: SlotViewModel | undefined, opponentSlots: SlotViewModel[]): SlotViewModel[] {
@@ -17,7 +24,9 @@ export function getAttackUnitTargets(attacker: SlotViewModel | undefined, oppone
 
 function canTargetActiveUnit(attackerUnit?: SlotCardView, attackerPilot?: SlotCardView, targetUnit?: SlotCardView) {
   if (!targetUnit) return false;
-  const rules = [...getAllowAttackRules(attackerUnit), ...getAllowAttackRules(attackerPilot)];
+  const rules = [...getAllowAttackRules(attackerUnit), ...getAllowAttackRules(attackerPilot)].filter((rule) =>
+    canGrantActiveTargetPermission(rule) && sourceConditionsSatisfied(rule, attackerPilot),
+  );
   if (!rules.length) return false;
   return rules.some((rule) => matchesAllowAttackRule(rule, targetUnit));
 }
@@ -42,7 +51,44 @@ function matchesAllowAttackRule(rule: AllowAttackRule, targetUnit: SlotCardView)
     if (!compareLevel(targetLevel, parsed.op, parsed.value)) return false;
   }
 
+  if (typeof params.ap === "number") {
+    const targetAp = Number(targetUnit.cardData?.ap);
+    if (!Number.isFinite(targetAp) || targetAp !== params.ap) return false;
+  } else if (typeof params.ap === "string") {
+    const targetAp = Number(targetUnit.cardData?.ap);
+    if (!Number.isFinite(targetAp)) return false;
+    const parsed = parseLevelExpression(params.ap.trim());
+    if (!parsed || !compareLevel(targetAp, parsed.op, parsed.value)) return false;
+  }
+
+  if (typeof params.damaged === "boolean") {
+    const isDamaged = Number((targetUnit as any).damageReceived ?? 0) > 0;
+    if (isDamaged !== params.damaged) return false;
+  }
+
   return true;
+}
+
+function canGrantActiveTargetPermission(rule: AllowAttackRule): boolean {
+  const params = rule.parameters ?? {};
+  if (params.allowActiveTarget === true) return true;
+  if ((params.status ?? "").toString().toLowerCase() === "active") return true;
+  if (typeof params.level === "string") return true;
+  if (typeof params.ap === "string" || typeof params.ap === "number") return true;
+  if (typeof params.damaged === "boolean") return true;
+  return false;
+}
+
+function sourceConditionsSatisfied(rule: AllowAttackRule, attackerPilot?: SlotCardView): boolean {
+  const sourceConditions = Array.isArray(rule.sourceConditions) ? rule.sourceConditions : [];
+  if (!sourceConditions.length) return true;
+  return sourceConditions.every((condition) => {
+    const type = typeof condition === "string" ? condition.toLowerCase() : (condition?.type || "").toLowerCase();
+    if (type === "paired" || type === "ispaired") {
+      return Boolean(attackerPilot);
+    }
+    return true;
+  });
 }
 
 function parseLevelExpression(expr: string): { op: string; value: number } | null {

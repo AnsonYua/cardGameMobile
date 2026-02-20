@@ -7,6 +7,7 @@ import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 import { mapOptionChoiceToDialogView } from "./choice/OptionChoiceViewMapper";
+import { withTutorSelectionStepHeader } from "./choice/TutorStepHeader";
 
 type OptionChoiceDeps = {
   api: ApiManager;
@@ -157,7 +158,10 @@ export class OptionChoiceFlowManager {
 
     const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
     const dialogChoices = options.map((o: any) => mapOptionChoiceToDialogView(raw, o));
-    const headerText = (this.queueEntry?.data?.headerText ?? "Choose Option").toString();
+    const headerText = withTutorSelectionStepHeader(
+      (this.queueEntry?.data?.headerText ?? "Choose Option").toString(),
+      this.queueEntry?.data?.context,
+    );
     const promptText =
       typeof this.queueEntry?.data?.promptText === "string" ? this.queueEntry.data.promptText : undefined;
     const layoutHint = parseLayoutHint(this.queueEntry?.data?.layoutHint);

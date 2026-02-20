@@ -1,6 +1,7 @@
 import type { PromptChoiceDialog } from "../../ui/PromptChoiceDialog";
 import type { TutorTopDeckRevealDialog } from "../../ui/TutorTopDeckRevealDialog";
 import { getTutorTopDeckRevealCards, isTutorTopDeckRevealPrompt } from "./TutorTopDeckRevealContext";
+import { withTutorRevealStepHeader } from "./TutorStepHeader";
 
 type DialogChoice = { index?: number; label?: string; enabled?: boolean };
 
@@ -32,7 +33,7 @@ export function isPromptChoiceDialogOpen(
 export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
   const { entry } = params;
   const useTutorRevealDialog = isTutorTopDeckRevealPrompt(entry?.data?.context);
-  const headerText = (entry?.data?.headerText ?? "Choose Option").toString();
+  const rawHeaderText = (entry?.data?.headerText ?? "Choose Option").toString();
   const promptText = (entry?.data?.promptText ?? "").toString();
   const options = Array.isArray(entry?.data?.availableOptions) ? entry.data.availableOptions : [];
 
@@ -40,6 +41,7 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
     params.promptChoiceDialog?.hide();
     const continueIndex = params.resolveTimeoutIndex(options);
     const cards = getTutorTopDeckRevealCards(entry?.data?.context);
+    const headerText = withTutorRevealStepHeader(rawHeaderText, entry?.data?.context);
     params.tutorTopDeckRevealDialog?.show({
       headerText,
       promptText,
@@ -67,7 +69,7 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
   }));
 
   params.promptChoiceDialog?.show({
-    headerText,
+    headerText: rawHeaderText,
     promptText,
     buttons,
     showOverlay: true,

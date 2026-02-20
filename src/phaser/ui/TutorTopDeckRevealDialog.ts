@@ -1,10 +1,19 @@
 import type Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
-import { TrashCardGridRenderer } from "./TrashCardGridRenderer";
 import { toBaseKey } from "./HandTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
-import type { TutorTopDeckRevealCard } from "../controllers/choice/TutorTopDeckRevealContext";
+import {
+  getTutorStep2EligibilityHint,
+  type TutorTopDeckRevealCard,
+} from "../controllers/choice/TutorTopDeckRevealContext";
+import { DIALOG_TEXT, createDialogActionButton } from "./dialog/DialogStyleTokens";
+import { resolveDialogHeaderGap } from "./dialog/DialogHeaderGap";
+import { renderChoiceCardPlate } from "./choice/ChoiceCardPlateRenderer";
+import {
+  computeChoiceCardPlateGridLayout,
+  forEachChoiceCardPlatePosition,
+} from "./choice/ChoiceCardPlateGrid";
 
 export type TutorTopDeckRevealDialogOptions = {
   headerText: string;
@@ -19,7 +28,6 @@ export type TutorTopDeckRevealDialogOptions = {
 
 export class TutorTopDeckRevealDialog {
   private dialogTimer: DialogTimerPresenter;
-  private gridRenderer: TrashCardGridRenderer;
   private dialog?: Phaser.GameObjects.Container;
   private automationState?: {
     headerText: string;
@@ -31,7 +39,6 @@ export class TutorTopDeckRevealDialog {
 
   constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
     this.dialogTimer = new DialogTimerPresenter(scene, timerController);
-    this.gridRenderer = new TrashCardGridRenderer(scene);
   }
 
   isOpen() {
@@ -49,6 +56,7 @@ export class TutorTopDeckRevealDialog {
       ...DEFAULT_CARD_DIALOG_CONFIG,
       z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3080, overlay: 3079 },
     };
+    const headerGap = resolveDialogHeaderGap(opts.showTimer ?? false, cfg.dialog.gap);
 
     const headerText = opts.headerText || "Top of Deck";
     const promptText = (opts.promptText ?? "Review the looked cards, then continue.").toString();
@@ -69,11 +77,7 @@ export class TutorTopDeckRevealDialog {
 
     const tempPrompt = this.scene
       .add.text(-10000, -10000, promptText, {
-        fontSize: "16px",
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
+        ...DIALOG_TEXT.prompt,
         wordWrap: { width: promptWidth },
       })
       .setOrigin(0.5);
@@ -81,16 +85,21 @@ export class TutorTopDeckRevealDialog {
     const promptMeasuredWidth = tempPrompt.width;
     tempPrompt.destroy();
 
-    const cols = Math.max(1, Math.min(3, cards.length || 1));
     const gap = 12;
     const buttonHeight = 48;
     const sectionGap = 14;
-    const baseCardCell = Math.floor((maxContentWidth - gap * (cols - 1)) / cols);
-    const cardCellWidth = Math.max(96, Math.min(170, baseCardCell));
-    const cardCellHeight = cardCellWidth * cfg.card.aspect + cfg.card.extraCellHeight;
-    const rows = cards.length > 0 ? Math.ceil(cards.length / cols) : 1;
-    const cardGridWidth = cols * cardCellWidth + (cols - 1) * gap;
-    const cardGridHeight = rows * cardCellHeight + Math.max(0, rows - 1) * gap;
+    const plateGrid = computeChoiceCardPlateGridLayout({
+      itemCount: cards.length,
+      maxContentWidth,
+      cardAspect: cfg.card.aspect,
+      colsMax: 3,
+      gap,
+      minCellWidth: 96,
+      maxCellWidth: 170,
+      extraCellHeight: 36,
+    });
+    const cardGridWidth = plateGrid.gridWidth;
+    const cardGridHeight = plateGrid.gridHeight;
     const buttonWidth = Math.min(320, maxContentWidth);
 
     const contentWidth = Math.max(280, promptMeasuredWidth, cardGridWidth, buttonWidth);
@@ -99,10 +108,7 @@ export class TutorTopDeckRevealDialog {
     const tempHeader = this.scene
       .add.text(-10000, -10000, headerText, {
         fontSize: `${cfg.dialog.headerFontSize ?? 20}px`,
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
+        ...DIALOG_TEXT.header,
         wordWrap: { width: Math.min(520, cam.width * 0.75) },
       })
       .setOrigin(0.5);
@@ -111,7 +117,7 @@ export class TutorTopDeckRevealDialog {
       contentWidth,
       contentHeight,
       headerHeight: tempHeader.height,
-      headerGap: cfg.dialog.gap,
+      headerGap,
     });
     tempHeader.destroy();
 
@@ -129,72 +135,62 @@ export class TutorTopDeckRevealDialog {
       -layout.dialogHeight / 2 +
       layout.headerOffset +
       (layout.headerHeight ?? 0) / 2 +
-      (layout.headerGap ?? cfg.dialog.gap);
+      (layout.headerGap ?? headerGap);
 
     const promptNode = this.scene
       .add.text(0, cursorY + promptHeight / 2, promptText, {
-        fontSize: "16px",
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
+        ...DIALOG_TEXT.prompt,
         wordWrap: { width: promptWidth },
       })
       .setOrigin(0.5);
     shell.content.add(promptNode);
     cursorY += promptHeight + sectionGap;
 
-    const renderCards = cards.map((card, idx) => ({
-      __cardIdx: idx,
-      cardId: card.cardId,
-      cardType: "option",
-      cardData: {
-        id: card.cardId,
-        name: card.name || card.cardId,
-        cardType: "option",
+    forEachChoiceCardPlatePosition(
+      cards.length,
+      plateGrid,
+      {
+        startX: -cardGridWidth / 2 + plateGrid.cellWidth / 2,
+        startY: cursorY + plateGrid.cellHeight / 2,
       },
-      textureKey: toBaseKey(card.cardId) || "deckBack",
-    }));
-
-    this.gridRenderer.render({
-      container: shell.content,
-      cards: renderCards,
-      cols,
-      gap,
-      startX: -cardGridWidth / 2 + cardCellWidth / 2,
-      startY: cursorY + cardCellHeight / 2,
-      cellWidth: cardCellWidth,
-      cellHeight: cardCellHeight,
-      cardConfig: {
-        ...cfg.card,
-        frameExtra: { ...cfg.card.frameExtra, h: 0 },
-        extraCellHeight: 0,
+      ({ index, x, y }) => {
+        const card = cards[index];
+      renderChoiceCardPlate({
+        scene: this.scene,
+        container: shell.content,
+        x,
+        y,
+        cardWidth: plateGrid.cellWidth,
+        cardHeight: plateGrid.imageHeight,
+        state: "read_only",
+        enabled: true,
+        hintText: getTutorStep2EligibilityHint(card),
+        interactive: false,
+        card: {
+          cardId: card.cardId,
+          label: card.name || card.cardId,
+          textureKey: toBaseKey(card.cardId) || card.cardId,
+        },
+      });
       },
-      badgeConfig: cfg.badge,
-      typeOverrides: cfg.cardTypeOverrides,
-      isCardInteractive: () => false,
-    });
+    );
 
     cursorY += cardGridHeight + sectionGap;
 
-    const button = this.scene.add.rectangle(0, cursorY + buttonHeight / 2, buttonWidth, buttonHeight, 0x353a43, 1);
-    button.setStrokeStyle(2, 0x8ea8ff, 1);
-    button.setInteractive({ useHandCursor: true });
-    button.on("pointerup", async () => {
-      await opts.onContinue?.();
+    const button = createDialogActionButton({
+      scene: this.scene,
+      x: 0,
+      y: cursorY + buttonHeight / 2,
+      width: buttonWidth,
+      height: buttonHeight,
+      label: continueLabel,
+      enabled: true,
+      onClick: async () => {
+        await opts.onContinue?.();
+      },
     });
 
-    const buttonText = this.scene
-      .add.text(0, cursorY + buttonHeight / 2, continueLabel, {
-        fontSize: "15px",
-        fontFamily: "Arial",
-        fontStyle: "bold",
-        color: "#f5f6f7",
-        align: "center",
-      })
-      .setOrigin(0.5);
-
-    shell.content.add([button, buttonText]);
+    shell.content.add([button.rect, button.txt]);
 
     if (opts.showTimer) {
       this.dialogTimer.attach(shell.dialog, layout, async () => {

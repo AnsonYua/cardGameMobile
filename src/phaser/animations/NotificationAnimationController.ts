@@ -9,6 +9,7 @@ import { createCardsMovedToDeckBottomTask, createTopDeckViewedTask } from "./dec
 import { createCardsDrawnTask } from "./drawNotificationTasks";
 import { createCommandPlayedTask } from "./commandNotificationTasks";
 import { computeHandCardSize } from "../utils/handCardSizing";
+import { resolveCardAddedToHandView } from "./NotificationVisibilityRules";
 
 export type SlotNotification = {
   id: string;
@@ -159,10 +160,13 @@ export class NotificationAnimationController {
     const playerId = payload?.playerId ?? "";
     if (!ctx.currentPlayerId || !playerId) return null;
     const isSelf = playerId === ctx.currentPlayerId;
-    const reason = (payload?.reason ?? "").toString().toLowerCase();
-    const isOpponentBurstAddToHand = !isSelf && eventType === "CARD_ADDED_TO_HAND" && reason === "burst";
-    if (!isSelf && !isOpponentBurstAddToHand) return null;
-    if (isOpponentBurstAddToHand) {
+    const addToHandView = resolveCardAddedToHandView({
+      eventType,
+      payload,
+      currentPlayerId: ctx.currentPlayerId,
+    });
+    if (!isSelf && !addToHandView.visible) return null;
+    if (!isSelf && addToHandView.visible) {
       const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);
       const previewCard = this.buildPreviewCard(card);
       const fallbackCardId = payload?.cardId ?? payload?.carduid ?? "burst_card";
@@ -190,7 +194,7 @@ export class NotificationAnimationController {
             cardId: card?.id ?? fallbackCardId,
           },
           popupCard,
-          "Burst - Opponent added card to hand",
+          addToHandView.title,
         );
     }
     const card = ctx.cardLookup?.findCardByUid?.(payload.carduid);

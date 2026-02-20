@@ -2,7 +2,6 @@ import type Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, type CardDialogConfig } from "./CardDialogLayout";
 import { toBaseKey } from "./HandTypes";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
-import { TrashCardGridRenderer } from "./TrashCardGridRenderer";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { resolveOptionChoiceLayout, type OptionChoiceLayoutHint } from "../controllers/choice/OptionChoiceLayoutResolver";
 import {
@@ -30,7 +29,6 @@ export type OptionChoiceDialogOptions = {
 
 export class OptionChoiceDialog {
   private dialogTimer: DialogTimerPresenter;
-  private gridRenderer: TrashCardGridRenderer;
   private dialog?: Phaser.GameObjects.Container;
   private automationState?: {
     headerText: string;
@@ -47,7 +45,6 @@ export class OptionChoiceDialog {
 
   constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
     this.dialogTimer = new DialogTimerPresenter(scene, timerController);
-    this.gridRenderer = new TrashCardGridRenderer(scene);
   }
 
   isOpen() {
@@ -116,7 +113,6 @@ export class OptionChoiceDialog {
       scene: this.scene,
       cfg: this.cfg,
       dialogTimer: this.dialogTimer,
-      gridRenderer: this.gridRenderer,
       headerText,
       promptText,
       showOverlay: opts.showOverlay ?? true,
