@@ -61,19 +61,41 @@ export async function runJoinFlow(
   if (!resolvedPlayerId) {
     throw new Error("Join failed: missing player id");
   }
-  if (joinedViaRoom) {
-    await submitDeckFromStorage({
-      gameId: params.gameId,
-      playerId: resolvedPlayerId,
-      source: "join",
-      emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
-      submit: (payload) => match.submitDeck(params.gameId, resolvedPlayerId, payload),
-    });
+  const joinPath = joinedViaRoom ? "joinRoom" : "resolveSeatSession";
+  console.log("[join-flow] session resolved", {
+    gameId: params.gameId,
+    joinPath,
+    playerId: resolvedPlayerId,
+  });
+  const allowEnvScanFallback = joinedViaRoom === false;
+  if (allowEnvScanFallback) {
+    engine.setAllowEnvScanFallbackDefault(true);
+    debugControls?.setScenarioResourceFallbackEnabled(true);
   }
+  console.log("[join-flow] resource fallback mode", {
+    gameId: params.gameId,
+    joinPath,
+    playerId: resolvedPlayerId,
+    allowEnvScanFallback,
+  });
+  const deckSubmitResult = await submitDeckFromStorage({
+    gameId: params.gameId,
+    playerId: resolvedPlayerId,
+    source: `join:${joinPath}`,
+    emptyDeckMessage: "Deck is empty. Please setup your deck before joining.",
+    submit: (payload) => match.submitDeck(params.gameId, resolvedPlayerId, payload),
+  });
+  console.log("[join-flow] deck submit completed", {
+    gameId: params.gameId,
+    joinPath,
+    playerId: resolvedPlayerId,
+    deckCount: deckSubmitResult.deckCount,
+  });
   contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
   const statusPayload = (await match.getGameStatus(params.gameId, resolvedPlayerId)) as GameStatusResponse;
   await engine.updateGameStatus(params.gameId, resolvedPlayerId, {
     statusPayload,
+    allowEnvScanFallback,
   });
   if (params.isAutoPolling) {
     await debugControls?.startAutoPolling();

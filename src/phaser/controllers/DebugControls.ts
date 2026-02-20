@@ -42,6 +42,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-069/activate_set_active_blocker_then_restrict_attack",
     "GD01/GD01-097/activate_set_active_then_restrict_attack_if_opponent_hand_ge_8",
     "GD01/GD01-108/main_damage_all_blockers_2",
+    "GD01/GD01-125/burst_deploy_opponent_turn_skip_optional_deploy"
   ],
   GD02: [
     "GD02/GD02-058/deploy_draw1_dis1",
@@ -109,6 +110,7 @@ const SCENARIO_PRESET_GROUPS = {
     "ST02/ST02-003/paired_splash",
     "ST02/ST02-006/activate_once_per_turn",
     "ST02/ST02-015/deploy_scry_top2",
+    "ST02/ST02-016/burst_deploy_opponent_turn_skip_token_deploy",
     "ST02/ST02-016/deploy_full_board_from_capture",
   ],
   ST03: [
@@ -240,6 +242,11 @@ export class DebugControls {
     await this.handleSetScenario(scenarioPath, { hidePopup: false });
   }
 
+  setScenarioResourceFallbackEnabled(enabled: boolean) {
+    this.scenarioResourceFallbackEnabled = enabled === true;
+    this.engine.setAllowEnvScanFallbackDefault(this.scenarioResourceFallbackEnabled);
+  }
+
   async pollOnce() {
     await this.handleTestPolling(false, { skipPopupHide: true, source: "PollOnce (external)" });
   }
@@ -278,6 +285,11 @@ export class DebugControls {
       }
       const gameId = this.context.gameId || scenarioJson?.gameId || gameEnv?.gameId || "sample_play_card";
       const playerSelector: ScenarioPlayerSelector = this.context.playerSelector || "currentPlayer";
+      console.log("[debug-controls] setScenario inject", {
+        scenarioPath: targetScenario,
+        gameId,
+        playerSelector,
+      });
 
       //alert(gameId)
       const injectResp = await this.api.injectGameState(gameId, gameEnv, playerSelector);
