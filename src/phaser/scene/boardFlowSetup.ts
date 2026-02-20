@@ -8,6 +8,7 @@ import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import type { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
 import type { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
+import type { TutorTopDeckRevealDialog } from "../ui/TutorTopDeckRevealDialog";
 import type { ActionControls } from "../controllers/ControllerTypes";
 import { BurstChoiceFlowManager } from "../controllers/BurstChoiceFlowManager";
 import { BurstChoiceGroupFlowManager } from "../controllers/BurstChoiceGroupFlowManager";
@@ -29,6 +30,7 @@ type BoardFlowSetupParams = {
     burstChoiceGroupDialog: BurstChoiceGroupDialog;
     optionChoiceDialog: OptionChoiceDialog;
     promptChoiceDialog: PromptChoiceDialog;
+    tutorTopDeckRevealDialog: TutorTopDeckRevealDialog;
     tokenChoiceDialog: TokenChoiceDialog;
   };
   actionControls?: ActionControls | null;
@@ -68,6 +70,7 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     gameContext: params.gameContext,
     actionControls: params.actionControls,
     promptChoiceDialog: params.dialogs.promptChoiceDialog,
+    tutorTopDeckRevealDialog: params.dialogs.tutorTopDeckRevealDialog,
     refreshActions: params.onRefreshActions,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,

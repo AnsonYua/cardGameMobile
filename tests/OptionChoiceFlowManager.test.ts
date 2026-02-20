@@ -1,55 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { mapOptionChoiceToDialogView } from "../src/phaser/controllers/choice/OptionChoiceViewMapper";
+import { resolveOptionChoiceTimeoutIndex } from "../src/phaser/controllers/OptionChoiceFlowManager";
 
-describe("mapOptionChoiceToDialogView", () => {
-  it("uses explicit display contract for card mode", () => {
-    const view = mapOptionChoiceToDialogView(
-      {},
-      {
-        index: 0,
-        label: "Reveal and add ST03-001 to hand",
-        display: { mode: "card", cardId: "ST03-001", label: "Pick ST03-001" },
-        payload: { action: "TAKE", carduid: "ST03-001_abc" },
-      },
-    );
+describe("resolveOptionChoiceTimeoutIndex", () => {
+  it("uses explicit defaultOptionIndex when enabled", () => {
+    const options = [
+      { index: 0, label: "A", enabled: true },
+      { index: 1, label: "Bottom", payload: { action: "BOTTOM" }, enabled: true },
+    ];
 
-    expect(view).toEqual({
-      index: 0,
-      mode: "card",
-      cardId: "ST03-001",
-      label: "Pick ST03-001",
-      enabled: true,
-    });
+    expect(resolveOptionChoiceTimeoutIndex(options, 0)).toBe(0);
   });
 
-  it("uses explicit display contract for text mode", () => {
-    const view = mapOptionChoiceToDialogView(
-      {},
-      {
-        index: 2,
-        label: "Put it on the bottom of your deck",
-        display: { mode: "text", label: "Bottom" },
-        payload: { action: "BOTTOM" },
-      },
-    );
+  it("falls back to BOTTOM option when defaultOptionIndex is invalid", () => {
+    const options = [
+      { index: 0, label: "A", enabled: true },
+      { index: 1, label: "Put it on the bottom of your deck", payload: { action: "BOTTOM" }, enabled: true },
+    ];
 
-    expect(view.mode).toBe("text");
-    expect(view.label).toBe("Bottom");
-    expect(view.cardId).toBeUndefined();
+    expect(resolveOptionChoiceTimeoutIndex(options, 9)).toBe(1);
   });
 
-  it("falls back to payload cardId when display is missing", () => {
-    const view = mapOptionChoiceToDialogView(
-      {},
-      {
-        index: 1,
-        label: "Deploy GD03-035",
-        payload: { action: "DEPLOY", cardId: "GD03-035" },
-      },
-    );
+  it("falls back to first enabled option", () => {
+    const options = [
+      { index: 0, label: "Disabled", enabled: false },
+      { index: 1, label: "Enabled", enabled: true },
+    ];
 
-    expect(view.mode).toBe("card");
-    expect(view.cardId).toBe("GD03-035");
-    expect(view.label).toBe("Deploy GD03-035");
+    expect(resolveOptionChoiceTimeoutIndex(options)).toBe(1);
   });
 });

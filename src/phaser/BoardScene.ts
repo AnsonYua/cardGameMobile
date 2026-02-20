@@ -44,7 +44,7 @@ import type { BaseShieldAnimationRenderController } from "./animations/BaseShiel
 import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
-import { findLiveAttackNotification, getNotificationQueue } from "./utils/NotificationUtils";
+import { findLiveAttackIndicatorNotification, getNotificationQueue } from "./utils/NotificationUtils";
 import type { GameEndInfo } from "./scene/gameEndHelpers";
 import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
@@ -129,6 +129,7 @@ export class BoardScene extends Phaser.Scene {
   private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
   private optionChoiceDialogUi?: import("./ui/OptionChoiceDialog").OptionChoiceDialog;
   private promptChoiceDialogUi?: import("./ui/PromptChoiceDialog").PromptChoiceDialog;
+  private tutorTopDeckRevealDialogUi?: import("./ui/TutorTopDeckRevealDialog").TutorTopDeckRevealDialog;
   private tokenChoiceDialogUi?: import("./ui/TokenChoiceDialog").TokenChoiceDialog;
   private burstFlow?: BurstChoiceFlowManager;
   private burstGroupFlow?: BurstChoiceGroupFlowManager;
@@ -216,6 +217,7 @@ export class BoardScene extends Phaser.Scene {
     this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
     this.optionChoiceDialogUi = dialogs.optionChoiceDialog;
     this.promptChoiceDialogUi = dialogs.promptChoiceDialog;
+    this.tutorTopDeckRevealDialogUi = dialogs.tutorTopDeckRevealDialog;
     this.tokenChoiceDialogUi = dialogs.tokenChoiceDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
 
@@ -231,6 +233,7 @@ export class BoardScene extends Phaser.Scene {
         burstChoiceGroupDialog: dialogs.burstChoiceGroupDialog,
         optionChoiceDialog: dialogs.optionChoiceDialog,
         promptChoiceDialog: dialogs.promptChoiceDialog,
+        tutorTopDeckRevealDialog: dialogs.tutorTopDeckRevealDialog,
         tokenChoiceDialog: dialogs.tokenChoiceDialog,
       },
       actionControls: this.actionControls,
@@ -338,6 +341,7 @@ export class BoardScene extends Phaser.Scene {
       burstChoiceDialog: this.burstChoiceDialogUi,
       optionChoiceDialog: this.optionChoiceDialogUi,
       promptChoiceDialog: this.promptChoiceDialogUi,
+      tutorTopDeckRevealDialog: this.tutorTopDeckRevealDialogUi,
       tokenChoiceDialog: this.tokenChoiceDialogUi,
       errorDialog: this.errorDialogUi,
       burstFlow: this.burstFlow,
@@ -447,6 +451,7 @@ export class BoardScene extends Phaser.Scene {
         },
         dialogs: {
           promptChoiceDialog: this.promptChoiceDialogUi,
+          tutorTopDeckRevealDialog: this.tutorTopDeckRevealDialogUi,
           optionChoiceDialog: this.optionChoiceDialogUi,
           tokenChoiceDialog: this.tokenChoiceDialogUi,
           burstChoiceDialog: this.burstChoiceDialogUi,
@@ -575,7 +580,7 @@ export class BoardScene extends Phaser.Scene {
   private syncAttackIndicatorWithNotifications(raw: any) {
     if (this.animationQueue?.isRunning?.()) return;
     const notificationQueue = getNotificationQueue(raw);
-    const activeAttack = findLiveAttackNotification(notificationQueue);
+    const activeAttack = findLiveAttackIndicatorNotification(notificationQueue);
     if (!activeAttack) {
       this.animationQueue?.clearAttackIndicator();
       return;

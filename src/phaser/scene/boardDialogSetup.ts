@@ -25,6 +25,7 @@ export type BoardDialogSet = {
   burstChoiceGroupDialog: BurstChoiceGroupDialog;
   optionChoiceDialog: import("../ui/OptionChoiceDialog").OptionChoiceDialog;
   promptChoiceDialog: import("../ui/PromptChoiceDialog").PromptChoiceDialog;
+  tutorTopDeckRevealDialog: import("../ui/TutorTopDeckRevealDialog").TutorTopDeckRevealDialog;
   tokenChoiceDialog: import("../ui/TokenChoiceDialog").TokenChoiceDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
 };
@@ -63,6 +64,7 @@ export function setupBoardDialogs(
     burstChoiceGroupDialog: timedDialogs.burstChoiceGroupDialog,
     optionChoiceDialog: timedDialogs.optionChoiceDialog,
     promptChoiceDialog: timedDialogs.promptChoiceDialog,
+    tutorTopDeckRevealDialog: timedDialogs.tutorTopDeckRevealDialog,
     tokenChoiceDialog: timedDialogs.tokenChoiceDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
   };

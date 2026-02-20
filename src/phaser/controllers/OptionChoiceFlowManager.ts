@@ -157,9 +157,16 @@ export class OptionChoiceFlowManager {
 
     const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
     const dialogChoices = options.map((o: any) => mapOptionChoiceToDialogView(raw, o));
+    const headerText = (this.queueEntry?.data?.headerText ?? "Choose Option").toString();
+    const promptText =
+      typeof this.queueEntry?.data?.promptText === "string" ? this.queueEntry.data.promptText : undefined;
+    const layoutHint = parseLayoutHint(this.queueEntry?.data?.layoutHint);
+    const defaultOptionIndex = Number(this.queueEntry?.data?.defaultOptionIndex);
 
     dialog.show({
-      headerText: "Choose Option",
+      headerText,
+      promptText,
+      layoutHint,
       choices: dialogChoices,
       showChoices: isOwner,
       showOverlay: true,
@@ -168,26 +175,11 @@ export class OptionChoiceFlowManager {
         await this.submitChoice(index);
       },
       onTimeout: async () => {
-        const index = this.resolveTimeoutIndex(options);
+        const index = resolveOptionChoiceTimeoutIndex(options, defaultOptionIndex);
         await this.submitChoice(index);
       },
     });
     this.shownEntryId = this.queueEntry.id;
-  }
-
-  private resolveTimeoutIndex(options: any[]): number {
-    const normalized = Array.isArray(options) ? options : [];
-    const bottom = normalized.find((o) => {
-      const payloadAction = (o?.payload?.action ?? "").toString().toUpperCase();
-      if (payloadAction === "BOTTOM") return true;
-      const label = (o?.label ?? "").toString().toLowerCase();
-      return label.includes("bottom");
-    });
-    if (bottom && typeof bottom.index === "number") return bottom.index;
-    const firstEnabled = normalized.find((o) => o?.enabled !== false);
-    if (firstEnabled && typeof firstEnabled.index === "number") return firstEnabled.index;
-    const first = normalized[0];
-    return typeof first?.index === "number" ? first.index : 0;
   }
 
   private async submitChoice(selectedOptionIndex: number) {
@@ -246,4 +238,29 @@ export class OptionChoiceFlowManager {
     this.log.debug("cleared", { entryId });
     cleanupDialog(this.deps.optionChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
+}
+
+function parseLayoutHint(raw: unknown): "card" | "text" | "hybrid" | undefined {
+  const value = (raw ?? "").toString().toLowerCase();
+  if (value === "card" || value === "text" || value === "hybrid") return value;
+  return undefined;
+}
+
+export function resolveOptionChoiceTimeoutIndex(options: any[], defaultOptionIndex?: number): number {
+  const normalized = Array.isArray(options) ? options : [];
+  if (Number.isFinite(defaultOptionIndex)) {
+    const found = normalized.find((o) => Number(o?.index) === Number(defaultOptionIndex));
+    if (found && found?.enabled !== false) return Number(found.index);
+  }
+  const bottom = normalized.find((o) => {
+    const payloadAction = (o?.payload?.action ?? "").toString().toUpperCase();
+    if (payloadAction === "BOTTOM") return true;
+    const label = (o?.label ?? "").toString().toLowerCase();
+    return label.includes("bottom");
+  });
+  if (bottom && typeof bottom.index === "number" && bottom?.enabled !== false) return bottom.index;
+  const firstEnabled = normalized.find((o) => o?.enabled !== false);
+  if (firstEnabled && typeof firstEnabled.index === "number") return firstEnabled.index;
+  const first = normalized[0];
+  return typeof first?.index === "number" ? first.index : 0;
 }

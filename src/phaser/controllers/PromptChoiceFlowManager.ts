@@ -3,9 +3,11 @@ import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
+import type { TutorTopDeckRevealDialog } from "../ui/TutorTopDeckRevealDialog";
 import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
+import { hidePromptChoiceDialogs, isPromptChoiceDialogOpen, showPromptChoiceDialog } from "./choice/PromptChoiceDialogRouter";
 
 type PromptChoiceDeps = {
   api: ApiManager;
@@ -13,6 +15,7 @@ type PromptChoiceDeps = {
   gameContext: GameContext;
   actionControls?: ActionControls | null;
   promptChoiceDialog?: PromptChoiceDialog | null;
+  tutorTopDeckRevealDialog?: TutorTopDeckRevealDialog | null;
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
@@ -131,44 +134,34 @@ export class PromptChoiceFlowManager {
   ensureInactiveUi() {
     if (this.queueEntry) return;
     cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+    hidePromptChoiceDialogs(this.deps);
   }
 
   private applyPostSubmitState() {
     cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+    hidePromptChoiceDialogs(this.deps);
   }
 
   private showDialog() {
-    const dialog = this.deps.promptChoiceDialog;
-    if (!dialog || !this.queueEntry) return;
-    if (this.shownEntryId === this.queueEntry.id && dialog.isOpen()) return;
+    if (!this.queueEntry) return;
+    const hasDialog = this.deps.promptChoiceDialog || this.deps.tutorTopDeckRevealDialog;
+    if (!hasDialog) return;
+    if (this.shownEntryId === this.queueEntry.id && isPromptChoiceDialogOpen(this.queueEntry, this.deps)) return;
 
     const isOwner = isChoiceOwner(this.queueEntry.playerId, this.deps.gameContext.playerId);
-    const headerText = (this.queueEntry?.data?.headerText ?? "Choose Option").toString();
     if (!isOwner) {
-      dialog.hide();
+      hidePromptChoiceDialogs(this.deps);
       this.shownEntryId = undefined;
       return;
     }
 
-    const promptText = (this.queueEntry?.data?.promptText ?? "").toString();
-    const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
-    const buttons = options.map((o: any) => ({
-      label: (o?.label ?? "").toString() || `Option ${Number(o?.index ?? 0) + 1}`,
-      enabled: o?.enabled !== false,
-      onClick: async () => {
-        await this.submitChoice(Number(o?.index ?? 0));
-      },
-    }));
-
-    dialog.show({
-      headerText,
-      promptText,
-      buttons,
-      showOverlay: true,
-      showTimer: true,
-      onTimeout: async () => {
-        const idx = this.resolveTimeoutIndex(options);
-        await this.submitChoice(idx);
+    showPromptChoiceDialog({
+      entry: this.queueEntry,
+      promptChoiceDialog: this.deps.promptChoiceDialog,
+      tutorTopDeckRevealDialog: this.deps.tutorTopDeckRevealDialog,
+      resolveTimeoutIndex: (options) => this.resolveTimeoutIndex(options),
+      onSubmit: async (index) => {
+        await this.submitChoice(index);
       },
     });
     this.shownEntryId = this.queueEntry.id;
@@ -191,7 +184,7 @@ export class PromptChoiceFlowManager {
     this.requestPending = true;
     this.submittedEntryId = this.queueEntry.id;
     this.submittedAt = Date.now();
-    this.deps.promptChoiceDialog?.hide();
+    hidePromptChoiceDialogs(this.deps);
     this.shownEntryId = this.queueEntry.id;
     this.deps.refreshActions();
     try {
@@ -237,5 +230,6 @@ export class PromptChoiceFlowManager {
     this.pendingResolve = undefined;
     this.log.debug("cleared", { entryId });
     cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+    hidePromptChoiceDialogs(this.deps);
   }
 }

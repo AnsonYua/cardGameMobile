@@ -153,6 +153,34 @@ function getBattleResolvedAttackIds(notifications: SlotNotification[]): Set<stri
   return resolved;
 }
 
+function getLinkedAttackNotificationId(note: SlotNotification | undefined): string | undefined {
+  if (!note) return undefined;
+  const type = (note.type || "").toUpperCase();
+  if (type === "UNIT_ATTACK_DECLARED") {
+    return note.id ? String(note.id) : undefined;
+  }
+  if (type !== "REFRESH_TARGET") {
+    return undefined;
+  }
+  const id =
+    note.payload?.sourceNotificationId ??
+    note.payload?.attackNotificationId ??
+    note.payload?.notificationId ??
+    "";
+  if (!id) return undefined;
+  return String(id);
+}
+
+function buildAttackNotificationIndex(notifications: SlotNotification[]): Map<string, SlotNotification> {
+  const byId = new Map<string, SlotNotification>();
+  for (const note of notifications) {
+    if (!note?.id) continue;
+    if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") continue;
+    byId.set(String(note.id), note);
+  }
+  return byId;
+}
+
 export function hasBattleResolvedAttackNotification(
   notifications: SlotNotification[],
   attackNotificationId?: string,
@@ -163,8 +191,13 @@ export function hasBattleResolvedAttackNotification(
 }
 
 export function findLiveAttackNotification(notifications: SlotNotification[]): SlotNotification | undefined {
+  return findLiveAttackIndicatorNotification(notifications);
+}
+
+export function findLiveAttackIndicatorNotification(notifications: SlotNotification[]): SlotNotification | undefined {
   if (!Array.isArray(notifications) || notifications.length === 0) return undefined;
   const resolvedAttackIds = getBattleResolvedAttackIds(notifications);
+  const attackById = buildAttackNotificationIndex(notifications);
   let hasAnonymousBattleResolved = false;
   for (let i = notifications.length - 1; i >= 0; i -= 1) {
     const note = notifications[i];
@@ -181,10 +214,28 @@ export function findLiveAttackNotification(notifications: SlotNotification[]): S
       }
       continue;
     }
-    if (type !== "UNIT_ATTACK_DECLARED") continue;
     if (hasAnonymousBattleResolved) return undefined;
+    if (type === "REFRESH_TARGET") {
+      const attackId = getLinkedAttackNotificationId(note);
+      if (attackId && resolvedAttackIds.has(attackId)) continue;
+      const sourceAttack = attackId ? attackById.get(attackId) : undefined;
+      if (sourceAttack?.payload?.battleEnd === true) continue;
+      const payload = note.payload ?? {};
+      const hasRedirectTarget = Boolean(
+        payload.forcedTargetCarduid ||
+          payload.forcedTargetZone ||
+          payload.forcedTargetPlayerId ||
+          payload.targetCarduid ||
+          payload.targetSlotName ||
+          payload.targetSlot,
+      );
+      if (!hasRedirectTarget) continue;
+      return note;
+    }
+    if (type !== "UNIT_ATTACK_DECLARED") continue;
+    const attackId = getLinkedAttackNotificationId(note);
     if (note.payload?.battleEnd === true) continue;
-    if (note.id && resolvedAttackIds.has(String(note.id))) continue;
+    if (attackId && resolvedAttackIds.has(attackId)) continue;
     return note;
   }
   return undefined;
@@ -209,7 +260,8 @@ export function getActiveAttackTargetSlotKey(
   resolveSlotOwnerByPlayer: (playerId?: string) => "player" | "opponent" | undefined,
 ) {
   if (!note) return undefined;
-  if ((note.type || "").toUpperCase() !== "UNIT_ATTACK_DECLARED") return undefined;
+  const type = (note.type || "").toUpperCase();
+  if (type !== "UNIT_ATTACK_DECLARED" && type !== "REFRESH_TARGET") return undefined;
   const payload = note.payload || {};
   const slotId =
     payload.forcedTargetZone ||

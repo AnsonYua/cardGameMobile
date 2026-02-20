@@ -1,19 +1,25 @@
 import type Phaser from "phaser";
-import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { CardRowChoiceDialog } from "./CardRowChoiceDialog";
+import { DEFAULT_CARD_DIALOG_CONFIG, type CardDialogConfig } from "./CardDialogLayout";
 import { toBaseKey } from "./HandTypes";
+import { DialogTimerPresenter } from "./DialogTimerPresenter";
+import { TrashCardGridRenderer } from "./TrashCardGridRenderer";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
+import { resolveOptionChoiceLayout, type OptionChoiceLayoutHint } from "../controllers/choice/OptionChoiceLayoutResolver";
+import {
+  normalizeOptionChoices,
+  type OptionChoiceDialogChoice,
+} from "./optionChoice/OptionChoiceDialogModel";
+import {
+  renderOptionChoiceHybridDialog,
+  renderOptionChoiceTextDialog,
+} from "./optionChoice/OptionChoiceDialogRenderers";
 
-export type OptionChoiceDialogChoice = {
-  index: number;
-  mode?: "card" | "text";
-  cardId?: string;
-  label?: string;
-  enabled?: boolean;
-};
+export type { OptionChoiceDialogChoice };
 
 export type OptionChoiceDialogOptions = {
   headerText?: string;
+  promptText?: string;
+  layoutHint?: OptionChoiceLayoutHint;
   choices: OptionChoiceDialogChoice[];
   showChoices?: boolean;
   showOverlay?: boolean;
@@ -22,108 +28,113 @@ export type OptionChoiceDialogOptions = {
   onTimeout?: () => Promise<void> | void;
 };
 
-type RenderCard = {
-  __choiceIndex: number;
-  __enabled: boolean;
-  __mode: "card" | "text";
-  cardId?: string;
-  cardType?: string;
-  cardData?: { id?: string; name?: string; cardType?: string };
-  textureKey?: string;
-};
-
 export class OptionChoiceDialog {
-  private dialog: CardRowChoiceDialog<RenderCard>;
-  private fallbackTextureKey = "deckBack";
+  private dialogTimer: DialogTimerPresenter;
+  private gridRenderer: TrashCardGridRenderer;
+  private dialog?: Phaser.GameObjects.Container;
   private automationState?: {
     headerText: string;
+    promptText: string;
     choices: OptionChoiceDialogChoice[];
     isOwnerView: boolean;
     onSelect?: (index: number) => Promise<void> | void;
   };
 
-  constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
-    const cfg = {
-      ...DEFAULT_CARD_DIALOG_CONFIG,
-      z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3100, overlay: 3099 },
-    };
-    this.dialog = new CardRowChoiceDialog<RenderCard>(scene, cfg, timerController);
+  private cfg: CardDialogConfig = {
+    ...DEFAULT_CARD_DIALOG_CONFIG,
+    z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3100, overlay: 3099 },
+  };
+
+  constructor(private scene: Phaser.Scene, timerController?: TurnTimerController) {
+    this.dialogTimer = new DialogTimerPresenter(scene, timerController);
+    this.gridRenderer = new TrashCardGridRenderer(scene);
   }
 
   isOpen() {
-    return this.dialog.isOpen();
+    return !!this.dialog;
   }
 
   hide() {
-    this.dialog.hide();
-    this.automationState = undefined;
+    this.destroy();
   }
 
   show(opts: OptionChoiceDialogOptions) {
-    const choices = Array.isArray(opts.choices) ? opts.choices : [];
-    const cards: RenderCard[] = choices.map((choice) => {
-      const mode = choice.mode === "text" ? "text" : "card";
-      const cardId = (choice.cardId ?? "").toString() || undefined;
-      const label = (choice.label ?? "").toString();
-      const textLabel = label || `Option ${Number(choice.index ?? 0) + 1}`;
-      const shouldUseCardTexture = mode === "card" && !!cardId;
-      return {
-        __choiceIndex: Number(choice.index ?? 0),
-        __enabled: choice.enabled !== false,
-        __mode: mode,
-        cardId: shouldUseCardTexture ? cardId : undefined,
-        // Use a non-standard type to suppress AP/HP badges in TrashCardGridRenderer.
-        cardType: "option",
-        cardData: shouldUseCardTexture
-          ? { id: cardId, name: "", cardType: "option" }
-          : { id: `option_text_${Number(choice.index ?? 0)}`, name: textLabel, cardType: "option" },
-        textureKey: shouldUseCardTexture ? this.resolveTextureKey(cardId) ?? this.fallbackTextureKey : undefined,
-      };
-    });
+    this.destroy();
+
+    const choices = normalizeOptionChoices(opts.choices);
+    const layout = resolveOptionChoiceLayout(choices, opts.layoutHint);
+    const headerText = opts.headerText ?? "Choose Option";
+    const promptText = (opts.promptText ?? "").toString();
+    const showChoices = opts.showChoices ?? true;
 
     this.automationState = {
-      headerText: opts.headerText ?? "Choose Option",
+      headerText,
+      promptText,
       choices: choices.map((choice) => ({
-        index: Number(choice.index ?? 0),
+        index: choice.index,
         mode: choice.mode,
         cardId: choice.cardId,
         label: choice.label,
-        enabled: choice.enabled !== false,
+        enabled: choice.enabled,
       })),
-      isOwnerView: opts.showChoices ?? true,
+      isOwnerView: showChoices,
       onSelect: opts.onSelect,
     };
 
-    this.dialog.show({
-      headerText: opts.headerText ?? "Choose Option",
-      cards,
-      showCards: opts.showChoices ?? true,
-      emptyMessage: "Opponent is deciding...",
+    if (!showChoices) {
+      this.dialog = renderOptionChoiceTextDialog({
+        scene: this.scene,
+        cfg: this.cfg,
+        dialogTimer: this.dialogTimer,
+        headerText,
+        promptText: "Opponent is deciding...",
+        showOverlay: opts.showOverlay ?? true,
+        showTimer: opts.showTimer ?? false,
+        onTimeout: opts.onTimeout,
+        options: [],
+      });
+      return;
+    }
+
+    if (layout === "text") {
+      this.dialog = renderOptionChoiceTextDialog({
+        scene: this.scene,
+        cfg: this.cfg,
+        dialogTimer: this.dialogTimer,
+        headerText,
+        promptText,
+        showOverlay: opts.showOverlay ?? true,
+        showTimer: opts.showTimer ?? false,
+        onTimeout: opts.onTimeout,
+        onSelect: opts.onSelect,
+        options: choices,
+      });
+      return;
+    }
+
+    this.dialog = renderOptionChoiceHybridDialog({
+      scene: this.scene,
+      cfg: this.cfg,
+      dialogTimer: this.dialogTimer,
+      gridRenderer: this.gridRenderer,
+      headerText,
+      promptText,
       showOverlay: opts.showOverlay ?? true,
       showTimer: opts.showTimer ?? false,
-      colsMax: 3,
-      cardTypeOverrides: {
-        cardConfig: {
-          // Keep the row compact and avoid extra footer space.
-          frameExtra: { ...DEFAULT_CARD_DIALOG_CONFIG.card.frameExtra, h: 0 },
-          extraCellHeight: 0,
-        },
-      },
-      isCardEnabled: (card) => card.__enabled,
-      onSelectCard: async (card) => {
-        await opts.onSelect?.(card.__choiceIndex);
-      },
-      onTimeout: async () => {
-        await opts.onTimeout?.();
-      },
+      onTimeout: opts.onTimeout,
+      onSelect: opts.onSelect,
+      cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
+      textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
+      resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
     });
   }
 
   getAutomationState() {
-    if (!this.dialog.isOpen() || !this.automationState) return null;
+    if (!this.dialog || !this.automationState) return null;
     return {
       open: true,
       headerText: this.automationState.headerText,
+      promptText: this.automationState.promptText,
       choices: this.automationState.choices.map((choice) => ({
         index: choice.index,
         mode: choice.mode,
@@ -136,7 +147,7 @@ export class OptionChoiceDialog {
   }
 
   async choose(index: number): Promise<boolean> {
-    if (!this.dialog.isOpen() || !this.automationState) return false;
+    if (!this.dialog || !this.automationState) return false;
     const target = this.automationState.choices.find((choice) => choice.index === index);
     if (!target || target.enabled === false || !this.automationState.onSelect) return false;
     await Promise.resolve(this.automationState.onSelect(index));
@@ -146,7 +157,15 @@ export class OptionChoiceDialog {
   private resolveTextureKey(cardId?: string) {
     if (!cardId) return undefined;
     const base = toBaseKey(cardId);
-    // Prefer full card art if loaded; otherwise let TrashCardGridRenderer fall back to preview keys.
-    return base ? base : undefined;
+    return base || undefined;
+  }
+
+  private destroy() {
+    this.dialogTimer.stop();
+    if (this.dialog) {
+      this.dialog.destroy();
+      this.dialog = undefined;
+    }
+    this.automationState = undefined;
   }
 }
