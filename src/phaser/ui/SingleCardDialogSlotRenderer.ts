@@ -2,6 +2,7 @@ import type Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import type { SlotCardView, SlotViewModel } from "./SlotTypes";
 import {
+  getCardStatsLabel,
   getDialogBadgeOffset,
   getDialogBadgeOverride,
   getDialogBadgeTypeKey,
@@ -30,9 +31,13 @@ export function renderSingleCardDialogSlot(opts: {
     ? scene.add.image(x, y, tex).setDisplaySize(w, h).setOrigin(0.5)
     : scene.add.rectangle(x, y, w, h, 0xcbd3df, 0.9).setOrigin(0.5);
 
-  const apVal = slot.fieldCardValue?.totalAP ?? card.cardData?.ap ?? 0;
-  const hpVal = slot.fieldCardValue?.totalHP ?? card.cardData?.hp ?? 0;
-  const label = `${Number(apVal) || 0}|${Number(hpVal) || 0}`;
+  const label = getCardStatsLabel(card, {
+    ap: slot.fieldCardValue?.totalAP ?? card.cardData?.ap,
+    hp: slot.fieldCardValue?.totalHP ?? card.cardData?.hp,
+  });
+
+  container.add(img);
+  if (!label) return;
 
   const typeKey = getDialogBadgeTypeKey(card);
   const override = getDialogBadgeOverride(DEFAULT_CARD_DIALOG_CONFIG.cardTypeOverrides, typeKey);
@@ -71,8 +76,6 @@ export function renderSingleCardDialogSlot(opts: {
     color: "#ffffff",
     fontStyle: "bold",
   }).setOrigin(0.5);
-
-  container.add(img);
   container.add(badgeRect);
   container.add(badgeText);
 }

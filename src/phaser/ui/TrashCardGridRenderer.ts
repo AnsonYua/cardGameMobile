@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import { toPreviewKey, type HandCardView } from "./HandTypes";
 import {
+  getCardStatsLabel,
   getDialogBadgeOffset,
   getDialogBadgeOverride,
   getDialogBadgeTypeKey,
-  isPilotCommand,
   resolveDialogTextureKey,
 } from "./DialogCardRenderUtils";
 import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
@@ -207,21 +207,17 @@ export class TrashCardGridRenderer {
   }
 
   private getStatLabel(card: any) {
-    const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-    const pilotCommand = isPilotCommand(card);
-    const shouldShow = ["unit", "pilot", "base"].includes(type) || pilotCommand;
-    const ap = card?.fieldCardValue?.totalAP ?? card?.cardData?.ap ?? card?.ap;
-    const hp = card?.fieldCardValue?.totalHP ?? card?.cardData?.hp ?? card?.hp;
-    if (!shouldShow) return undefined;
-    if (ap === undefined && hp === undefined) return undefined;
-    return `${Number(ap ?? 0)}|${Number(hp ?? 0)}`;
+    return getCardStatsLabel(card, {
+      ap: card?.fieldCardValue?.totalAP ?? card?.cardData?.ap ?? card?.ap,
+      hp: card?.fieldCardValue?.totalHP ?? card?.cardData?.hp ?? card?.hp,
+    });
   }
 
   private toPreviewCard(card: any): HandCardView {
     const cardId = card?.cardId;
     return {
       cardType: card?.cardType || card?.cardData?.cardType,
-      fromPilotDesignation: card?.fromPilotDesignation,
+      fromPilotDesignation: card?.fromPilotDesignation === true,
       cardId,
       color: 0x2a2d38,
       textureKey: toPreviewKey(cardId),

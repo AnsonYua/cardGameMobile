@@ -537,7 +537,7 @@ export class NotificationAnimationController {
       hp,
       cardType,
       cardId,
-      fromPilotDesignation: isPilotCommand || data?.fromPilotDesignation,
+      fromPilotDesignation: isPilotCommand || data?.fromPilotDesignation === true,
     };
   }
 

@@ -4,8 +4,17 @@ export type DialogBadgeTypeKey = "unit" | "pilot" | "base" | "command" | "pilotC
 
 type CardLike = {
   cardType?: string;
-  fromPilotDesignation?: boolean;
-  cardData?: { cardType?: string; effects?: { rules?: any[] } };
+  fromPilotDesignation?: boolean | string | number | null;
+  cardData?: {
+    cardType?: string;
+    ap?: number;
+    hp?: number;
+    effects?: { rules?: any[] };
+    fieldCardValue?: { totalAP?: number; totalHP?: number };
+  };
+  ap?: number;
+  hp?: number;
+  fieldCardValue?: { totalAP?: number; totalHP?: number };
 };
 
 export function resolveDialogTextureKey(
@@ -36,7 +45,7 @@ export function resolveDialogTextureKey(
 
 export function getDialogBadgeTypeKey(card: CardLike): DialogBadgeTypeKey {
   const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
-  if (type === "command" && isPilotCommand(card)) return "pilotCommand";
+  if (type === "command" && isStrictPilotDesignation(card)) return "pilotCommand";
   if (type === "unit") return "unit";
   if (type === "pilot") return "pilot";
   if (type === "base") return "base";
@@ -69,10 +78,10 @@ export function getDialogBadgeOverride(
   return overrides.default;
 }
 
-export function isPilotCommand(card: CardLike) {
+export function isStrictPilotDesignation(card: CardLike) {
   const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
   if (type !== "command") return false;
-  if (card?.fromPilotDesignation) return true;
+  if (card?.fromPilotDesignation === true) return true;
   const rules: any[] = card?.cardData?.effects?.rules || [];
   return rules.some(
     (rule) =>
@@ -80,4 +89,23 @@ export function isPilotCommand(card: CardLike) {
       rule?.effectId === "pilotDesignation" ||
       rule?.action === "designate_pilot",
   );
+}
+
+export function isPilotCommand(card: CardLike) {
+  return isStrictPilotDesignation(card);
+}
+
+export function shouldShowCardStatsBadge(card: CardLike) {
+  const type = (card?.cardType || card?.cardData?.cardType || "").toLowerCase();
+  if (type === "unit" || type === "pilot" || type === "base") return true;
+  if (type === "command") return isStrictPilotDesignation(card);
+  return false;
+}
+
+export function getCardStatsLabel(card: CardLike, opts: { ap?: unknown; hp?: unknown } = {}) {
+  if (!shouldShowCardStatsBadge(card)) return undefined;
+  const ap = opts.ap ?? card?.fieldCardValue?.totalAP ?? card?.cardData?.fieldCardValue?.totalAP ?? card?.cardData?.ap ?? card?.ap;
+  const hp = opts.hp ?? card?.fieldCardValue?.totalHP ?? card?.cardData?.fieldCardValue?.totalHP ?? card?.cardData?.hp ?? card?.hp;
+  if (ap === undefined && hp === undefined) return undefined;
+  return `${Number(ap ?? 0)}|${Number(hp ?? 0)}`;
 }

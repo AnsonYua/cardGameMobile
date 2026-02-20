@@ -4,7 +4,7 @@ import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { toBaseKey, toPreviewKey, type HandCardView } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
-import { getDialogBadgeTypeKey } from "./DialogCardRenderUtils";
+import { getCardStatsLabel, getDialogBadgeTypeKey } from "./DialogCardRenderUtils";
 import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
 
 const textureDebugSeen = new Set<string>();
@@ -89,10 +89,9 @@ export class HandLayoutRenderer {
       drawn.push(img);
     }
 
-    const type = (card.cardType || "").toLowerCase();
-    const shouldShowStats = type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation;
-    if (shouldShowStats) {
-      drawn.push(...this.drawStatsBadge(px, py, pw, ph, card, bg.depth || 0));
+    const statsLabel = getCardStatsLabel(card, { ap: card.ap, hp: card.hp });
+    if (statsLabel) {
+      drawn.push(...this.drawStatsBadge(px, py, pw, ph, statsLabel, bg.depth || 0));
     }
 
     return drawn;
@@ -198,10 +197,7 @@ export class HandLayoutRenderer {
     return drawn;
   }
 
-  private drawStatsBadge(x: number, y: number, w: number, h: number, card: HandCardView, baseDepth: number) {
-    const ap = card.ap ?? 0;
-    const hp = card.hp ?? 0;
-    const label = `${ap}|${hp}`;
+  private drawStatsBadge(x: number, y: number, w: number, h: number, label: string, baseDepth: number) {
     const badgeW = w * 0.5;
     const badgeH = h * 0.3;
     const badgeX = x + w * 0.34 - 4;

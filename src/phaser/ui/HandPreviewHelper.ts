@@ -1,4 +1,5 @@
 import type { HandCardView } from "./HandTypes";
+import { getCardStatsLabel } from "./DialogCardRenderUtils";
 
 export function toTextureKey(textureKey?: string) {
   if (!textureKey) return undefined;
@@ -7,17 +8,5 @@ export function toTextureKey(textureKey?: string) {
 
 export function getBadgeLabel(card: HandCardView) {
   if (!card) return undefined;
-  const type = (card.cardType || "").toLowerCase();
-  if (type === "command") {
-    if (!card.fromPilotDesignation) return undefined;
-    const ap = Number(card.ap ?? 0);
-    const hp = Number(card.hp ?? 0);
-    return `${ap}|${hp}`;
-  }
-  if (type === "unit" || type === "pilot" || type === "base" || card.fromPilotDesignation) {
-    const ap = Number(card.ap ?? 0);
-    const hp = Number(card.hp ?? 0);
-    return `${ap}|${hp}`;
-  }
-  return undefined;
+  return getCardStatsLabel(card, { ap: card.ap, hp: card.hp });
 }
