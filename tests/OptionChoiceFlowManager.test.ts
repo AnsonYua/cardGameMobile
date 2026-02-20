@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapOptionChoiceToDialogView } from "../src/phaser/controllers/OptionChoiceFlowManager";
+import { mapOptionChoiceToDialogView } from "../src/phaser/controllers/choice/OptionChoiceViewMapper";
 
 describe("mapOptionChoiceToDialogView", () => {
   it("uses explicit display contract for card mode", () => {

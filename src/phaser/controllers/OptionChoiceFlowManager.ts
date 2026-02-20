@@ -5,8 +5,8 @@ import type { ActionControls } from "./ControllerTypes";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
-import { resolveOptionCardId } from "./choice/OptionChoiceCardResolver";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
+import { mapOptionChoiceToDialogView } from "./choice/OptionChoiceViewMapper";
 
 type OptionChoiceDeps = {
   api: ApiManager;
@@ -18,37 +18,6 @@ type OptionChoiceDeps = {
   onTimerPause?: () => void;
   onTimerResume?: () => void;
 };
-
-export type OptionDialogChoiceView = {
-  index: number;
-  mode: "card" | "text";
-  cardId?: string;
-  label?: string;
-  enabled: boolean;
-};
-
-export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialogChoiceView {
-  const display = option?.display && typeof option.display === "object" ? option.display : {};
-  const explicitMode = (display?.mode ?? "").toString().toLowerCase();
-  const modeFromContract = explicitMode === "card" || explicitMode === "text" ? (explicitMode as "card" | "text") : undefined;
-
-  const payload = option?.payload ?? {};
-  const cardId =
-    (display?.cardId ?? payload?.cardId ?? payload?.sourceCardId ?? payload?.source?.cardId ?? option?.cardId ?? undefined) ||
-    resolveOptionCardId(raw, option);
-
-  const inferredMode: "card" | "text" = cardId ? "card" : "text";
-  const mode = modeFromContract ?? inferredMode;
-  const label = (display?.label ?? option?.label ?? "").toString() || undefined;
-
-  return {
-    index: Number(option?.index ?? 0),
-    mode,
-    cardId: cardId ? String(cardId) : undefined,
-    label,
-    enabled: option?.enabled !== false,
-  };
-}
 
 export class OptionChoiceFlowManager {
   private readonly log = createLogger("OptionChoiceFlow");

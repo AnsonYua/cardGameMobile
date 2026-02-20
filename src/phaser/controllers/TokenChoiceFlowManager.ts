@@ -11,6 +11,7 @@ import {
   type TokenChoiceNote,
 } from "../utils/TokenChoiceNotificationUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
+import { mapTokenChoiceToDialogView } from "./choice/TokenChoiceViewMapper";
 
 type TokenChoiceDeps = {
   api: ApiManager;
@@ -168,11 +169,7 @@ export class TokenChoiceFlowManager {
     }
 
     const choices = Array.isArray(this.note.data?.availableChoices) ? this.note.data.availableChoices : [];
-    const dialogChoices = choices.map((choice: any) => ({
-      index: Number(choice?.index ?? 0),
-      cardId: (choice?.display?.cardId ?? choice?.tokenData?.id ?? choice?.token?.cardId ?? "").toString() || undefined,
-      enabled: choice?.enabled !== false,
-    }));
+    const dialogChoices = choices.map((choice: any) => mapTokenChoiceToDialogView(choice));
 
     dialog.show({
       headerText: "Choose token to play",
