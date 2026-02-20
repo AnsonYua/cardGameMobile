@@ -6,7 +6,9 @@ import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type OptionChoiceDialogChoice = {
   index: number;
+  mode?: "card" | "text";
   cardId?: string;
+  label?: string;
   enabled?: boolean;
 };
 
@@ -23,6 +25,7 @@ export type OptionChoiceDialogOptions = {
 type RenderCard = {
   __choiceIndex: number;
   __enabled: boolean;
+  __mode: "card" | "text";
   cardId?: string;
   cardType?: string;
   cardData?: { id?: string; name?: string; cardType?: string };
@@ -59,15 +62,22 @@ export class OptionChoiceDialog {
   show(opts: OptionChoiceDialogOptions) {
     const choices = Array.isArray(opts.choices) ? opts.choices : [];
     const cards: RenderCard[] = choices.map((choice) => {
+      const mode = choice.mode === "text" ? "text" : "card";
       const cardId = (choice.cardId ?? "").toString() || undefined;
+      const label = (choice.label ?? "").toString();
+      const textLabel = label || `Option ${Number(choice.index ?? 0) + 1}`;
+      const shouldUseCardTexture = mode === "card" && !!cardId;
       return {
         __choiceIndex: Number(choice.index ?? 0),
         __enabled: choice.enabled !== false,
-        cardId,
+        __mode: mode,
+        cardId: shouldUseCardTexture ? cardId : undefined,
         // Use a non-standard type to suppress AP/HP badges in TrashCardGridRenderer.
         cardType: "option",
-        cardData: cardId ? { id: cardId, name: "", cardType: "option" } : undefined,
-        textureKey: this.resolveTextureKey(cardId) ?? this.fallbackTextureKey,
+        cardData: shouldUseCardTexture
+          ? { id: cardId, name: "", cardType: "option" }
+          : { id: `option_text_${Number(choice.index ?? 0)}`, name: textLabel, cardType: "option" },
+        textureKey: shouldUseCardTexture ? this.resolveTextureKey(cardId) ?? this.fallbackTextureKey : undefined,
       };
     });
 
@@ -75,7 +85,9 @@ export class OptionChoiceDialog {
       headerText: opts.headerText ?? "Choose Option",
       choices: choices.map((choice) => ({
         index: Number(choice.index ?? 0),
+        mode: choice.mode,
         cardId: choice.cardId,
+        label: choice.label,
         enabled: choice.enabled !== false,
       })),
       isOwnerView: opts.showChoices ?? true,
@@ -114,7 +126,9 @@ export class OptionChoiceDialog {
       headerText: this.automationState.headerText,
       choices: this.automationState.choices.map((choice) => ({
         index: choice.index,
+        mode: choice.mode,
         cardId: choice.cardId,
+        label: choice.label,
         enabled: choice.enabled !== false,
       })),
       isOwnerView: this.automationState.isOwnerView,

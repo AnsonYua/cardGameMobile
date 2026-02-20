@@ -10,6 +10,7 @@ import {
   normalizeTokenChoiceNotification,
   type TokenChoiceNote,
 } from "../utils/TokenChoiceNotificationUtils";
+import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 
 type TokenChoiceDeps = {
   api: ApiManager;
@@ -60,8 +61,7 @@ export class TokenChoiceFlowManager {
     this.applyActionBar();
     this.showDialog();
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = !!selfId && note.playerId === selfId;
+    const isOwner = isChoiceOwner(note.playerId, this.deps.gameContext.playerId);
     if (!isOwner) {
       void raw;
       return;
@@ -130,17 +130,15 @@ export class TokenChoiceFlowManager {
 
   applyActionBar() {
     if (!this.note) return false;
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = !!selfId && this.note.playerId === selfId;
+    const isOwner = isChoiceOwner(this.note.playerId, this.deps.gameContext.playerId);
     this.log.debug("applyActionBar", { id: this.note.id, isOwner });
-    if (!isOwner) {
-      this.deps.onTimerPause?.();
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      this.deps.actionControls?.setState?.({ descriptors: [] });
-      return true;
-    }
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    applyChoiceActionBarState({
+      ownerPlayerId: this.note.playerId,
+      selfPlayerId: this.deps.gameContext.playerId,
+      actionControls: this.deps.actionControls,
+      onTimerPause: this.deps.onTimerPause,
+      onTimerResume: this.deps.onTimerResume,
+    });
     return true;
   }
 
@@ -148,11 +146,13 @@ export class TokenChoiceFlowManager {
     return !!this.note;
   }
 
+  ensureInactiveUi() {
+    if (this.note) return;
+    cleanupDialog(this.deps.tokenChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+  }
+
   private applyPostSubmitState() {
-    this.deps.tokenChoiceDialog?.hide();
-    this.deps.onTimerResume?.();
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    cleanupDialog(this.deps.tokenChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 
   private showDialog() {
@@ -160,24 +160,17 @@ export class TokenChoiceFlowManager {
     if (!dialog || !this.note) return;
     if (this.shownId === this.note.id && dialog.isOpen()) return;
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = !!selfId && this.note.playerId === selfId;
+    const isOwner = isChoiceOwner(this.note.playerId, this.deps.gameContext.playerId);
     if (!isOwner) {
-      dialog.show({
-        headerText: "Choose token to play",
-        choices: [],
-        showChoices: false,
-        showOverlay: true,
-        showTimer: false,
-      });
-      this.shownId = this.note.id;
+      dialog.hide();
+      this.shownId = undefined;
       return;
     }
 
     const choices = Array.isArray(this.note.data?.availableChoices) ? this.note.data.availableChoices : [];
     const dialogChoices = choices.map((choice: any) => ({
       index: Number(choice?.index ?? 0),
-      cardId: (choice?.tokenData?.id ?? choice?.token?.cardId ?? "").toString() || undefined,
+      cardId: (choice?.display?.cardId ?? choice?.tokenData?.id ?? choice?.token?.cardId ?? "").toString() || undefined,
       enabled: choice?.enabled !== false,
     }));
 
@@ -284,5 +277,8 @@ export class TokenChoiceFlowManager {
     this.submittedId = undefined;
     this.submittedAt = undefined;
     this.ackPending = false;
+    this.pendingPromise = undefined;
+    this.pendingResolve = undefined;
+    cleanupDialog(this.deps.tokenChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 }

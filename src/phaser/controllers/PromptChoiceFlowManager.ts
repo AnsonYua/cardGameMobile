@@ -5,6 +5,7 @@ import type { ActionControls } from "./ControllerTypes";
 import type { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
 import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
+import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 
 type PromptChoiceDeps = {
   api: ApiManager;
@@ -47,8 +48,7 @@ export class PromptChoiceFlowManager {
     });
     if (decisionMade) return;
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = entry.playerId === selfId;
+    const isOwner = isChoiceOwner(entry.playerId, this.deps.gameContext.playerId);
     this.applyActionBar();
     this.showDialog();
     if (!isOwner) return;
@@ -114,16 +114,13 @@ export class PromptChoiceFlowManager {
 
   applyActionBar() {
     if (!this.queueEntry) return false;
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = this.queueEntry.playerId === selfId;
-    if (!isOwner) {
-      this.deps.onTimerPause?.();
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      this.deps.actionControls?.setState?.({ descriptors: [] });
-      return true;
-    }
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    applyChoiceActionBarState({
+      ownerPlayerId: this.queueEntry.playerId,
+      selfPlayerId: this.deps.gameContext.playerId,
+      actionControls: this.deps.actionControls,
+      onTimerPause: this.deps.onTimerPause,
+      onTimerResume: this.deps.onTimerResume,
+    });
     return true;
   }
 
@@ -131,11 +128,13 @@ export class PromptChoiceFlowManager {
     return !!this.queueEntry;
   }
 
+  ensureInactiveUi() {
+    if (this.queueEntry) return;
+    cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+  }
+
   private applyPostSubmitState() {
-    this.deps.promptChoiceDialog?.hide();
-    this.deps.onTimerResume?.();
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 
   private showDialog() {
@@ -143,18 +142,11 @@ export class PromptChoiceFlowManager {
     if (!dialog || !this.queueEntry) return;
     if (this.shownEntryId === this.queueEntry.id && dialog.isOpen()) return;
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = this.queueEntry.playerId === selfId;
+    const isOwner = isChoiceOwner(this.queueEntry.playerId, this.deps.gameContext.playerId);
     const headerText = (this.queueEntry?.data?.headerText ?? "Choose Option").toString();
     if (!isOwner) {
-      dialog.show({
-        headerText,
-        promptText: "Opponent is deciding...",
-        buttons: [],
-        showOverlay: true,
-        showTimer: false,
-      });
-      this.shownEntryId = this.queueEntry.id;
+      dialog.hide();
+      this.shownEntryId = undefined;
       return;
     }
 
@@ -244,7 +236,6 @@ export class PromptChoiceFlowManager {
     this.pendingPromise = undefined;
     this.pendingResolve = undefined;
     this.log.debug("cleared", { entryId });
-    this.deps.promptChoiceDialog?.hide();
-    this.deps.onTimerResume?.();
+    cleanupDialog(this.deps.promptChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 }

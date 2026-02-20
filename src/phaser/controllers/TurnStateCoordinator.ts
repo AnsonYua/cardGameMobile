@@ -43,6 +43,15 @@ export class TurnStateCoordinator {
     this.deps.optionChoiceFlow.syncDecisionState(raw);
     this.deps.promptChoiceFlow.syncDecisionState(raw);
     this.deps.tokenChoiceFlow.syncDecisionState(raw);
+    if (!this.deps.optionChoiceFlow.isActive()) {
+      this.deps.optionChoiceFlow.ensureInactiveUi();
+    }
+    if (!this.deps.promptChoiceFlow.isActive()) {
+      this.deps.promptChoiceFlow.ensureInactiveUi();
+    }
+    if (!this.deps.tokenChoiceFlow.isActive()) {
+      this.deps.tokenChoiceFlow.ensureInactiveUi();
+    }
 
     if (
       this.deps.burstGroupFlow.isActive() ||

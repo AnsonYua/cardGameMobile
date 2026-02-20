@@ -95,7 +95,7 @@ export class ActionBarCoordinator {
       const ownerId = (activeTargetChoice.playerId ?? "").toString();
       const isOwner = !!selfId && !!ownerId && ownerId === selfId;
       if (!isOwner) {
-        this.applyWaitingState(actions, "Waiting for opponent choice...");
+        this.applyWaitingState(actions, "Waiting for opponent...");
         return;
       }
       actions.setWaitingForOpponent?.(false);

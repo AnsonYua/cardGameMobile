@@ -3,9 +3,10 @@ import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
-import { findCardByUid } from "../utils/CardLookup";
 import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
+import { resolveOptionCardId } from "./choice/OptionChoiceCardResolver";
+import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 
 type OptionChoiceDeps = {
   api: ApiManager;
@@ -17,6 +18,37 @@ type OptionChoiceDeps = {
   onTimerPause?: () => void;
   onTimerResume?: () => void;
 };
+
+export type OptionDialogChoiceView = {
+  index: number;
+  mode: "card" | "text";
+  cardId?: string;
+  label?: string;
+  enabled: boolean;
+};
+
+export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialogChoiceView {
+  const display = option?.display && typeof option.display === "object" ? option.display : {};
+  const explicitMode = (display?.mode ?? "").toString().toLowerCase();
+  const modeFromContract = explicitMode === "card" || explicitMode === "text" ? (explicitMode as "card" | "text") : undefined;
+
+  const payload = option?.payload ?? {};
+  const cardId =
+    (display?.cardId ?? payload?.cardId ?? payload?.sourceCardId ?? payload?.source?.cardId ?? option?.cardId ?? undefined) ||
+    resolveOptionCardId(raw, option);
+
+  const inferredMode: "card" | "text" = cardId ? "card" : "text";
+  const mode = modeFromContract ?? inferredMode;
+  const label = (display?.label ?? option?.label ?? "").toString() || undefined;
+
+  return {
+    index: Number(option?.index ?? 0),
+    mode,
+    cardId: cardId ? String(cardId) : undefined,
+    label,
+    enabled: option?.enabled !== false,
+  };
+}
 
 export class OptionChoiceFlowManager {
   private readonly log = createLogger("OptionChoiceFlow");
@@ -48,8 +80,7 @@ export class OptionChoiceFlowManager {
     });
     if (decisionMade) return;
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = entry.playerId === selfId;
+    const isOwner = isChoiceOwner(entry.playerId, this.deps.gameContext.playerId);
     this.applyActionBar();
     this.showDialog(raw);
     if (!isOwner) {
@@ -117,17 +148,15 @@ export class OptionChoiceFlowManager {
 
   applyActionBar() {
     if (!this.queueEntry) return false;
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = this.queueEntry.playerId === selfId;
+    const isOwner = isChoiceOwner(this.queueEntry.playerId, this.deps.gameContext.playerId);
     this.log.debug("applyActionBar", { entryId: this.queueEntry.id, isOwner });
-    if (!isOwner) {
-      this.deps.onTimerPause?.();
-      this.deps.actionControls?.setWaitingForOpponent?.(true);
-      this.deps.actionControls?.setState?.({ descriptors: [] });
-      return true;
-    }
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    applyChoiceActionBarState({
+      ownerPlayerId: this.queueEntry.playerId,
+      selfPlayerId: this.deps.gameContext.playerId,
+      actionControls: this.deps.actionControls,
+      onTimerPause: this.deps.onTimerPause,
+      onTimerResume: this.deps.onTimerResume,
+    });
     return true;
   }
 
@@ -135,12 +164,14 @@ export class OptionChoiceFlowManager {
     return !!this.queueEntry;
   }
 
+  ensureInactiveUi() {
+    if (this.queueEntry) return;
+    cleanupDialog(this.deps.optionChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
+  }
+
   private applyPostSubmitState() {
     // Keep the game from feeling "stuck": close the modal, and resume the timer since the player already acted.
-    this.deps.optionChoiceDialog?.hide();
-    this.deps.onTimerResume?.();
-    this.deps.actionControls?.setWaitingForOpponent?.(false);
-    this.deps.actionControls?.setState?.({ descriptors: [] });
+    cleanupDialog(this.deps.optionChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 
   private showDialog(raw: any) {
@@ -148,26 +179,15 @@ export class OptionChoiceFlowManager {
     if (!dialog || !this.queueEntry) return;
     if (this.shownEntryId === this.queueEntry.id && dialog.isOpen()) return;
 
-    const selfId = this.deps.gameContext.playerId;
-    const isOwner = this.queueEntry.playerId === selfId;
+    const isOwner = isChoiceOwner(this.queueEntry.playerId, this.deps.gameContext.playerId);
     if (!isOwner) {
-      dialog.show({
-        headerText: "Choose Option",
-        choices: [],
-        showChoices: false,
-        showOverlay: true,
-        showTimer: false,
-      });
-      this.shownEntryId = this.queueEntry.id;
+      dialog.hide();
+      this.shownEntryId = undefined;
       return;
     }
 
     const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
-    const dialogChoices = options.map((o: any) => ({
-      index: Number(o?.index ?? 0),
-      cardId: this.resolveOptionCardId(raw, o),
-      enabled: o?.enabled !== false,
-    }));
+    const dialogChoices = options.map((o: any) => mapOptionChoiceToDialogView(raw, o));
 
     dialog.show({
       headerText: "Choose Option",
@@ -199,85 +219,6 @@ export class OptionChoiceFlowManager {
     if (firstEnabled && typeof firstEnabled.index === "number") return firstEnabled.index;
     const first = normalized[0];
     return typeof first?.index === "number" ? first.index : 0;
-  }
-
-  private resolveOptionCardId(raw: any, option: any): string | undefined {
-    const payload = option?.payload ?? {};
-    const direct =
-      payload?.cardId ??
-      payload?.sourceCardId ??
-      payload?.source?.cardId ??
-      option?.cardId;
-    if (direct) return String(direct);
-
-    const uid =
-      payload?.carduid ??
-      payload?.cardUid ??
-      payload?.sourceCarduid ??
-      payload?.sourceCardUid ??
-      payload?.source?.carduid ??
-      payload?.source?.cardUid;
-    if (uid) {
-      const lookup = findCardByUid(raw, String(uid));
-      if (lookup?.id) return String(lookup.id);
-    }
-
-    const label = (option?.label ?? "").toString();
-    const name = this.extractCardName(label);
-    if (!name) return undefined;
-    const byName = this.findCardByName(raw, name);
-    return byName?.id ? String(byName.id) : undefined;
-  }
-
-  private extractCardName(label: string): string | undefined {
-    const idx = label.indexOf(":");
-    if (idx <= 0) return undefined;
-    const name = label.slice(0, idx).trim();
-    return name.length ? name : undefined;
-  }
-
-  private findCardByName(raw: any, name: string): { id?: string; cardUid?: string } | undefined {
-    const players = raw?.gameEnv?.players || {};
-    const values = Object.values(players);
-    for (const player of values) {
-      if (!player) continue;
-      const zones = player.zones || player.zone || {};
-      for (const zone of Object.values(zones)) {
-        const match = this.findCardByNameInZone(zone, name);
-        if (match) return match;
-      }
-      const deck = player.deck;
-      if (deck) {
-        const areas = [deck.hand, deck.discard, deck.graveyard, deck.command];
-        for (const area of areas) {
-          const match = this.findCardByNameInZone(area, name);
-          if (match) return match;
-        }
-      }
-    }
-    return undefined;
-  }
-
-  private findCardByNameInZone(zone: any, name: string): { id?: string; cardUid?: string } | undefined {
-    if (!zone) return undefined;
-    if (Array.isArray(zone)) {
-      for (const entry of zone) {
-        const match = this.findCardByNameInZone(entry, name);
-        if (match) return match;
-      }
-      return undefined;
-    }
-    if (typeof zone !== "object") return undefined;
-    if (zone.unit || zone.pilot) {
-      return this.findCardByNameInZone(zone.unit, name) ?? this.findCardByNameInZone(zone.pilot, name);
-    }
-    const cardDataName = (zone?.cardData?.name ?? "").toString();
-    if (cardDataName && cardDataName === name) {
-      const id = (zone.cardId ?? zone.id ?? "").toString() || undefined;
-      const cardUid = (zone.carduid ?? zone.cardUid ?? "").toString() || undefined;
-      return { id, cardUid };
-    }
-    return undefined;
   }
 
   private async submitChoice(selectedOptionIndex: number) {
@@ -334,7 +275,6 @@ export class OptionChoiceFlowManager {
     this.pendingPromise = undefined;
     this.pendingResolve = undefined;
     this.log.debug("cleared", { entryId });
-    this.deps.optionChoiceDialog?.hide();
-    this.deps.onTimerResume?.();
+    cleanupDialog(this.deps.optionChoiceDialog, this.deps.actionControls, this.deps.onTimerResume);
   }
 }
