@@ -16,6 +16,7 @@ const CHOICE_KIND_TITLES: Record<string, string> = {
   DAMAGE_SHIELD: "Choose a shield to damage",
   HEAL: "Choose a target to heal",
   DEPLOY_FROM_HAND: "Choose a card to deploy from your hand",
+  PAIR_FROM_HAND: "Choose a Pilot in your hand to pair",
   PAIR_FROM_TRASH: "Choose a Pilot in your trash to pair",
   GRANT_KEYWORD: "Choose a target to gain a keyword",
   GRANT_BREACH: "Choose a target to gain Breach",

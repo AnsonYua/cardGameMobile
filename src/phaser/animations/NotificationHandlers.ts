@@ -8,6 +8,7 @@ import type { GameEndInfo } from "../scene/gameEndHelpers";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import { createLogger } from "../utils/logger";
 import { handleGameEnvRefresh } from "./handlers/GameEnvRefreshHandler";
+import { buildStatPulseNotificationEntries, createStatPulseHandler } from "./handlers/StatPulseNotificationHandlers";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
 
@@ -50,6 +51,7 @@ export function buildNotificationHandlers(
   },
 ) {
   const log = createLogger("NotificationHandlers");
+  const statPulseHandler = createStatPulseHandler(helpers.triggerStatPulse);
   const runWithTurnStartDrawDelay = async (
     event: SlotNotification,
     ctx: AnimationContext,
@@ -312,18 +314,7 @@ export function buildNotificationHandlers(
         }
       },
     ],
-    [
-      "CARD_STAT_MODIFIED",
-      async (event, ctx) => {
-        await helpers.triggerStatPulse(event, ctx);
-      },
-    ],
-    [
-      "CARD_DAMAGED",
-      async (event, ctx) => {
-        await helpers.triggerStatPulse(event, ctx);
-      },
-    ],
+    ...buildStatPulseNotificationEntries(statPulseHandler),
     [
       "UNIT_DESTROYED_BY_EFFECT",
       async (_event, ctx) => {
