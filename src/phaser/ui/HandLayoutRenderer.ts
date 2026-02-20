@@ -4,6 +4,8 @@ import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
 import { toBaseKey, toPreviewKey, type HandCardView } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { getDialogBadgeTypeKey } from "./DialogCardRenderUtils";
+import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
 
 const textureDebugSeen = new Set<string>();
 
@@ -135,16 +137,23 @@ export class HandLayoutRenderer {
 
     const badgeW = config.badgeSize.w + 15;
     const badgeH = config.badgeSize.h;
-    let extraSpace = 0;
-    const type = (card?.cardType || "").toLowerCase();
-    if (type === "pilot") extraSpace = -78;
-    if (type === "command") extraSpace = -7;
+    const typeKey = getDialogBadgeTypeKey(card ?? {});
+    const pos = computeDialogStatBadgePlacement({
+      cardTypeKey: typeKey,
+      centerX: px,
+      centerY: py,
+      cardW: fitted.w,
+      cardH: fitted.h,
+      badgeW,
+      badgeH,
+      mode: "preview",
+    });
 
     drawPreviewBadge({
       container,
       drawHelpers: this.drawHelpers,
-      x: Math.round(px + fitted.w / 2 - badgeW / 2),
-      y: Math.round(py + fitted.h / 2 - badgeH / 2 + extraSpace),
+      x: Math.round(pos.x),
+      y: Math.round(pos.y),
       width: badgeW,
       height: badgeH,
       label,

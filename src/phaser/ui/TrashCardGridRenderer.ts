@@ -7,6 +7,7 @@ import {
   isPilotCommand,
   resolveDialogTextureKey,
 } from "./DialogCardRenderUtils";
+import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
 
 export type TrashGridCardConfig = {
   aspect: number;
@@ -138,10 +139,30 @@ export class TrashCardGridRenderer {
         const typeKey = getDialogBadgeTypeKey(card);
         const override = getDialogBadgeOverride(typeOverrides, typeKey);
         const offset = getDialogBadgeOffset(badgeConfig, typeKey);
+        const unitOverride = getDialogBadgeOverride(typeOverrides, "unit");
+        const unitOffset = getDialogBadgeOffset(badgeConfig, "unit");
         const badgeW = override.size.w;
         const badgeH = override.size.h;
-        const badgeX = x + cardW / 2 - badgeW / 2 - override.insetX + offset.x;
-        const badgeY = y + cardH / 2 - badgeH / 2 - override.insetY + offset.y;
+        const pos = computeDialogStatBadgePlacement({
+          cardTypeKey: typeKey,
+          centerX: x,
+          centerY: y,
+          cardW,
+          cardH,
+          badgeW,
+          badgeH,
+          insetX: override.insetX,
+          insetY: override.insetY,
+          offsetX: offset.x,
+          offsetY: offset.y,
+          neutralInsetX: unitOverride.insetX,
+          neutralInsetY: unitOverride.insetY,
+          neutralOffsetX: unitOffset.x,
+          neutralOffsetY: unitOffset.y,
+          mode: "dialog",
+        });
+        const badgeX = pos.x;
+        const badgeY = pos.y;
         const badgeRect = this.scene.add.rectangle(badgeX, badgeY, badgeW, badgeH, badgeConfig.fill, badgeConfig.alpha);
         const badgeText = this.scene.add.text(badgeX, badgeY, statLabel, {
           fontSize: `${override.fontSize}px`,

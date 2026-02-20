@@ -7,6 +7,7 @@ import {
   getDialogBadgeTypeKey,
   resolveDialogTextureKey,
 } from "./DialogCardRenderUtils";
+import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
 
 export function renderSingleCardDialogSlot(opts: {
   scene: Phaser.Scene;
@@ -36,9 +37,29 @@ export function renderSingleCardDialogSlot(opts: {
   const typeKey = getDialogBadgeTypeKey(card);
   const override = getDialogBadgeOverride(DEFAULT_CARD_DIALOG_CONFIG.cardTypeOverrides, typeKey);
   const offset = getDialogBadgeOffset(DEFAULT_CARD_DIALOG_CONFIG.badge, typeKey);
+  const unitOverride = getDialogBadgeOverride(DEFAULT_CARD_DIALOG_CONFIG.cardTypeOverrides, "unit");
+  const unitOffset = getDialogBadgeOffset(DEFAULT_CARD_DIALOG_CONFIG.badge, "unit");
+  const pos = computeDialogStatBadgePlacement({
+    cardTypeKey: typeKey,
+    centerX: x,
+    centerY: y,
+    cardW: w,
+    cardH: h,
+    badgeW: override.size.w,
+    badgeH: override.size.h,
+    insetX: override.insetX,
+    insetY: override.insetY,
+    offsetX: offset.x,
+    offsetY: offset.y,
+    neutralInsetX: unitOverride.insetX,
+    neutralInsetY: unitOverride.insetY,
+    neutralOffsetX: unitOffset.x,
+    neutralOffsetY: unitOffset.y,
+    mode: "dialog",
+  });
   const badgeRect = scene.add.rectangle(
-    x + w / 2 - override.size.w / 2 - override.insetX + offset.x,
-    y + h / 2 - override.size.h / 2 - override.insetY + offset.y,
+    pos.x,
+    pos.y,
     override.size.w,
     override.size.h,
     DEFAULT_CARD_DIALOG_CONFIG.badge.fill,
@@ -55,4 +76,3 @@ export function renderSingleCardDialogSlot(opts: {
   container.add(badgeRect);
   container.add(badgeText);
 }
-

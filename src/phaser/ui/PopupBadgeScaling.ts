@@ -46,4 +46,3 @@ export function buildPopupBadgeConfigs(cfg: CardDialogConfig, cols: number) {
   };
   return { badgeScale, badgeConfig, typeOverrides };
 }
-
