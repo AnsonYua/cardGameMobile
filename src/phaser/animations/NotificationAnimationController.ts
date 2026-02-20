@@ -221,6 +221,7 @@ export class NotificationAnimationController {
 
     const popupCards = new Array(total).fill(null).map((_, idx) => {
       const uid = cardUids[idx];
+      // Contract: reveal=false hides opponent identity; reveal=true allows both sides to see card identity.
       if (!uid || (!reveal && !isSelf)) {
         return {
           cardId: `hidden_trash_${payload?.timestamp ?? "event"}_${idx + 1}`,
