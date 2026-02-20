@@ -3,7 +3,10 @@
     "allow": [
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)"
     ]
   }
 }

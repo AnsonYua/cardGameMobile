@@ -70,6 +70,8 @@ const SCENARIO_PRESET_GROUPS = {
     "GD02/GD02-095/attack_damaged_le_5_grant_high_maneuver_skip_blocker",
   ],
   GD03: [
+    "GD03/GD03-038/support1_rest_trigger_zaft_ap_plus_2",
+    "GD03/GD03-038/unit_rested_by_effect_ap_boost_zaft",
     "GD03/GD03-072/deploy_draw1_dis1_if_another_tsa",
     "GD03/GD03-008/during_pair_grant_repair_2_then_end_phase_heal",
     "GD03/GD03-015/activate_exile_3_titans_then_grant_breach_4",
