@@ -4,6 +4,7 @@ import type { SlotViewModel } from "../ui/SlotTypes";
 import type { ApiManager } from "../api/ApiManager";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { getAttackUnitTargets } from "./attackTargetPolicy";
+import { isBattleActionStep } from "../game/battleUtils";
 
 export class ActionExecutor {
   constructor(
@@ -26,11 +27,13 @@ export class ActionExecutor {
     payload: Parameters<ApiManager["playerAction"]>[0],
     opts: { cancelOnSuccess: boolean; cancelOnError: boolean },
   ) {
-    const { gameId, playerId } = this.deps.gameContext;
-    if (!gameId || !playerId) return;
+    const sanitizedPayload = this.sanitizeActionPayload(payload);
+    if (!sanitizedPayload) return;
     try {
-      await this.deps.api.playerAction(payload);
-      await this.deps.engine.updateGameStatus(gameId, playerId);
+      await this.deps.api.playerAction(sanitizedPayload);
+      const latestContext = this.getLatestContext();
+      if (!latestContext) return;
+      await this.deps.engine.updateGameStatus(latestContext.gameId, latestContext.playerId);
       if (opts.cancelOnSuccess) {
         this.handleCancelSelection();
       }
@@ -92,14 +95,14 @@ export class ActionExecutor {
   }
 
   async handleSkipAction() {
-    const gameId = this.deps.gameContext.gameId;
-    const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId) return;
-    const payload = {
-      playerId,
-      gameId,
-      actionType: "confirmBattle",
-    };
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    if (!isBattleActionStep(raw)) {
+      this.deps.refreshNeutral();
+      return;
+    }
+
+    const payload = this.buildBattleActionPayload("confirmBattle");
+    if (!payload) return;
     await this.runPlayerAction(payload, { cancelOnSuccess: true, cancelOnError: false });
   }
 
@@ -151,5 +154,41 @@ export class ActionExecutor {
     this.deps.attackCoordinator.reset();
     this.deps.clearSelection();
     this.deps.refreshNeutral();
+  }
+
+  private getLatestContext(): Pick<Parameters<ApiManager["playerAction"]>[0], "gameId" | "playerId"> | null {
+    const { gameId, playerId } = this.deps.gameContext;
+    if (!gameId || !playerId) {
+      return null;
+    }
+    return { gameId, playerId };
+  }
+
+  private sanitizeActionPayload(
+    payload: Parameters<ApiManager["playerAction"]>[0],
+  ): Parameters<ApiManager["playerAction"]>[0] | null {
+    const context = this.getLatestContext();
+    if (!context) {
+      return null;
+    }
+    return {
+      ...payload,
+      gameId: context.gameId,
+      playerId: context.playerId,
+    };
+  }
+
+  private buildBattleActionPayload(
+    actionType: "confirmBattle" | "resolveBattle",
+  ): Parameters<ApiManager["playerAction"]>[0] | null {
+    const context = this.getLatestContext();
+    if (!context) {
+      return null;
+    }
+    return {
+      playerId: context.playerId,
+      gameId: context.gameId,
+      actionType,
+    };
   }
 }
