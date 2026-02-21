@@ -39,6 +39,19 @@ export function TopBar({
   onTopDeckSelect,
   onSave,
 }: Props) {
+  const getSetLabel = (set: CardSetSummary) => {
+    const raw = set as CardSetSummary & Record<string, unknown>;
+    const candidates = [raw.name, raw.setName, raw.displayName, raw.title, raw.deckName, set.id];
+    const cardCountOnly = /^\s*\d+\s*cards?\s*$/i;
+    for (const value of candidates) {
+      if (typeof value !== "string") continue;
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      if (!cardCountOnly.test(trimmed)) return trimmed;
+    }
+    return set.id;
+  };
+
   return (
     <header className="deck-setup-topbar">
       <div className="deck-setup-toprow">
@@ -74,7 +87,7 @@ export function TopBar({
           <select value={selectedSet} onChange={(e) => onSelectedSetChange(normalizeSetId(e.target.value))}>
             {sets.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {getSetLabel(s)}
               </option>
             ))}
           </select>

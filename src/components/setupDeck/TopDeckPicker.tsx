@@ -9,6 +9,19 @@ type Props = {
 };
 
 export function TopDeckPicker({ topDecks, topDeckOpen, topDeckStatus, onTopDeckToggle, onTopDeckSelect }: Props) {
+  const getDeckLabel = (deck: TopDeckItem, index: number) => {
+    const raw = deck as TopDeckItem & Record<string, unknown>;
+    const cardCountOnly = /^\s*\d+\s*cards?\s*$/i;
+    const candidates = [raw.name, raw.deckName, raw.title, raw.setName, raw.id];
+    for (const value of candidates) {
+      if (typeof value !== "string") continue;
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      if (!cardCountOnly.test(trimmed)) return trimmed;
+    }
+    return `Deck ${index + 1}`;
+  };
+
   return (
     <div className="deck-setup-topdeck">
       <button
@@ -29,7 +42,7 @@ export function TopDeckPicker({ topDecks, topDeckOpen, topDeckStatus, onTopDeckT
           ) : topDecks.length === 0 ? (
             <div className="deck-setup-topdeck-empty">No top decks available.</div>
           ) : (
-            topDecks.map((deck) => (
+            topDecks.map((deck, index) => (
               <button
                 key={deck.id}
                 type="button"
@@ -37,8 +50,7 @@ export function TopDeckPicker({ topDecks, topDeckOpen, topDeckStatus, onTopDeckT
                 onClick={() => onTopDeckSelect(deck)}
                 role="menuitem"
               >
-                <span>{deck.name}</span>
-                <span>{deck.cardCount} cards</span>
+                <span>{getDeckLabel(deck, index)}</span>
               </button>
             ))
           )}

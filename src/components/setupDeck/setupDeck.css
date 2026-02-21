@@ -412,6 +412,13 @@
     flex-wrap: wrap;
   }
 
+  .deck-setup-topdeck-menu {
+    left: 0;
+    right: auto;
+    width: min(360px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
+  }
+
   .deck-setup-savenote {
     text-align: left;
   }

@@ -5,6 +5,52 @@ import type { CardDataResponse, DeckEntry } from "./types";
 import { safeJsonParse } from "./utils";
 import { STORAGE_DECK } from "./constants";
 
+const CARD_COUNT_ONLY = /^\s*\d+\s*cards?\s*$/i;
+
+function isDisplayLabel(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !CARD_COUNT_ONLY.test(value.trim());
+}
+
+function normalizeTopDecks(input: unknown): TopDeckItem[] {
+  if (!Array.isArray(input)) return [];
+  return input.map((item, index) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    const rawEntries = Array.isArray(raw.entries)
+      ? raw.entries
+      : Array.isArray(raw.deck)
+        ? raw.deck
+        : Array.isArray(raw.cards)
+          ? raw.cards
+          : [];
+    const entries = rawEntries
+      .map((entry) => {
+        if (typeof entry === "string") return { id: entry, qty: 1 };
+        const e = (entry || {}) as Record<string, unknown>;
+        const id = [e.id, e.cardId, e.card_id].find((v) => typeof v === "string");
+        if (typeof id !== "string" || id.trim().length === 0) return null;
+        const qtyRaw = [e.qty, e.count, e.quantity].find((v) => typeof v === "number");
+        const qty = Number.isFinite(qtyRaw) ? Math.max(1, Math.floor(Number(qtyRaw))) : 1;
+        return { id, qty };
+      })
+      .filter((v): v is { id: string; qty: number } => Boolean(v));
+
+    const idCandidate = [raw.id, raw.deckId, raw.deck_id, raw.topDeckId].find((v) => typeof v === "string");
+    const id = typeof idCandidate === "string" && idCandidate.trim() ? idCandidate.trim() : `deck-${index + 1}`;
+
+    const labelCandidate = [raw.name, raw.deckName, raw.deck_name, raw.title, raw.setName, raw.setId, id].find(
+      isDisplayLabel,
+    );
+    const name = labelCandidate || `Deck ${index + 1}`;
+
+    const explicitCount = Number(raw.cardCount ?? raw.count ?? raw.totalCards);
+    const cardCount = Number.isFinite(explicitCount)
+      ? Math.max(0, Math.floor(explicitCount))
+      : entries.reduce((sum, entry) => sum + entry.qty, 0);
+
+    return { id, name, entries, cardCount };
+  });
+}
+
 export function useCardSets(api: ApiManager) {
   const [sets, setSets] = useState<CardSetSummary[]>(DEFAULT_SETS);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("loading");
@@ -115,7 +161,7 @@ export function useTopDeckPicker(api: ApiManager) {
     setTopDeckError(null);
     try {
       const response = await api.getTopDecks();
-      setTopDecks(Array.isArray(response.decks) ? response.decks : []);
+      setTopDecks(normalizeTopDecks(response.decks));
       setTopDeckStatus("idle");
     } catch (err) {
       setTopDeckStatus("error");
