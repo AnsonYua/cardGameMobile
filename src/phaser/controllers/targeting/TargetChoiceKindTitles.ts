@@ -27,6 +27,7 @@ export const CHOICE_KIND_TITLES: Record<string, string> = {
   ADD_BASIC_ENERGY: "Add basic energy",
   ADD_EXTRA_ENERGY: "Add extra energy",
   CONDITIONAL_TOKEN_DEPLOY: "Choose where to deploy the token",
+  REDIRECT_ATTACK: "Choose an attack target to redirect",
   EFFECT_TARGET_CHOICE: "Choose a target",
 };
 

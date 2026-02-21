@@ -22,6 +22,11 @@ describe('TargetChoiceTitles', () => {
       .toBe('Choose a target to modify AP');
   });
 
+  it('falls back to action mapping for redirect_attack', () => {
+    expect(resolveTargetChoiceHeader({ choiceKind: 'EFFECT_TARGET_CHOICE', action: 'redirect_attack', isMulti: false }))
+      .toBe('Choose an attack target to redirect');
+  });
+
   it('prefers original effect description for generic stat-change choices', () => {
     expect(
       resolveTargetChoiceHeader({

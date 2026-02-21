@@ -32,6 +32,41 @@ function collectEffectIds(choice: any, data: any): string[] {
   return Array.from(new Set(ids));
 }
 
+function normalize(value: unknown): string {
+  return (value ?? "").toString().trim().toLowerCase();
+}
+
+function findFallbackDescriptionByRuleShape(
+  rules: any[],
+  descriptions: any[],
+  data: any,
+): string | undefined {
+  const effect = data?.effect ?? {};
+  const expectedAction = normalize(effect?.action);
+  const expectedTrigger = normalize(effect?.trigger);
+
+  if (!expectedAction && !expectedTrigger) return undefined;
+
+  const matchingIndexes = rules
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ rule }) => {
+      const action = normalize(rule?.action);
+      const trigger = normalize(rule?.trigger);
+      if (expectedAction && action !== expectedAction) return false;
+      if (expectedTrigger && trigger !== expectedTrigger) return false;
+      return true;
+    })
+    .map(({ index }) => index);
+
+  if (matchingIndexes.length !== 1) return undefined;
+
+  const mapped = descriptions[matchingIndexes[0]];
+  if (typeof mapped === "string" && mapped.trim()) return mapped.trim();
+  const text = rules[matchingIndexes[0]]?.parameters?.text;
+  if (typeof text === "string" && text.trim()) return text.trim();
+  return undefined;
+}
+
 export function resolveTargetChoiceEffectDescription(opts: { raw: any; payload: any; data: any }): string | undefined {
   const choice = opts?.payload?.choice ?? {};
   const data = opts?.data ?? {};
@@ -57,5 +92,8 @@ export function resolveTargetChoiceEffectDescription(opts: { raw: any; payload: 
     if (typeof ruleText === "string" && ruleText.trim()) return ruleText.trim();
   }
 
-  return undefined;
+  const byRuleShape = findFallbackDescriptionByRuleShape(rules, descriptions, data);
+  if (byRuleShape) return byRuleShape;
+
+  return firstNonEmpty(descriptions);
 }

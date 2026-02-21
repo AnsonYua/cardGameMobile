@@ -27,6 +27,7 @@ const ACTION_TO_CHOICE_KIND: Record<string, string> = {
   addBasicEnergy: "ADD_BASIC_ENERGY",
   addExtraEnergy: "ADD_EXTRA_ENERGY",
   conditionalTokenDeploy: "CONDITIONAL_TOKEN_DEPLOY",
+  redirect_attack: "REDIRECT_ATTACK",
 };
 
 export function normalizeChoiceKind(choiceKind: unknown): string | undefined {
