@@ -15,10 +15,6 @@ import {
   forEachChoiceCardPlatePosition,
 } from "../choice/ChoiceCardPlateGrid";
 
-const PROMPT_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  ...DIALOG_TEXT.prompt,
-};
-
 export function renderOptionChoiceTextDialog(params: {
   scene: Phaser.Scene;
   cfg: CardDialogConfig;
@@ -82,14 +78,19 @@ export function renderOptionChoiceHybridDialog(params: {
   const maxContentWidth = Math.min(540, Math.max(280, cam.width * 0.74));
   const headerGap = resolveDialogHeaderGap(params.showTimer, params.cfg.dialog.gap);
 
-  const promptWidth = Math.min(maxContentWidth, cam.width * 0.72);
   const promptText = params.promptText.trim();
+  const isLongPrompt = promptText.length >= 140;
+  const promptWidth = Math.min(maxContentWidth, cam.width * (isLongPrompt ? 0.8 : 0.74));
+  const promptStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    ...DIALOG_TEXT.prompt,
+    fontSize: `${isLongPrompt ? 13 : 14}px`,
+    fontStyle: isLongPrompt ? "normal" : DIALOG_TEXT.prompt.fontStyle,
+    lineSpacing: isLongPrompt ? 3 : 2,
+    wordWrap: { width: promptWidth },
+  };
   const tempPrompt = promptText
     ? params.scene
-        .add.text(-10000, -10000, promptText, {
-          ...PROMPT_STYLE,
-          wordWrap: { width: promptWidth },
-        })
+        .add.text(-10000, -10000, promptText, promptStyle)
         .setOrigin(0.5)
     : undefined;
   const promptHeight = tempPrompt?.height ?? 0;
@@ -174,10 +175,7 @@ export function renderOptionChoiceHybridDialog(params: {
 
   if (hasPrompt) {
     const promptNode = params.scene
-      .add.text(0, cursorY + promptHeight / 2, promptText, {
-        ...PROMPT_STYLE,
-        wordWrap: { width: promptWidth },
-      })
+      .add.text(0, cursorY + promptHeight / 2, promptText, promptStyle)
       .setOrigin(0.5);
     shell.content.add(promptNode);
     cursorY += promptHeight;
@@ -194,24 +192,24 @@ export function renderOptionChoiceHybridDialog(params: {
       },
       ({ index, x, y }) => {
         const choice = params.cardChoices[index];
-      renderChoiceCardPlate({
-        scene: params.scene,
-        container: shell.content,
-        x,
-        y,
-        cardWidth: plateGrid.cellWidth,
-        cardHeight: plateGrid.imageHeight,
-        state: choice.interactionState,
-        enabled: choice.enabled,
-        card: {
-          cardId: choice.cardId,
-          label: choice.label,
-          textureKey: params.resolveTextureKey(choice.cardId) ?? "deckBack",
-        },
-        onSelect: async () => {
-          await params.onSelect?.(choice.index);
-        },
-      });
+        renderChoiceCardPlate({
+          scene: params.scene,
+          container: shell.content,
+          x,
+          y,
+          cardWidth: plateGrid.cellWidth,
+          cardHeight: plateGrid.imageHeight,
+          state: choice.interactionState,
+          enabled: choice.enabled,
+          card: {
+            cardId: choice.cardId,
+            label: choice.label,
+            textureKey: params.resolveTextureKey(choice.cardId) ?? "deckBack",
+          },
+          onSelect: async () => {
+            await params.onSelect?.(choice.index);
+          },
+        });
       },
     );
 

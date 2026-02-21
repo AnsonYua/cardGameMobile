@@ -6,7 +6,8 @@
       "Bash(grep:*)",
       "Bash(python3:*)",
       "Bash(curl:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(done)"
     ]
   }
 }
