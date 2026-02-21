@@ -10,6 +10,7 @@ import type { SlotNotification } from "../animations/NotificationAnimationContro
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { mapSlotToApiTargetRef } from "./targeting/TargetChoiceMapping";
 import { resolveTargetChoiceHeader } from "./targeting/TargetChoiceTitles";
+import { resolveTargetChoiceEffectDescription } from "./targeting/TargetChoiceEffectDescription";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -149,8 +150,12 @@ export class EffectTargetController {
       const min = Number.isFinite(parsedMin) ? parsedMin : 1;
       const max = Number.isFinite(parsedMax) ? parsedMax : min;
       const isMulti = max > 1 || min > 1;
+      const effectDescription = resolveTargetChoiceEffectDescription({ raw, payload, data });
       const header = resolveTargetChoiceHeader({
         choiceKind: payload?.choiceKind ?? data?.choiceKind ?? event?.choiceKind,
+        action: payload?.choice?.action ?? data?.choice?.action ?? data?.effect?.action,
+        contextKind: payload?.choice?.contextKind ?? data?.choice?.contextKind,
+        effectDescription,
         isMulti,
       });
 

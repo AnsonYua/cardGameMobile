@@ -191,7 +191,11 @@ export class ApiManager {
     );
   }
 
-  playCard(payload: { playerId: string; gameId: string; action: { type: string; carduid: string; playAs: string } }) {
+  playCard(payload: {
+    playerId: string;
+    gameId: string;
+    action: { type: string; carduid: string; playAs: string; replaceSlot?: string };
+  }) {
     return this.client.postJson("/api/game/player/playCard", payload, { auth: true });
   }
 

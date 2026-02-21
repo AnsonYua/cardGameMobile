@@ -398,7 +398,13 @@ export class BoardScene extends Phaser.Scene {
       runActionThenRefresh: this.runActionThenRefresh.bind(this),
     });
     this.commandFlow = new CommandFlowController(this.engine);
-    this.unitFlow = new UnitFlowController();
+    this.unitFlow = new UnitFlowController({
+      engine: this.engine,
+      gameContext: this.gameContext,
+      slotPresenter: this.slotPresenter,
+      pilotTargetDialog: dialogs.pilotTargetDialog,
+      errorDialog: this.errorDialogUi,
+    });
     this.engine.setFlowControllers({ commandFlow: this.commandFlow, unitFlow: this.unitFlow });
     bindBoardSceneEvents({
       engine: this.engine,
