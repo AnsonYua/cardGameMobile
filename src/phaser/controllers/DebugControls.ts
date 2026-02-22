@@ -93,6 +93,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD03/GD03-020/prevent_enemy_unit_battle_damage_while_ad_balloon_in_play",
     "GD03/GD03-021/attack_rested_high_ap_unit_destroyed_in_battle",
     "GD03/GD03-021/deploy_grant_attack_target_ability",
+    "GD03/GD03-022/during_link_aoe_damage_on_enemy_units_level_3_or_lower",
     "GD03/GD03-028/attack_if_target_unit_ap_plus_2_auto_target_source",
     "GD03/GD03-033/attack_ap_9_deal_2_damage",
     "GD03/GD03-033/attack_base_ap_5_deal_1_damage",
