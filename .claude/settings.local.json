@@ -7,7 +7,11 @@
       "Bash(python3:*)",
       "Bash(curl:*)",
       "Bash(node:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(npm run test:dynamic:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/hello/Desktop/card/unity/cardGameRevamp/cardBackend"
     ]
   }
 }
