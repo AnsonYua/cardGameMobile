@@ -8,7 +8,10 @@
       "Bash(curl:*)",
       "Bash(node:*)",
       "Bash(done)",
-      "Bash(npm run test:dynamic:*)"
+      "Bash(npm run test:dynamic:*)",
+      "Bash(awk:*)",
+      "Bash(sed:*)",
+      "Bash(mkdir:*)"
     ],
     "additionalDirectories": [
       "/Users/hello/Desktop/card/unity/cardGameRevamp/cardBackend"
