@@ -226,6 +226,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD03/GD03-129/main_deploy_hotarubi_then_effect_damage_tekkadan_rest_base_mill_1",
     "GD03/GD03-130/deploy_add_shield_then_optional_deploy_vagan_unit_level_le_4_from_trash_pay_cost_on_your_turn",
     "GD03/GD03-131/deploy_add_shield_then_return_enemy_le4_if_tsa_units_ge2",
+    "GD03/GD03-132/destroyed_if_aeug_link_unit_in_play_rest_enemy_unit_hp_le_4",
   ],
   ST01: [
     "ST01/ST01-001/link_immediate_attack",
