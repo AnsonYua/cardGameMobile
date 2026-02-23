@@ -7,7 +7,7 @@ import { UI_LAYOUT } from "./UiLayoutConfig";
 import { ScrollList } from "./ScrollList";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 import type { DialogLayout } from "./CardDialogLayout";
-import { getDialogTimerHeaderGap } from "./timerBarStyles";
+import { getCompactDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { createTargetDialogShell } from "./TargetDialogShell";
@@ -172,7 +172,7 @@ export class MultiTargetDialog {
     const confirmH = 42;
     const confirmGap = 20;
     const footerPad = 18;
-    const timerGap = getDialogTimerHeaderGap();
+    const timerGap = getCompactDialogTimerHeaderGap();
     const topToHeaderCenter = headerLayout.headerOffsetUsed;
     const headerBottomFromTop = topToHeaderCenter + headerLayout.height / 2;
     const counterCenterFromTop = headerBottomFromTop + timerGap + counterHeight / 2;

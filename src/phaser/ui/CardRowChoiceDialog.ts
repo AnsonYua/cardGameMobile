@@ -65,6 +65,7 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
       centerX: cam.centerX,
       centerY: cam.centerY,
       headerText: opts.headerText,
+      headerFontSize: 16,
       showOverlay,
       closeOnBackdrop: false,
       showCloseButton: false,
@@ -124,4 +125,3 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
     }
   }
 }
-

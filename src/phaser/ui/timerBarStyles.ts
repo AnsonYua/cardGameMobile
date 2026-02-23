@@ -21,3 +21,7 @@ export const DIALOG_TIMER_BAR_SPACING = {
 
 export const getDialogTimerHeaderGap = () =>
   DIALOG_TIMER_BAR_SPACING.top + DIALOG_TIMER_BAR_STYLE.height + DIALOG_TIMER_BAR_SPACING.bottom;
+
+// Tighter gap used in dense target-selection dialogs to avoid excessive blank space.
+export const getCompactDialogTimerHeaderGap = () =>
+  DIALOG_TIMER_BAR_SPACING.top + DIALOG_TIMER_BAR_STYLE.height + 2;

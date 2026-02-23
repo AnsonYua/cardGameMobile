@@ -182,6 +182,11 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     }
     baseShieldAnimationRender.handleEventEnd(event, ctx);
     const type = (event?.type ?? "").toString().toUpperCase();
+    const playAs = (event?.payload?.playAs ?? "").toString().toUpperCase();
+    const isBasePlayEvent = (type === "CARD_PLAYED" || type === "CARD_PLAYED_COMPLETED") && playAs === "BASE";
+    if (isBasePlayEvent) {
+      renderBaseAndShield(ctx.currentRaw ?? ctx.previousRaw);
+    }
     if (type === "GAME_ENV_REFRESH") {
       const nextRaw = ctx.currentRaw ?? ctx.previousRaw;
       const playerId = gameContext.playerId ?? "";

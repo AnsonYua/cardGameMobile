@@ -10,11 +10,10 @@ function ruleRequiresDuringLink(effectRule: any, cardData?: any): boolean {
 function ruleRequiresSelfRested(effectRule: any, card: any): boolean {
   const cardType = (card?.cardData?.cardType ?? "").toString().toLowerCase();
   if (cardType !== "unit") return false;
-  const desc: string[] = Array.isArray(card?.cardData?.effects?.description) ? card.cardData.effects.description : [];
-  const descText = desc.join(" ").toLowerCase();
   const ruleText = (effectRule?.parameters?.text ?? "").toString().toLowerCase();
   // UX gating heuristic: abilities that "set this Unit as active" are only meaningful when the unit is rested.
-  return descText.includes("set this unit as active") || ruleText.includes("set this unit as active");
+  // Use rule-local text only; card-level description can contain unrelated triggered effects.
+  return ruleText.includes("set this unit as active");
 }
 
 export function filterActivatedEffectRulesByAvailability(opts: {
@@ -30,4 +29,3 @@ export function filterActivatedEffectRulesByAvailability(opts: {
     return true;
   });
 }
-

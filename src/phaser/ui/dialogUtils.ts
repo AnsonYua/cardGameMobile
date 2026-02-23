@@ -5,7 +5,7 @@ const DEFAULT_CLOSE_GUARD_PAD = 24;
 const MIN_HEADER_WRAP_WIDTH = 120;
 
 export const DIALOG_HEADER_TEXT_STYLE = {
-  fontSize: "20px",
+  fontSize: "14px",
   fontFamily: "Arial",
   fontStyle: "bold",
   color: "#f5f6f7",
@@ -70,4 +70,3 @@ export function computeScrollMaskOverflowX(opts: { framePadding: number; frameEx
   const extra = opts.extra ?? 0;
   return Math.ceil((opts.framePadding + opts.frameExtraW) / 2 + extra);
 }
-

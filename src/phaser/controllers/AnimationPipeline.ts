@@ -37,6 +37,16 @@ type DrawPopupDialog = {
     showOverlay?: boolean;
     centerY?: number;
   }) => Promise<void>;
+  showCardsPopup: (opts: {
+    cards: any[];
+    header?: string;
+    fadeInMs?: number;
+    holdMs?: number;
+    fadeOutMs?: number;
+    showOverlay?: boolean;
+    centerY?: number;
+    maxCols?: number;
+  }) => Promise<void>;
 };
 
 type MulliganDialog = {

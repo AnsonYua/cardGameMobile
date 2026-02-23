@@ -8,7 +8,7 @@ import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { MultiTargetDialog, type MultiTargetDialogShowOpts } from "./MultiTargetDialog";
 import { ScrollList } from "./ScrollList";
-import { getDialogTimerHeaderGap } from "./timerBarStyles";
+import { getCompactDialogTimerHeaderGap } from "./timerBarStyles";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 import { createTargetDialogShell } from "./TargetDialogShell";
 
@@ -52,7 +52,7 @@ export class PilotTargetDialog {
       headerOffset: 34,
       closeSize: 22,
       closeOffset: 12,
-      headerWrapPad: 80,
+      headerWrapPad:20,
       scrollbarWidth: 8,
       scrollbarPad: 6,
       scrollbarMinThumb: 24,
@@ -181,7 +181,7 @@ export class PilotTargetDialog {
     const cellHeight = cardHeight + extraCellHeight;
     const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
     const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
-    const timerGap = getDialogTimerHeaderGap();
+    const timerGap = getCompactDialogTimerHeaderGap();
     const footerPad = 22;
     const topToGrid = headerLayout.headerOffsetUsed + headerLayout.height / 2 + timerGap;
     const dialogHeight = Math.max(minHeight, topToGrid + gridVisibleHeight + footerPad);
