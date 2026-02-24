@@ -21,7 +21,7 @@ import { SlotInteractionGate } from "./SlotInteractionGate";
 import { ActionStepCoordinator } from "./ActionStepCoordinator";
 import { AbilityActivationFlowController } from "./AbilityActivationFlowController";
 import { createLogger } from "../utils/logger";
-import { showActionError } from "./ActionErrorUtils";
+import { getUserFacingActionErrorMessage, showActionError } from "./ActionErrorUtils";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 
 type HandControls = {
@@ -195,7 +195,11 @@ export class SelectionActionController {
       const result = await this.deps.engine.runAction(actionId);
       if (result === false) return;
     } catch (err: any) {
-      showActionError(this.deps.errorDialog, err);
+      const message = getUserFacingActionErrorMessage(err);
+      const isMandatoryTargetFailure = message.includes("No eligible targets for mandatory effect step");
+      showActionError(this.deps.errorDialog, err, {
+        headerText: isMandatoryTargetFailure ? "Invalid Play" : "Action Failed",
+      });
       return;
     }
     this.deps.onPlayerAction?.(actionId);
