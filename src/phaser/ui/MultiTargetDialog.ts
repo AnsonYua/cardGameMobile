@@ -11,6 +11,7 @@ import { getCompactDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { createTargetDialogShell } from "./TargetDialogShell";
+import { shouldUseBoardSlotSprite } from "./TargetDialogRenderPolicy";
 
 export type MultiTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -401,7 +402,9 @@ export class MultiTargetDialog {
       });
       content.add(frameBg);
 
-      const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
+      const useBoardSlotSprite = shouldUseBoardSlotSprite(slot);
+      const slotSprite =
+        slot && useBoardSlotSprite ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
       if (slotSprite) {
         slotSprite.setPosition(x, y);
         content.add(slotSprite);

@@ -72,4 +72,30 @@ describe("attackTargetPolicy", () => {
     expect(targets).toHaveLength(1);
     expect(targets[0].slotId).toBe("slotB");
   });
+
+  it("uses temporary allow_attack_target and enforces pairedPilot none", () => {
+    const attacker: SlotViewModel = {
+      owner: "player",
+      slotId: "slot1",
+      unit: {
+        cardUid: "GD03-031_unit",
+        temporaryEffects: [{ allowAttackTarget: { status: "active", pairedPilot: "none" } }],
+        cardData: { effects: { rules: [] } },
+      },
+    };
+    const opponentSlots: SlotViewModel[] = [
+      createOpponentSlot("slotC", { rested: false, level: 4 }),
+      {
+        ...createOpponentSlot("slotD", { rested: false, level: 4 }),
+        pilot: {
+          cardUid: "slotD_pilot",
+          cardData: { traits: ["Newtype"] },
+        } as any,
+      },
+    ];
+
+    const targets = getAttackUnitTargets(attacker, opponentSlots);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].slotId).toBe("slotC");
+  });
 });

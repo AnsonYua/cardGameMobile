@@ -6,6 +6,8 @@ export type SlotCardView = {
   cardType?: string;
   isRested?: boolean;
   canAttackThisTurn?: boolean;
+  temporaryEffects?: any[];
+  damageReceived?: number;
   cardData?: any;
   cardUid?: string;
 };

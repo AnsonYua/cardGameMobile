@@ -11,6 +11,7 @@ import { ScrollList } from "./ScrollList";
 import { getCompactDialogTimerHeaderGap } from "./timerBarStyles";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 import { createTargetDialogShell } from "./TargetDialogShell";
+import { shouldUseBoardSlotSprite } from "./TargetDialogRenderPolicy";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -255,7 +256,9 @@ export class PilotTargetDialog {
       });
       content.add(frame);
 
-      const slotSprite = slot ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
+      const useBoardSlotSprite = shouldUseBoardSlotSprite(slot);
+      const slotSprite =
+        slot && useBoardSlotSprite ? this.createSlotSprite?.(slot, { w: cardW, h: cardH }) : undefined;
       if (slotSprite) {
         slotSprite.setPosition(x, y);
         content.add(slotSprite);

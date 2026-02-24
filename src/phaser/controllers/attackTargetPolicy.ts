@@ -8,6 +8,8 @@ type AllowAttackRule = {
     level?: string;
     ap?: string | number;
     damaged?: boolean;
+    pairedPilot?: string;
+    pairedPilotTrait?: string;
     allowActiveTarget?: boolean;
   };
 };
@@ -18,25 +20,35 @@ export function getAttackUnitTargets(attacker: SlotViewModel | undefined, oppone
     const unit = slot.unit;
     if (!unit) return false;
     if (unit.isRested) return true;
-    return canTargetActiveUnit(attacker.unit, attacker.pilot, unit);
+    return canTargetActiveUnit(attacker.unit, attacker.pilot, slot);
   });
 }
 
-function canTargetActiveUnit(attackerUnit?: SlotCardView, attackerPilot?: SlotCardView, targetUnit?: SlotCardView) {
+function canTargetActiveUnit(attackerUnit?: SlotCardView, attackerPilot?: SlotCardView, targetSlot?: SlotViewModel) {
+  const targetUnit = targetSlot?.unit;
   if (!targetUnit) return false;
   const rules = [...getAllowAttackRules(attackerUnit), ...getAllowAttackRules(attackerPilot)].filter((rule) =>
     canGrantActiveTargetPermission(rule) && sourceConditionsSatisfied(rule, attackerPilot),
   );
   if (!rules.length) return false;
-  return rules.some((rule) => matchesAllowAttackRule(rule, targetUnit));
+  return rules.some((rule) => matchesAllowAttackRule(rule, targetSlot));
 }
 
 function getAllowAttackRules(card?: SlotCardView): AllowAttackRule[] {
-  const rules: any[] = Array.isArray(card?.cardData?.effects?.rules) ? card.cardData.effects.rules : [];
-  return rules.filter((rule) => (rule?.action || "").toString().toLowerCase() === "allow_attack_target");
+  const staticRules: any[] = Array.isArray(card?.cardData?.effects?.rules) ? card.cardData.effects.rules : [];
+  const directRules = staticRules.filter((rule) => (rule?.action || "").toString().toLowerCase() === "allow_attack_target");
+
+  const temporaryRules = (Array.isArray(card?.temporaryEffects) ? card.temporaryEffects : [])
+    .map((effect) => effect?.allowAttackTarget)
+    .filter((allow) => allow && typeof allow === "object")
+    .map((allow) => ({ action: "allow_attack_target", parameters: allow }));
+
+  return [...directRules, ...temporaryRules];
 }
 
-function matchesAllowAttackRule(rule: AllowAttackRule, targetUnit: SlotCardView): boolean {
+function matchesAllowAttackRule(rule: AllowAttackRule, targetSlot?: SlotViewModel): boolean {
+  const targetUnit = targetSlot?.unit;
+  if (!targetUnit) return false;
   const params = rule.parameters ?? {};
   const status = (params.status ?? "").toString().toLowerCase();
   if (status && status !== "active") return false;
@@ -62,8 +74,21 @@ function matchesAllowAttackRule(rule: AllowAttackRule, targetUnit: SlotCardView)
   }
 
   if (typeof params.damaged === "boolean") {
-    const isDamaged = Number((targetUnit as any).damageReceived ?? 0) > 0;
+    const isDamaged = Number(targetUnit.damageReceived ?? 0) > 0;
     if (isDamaged !== params.damaged) return false;
+  }
+
+  if (typeof params.pairedPilot === "string") {
+    const pairedPilot = params.pairedPilot.toLowerCase();
+    const hasPairedPilot = Boolean(targetSlot?.pilot);
+    if (pairedPilot === "any" && !hasPairedPilot) return false;
+    if (pairedPilot === "none" && hasPairedPilot) return false;
+    if (pairedPilot !== "any" && pairedPilot !== "none") return false;
+  }
+
+  if (typeof params.pairedPilotTrait === "string") {
+    const pilotTraits = Array.isArray(targetSlot?.pilot?.cardData?.traits) ? targetSlot.pilot.cardData.traits : [];
+    if (!pilotTraits.includes(params.pairedPilotTrait)) return false;
   }
 
   return true;
