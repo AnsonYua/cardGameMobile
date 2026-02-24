@@ -69,6 +69,7 @@ export function renderOptionChoiceHybridDialog(params: {
   cardChoices: NormalizedOptionChoice[];
   textChoices: NormalizedOptionChoice[];
   resolveTextureKey: (cardId?: string) => string | undefined;
+  footerSpacer?: number;
 }): Phaser.GameObjects.Container {
   const cam = params.scene.cameras.main;
   const gap = 12;
@@ -137,6 +138,8 @@ export function renderOptionChoiceHybridDialog(params: {
     if (contentHeight > 0) contentHeight += sectionGap;
     contentHeight += buttonsHeight;
   }
+  const footerSpacer = Math.max(0, Number(params.footerSpacer ?? 0));
+  if (footerSpacer > 0) contentHeight += footerSpacer;
   if (contentHeight <= 0) contentHeight = 24;
 
   const tempHeader = params.scene.add

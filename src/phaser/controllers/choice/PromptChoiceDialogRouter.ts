@@ -2,6 +2,7 @@ import type { PromptChoiceDialog } from "../../ui/PromptChoiceDialog";
 import type { TutorTopDeckRevealDialog } from "../../ui/TutorTopDeckRevealDialog";
 import { getTutorTopDeckRevealCards, isTutorTopDeckRevealPrompt } from "./TutorTopDeckRevealContext";
 import { withTutorRevealStepHeader } from "./TutorStepHeader";
+import { mapOptionChoiceToDialogView } from "./OptionChoiceViewMapper";
 
 type DialogChoice = { index?: number; label?: string; enabled?: boolean };
 
@@ -67,11 +68,14 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
       await params.onSubmit(Number(o?.index ?? 0));
     },
   }));
+  const mappedChoices = options.map((o: any) => mapOptionChoiceToDialogView(entry, o));
+  const hasCardChoice = mappedChoices.some((choice) => choice.mode === "card" && !!choice.cardId);
 
   params.promptChoiceDialog?.show({
     headerText: rawHeaderText,
     promptText,
     buttons,
+    choices: hasCardChoice ? mappedChoices : undefined,
     showOverlay: true,
     showTimer: true,
     onTimeout: async () => {

@@ -5,6 +5,10 @@ import { createPromptDialog } from "./PromptDialog";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
+import { normalizeOptionChoices, type OptionChoiceDialogChoice } from "./optionChoice/OptionChoiceDialogModel";
+import { resolveOptionChoiceLayout } from "../controllers/choice/OptionChoiceLayoutResolver";
+import { renderOptionChoiceHybridDialog, renderOptionChoiceTextDialog } from "./optionChoice/OptionChoiceDialogRenderers";
+import { toBaseKey } from "./HandTypes";
 
 export type PromptChoiceDialogButton = {
   label: string;
@@ -16,6 +20,7 @@ export type PromptChoiceDialogOptions = {
   headerText: string;
   promptText?: string;
   buttons: PromptChoiceDialogButton[];
+  choices?: OptionChoiceDialogChoice[];
   showOverlay?: boolean;
   showTimer?: boolean;
   onTimeout?: () => Promise<void> | void;
@@ -57,20 +62,62 @@ export class PromptChoiceDialog {
         onClick: button.onClick,
       })),
     };
-    const dialog = createPromptDialog(this.scene, this.cfg, {
-      headerText: opts.headerText,
-      promptText: opts.promptText,
-      buttons: opts.buttons,
-      showOverlay: opts.showOverlay ?? true,
-      closeOnBackdrop: false,
-      showCloseButton: false,
-      headerGap: getDialogTimerHeaderGap(),
-    });
-    this.container = dialog.dialog;
-    if (opts.showTimer) {
-      this.dialogTimer.attach(dialog.dialog, dialog.layout, async () => {
-        await opts.onTimeout?.();
+    const choices = normalizeOptionChoices(opts.choices ?? []);
+    const hasCardChoices = choices.some((choice) => choice.mode === "card" && !!choice.cardId);
+    if (hasCardChoices) {
+      const choiceButtons = new Map(choices.map((choice, index) => [choice.index, opts.buttons[index]]));
+      const layout = resolveOptionChoiceLayout(choices);
+      if (layout === "text") {
+        this.container = renderOptionChoiceTextDialog({
+          scene: this.scene,
+          cfg: this.cfg,
+          dialogTimer: this.dialogTimer,
+          headerText: opts.headerText,
+          promptText: opts.promptText ?? "",
+          showOverlay: opts.showOverlay ?? true,
+          showTimer: opts.showTimer ?? false,
+          onTimeout: opts.onTimeout,
+          onSelect: async (index) => {
+            await choiceButtons.get(index)?.onClick();
+          },
+          options: choices,
+        });
+      } else {
+        this.container = renderOptionChoiceHybridDialog({
+          scene: this.scene,
+          cfg: this.cfg,
+          dialogTimer: this.dialogTimer,
+          headerText: opts.headerText,
+          promptText: opts.promptText ?? "",
+          showOverlay: opts.showOverlay ?? true,
+          showTimer: opts.showTimer ?? false,
+          onTimeout: opts.onTimeout,
+          onSelect: async (index) => {
+            await choiceButtons.get(index)?.onClick();
+          },
+          cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
+          textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
+          resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
+          // Keep prompt-card flows visually closer to tutor/option dialogs with roomier bottom padding.
+          footerSpacer: layout === "card" ? 14 : 0,
+        });
+      }
+    } else {
+      const dialog = createPromptDialog(this.scene, this.cfg, {
+        headerText: opts.headerText,
+        promptText: opts.promptText,
+        buttons: opts.buttons,
+        showOverlay: opts.showOverlay ?? true,
+        closeOnBackdrop: false,
+        showCloseButton: false,
+        headerGap: getDialogTimerHeaderGap(),
       });
+      this.container = dialog.dialog;
+      if (opts.showTimer) {
+        this.dialogTimer.attach(dialog.dialog, dialog.layout, async () => {
+          await opts.onTimeout?.();
+        });
+      }
     }
     animateDialogIn(this.scene, this.container);
   }
@@ -98,6 +145,12 @@ export class PromptChoiceDialog {
     if (!target || target.enabled === false) return false;
     await Promise.resolve(target.onClick());
     return true;
+  }
+
+  private resolveTextureKey(cardId?: string) {
+    if (!cardId) return undefined;
+    const base = toBaseKey(cardId);
+    return base || undefined;
   }
 
   private destroy() {
