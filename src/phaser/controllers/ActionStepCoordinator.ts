@@ -3,6 +3,8 @@ import type { ActionControls } from "./ControllerTypes";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { GameEngine } from "../game/GameEngine";
+import { normalizePhaseToken } from "../game/phaseUtils";
+import { getActionStepActivatedEffectOptionsForSlot, slotHasActionStepActivatedEffects } from "./ActionStepEffectOptions";
 import {
   ActionTargetEntry,
   getActionTargetsForPlayer,
@@ -74,15 +76,20 @@ export class ActionStepCoordinator {
     const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
     return rules.some((r) => {
       const wins: any[] = Array.isArray(r?.timing?.windows) ? r.timing.windows : [];
-      return wins.some((w) => (w || "").toString().toUpperCase() === "ACTION_STEP");
+      return wins.some((w) => normalizePhaseToken(w) === "ACTION_STEP");
     });
   }
 
   slotHasActionStepWindow(slot?: SlotViewModel) {
     if (!slot) return false;
-    const unitHas = this.cardDataHasActionStepWindow(slot.unit?.cardData);
-    const pilotHas = this.cardDataHasActionStepWindow(slot.pilot?.cardData);
-    return unitHas || pilotHas;
+    const raw = this.deps.engine.getSnapshot().raw as any;
+    const targets = this.getTargets(raw);
+    return slotHasActionStepActivatedEffects({
+      slot,
+      raw,
+      playerId: this.deps.gameContext.playerId,
+      targets,
+    });
   }
 
   applyActionBar(selection: any, status: ActionStepStatus) {
@@ -147,8 +154,14 @@ export class ActionStepCoordinator {
       });
     } else if (selection.kind === "slot") {
       const slot = getSlotBySelection(selection, raw, this.deps.slotPresenter, this.deps.gameContext.playerId);
-      const pilotHasEffect = this.cardDataHasActionStepWindow(slot?.pilot?.cardData);
-      const unitHasEffect = this.cardDataHasActionStepWindow(slot?.unit?.cardData);
+      const slotEffects = getActionStepActivatedEffectOptionsForSlot({
+        slot,
+        raw,
+        playerId: this.deps.gameContext.playerId,
+        targets,
+      });
+      const pilotHasEffect = slotEffects.pilot.options.length > 0;
+      const unitHasEffect = slotEffects.unit.options.length > 0;
       if (pilotHasEffect) {
         descriptors.push({
           label: "Trigger Pilot Effect",

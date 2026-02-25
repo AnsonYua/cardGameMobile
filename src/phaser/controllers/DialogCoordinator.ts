@@ -2,6 +2,7 @@ import type { GameStatusSnapshot } from "../game/GameEngine";
 import type { MatchStateMachine } from "../game/MatchStateMachine";
 import type { GameContextStore } from "../game/GameContextStore";
 import { GameMode, GameStatus } from "../game/GameSessionService";
+import { phaseEquals } from "../game/phaseUtils";
 
 type StatusDialog = { showMessage: (promptText: string, headerText?: string) => void; hide: () => void };
 
@@ -50,7 +51,7 @@ export class DialogCoordinator {
     const hasOpponent = players ? Object.keys(players).length > 1 : false;
     const gameStarted = !!env?.gameStarted;
     const phase = env?.phase;
-    if (hasOpponent || gameStarted || phase === "DECIDE_FIRST_PLAYER_PHASE") {
+    if (hasOpponent || gameStarted || phaseEquals(phase, "DECIDE_FIRST_PLAYER_PHASE")) {
       this.opponentJoined = true;
     }
     if (this.opponentJoined) {
@@ -72,7 +73,7 @@ export class DialogCoordinator {
     }
     const raw = snapshot?.raw as any;
     const phase = raw?.gameEnv?.phase ?? raw?.phase;
-    if (phase === "REDRAW_PHASE") {
+    if (phaseEquals(phase, "REDRAW_PHASE")) {
       this.mulliganWaitingDialog?.showMessage("Waiting for Opponent Mulligan Decision...", "Mulligan");
       return;
     }

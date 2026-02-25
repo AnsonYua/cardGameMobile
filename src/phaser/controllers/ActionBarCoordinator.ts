@@ -21,6 +21,7 @@ import {
   isMainPhase,
   isPlayersTurn,
 } from "./actionBarPolicy";
+import { isBlockerPhase } from "../game/phaseUtils";
 import { buildSlotAttackActionDescriptors } from "./actionBar/slotAttackProvider";
 import { mergeActionDescriptors, normalizePrimary, sortActionDescriptors } from "./actionBar/descriptorUtils";
 import { createLogger } from "../utils/logger";
@@ -116,7 +117,7 @@ export class ActionBarCoordinator {
       isSelfTurn,
       actionStepStatus,
       blockerActive: this.deps.blockerFlow.isActive(),
-      isBlockerPhase: phase === "BLOCKER_PHASE",
+      isBlockerPhase: isBlockerPhase(phase),
     });
 
     if (decision.kind === "waiting") {

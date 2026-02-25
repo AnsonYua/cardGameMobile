@@ -25,6 +25,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
   let controller: SelectionActionController;
   let selectionHandler: SelectionHandler;
   let actionExecutor: ActionExecutor;
+  let abilityFlow: AbilityActivationFlowController | undefined;
 
   const reportActionError = (err: any) => showActionError(deps.errorDialog, err);
 
@@ -125,6 +126,11 @@ export function createSelectionActionController(deps: SelectionActionControllerD
   });
   const actionStepTriggerHandler = new ActionStepTriggerHandler({
     getSelectedHandCard: () => selectionHandler?.getSelectedHandCard(),
+    engine: deps.engine,
+    gameContext: deps.gameContext,
+    actionExecutor,
+    getActionStepTargets: (raw) => actionStepCoordinator.getTargets(raw),
+    getAbilityFlow: () => abilityFlow,
     runActionThenRefresh: async (actionId, source) => {
       await getController()!.runActionThenRefresh(actionId, source);
     },
@@ -205,7 +211,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     buildActionDescriptors: (descriptors) => getController()!.buildActionDescriptors(descriptors),
   });
 
-  const abilityFlow = new AbilityActivationFlowController({
+  abilityFlow = new AbilityActivationFlowController({
     engine: deps.engine,
     gameContext: deps.gameContext,
     abilityChoiceDialog: deps.abilityChoiceDialog,

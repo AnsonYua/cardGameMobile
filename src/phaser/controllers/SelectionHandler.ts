@@ -129,13 +129,14 @@ export class SelectionHandler {
         return;
       }
     }
-    if (!this.isPlayersTurnFromRaw(raw) || slot.owner !== "player" || (!slot.unit && !slot.pilot)) {
+    const inActionStep = this.deps.actionStepCoordinator.isInActionStep(raw);
+    if (((!this.isPlayersTurnFromRaw(raw)) && !inActionStep) || slot.owner !== "player" || (!slot.unit && !slot.pilot)) {
       // disallow selecting opponent cards or empty slots when not in player turn
       this.clearSelectionUI({ clearEngine: true });
       this.deps.refreshActions("neutral");
       return;
     }
-    if (this.deps.actionStepCoordinator.isInActionStep(raw) && !this.deps.actionStepCoordinator.slotHasActionStepWindow(slot)) {
+    if (inActionStep && !this.deps.actionStepCoordinator.slotHasActionStepWindow(slot)) {
       // block selecting slots outside current action-step window
       this.clearSelectionUI({ clearEngine: true });
       this.deps.refreshActions("neutral");

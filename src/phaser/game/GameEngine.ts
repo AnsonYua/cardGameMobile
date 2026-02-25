@@ -21,6 +21,7 @@ import {
 import { isBattleActionStep, isBattleStateConsistent } from "./battleUtils";
 import { createLogger } from "../utils/logger";
 import { hasPilotDesignationRule } from "../utils/pilotDesignation";
+import { isMainPhase as isCanonicalMainPhase } from "./phaseUtils";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -289,8 +290,7 @@ export class GameEngine {
         const phase = (this.lastRaw as any)?.gameEnv?.phase;
         const hasTimingWindow = commandHasTimingWindow(selection, this.lastRaw, ctx.playerId, phase);
         const isPilotDesignation = fromPilotDesignation;
-        const phaseUpper = (phase ?? "").toString().toUpperCase();
-        const canPilotDuringMain = phaseUpper === "MAIN_PHASE" && hasPairableUnit(this.lastRaw, ctx.playerId);
+        const canPilotDuringMain = isCanonicalMainPhase(phase) && hasPairableUnit(this.lastRaw, ctx.playerId);
         const enabled = canPlay && (hasTimingWindow || (isPilotDesignation && canPilotDuringMain));
         descriptors.push({
           id: "playCommandFromHand",
@@ -663,6 +663,6 @@ export class GameEngine {
   }
 
   private isMainPhase(phase: GamePhase | string | null | undefined) {
-    return (phase ?? "").toString().toUpperCase() === "MAIN_PHASE";
+    return isCanonicalMainPhase(phase);
   }
 }

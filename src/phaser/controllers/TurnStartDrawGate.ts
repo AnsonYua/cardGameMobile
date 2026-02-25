@@ -1,4 +1,5 @@
 import { createLogger } from "../utils/logger";
+import { isMainPhase } from "../game/phaseUtils";
 
 type AnimationQueueLike = {
   isProcessed?: (id: string) => boolean;
@@ -79,8 +80,7 @@ export class TurnStartDrawGate {
   }
 
   shouldDelayActionBar(raw: any) {
-    const phase = (raw?.gameEnv?.phase ?? "").toString().toUpperCase();
-    if (phase !== "MAIN_PHASE") return false;
+    if (!isMainPhase(raw?.gameEnv?.phase)) return false;
     const currentPlayer = raw?.gameEnv?.currentPlayer;
     const playerId = this.deps.getPlayerId();
     if (!currentPlayer || currentPlayer !== playerId) return false;

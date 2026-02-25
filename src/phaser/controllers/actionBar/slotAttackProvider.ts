@@ -1,4 +1,5 @@
 import type { ActionDescriptor } from "../../game/ActionRegistry";
+import { isMainPhase } from "../../game/phaseUtils";
 import type { SlotViewModel } from "../../ui/SlotTypes";
 import { buildSlotActionDescriptors, computeSlotActionState } from "../actionBarPolicy";
 import { getAttackUnitTargets } from "../attackTargetPolicy";
@@ -15,8 +16,7 @@ function phaseAllowsAttack(raw?: any) {
   if (explicit !== undefined && explicit !== null) {
     return !!explicit;
   }
-  const phase = (env?.phase ?? "").toString().toUpperCase();
-  return phase === "MAIN_PHASE";
+  return isMainPhase(env?.phase);
 }
 
 function collectActiveEffects(unit?: any) {

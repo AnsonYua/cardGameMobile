@@ -1,11 +1,12 @@
 import type { ActionDescriptor } from "../game/ActionRegistry";
 import type { ActionSource } from "../game/GameEngine";
+import { isMainPhase as isCanonicalMainPhase, normalizePhaseToken, phaseEquals } from "../game/phaseUtils";
 import { getTurnOwnerId } from "../game/turnOwner";
 
 export const START_GAME_PHASES = new Set(["REDRAW_PHASE", "START_GAME", "STARTGAME"]);
 
 export function getPhase(raw: any) {
-  return (raw?.gameEnv?.phase || "").toString().toUpperCase();
+  return normalizePhaseToken(raw?.gameEnv?.phase);
 }
 
 export function isStartGamePhase(phase: string) {
@@ -17,7 +18,7 @@ export function isPlayersTurn(raw: any, playerId: string) {
 }
 
 export function isMainPhase(raw: any, playerId: string) {
-  return raw?.gameEnv?.phase === "MAIN_PHASE" && getTurnOwnerId(raw) === playerId;
+  return isCanonicalMainPhase(raw?.gameEnv?.phase) && getTurnOwnerId(raw) === playerId;
 }
 
 export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerReady: boolean, allowAttackShield: boolean) {
@@ -174,7 +175,7 @@ export function computeMainPhaseState(input: MainPhaseStateInput): MainPhaseStat
     };
   }
 
-  if (!battleActive && input.lastPhase === "MAIN_PHASE") {
+  if (!battleActive && phaseEquals(input.lastPhase, "MAIN_PHASE")) {
     if (!selection) {
       return {
         shouldUpdate: true,
@@ -193,7 +194,7 @@ export function computeMainPhaseState(input: MainPhaseStateInput): MainPhaseStat
     };
   }
 
-  if (input.lastPhase !== "MAIN_PHASE") {
+  if (!phaseEquals(input.lastPhase, "MAIN_PHASE")) {
     return {
       shouldUpdate: true,
       setHand: true,

@@ -6,6 +6,7 @@ import type { AttackIndicatorController } from "../controllers/AttackIndicatorCo
 import type { EffectTargetController } from "../controllers/EffectTargetController";
 import type { GameEndInfo } from "../scene/gameEndHelpers";
 import type { SlotViewModel } from "../ui/SlotTypes";
+import { normalizePhaseToken, phaseEquals } from "../game/phaseUtils";
 import { createLogger } from "../utils/logger";
 import { handleGameEnvRefresh } from "./handlers/GameEnvRefreshHandler";
 import { buildStatPulseNotificationEntries, createStatPulseHandler } from "./handlers/StatPulseNotificationHandlers";
@@ -333,18 +334,18 @@ export function buildNotificationHandlers(
         const previousPhase = event?.payload?.previousPhase;
         // Suppress internal battle flow phase flips; these can happen during the notification animation queue
         // and would otherwise spam the phase dialog.
-        const prev = (previousPhase ?? "").toString().toUpperCase();
-        const next = (nextPhase ?? "").toString().toUpperCase();
+        const prev = normalizePhaseToken(previousPhase);
+        const next = normalizePhaseToken(nextPhase);
         if (
-          (prev === "MAIN_PHASE" && next === "ACTION_STEP_PHASE") ||
-          (prev === "ACTION_STEP_PHASE" && next === "MAIN_PHASE")
+          (phaseEquals(prev, "MAIN_PHASE") && phaseEquals(next, "ACTION_STEP")) ||
+          (phaseEquals(prev, "ACTION_STEP") && phaseEquals(next, "MAIN_PHASE"))
         ) {
           return;
         }
         deps.turnOrderStatusDialog?.hide();
         deps.waitingOpponentDialog?.hide();
         deps.mulliganWaitingDialog?.hide();
-        const displayPhase = nextPhase === "REDRAW_PHASE" ? "START GAME" : nextPhase;
+        const displayPhase = phaseEquals(nextPhase, "REDRAW_PHASE") ? "START GAME" : nextPhase;
         await Promise.resolve(deps.phasePopup?.showPhaseChange(displayPhase));
       },
     ],

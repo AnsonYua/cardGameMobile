@@ -1,6 +1,7 @@
 import type { SelectionTarget } from "./SelectionStore";
 import { getTurnOwnerId } from "./turnOwner";
 import { filterActivatedEffectRulesByAvailability } from "./activatedEffectAvailability";
+import { normalizePhaseToken } from "./phaseUtils";
 import { SLOT_KEYS } from "./slotUtils";
 
 export function getEnergyState(player: any) {
@@ -79,11 +80,11 @@ export function commandHasTimingWindow(
   const cardData = target?.cardData ?? {};
   const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
   if (!rules.length) return false;
-  const currentPhase = (phase ?? "").toString().toUpperCase();
+  const currentPhase = normalizePhaseToken(phase);
   if (!currentPhase) return false;
   return rules.some((rule) => {
     const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    return windows.some((window) => (window ?? "").toString().toUpperCase() === currentPhase);
+    return windows.some((window) => normalizePhaseToken(window) === currentPhase);
   });
 }
 
@@ -104,12 +105,12 @@ export function getActivatedEffectRule(cardData?: any, phase?: string | null) {
 
 export function getActivatedEffectRules(cardData?: any, phase?: string | null) {
   const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-  const currentPhase = (phase ?? "").toString().toUpperCase();
+  const currentPhase = normalizePhaseToken(phase);
   if (!currentPhase) return [];
   return rules.filter((rule) => {
     if ((rule?.type || "").toString().toLowerCase() !== "activated") return false;
     const windows = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    return windows.some((window: string) => window.toString().toUpperCase() === currentPhase);
+    return windows.some((window: string) => normalizePhaseToken(window) === currentPhase);
   });
 }
 

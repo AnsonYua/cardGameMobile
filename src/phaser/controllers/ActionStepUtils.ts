@@ -11,7 +11,14 @@ export type ActionTargetEntry = {
   zone?: string;
   zoneType?: string;
   playerId?: string;
+  effectIds?: string[];
 };
+
+export function getActionTargetEffectIds(target?: ActionTargetEntry): string[] {
+  if (!target) return [];
+  const ids = Array.isArray(target.effectIds) ? target.effectIds : [];
+  return ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+}
 
 export function getBattleFromRaw(raw?: any) {
   const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
