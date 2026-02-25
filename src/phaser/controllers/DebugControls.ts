@@ -178,7 +178,6 @@ const SCENARIO_PRESET_GROUPS = {
     "GD03/GD03-061/repair_3_when_hp_eq_1_end_phase",
     "GD03/GD03-062/deploy_from_trash_via_gd03_051_then_damage_enemy_ap_le_4",
     "GD03/GD03-064/deploy_optional_add_x_rounder_from_trash_then_discard_1",
-    "GD03/GD03-064/deploy_damage_unit_then_ap_plus_1_on_same_unit",
     "GD03/GD03-068/blocker_redirect_if_friendly_base_in_play",
     "GD03/GD03-069/during_link_end_turn_set_active_self_negative_not_linked",
     "GD03/GD03-069/during_link_end_turn_set_active_self_positive",

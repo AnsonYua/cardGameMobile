@@ -84,11 +84,24 @@ export class TurnStateCoordinator {
     }
 
     const isSelfTurn = opts.isSelfTurn ?? this.isPlayersTurnFromRaw(raw);
-    if (isSelfTurn) {
+    if (isSelfTurn || this.isAwaitingOwnActionStepResponse(raw)) {
       this.deps.slotGate.enable("phase-turn");
     } else {
       this.deps.slotGate.disable("phase-turn");
     }
+  }
+
+  private isAwaitingOwnActionStepResponse(raw: any) {
+    const selfId = this.deps.gameContext.playerId;
+    if (!raw || !selfId) return false;
+    const battle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle;
+    if (!battle) return false;
+    const status = (battle?.status ?? "").toString().toUpperCase();
+    if (status !== "ACTION_STEP") return false;
+    const confirmations = battle?.confirmations ?? {};
+    if (confirmations[selfId] !== false) return false;
+    const targets = battle?.actionTargets?.[selfId];
+    return Array.isArray(targets) && targets.length > 0;
   }
 
   private isPlayersTurnFromRaw(raw: any) {
