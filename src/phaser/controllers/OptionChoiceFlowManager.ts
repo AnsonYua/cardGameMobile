@@ -250,20 +250,25 @@ function parseLayoutHint(raw: unknown): "card" | "text" | "hybrid" | undefined {
   return undefined;
 }
 
+function isOptionEnabled(option: any): boolean {
+  return option?.enabled !== false && option?.disabled !== true;
+}
+
 export function resolveOptionChoiceTimeoutIndex(options: any[], defaultOptionIndex?: number): number {
   const normalized = Array.isArray(options) ? options : [];
   if (Number.isFinite(defaultOptionIndex)) {
     const found = normalized.find((o) => Number(o?.index) === Number(defaultOptionIndex));
-    if (found && found?.enabled !== false) return Number(found.index);
+    if (found && isOptionEnabled(found)) return Number(found.index);
   }
   const bottom = normalized.find((o) => {
+    if (!isOptionEnabled(o)) return false;
     const payloadAction = (o?.payload?.action ?? "").toString().toUpperCase();
     if (payloadAction === "BOTTOM") return true;
     const label = (o?.label ?? "").toString().toLowerCase();
     return label.includes("bottom");
   });
-  if (bottom && typeof bottom.index === "number" && bottom?.enabled !== false) return bottom.index;
-  const firstEnabled = normalized.find((o) => o?.enabled !== false);
+  if (bottom && typeof bottom.index === "number") return bottom.index;
+  const firstEnabled = normalized.find((o) => isOptionEnabled(o));
   if (firstEnabled && typeof firstEnabled.index === "number") return firstEnabled.index;
   const first = normalized[0];
   return typeof first?.index === "number" ? first.index : 0;

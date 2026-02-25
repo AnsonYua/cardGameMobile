@@ -1,4 +1,6 @@
 import type { SlotCardView, SlotViewModel } from "../ui/SlotTypes";
+import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { evaluateComparisonFilter } from "../utils/comparisonFilter";
 
 type AllowAttackRule = {
   action?: string;
@@ -14,24 +16,41 @@ type AllowAttackRule = {
   };
 };
 
+const KNOWN_ALLOW_ATTACK_TARGET_PARAMETER_KEYS = new Set([
+  "status",
+  "level",
+  "ap",
+  "damaged",
+  "pairedPilot",
+  "pairedPilotTrait",
+  "allowActiveTarget",
+  "allowAttackOnDeployTurn",
+  "notes",
+  "excludeSource",
+]);
+
+const warnedParameterSignatures = new Set<string>();
+
 export function getAttackUnitTargets(attacker: SlotViewModel | undefined, opponentSlots: SlotViewModel[]): SlotViewModel[] {
   if (!attacker?.unit) return [];
   return opponentSlots.filter((slot) => {
     const unit = slot.unit;
     if (!unit) return false;
     if (unit.isRested) return true;
-    return canTargetActiveUnit(attacker.unit, attacker.pilot, slot);
+    return canTargetActiveUnit(attacker, slot);
   });
 }
 
-function canTargetActiveUnit(attackerUnit?: SlotCardView, attackerPilot?: SlotCardView, targetSlot?: SlotViewModel) {
+function canTargetActiveUnit(attackerSlot?: SlotViewModel, targetSlot?: SlotViewModel) {
+  const attackerUnit = attackerSlot?.unit;
+  const attackerPilot = attackerSlot?.pilot;
   const targetUnit = targetSlot?.unit;
   if (!targetUnit) return false;
-  const rules = [...getAllowAttackRules(attackerUnit), ...getAllowAttackRules(attackerPilot)].filter((rule) =>
+  const rules = normalizeRules([...getAllowAttackRules(attackerUnit), ...getAllowAttackRules(attackerPilot)]).filter((rule) =>
     canGrantActiveTargetPermission(rule) && sourceConditionsSatisfied(rule, attackerPilot),
   );
   if (!rules.length) return false;
-  return rules.some((rule) => matchesAllowAttackRule(rule, targetSlot));
+  return rules.some((rule) => matchesAllowAttackRule(rule, attackerSlot, targetSlot));
 }
 
 function getAllowAttackRules(card?: SlotCardView): AllowAttackRule[] {
@@ -46,10 +65,13 @@ function getAllowAttackRules(card?: SlotCardView): AllowAttackRule[] {
   return [...directRules, ...temporaryRules];
 }
 
-function matchesAllowAttackRule(rule: AllowAttackRule, targetSlot?: SlotViewModel): boolean {
+function matchesAllowAttackRule(rule: AllowAttackRule, attackerSlot?: SlotViewModel, targetSlot?: SlotViewModel): boolean {
   const targetUnit = targetSlot?.unit;
+  const attackerUnit = attackerSlot?.unit;
   if (!targetUnit) return false;
   const params = rule.parameters ?? {};
+  const sourceAp = Number(attackerSlot?.fieldCardValue?.totalAP ?? attackerSlot?.ap ?? attackerUnit?.cardData?.ap ?? 0);
+  const sourceLevel = Number(attackerUnit?.cardData?.level ?? 0);
   const status = (params.status ?? "").toString().toLowerCase();
   if (status && status !== "active") return false;
   if (status === "active" && targetUnit.isRested === true) return false;
@@ -58,19 +80,24 @@ function matchesAllowAttackRule(rule: AllowAttackRule, targetSlot?: SlotViewMode
   if (levelExpr) {
     const targetLevel = Number(targetUnit.cardData?.level);
     if (!Number.isFinite(targetLevel)) return false;
-    const parsed = parseLevelExpression(levelExpr);
-    if (!parsed) return false;
-    if (!compareLevel(targetLevel, parsed.op, parsed.value)) return false;
+    const ok = evaluateComparisonFilter(targetLevel, levelExpr, {
+      SOURCE_LEVEL: sourceLevel,
+      sourceLevel,
+    });
+    if (!ok) return false;
   }
 
   if (typeof params.ap === "number") {
-    const targetAp = Number(targetUnit.cardData?.ap);
+    const targetAp = Number(targetSlot?.fieldCardValue?.totalAP ?? targetUnit.cardData?.ap);
     if (!Number.isFinite(targetAp) || targetAp !== params.ap) return false;
   } else if (typeof params.ap === "string") {
-    const targetAp = Number(targetUnit.cardData?.ap);
+    const targetAp = Number(targetSlot?.fieldCardValue?.totalAP ?? targetUnit.cardData?.ap);
     if (!Number.isFinite(targetAp)) return false;
-    const parsed = parseLevelExpression(params.ap.trim());
-    if (!parsed || !compareLevel(targetAp, parsed.op, parsed.value)) return false;
+    const ok = evaluateComparisonFilter(targetAp, params.ap.trim(), {
+      SOURCE_AP: sourceAp,
+      sourceAp,
+    });
+    if (!ok) return false;
   }
 
   if (typeof params.damaged === "boolean") {
@@ -116,28 +143,22 @@ function sourceConditionsSatisfied(rule: AllowAttackRule, attackerPilot?: SlotCa
   });
 }
 
-function parseLevelExpression(expr: string): { op: string; value: number } | null {
-  const match = expr.match(/^(<=|>=|==|=|<|>)\s*(\d+)$/);
-  if (!match) return null;
-  const value = Number(match[2]);
-  if (!Number.isFinite(value)) return null;
-  const op = match[1] === "=" ? "==" : match[1];
-  return { op, value };
+function warnUnknownAllowAttackTargetParams(rule: AllowAttackRule): void {
+  if (!isDebugFlagEnabled("debug.effects")) return;
+  const params = rule?.parameters;
+  if (!params || typeof params !== "object") return;
+  const keys = Object.keys(params);
+  if (!keys.length) return;
+  const unknown = keys.filter((k) => !KNOWN_ALLOW_ATTACK_TARGET_PARAMETER_KEYS.has(k));
+  if (!unknown.length) return;
+  const signature = JSON.stringify(unknown.sort());
+  if (warnedParameterSignatures.has(signature)) return;
+  warnedParameterSignatures.add(signature);
+  // eslint-disable-next-line no-console
+  console.warn("[effects] unknown allow_attack_target parameter keys", unknown);
 }
 
-function compareLevel(target: number, op: string, value: number) {
-  switch (op) {
-    case "<":
-      return target < value;
-    case "<=":
-      return target <= value;
-    case ">":
-      return target > value;
-    case ">=":
-      return target >= value;
-    case "==":
-      return target === value;
-    default:
-      return false;
-  }
+function normalizeRules(rules: AllowAttackRule[]): AllowAttackRule[] {
+  rules.forEach((rule) => warnUnknownAllowAttackTargetParams(rule));
+  return rules;
 }

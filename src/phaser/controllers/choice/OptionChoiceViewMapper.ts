@@ -20,12 +20,14 @@ export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialog
   const mode = modeFromContract ?? inferredMode;
   const label = resolveChoiceLabel(display, option);
 
+  const isEnabled = option?.enabled !== false && option?.disabled !== true;
+
   return {
     index: Number(option?.index ?? 0),
     mode,
     cardId: cardId ? String(cardId) : undefined,
     label,
-    enabled: option?.enabled !== false,
-    interactionState: mode === "card" && option?.enabled !== false ? "selectable" : "read_only",
+    enabled: isEnabled,
+    interactionState: mode === "card" && isEnabled ? "selectable" : "read_only",
   };
 }

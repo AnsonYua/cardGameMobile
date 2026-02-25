@@ -63,7 +63,7 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
   params.tutorTopDeckRevealDialog?.hide();
   const buttons = options.map((o: DialogChoice) => ({
     label: (o?.label ?? "").toString() || `Option ${Number(o?.index ?? 0) + 1}`,
-    enabled: o?.enabled !== false,
+    enabled: o?.enabled !== false && o?.disabled !== true,
     onClick: async () => {
       await params.onSubmit(Number(o?.index ?? 0));
     },

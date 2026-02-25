@@ -19,6 +19,28 @@ function createOpponentSlot(slotId: string, opts: { rested?: boolean; level?: nu
 }
 
 describe("attackTargetPolicy", () => {
+  it("supports <=SOURCE_AP in temporary allow_attack_target rules", () => {
+    const attacker: SlotViewModel = {
+      owner: "player",
+      slotId: "slot1",
+      unit: {
+        cardUid: "GD03-035_unit",
+        temporaryEffects: [{ allowAttackTarget: { status: "active", ap: "<=SOURCE_AP" } }],
+        cardData: { ap: 4, effects: { rules: [] } },
+      },
+      fieldCardValue: { totalAP: 4 },
+    };
+
+    const opponentSlots: SlotViewModel[] = [
+      createOpponentSlot("slotLow", { rested: false, ap: 3 }),
+      createOpponentSlot("slotHigh", { rested: false, ap: 5 }),
+    ];
+
+    const targets = getAttackUnitTargets(attacker, opponentSlots);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].slotId).toBe("slotLow");
+  });
+
   it("does not allow active enemy target for allowAttackOnDeployTurn-only rule", () => {
     const attacker: SlotViewModel = {
       owner: "player",
