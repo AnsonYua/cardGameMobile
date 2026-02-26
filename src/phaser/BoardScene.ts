@@ -772,7 +772,8 @@ export class BoardScene extends Phaser.Scene {
     }
 
     const notificationQueue = getNotificationQueue(raw);
-    const events = this.animationQueue?.buildEvents(notificationQueue) ?? [];
+    const builtEvents = this.animationQueue?.buildEvents(notificationQueue) ?? [];
+    const events = this.filterNotificationEventsForPendingChoice(builtEvents, raw);
     if (!events.length) return false;
 
     // Hide the action bar while the animation queue is active.
@@ -825,6 +826,46 @@ export class BoardScene extends Phaser.Scene {
     this.renderSlots(initialSlots);
     this.animationQueue?.enqueue(events, ctx);
     return true;
+  }
+
+  private hasPendingBlockingChoice(raw: any): boolean {
+    const queue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
+    if (!Array.isArray(queue) || !queue.length) return false;
+    const selfId = this.gameContext.playerId;
+
+    for (const entry of queue) {
+      const type = (entry?.type ?? '').toString().toUpperCase();
+      const status = (entry?.status ?? '').toString().toUpperCase();
+      if (status && status !== 'DECLARED') continue;
+      if (type !== 'TARGET_CHOICE' && type !== 'BLOCKER_CHOICE' && type !== 'BURST_EFFECT_CHOICE') continue;
+      const ownerId = (entry?.playerId ?? entry?.data?.playerId ?? '').toString();
+      if (selfId && ownerId && ownerId !== selfId) continue;
+      return true;
+    }
+
+    return false;
+  }
+
+  private filterNotificationEventsForPendingChoice(events: any[], raw: any): any[] {
+    if (!Array.isArray(events) || events.length === 0) return [];
+    if (!this.hasPendingBlockingChoice(raw)) return events;
+
+    const isChoiceType = (type: string) =>
+      type === 'TARGET_CHOICE' || type === 'BLOCKER_CHOICE' || type === 'BURST_EFFECT_CHOICE';
+
+    const prioritized = events.filter((event) => isChoiceType((event?.type ?? '').toString().toUpperCase()));
+    const deferredTypes = events
+      .map((event) => (event?.type ?? '').toString().toUpperCase())
+      .filter((type) => type && !isChoiceType(type));
+
+    if (deferredTypes.length > 0) {
+      this.log.debug('defer notifications while choice pending', {
+        deferredTypes,
+        keptTypes: prioritized.map((event) => (event?.type ?? '').toString().toUpperCase()),
+      });
+    }
+
+    return prioritized;
   }
 
   private updateSlots() {

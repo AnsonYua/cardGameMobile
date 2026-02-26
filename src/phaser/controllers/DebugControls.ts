@@ -112,6 +112,7 @@ const SCENARIO_PRESET_GROUPS = {
   GD03: [
     "GD03/GD03-001/pair_damage_rested_destroy_draw_1",
     "GD03/GD03-002/during_pair_repair_unit_attack_rest_enemy",
+    "GD03/GD03-002/during_pair_repair_unit_attack_rest_enemy_2",
     "GD03/GD03-004/attack_if_two_other_titans_rest_enemy_le_5hp",
     "GD03/GD03-006/deploy_rest_1_to_2_enemy_hp_le_3",
     "GD03/GD03-007/destroyed_choose_enemy_le3hp_rest",

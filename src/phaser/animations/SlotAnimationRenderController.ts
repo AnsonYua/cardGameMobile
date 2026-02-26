@@ -116,6 +116,19 @@ export class SlotAnimationRenderController {
       }
     }
 
+    if (type === "CARD_RESTED" || type === "CARD_SET_ACTIVE") {
+      const shouldRest = type === "CARD_RESTED";
+      keys.forEach((key) => {
+        const base = this.renderSnapshots.get(key);
+        if (!base) return;
+        const snapshot = this.cloneSlot(base);
+        snapshot.isRested = shouldRest;
+        if (snapshot.unit) snapshot.unit.isRested = shouldRest;
+        if (snapshot.pilot) snapshot.pilot.isRested = shouldRest;
+        this.renderSnapshots.set(key, snapshot);
+      });
+    }
+
    
     return this.buildSlotsForRender(currentSlots);
   }
@@ -145,8 +158,10 @@ export class SlotAnimationRenderController {
     if (type === "UNIT_ATTACK_DECLARED" || 
         type =="PHASE_CHANGED" ||
         type === "CARD_STAT_MODIFIED" ||
-        type === "CARD_DAMAGED") {
-      // Keep preview snapshot (rested) for this event; just unhide affected slots.
+        type === "CARD_DAMAGED" ||
+        type === "CARD_RESTED" ||
+        type === "CARD_SET_ACTIVE") {
+      // Keep preview snapshot for state-only events; just unhide affected slots.
       return this.buildSlotsForRender(currentSlots);
     }
     const byKey = new Map(currentSlots.map((slot) => [`${slot.owner}-${slot.slotId}`, slot]));

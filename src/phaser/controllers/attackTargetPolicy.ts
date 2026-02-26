@@ -4,6 +4,8 @@ import { evaluateComparisonFilter } from "../utils/comparisonFilter";
 
 type AllowAttackRule = {
   action?: string;
+  trigger?: string;
+  conditions?: Array<{ type?: string; scope?: string; value?: string } | string>;
   sourceConditions?: Array<{ type?: string } | string>;
   parameters?: {
     status?: string;
@@ -56,13 +58,33 @@ function canTargetActiveUnit(attackerSlot?: SlotViewModel, targetSlot?: SlotView
 function getAllowAttackRules(card?: SlotCardView): AllowAttackRule[] {
   const staticRules: any[] = Array.isArray(card?.cardData?.effects?.rules) ? card.cardData.effects.rules : [];
   const directRules = staticRules.filter((rule) => (rule?.action || "").toString().toLowerCase() === "allow_attack_target");
+  const pairingSequenceStepRules = staticRules.flatMap((rule) => {
+    if ((rule?.action || "").toString().toLowerCase() !== "sequence") return [];
+    if ((rule?.trigger || "").toString().toUpperCase() !== "PAIRING_COMPLETE") return [];
+    const steps = Array.isArray(rule?.parameters?.steps) ? rule.parameters.steps : [];
+    return steps
+      .filter((step) => (step?.action || "").toString().toLowerCase() === "allow_attack_target")
+      .map((step) => ({
+        ...step,
+        action: "allow_attack_target",
+        trigger: rule?.trigger,
+        sourceConditions: [
+          ...(Array.isArray(rule?.sourceConditions) ? rule.sourceConditions : []),
+          ...(Array.isArray(step?.sourceConditions) ? step.sourceConditions : []),
+        ],
+        conditions: [
+          ...(Array.isArray(rule?.conditions) ? rule.conditions : []),
+          ...(Array.isArray(step?.conditions) ? step.conditions : []),
+        ],
+      }));
+  });
 
   const temporaryRules = (Array.isArray(card?.temporaryEffects) ? card.temporaryEffects : [])
     .map((effect) => effect?.allowAttackTarget)
     .filter((allow) => allow && typeof allow === "object")
     .map((allow) => ({ action: "allow_attack_target", parameters: allow }));
 
-  return [...directRules, ...temporaryRules];
+  return [...directRules, ...pairingSequenceStepRules, ...temporaryRules];
 }
 
 function matchesAllowAttackRule(rule: AllowAttackRule, attackerSlot?: SlotViewModel, targetSlot?: SlotViewModel): boolean {
@@ -132,12 +154,23 @@ function canGrantActiveTargetPermission(rule: AllowAttackRule): boolean {
 }
 
 function sourceConditionsSatisfied(rule: AllowAttackRule, attackerPilot?: SlotCardView): boolean {
-  const sourceConditions = Array.isArray(rule.sourceConditions) ? rule.sourceConditions : [];
+  const sourceConditions = [
+    ...(Array.isArray(rule.sourceConditions) ? rule.sourceConditions : []),
+    ...(Array.isArray(rule.conditions) ? rule.conditions : []),
+  ];
   if (!sourceConditions.length) return true;
   return sourceConditions.every((condition) => {
     const type = typeof condition === "string" ? condition.toLowerCase() : (condition?.type || "").toLowerCase();
+    const scope = typeof condition === "string" ? "" : (condition?.scope || "").toLowerCase();
     if (type === "paired" || type === "ispaired") {
       return Boolean(attackerPilot);
+    }
+    if (type === "pairedpilottrait") {
+      if (scope && scope !== "source") return true;
+      const expectedTrait = typeof condition === "string" ? "" : (condition?.value || "");
+      if (!expectedTrait) return true;
+      const pilotTraits = Array.isArray(attackerPilot?.cardData?.traits) ? attackerPilot.cardData.traits : [];
+      return pilotTraits.includes(expectedTrait);
     }
     return true;
   });

@@ -138,6 +138,19 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "CARD_RESTED",
+      async () => {
+        // No-op: registering this event ensures AnimationQueue sequences slot-state updates
+        // so rested visuals apply before later battle/game-end notifications.
+      },
+    ],
+    [
+      "CARD_SET_ACTIVE",
+      async () => {
+        // No-op: keep slot active/rested state notifications visible in animation order.
+      },
+    ],
+    [
       "GAME_ENDED",
       async (event) => {
         const payload = event?.payload ?? {};
