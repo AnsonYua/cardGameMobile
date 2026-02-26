@@ -148,6 +148,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD03/GD03-037/during_link_gain_first_strike_while_battling_destroyed_effect_unit",
     "GD03/GD03-038/support1_rest_trigger_zaft_ap_plus_2",
     "GD03/GD03-039/deploy_rest_clan_unit_and_optional_damage_2_to_enemy_ap_le_2",
+    "GD03/GD03-039/deploy_no_clan_unit",
     "GD03/GD03-038/unit_rested_by_effect_ap_boost_zaft",
     "GD03/GD03-040/linked_grant_high_maneuver_skip_blocker",
     "GD03/GD03-040/linked_grant_high_maneuver_skip_blocker_hand",
