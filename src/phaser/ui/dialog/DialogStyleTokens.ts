@@ -48,11 +48,12 @@ export function createDialogActionButton(params: {
     });
   }
 
+  const wrappedLabel = params.label.replace(/([_:/()\\-])/g, "$1\u200b");
   const txt = params.scene
-    .add.text(params.x, params.y, params.label, {
+    .add.text(params.x, params.y, wrappedLabel, {
       ...DIALOG_TEXT.button,
       color: textColor,
-      wordWrap: { width: params.width - 18 },
+      wordWrap: { width: params.width - 18, useAdvancedWrap: true },
     })
     .setOrigin(0.5);
 

@@ -45,8 +45,11 @@ export function createPromptDialog(
   const gap = opts.headerGap ?? 14;
   const count = opts.buttons.length;
   const hasLongButtonLabel = opts.buttons.some((btn) => (btn?.label ?? "").toString().length > 24);
+  const maxButtonLabelLength = opts.buttons.reduce((max, btn) => Math.max(max, (btn?.label ?? "").toString().length), 0);
   const useStackedButtons = count > 1 && (cam.width <= 900 || hasLongButtonLabel);
-  const buttonHeight = useStackedButtons ? 52 : 46;
+  const stackedButtonHeight =
+    maxButtonLabelLength > 72 ? 92 : maxButtonLabelLength > 44 ? 74 : maxButtonLabelLength > 28 ? 60 : 52;
+  const buttonHeight = useStackedButtons ? stackedButtonHeight : 46;
   const buttonGap = useStackedButtons ? 12 : 24;
   const buttonRows = hasButtons ? (useStackedButtons ? count : 1) : 0;
   const promptHeight = tempPrompt?.height ?? 0;

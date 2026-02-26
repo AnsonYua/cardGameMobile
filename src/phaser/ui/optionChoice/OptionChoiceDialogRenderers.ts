@@ -73,7 +73,8 @@ export function renderOptionChoiceHybridDialog(params: {
 }): Phaser.GameObjects.Container {
   const cam = params.scene.cameras.main;
   const gap = 12;
-  const buttonHeight = 48;
+  const maxTextChoiceLabelLength = params.textChoices.reduce((max, choice) => Math.max(max, choice.label.length), 0);
+  const buttonHeight = maxTextChoiceLabelLength > 72 ? 92 : maxTextChoiceLabelLength > 44 ? 74 : 48;
   const buttonGap = 10;
   const sectionGap = 14;
   const maxContentWidth = Math.min(540, Math.max(280, cam.width * 0.74));
