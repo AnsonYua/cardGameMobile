@@ -25,6 +25,7 @@ import { isBlockerPhase } from "../game/phaseUtils";
 import { buildSlotAttackActionDescriptors } from "./actionBar/slotAttackProvider";
 import { mergeActionDescriptors, normalizePrimary, sortActionDescriptors } from "./actionBar/descriptorUtils";
 import { createLogger } from "../utils/logger";
+import { findActiveBlockerChoiceFromRaw } from "./choice/ChoiceFlowUtils";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -119,6 +120,22 @@ export class ActionBarCoordinator {
       blockerActive: this.deps.blockerFlow.isActive(),
       isBlockerPhase: isBlockerPhase(phase),
     });
+    this.log.debug("actionBar decision", {
+      phase,
+      isSelfTurn,
+      actionStepStatus,
+      blockerActive: this.deps.blockerFlow.isActive(),
+      decisionKind: decision.kind,
+    });
+    if (decision.kind === "blocker") {
+      const active = findActiveBlockerChoiceFromRaw(raw);
+      console.warn("[ActionBarCoordinator] blocker decision", {
+        selfPlayerId: this.deps.gameContext.playerId,
+        choiceOwnerId: active?.event?.playerId,
+        isActive: this.deps.blockerFlow.isActive(),
+        decisionKind: decision.kind,
+      });
+    }
 
     if (decision.kind === "waiting") {
       this.applyWaitingState(actions, decision.label);
@@ -126,7 +143,29 @@ export class ActionBarCoordinator {
     }
 
     if (decision.kind === "blocker") {
+      if (!this.deps.blockerFlow.isActive()) {
+        this.deps.blockerFlow.handleSnapshot(raw);
+      }
       if (this.deps.blockerFlow.applyActionBar()) {
+        return;
+      }
+      if (this.hasSelfUnresolvedBlockerChoice(raw)) {
+        actions.setWaitingForOpponent?.(false);
+        actions.setState?.({
+          descriptors: [
+            {
+              label: "Choose Blocker",
+              primary: true,
+              enabled: this.deps.blockerFlow.canChooseBlocker(),
+              onClick: () => this.deps.blockerFlow.chooseBlockerStep(),
+            },
+            {
+              label: "Skip Blocker Phase",
+              enabled: true,
+              onClick: () => this.deps.blockerFlow.skipBlockerStep(),
+            },
+          ],
+        });
         return;
       }
     }
@@ -225,5 +264,12 @@ export class ActionBarCoordinator {
     actions.setWaitingLabel?.(label);
     actions.setWaitingForOpponent?.(true);
     actions.setState?.({ descriptors: [] });
+  }
+
+  private hasSelfUnresolvedBlockerChoice(raw: any) {
+    const active = findActiveBlockerChoiceFromRaw(raw);
+    const selfId = this.deps.gameContext.playerId;
+    const ownerId = (active?.event?.playerId ?? "").toString();
+    return Boolean(selfId && ownerId && ownerId === selfId);
   }
 }

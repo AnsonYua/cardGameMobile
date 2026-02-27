@@ -206,8 +206,11 @@ export class SelectionActionController {
     this.refreshAfterStateChange(actionSource);
   }
 
-  updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean }) {
-    this.syncAndUpdateActionBar("neutral", raw, { isSelfTurn: opts.isSelfTurn });
+  updateActionBarForPhase(raw: any, opts: { isSelfTurn: boolean; bypassDelayGate?: boolean }) {
+    this.syncAndUpdateActionBar("neutral", raw, {
+      isSelfTurn: opts.isSelfTurn,
+      bypassDelayGate: opts.bypassDelayGate,
+    });
   }
 
   clearSelectionUI(opts: { clearEngine?: boolean } = {}) {
@@ -252,9 +255,21 @@ export class SelectionActionController {
     this.turnStateCoordinator.syncSnapshotState(raw, opts);
   }
 
-  syncAndUpdateActionBar(source: ActionSource, raw?: any, opts: { isSelfTurn?: boolean } = {}) {
+  syncAndUpdateActionBar(
+    source: ActionSource,
+    raw?: any,
+    opts: { isSelfTurn?: boolean; bypassDelayGate?: boolean } = {},
+  ) {
     const snapshotRaw = raw ?? (this.deps.engine.getSnapshot().raw as any);
-    if (this.deps.shouldDelayActionBar?.(snapshotRaw)) {
+    const shouldDelay = this.deps.shouldDelayActionBar?.(snapshotRaw) ?? false;
+    console.warn("[SelectionActionController] delay gate check", {
+      phase: snapshotRaw?.gameEnv?.phase ?? snapshotRaw?.phase,
+      playerId: this.deps.gameContext.playerId,
+      shouldDelay,
+      bypassDelayGate: opts.bypassDelayGate === true,
+      source,
+    });
+    if (shouldDelay && opts.bypassDelayGate !== true) {
       this.deps.onDelayActionBar?.(snapshotRaw);
       return;
     }

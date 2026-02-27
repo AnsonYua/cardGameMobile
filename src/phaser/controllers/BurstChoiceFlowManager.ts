@@ -254,12 +254,21 @@ export class BurstChoiceFlowManager {
         confirmed,
       });
       await this.deps.engine.updateGameStatus(gameId, playerId);
-    } catch (err) {
-      void err;
-    } finally {
-      this.requestPending = false;
       this.resolvePending();
       this.clear();
+    } catch (err) {
+      console.error("[BurstChoiceFlowManager] confirmBurstChoice failed", {
+        gameId,
+        playerId,
+        eventId: this.queueEntry.eventId ?? this.queueEntry.id,
+        userDecision,
+        error: err,
+      });
+      this.requestPending = false;
+      this.deps.refreshActions();
+      return;
+    } finally {
+      this.requestPending = false;
       this.deps.refreshActions();
     }
   }

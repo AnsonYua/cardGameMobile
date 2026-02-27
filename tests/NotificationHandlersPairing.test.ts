@@ -51,4 +51,17 @@ describe('NotificationHandlers pairing notifications', () => {
 
     expect(triggerStatPulse).toHaveBeenCalledTimes(1);
   });
+
+  it('registers TOKEN_DEPLOYED so event stays sequenced in animation queue', async () => {
+    const triggerStatPulse = vi.fn(async () => undefined);
+    const handlers = buildNotificationHandlers(createDeps(), { triggerStatPulse });
+
+    const handler = handlers.get('TOKEN_DEPLOYED');
+    expect(handler).toBeTruthy();
+
+    await handler?.({ type: 'TOKEN_DEPLOYED', payload: {}, id: 'n3' } as any, {
+      slots: [],
+      allowAnimations: true,
+    } as any);
+  });
 });

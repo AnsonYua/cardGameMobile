@@ -239,8 +239,10 @@ export class BurstChoiceGroupFlowManager {
         finish();
       };
       const submit = async (confirmed: boolean) => {
-        await this.submitChoice(eventId, confirmed);
-        finish();
+        const success = await this.submitChoice(eventId, confirmed);
+        if (success) {
+          finish();
+        }
       };
 
       dialog.show({
@@ -264,23 +266,32 @@ export class BurstChoiceGroupFlowManager {
     });
   }
 
-  private async submitChoice(eventId: string, confirmed: boolean) {
-    if (this.requestPending) return;
+  private async submitChoice(eventId: string, confirmed: boolean): Promise<boolean> {
+    if (this.requestPending) return false;
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId) return;
+    if (!gameId || !playerId) return false;
     this.requestPending = true;
     this.deps.refreshActions();
     try {
       await this.deps.api.confirmBurstChoice({ gameId, playerId, eventId, confirmed });
       await this.deps.engine.updateGameStatus(gameId, playerId);
-    } catch (err) {
-      void err;
-    } finally {
-      this.requestPending = false;
       await this.deps.burstChoiceDialog?.hide();
-      // After the poll, if group still exists and isn't completed, the loop will show the list again.
+      this.requestPending = false;
       this.deps.refreshActions();
+      return true;
+    } catch (err) {
+      console.error("[BurstChoiceGroupFlowManager] confirmBurstChoice failed", {
+        gameId,
+        playerId,
+        eventId,
+        confirmed,
+        error: err,
+      });
+      // Keep current dialog state for retry; do not close on failed submit.
+      this.requestPending = false;
+      this.deps.refreshActions();
+      return false;
     }
   }
 

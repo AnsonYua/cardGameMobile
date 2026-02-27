@@ -44,7 +44,12 @@ import type { BaseShieldAnimationRenderController } from "./animations/BaseShiel
 import { setupAnimationPipeline } from "./scene/boardAnimationSetup";
 import { type TargetAnchorProviders } from "./utils/AttackResolver";
 import { OverlayController } from "./controllers/OverlayController";
-import { findLiveAttackIndicatorNotification, getNotificationQueue } from "./utils/NotificationUtils";
+import {
+  findLiveAttackIndicatorNotification,
+  getNotificationQueue,
+  resolveAttackContextForIndicator,
+  resolveRefreshTargetAttackNotificationId,
+} from "./utils/NotificationUtils";
 import type { GameEndInfo } from "./scene/gameEndHelpers";
 import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
@@ -75,6 +80,7 @@ import { createBoardSlotOnlySprite } from "./scene/dialogSlotSpritePolicy";
 import { CardAutomationBridge } from "./automation/CardAutomationBridge";
 import { isAutomationEnabled } from "./automation/automationFlag";
 import type { CardAutomation } from "./automation/AutomationTypes";
+import { findActiveBlockerChoiceFromRaw } from "./controllers/choice/ChoiceFlowUtils";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -352,15 +358,40 @@ export class BoardScene extends Phaser.Scene {
       gameContext: this.gameContext,
       refreshPhase: (skipFade) => this.refreshPhase(skipFade),
       shouldDelayActionBar: (raw) => {
-        if (this.turnStartDrawGate?.shouldDelayActionBar(raw)) return true;
-        if (this.animationQueue?.isRunning?.()) return true;
+        const queueRunning = this.animationQueue?.isRunning?.() ?? false;
+        const hasPendingSelfBlockerChoice = this.hasPendingSelfBlockerChoice(raw);
         const queue = getNotificationQueue(raw);
         const events = this.animationQueue?.buildEvents(queue) ?? [];
+        const pendingAnimatableEvents = events.filter(
+          (e) => !!e?.id && !(this.animationQueue?.isProcessed?.(e.id) ?? false),
+        );
+        const delayByTurnStartDraw = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
+        const delayByQueue = queueRunning;
+        const delayByPendingEvents = pendingAnimatableEvents.length > 0;
+        const shouldDelay = delayByTurnStartDraw || delayByQueue || delayByPendingEvents;
+        console.warn("[BoardScene] shouldDelayActionBar", {
+          phase: raw?.gameEnv?.phase ?? raw?.phase,
+          playerId: this.gameContext.playerId,
+          queueRunning,
+          pendingAnimatableEvents: pendingAnimatableEvents.length,
+          hasPendingSelfBlockerChoice,
+          shouldDelay,
+        });
+        if (this.turnStartDrawGate?.shouldDelayActionBar(raw)) return true;
+        if (queueRunning) return true;
         // Only delay if there's at least one animatable event that the animationQueue hasn't processed yet.
         // Notifications can remain in the queue until expiry; we should not block the action bar for already-processed events.
-        return events.some((e) => !!e?.id && !(this.animationQueue?.isProcessed?.(e.id) ?? false));
+        return pendingAnimatableEvents.length > 0;
       },
       onDelayActionBar: (raw) => {
+        if (this.hasPendingSelfBlockerChoice(raw)) {
+          console.warn("[BoardScene] onDelayActionBar bypassed for pending self blocker choice", {
+            phase: raw?.gameEnv?.phase ?? raw?.phase,
+            playerId: this.gameContext.playerId,
+          });
+          this.refreshActionBarState(raw);
+          return;
+        }
         if (this.turnStartDrawGate?.shouldDelayActionBar(raw)) {
           this.hideActionBarForTurnStartDraw(raw);
           return;
@@ -584,16 +615,55 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private syncAttackIndicatorWithNotifications(raw: any) {
-    if (this.animationQueue?.isRunning?.()) return;
+    const queueRunning = this.animationQueue?.isRunning?.() ?? false;
     const notificationQueue = getNotificationQueue(raw);
     const activeAttack = findLiveAttackIndicatorNotification(notificationQueue);
+    const suppressedAttackKey = this.animationQueue?.getSuppressedAttackKey?.() ?? undefined;
+    const activeAttackKey = resolveRefreshTargetAttackNotificationId(activeAttack, notificationQueue) ?? activeAttack?.id;
+    console.warn("[BoardScene] syncAttackIndicatorWithNotifications", {
+      phase: raw?.gameEnv?.phase ?? raw?.phase,
+      queueRunning,
+      activeAttackId: activeAttack?.id,
+      activeAttackKey,
+      suppressedAttackKey,
+      isSuppressed: Boolean(
+        suppressedAttackKey &&
+          (activeAttackKey === suppressedAttackKey),
+      ),
+    });
     if (!activeAttack) {
+      if (queueRunning) {
+        console.warn("[BoardScene] syncAttackIndicator hold while queue running", {
+          holdIndicator: true,
+          queueRunning,
+          phase: raw?.gameEnv?.phase ?? raw?.phase,
+        });
+        return;
+      }
       this.animationQueue?.clearAttackIndicator();
       return;
     }
+    let indicatorNote = activeAttack;
+    if ((activeAttack.type || "").toUpperCase() === "REFRESH_TARGET") {
+      const attackContext = resolveAttackContextForIndicator(raw, activeAttack, notificationQueue);
+      const enrichedPayload = { ...(activeAttack.payload ?? {}), ...attackContext };
+      const hasAttackerContext = Boolean(
+        enrichedPayload.attackingPlayerId && enrichedPayload.attackerCarduid && enrichedPayload.attackerSlot,
+      );
+      console.warn("[BoardScene] refresh target hydrate", {
+        refreshTargetHydrated: true,
+        resolvedAttackNotificationId: attackContext.resolvedAttackNotificationId,
+        usedCurrentBattleFallback: attackContext.usedCurrentBattleFallback,
+        hasAttackerContext,
+      });
+      indicatorNote = {
+        ...activeAttack,
+        payload: enrichedPayload,
+      };
+    }
     const slots = this.slotPresenter.toSlots(raw, this.gameContext.playerId);
     const boardSlotPositions = this.slotControls?.getBoardSlotPositions?.();
-    void this.animationQueue?.syncAttackIndicator(activeAttack, slots, boardSlotPositions ?? undefined);
+    void this.animationQueue?.syncAttackIndicator(indicatorNote, slots, boardSlotPositions ?? undefined);
   }
 
   private updateMainPhaseUI(raw: any, skipAnimation: boolean) {
@@ -763,7 +833,13 @@ export class BoardScene extends Phaser.Scene {
 
     const queueRunning = this.animationQueue?.isRunning() ?? false;
     if (queueRunning) {
-      this.log.debug("processNotificationQueue skip (queue running)");
+      const controlsVisible = this.hasPendingSelfBlockerChoice(raw);
+      console.warn("[BoardScene] processNotificationQueue skip while queue running", {
+        selfPlayerId: this.gameContext.playerId,
+        queueRunning,
+        controlsVisible,
+      });
+      this.refreshActionBarState(raw);
       return true;
     }
 
@@ -776,8 +852,18 @@ export class BoardScene extends Phaser.Scene {
     const events = this.filterNotificationEventsForPendingChoice(builtEvents, raw);
     if (!events.length) return false;
 
-    // Hide the action bar while the animation queue is active.
-    this.actionControls?.setVisible(false);
+    // Keep blocker controls visible for the defending player while waiting for blocker decision.
+    const showForBlockerChoice = this.hasPendingSelfBlockerChoice(raw);
+    if (showForBlockerChoice) {
+      this.actionControls?.setVisible(true);
+    } else {
+      this.actionControls?.setVisible(false);
+    }
+    console.warn("[BoardScene] processNotificationQueue controls visibility", {
+      selfPlayerId: this.gameContext.playerId,
+      queueRunning: false,
+      controlsVisible: showForBlockerChoice,
+    });
 
     const playerId = this.gameContext.playerId;
     const currentSlots = this.slotPresenter.toSlots(raw, playerId);
@@ -852,6 +938,14 @@ export class BoardScene extends Phaser.Scene {
     return false;
   }
 
+  private hasPendingSelfBlockerChoice(raw: any): boolean {
+    const selfId = this.gameContext.playerId;
+    if (!selfId) return false;
+    const active = findActiveBlockerChoiceFromRaw(raw);
+    const ownerId = (active?.event?.playerId ?? "").toString();
+    return Boolean(ownerId && ownerId === selfId);
+  }
+
   private filterNotificationEventsForPendingChoice(events: any[], raw: any): any[] {
     if (!Array.isArray(events) || events.length === 0) return [];
     if (!this.hasPendingBlockingChoice(raw)) return events;
@@ -918,10 +1012,20 @@ export class BoardScene extends Phaser.Scene {
     if (this.gameEnded) {
       return;
     }
-    if (this.animationQueue?.isRunning?.()) {
+    const queueRunning = this.animationQueue?.isRunning?.() ?? false;
+    const allowDuringQueue = this.hasPendingSelfBlockerChoice(raw);
+    console.warn("[BoardScene] refreshActionBarState", {
+      selfPlayerId: this.gameContext.playerId,
+      queueRunning,
+      allowDuringQueue,
+      controlsVisible: !(queueRunning && !allowDuringQueue),
+      phase: raw?.gameEnv?.phase ?? raw?.phase,
+    });
+    if (queueRunning && !allowDuringQueue) {
       this.actionControls?.setVisible(false);
       return;
     }
+    this.actionControls?.setVisible(true);
     const delayActionBar = this.turnStartDrawGate?.shouldDelayActionBar(raw) ?? false;
     if (delayActionBar) {
       this.hideActionBarForTurnStartDraw(raw);
@@ -929,7 +1033,10 @@ export class BoardScene extends Phaser.Scene {
     }
     const playerId = this.gameContext.playerId;
     const isSelfTurn = this.turnController.update(raw, playerId);
-    this.selectionAction?.updateActionBarForPhase(raw, { isSelfTurn });
+    this.selectionAction?.updateActionBarForPhase(raw, {
+      isSelfTurn,
+      bypassDelayGate: allowDuringQueue,
+    });
   }
 
   private getTargetAnchorProviders(): TargetAnchorProviders {

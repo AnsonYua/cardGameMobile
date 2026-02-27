@@ -93,6 +93,10 @@ export class AnimationQueue {
     this.deps.attackIndicator.clear();
   }
 
+  getSuppressedAttackKey() {
+    return this.deps.attackIndicator.getSuppressedAttackKey();
+  }
+
   async syncAttackIndicator(
     event: SlotNotification | undefined,
     slots: SlotViewModel[],

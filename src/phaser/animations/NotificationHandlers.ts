@@ -138,6 +138,12 @@ export function buildNotificationHandlers(
       },
     ],
     [
+      "BLOCKER_CHOICE",
+      async () => {
+        // No-op: explicit registration keeps blocker choice in notification sequencing.
+      },
+    ],
+    [
       "CARD_RESTED",
       async () => {
         // No-op: registering this event ensures AnimationQueue sequences slot-state updates
@@ -282,28 +288,26 @@ export function buildNotificationHandlers(
     ],
     [
       "UNIT_ATTACK_DECLARED",
-      async (event, ctx) => {
-        await deps.attackIndicator.updateFromNotification(
-          event,
-          ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-        );
+      async () => {
+        // Snapshot-driven sync is the only source of attack-indicator state.
       },
     ],
     [
       "REFRESH_TARGET",
-      async (event, ctx) => {
-        await deps.attackIndicator.updateFromNotification(
-          event,
-          ctx.slots,
-          ctx.boardSlotPositions ?? undefined,
-        );
+      async () => {
+        // Snapshot-driven sync is the only source of attack-indicator state.
       },
     ],
     [
       "BATTLE_RESOLVED",
       async (event, ctx) => {
-        deps.attackIndicator.clear();
+        const payload = event?.payload ?? {};
+        const attackRef =
+          payload.attackNotificationId ??
+          payload.sourceNotificationId ??
+          payload.notificationId ??
+          payload?.result?.attackNotificationId;
+        deps.attackIndicator.markAttackResolved(attackRef ? String(attackRef) : undefined);
         if (ctx.allowAnimations) {
           await deps.battleAnimator.playBattleResolution(
             event,
@@ -312,6 +316,11 @@ export function buildNotificationHandlers(
             ctx.currentRaw,
           );
         }
+        console.warn("[NotificationHandlers] battle resolved post-animation clear", {
+          battleResolvedPostAnimationClear: true,
+          attackRef: attackRef ? String(attackRef) : undefined,
+        });
+        deps.attackIndicator.clear();
         const result = event?.payload?.result ?? {};
         if (result?.gameEnded) {
           const winnerId = result.winnerId ?? event?.payload?.winnerId;
@@ -337,6 +346,15 @@ export function buildNotificationHandlers(
         // latest snapshot already reflects the post-destroy state.)
         if (!ctx.allowAnimations) return;
         await new Promise<void>((resolve) => setTimeout(resolve, 180));
+      },
+    ],
+    [
+      "TOKEN_DEPLOYED",
+      async (_event, ctx) => {
+        // Keep token slot visibility aligned with notification ordering so deploy visuals
+        // do not appear before earlier battle notifications complete.
+        if (!ctx.allowAnimations) return;
+        await Promise.resolve();
       },
     ],
     [

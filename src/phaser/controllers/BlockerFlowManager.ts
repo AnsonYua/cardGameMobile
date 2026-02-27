@@ -7,7 +7,7 @@ import type { ActionControls } from "./ControllerTypes";
 import { mapAvailableTargetsToSlotTargets, type SlotTarget } from "./TargetSlotMapper";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { SlotInteractionGate } from "./SlotInteractionGate";
-import { getNotificationQueue } from "../utils/NotificationUtils";
+import { findActiveBlockerChoiceFromRaw } from "./choice/ChoiceFlowUtils";
 
 type BlockerDeps = {
   api: ApiManager;
@@ -36,6 +36,9 @@ export class BlockerFlowManager {
       if (this.queueEntry) {
         this.clear();
       }
+      console.warn("[BlockerFlowManager] no active blocker choice", {
+        selfPlayerId: this.deps.gameContext.playerId,
+      });
       return null;
     }
     if (this.queueEntry?.id === entry.id) return entry;
@@ -48,6 +51,15 @@ export class BlockerFlowManager {
     );
     this.notificationId = active?.notificationId;
     this.requestPending = false;
+    console.warn("[BlockerFlowManager] active blocker choice", {
+      eventId: entry?.id,
+      choiceOwnerId: entry?.playerId,
+      isActive: true,
+      slotTargets: this.slotTargets.length,
+      availableTargets: entry?.data?.availableTargets?.length ?? 0,
+      notificationId: this.notificationId,
+      selfPlayerId: this.deps.gameContext.playerId,
+    });
     return entry;
   }
 
@@ -93,6 +105,16 @@ export class BlockerFlowManager {
     this.deps.onPlayerAction?.("skipBlockerStep");
   }
 
+  async chooseBlockerStep() {
+    await this.openBlockerChoiceDialog();
+  }
+
+  canChooseBlocker() {
+    const selfId = this.deps.gameContext.playerId;
+    const isDefender = this.queueEntry?.playerId === selfId;
+    return Boolean(isDefender && !this.requestPending && this.slotTargets.length > 0);
+  }
+
   private async openBlockerChoiceDialog() {
     if (!this.deps.effectTargetController || !this.slotTargets.length) return;
     await this.deps.effectTargetController.showManualTargets({
@@ -131,32 +153,33 @@ export class BlockerFlowManager {
       });
       this.deps.onPlayerAction?.("confirmBlockerChoice");
       await this.deps.engine.updateGameStatus(gameId, playerId);
-    } catch (error) {
-      void error;
-    } finally {
       this.requestPending = false;
       this.clear();
       this.deps.refreshActions();
+      return;
+    } catch (error) {
+      console.error("[BlockerFlowManager] confirmBlockerChoice failed", {
+        gameId,
+        playerId,
+        eventId: this.queueEntry?.id,
+        notificationId: this.notificationId,
+        selectedTargets: targets,
+        error,
+      });
+      // Keep blocker state/dialog recoverable on failure.
+      this.requestPending = false;
+      this.deps.refreshActions();
+      return;
     }
   }
 
   private getActiveQueueEntry(raw: any): { entry: any; notificationId?: string } | undefined {
-    const notifications = getNotificationQueue(raw);
-    // Prefer the most recent unresolved blocker choice.
-    for (let i = notifications.length - 1; i >= 0; i -= 1) {
-      const note: any = notifications[i];
-      if (!note) continue;
-      const type = (note.type || "").toString().toUpperCase();
-      if (type !== "BLOCKER_CHOICE") continue;
-      const payload = note.payload ?? {};
-      const event = payload.event ?? payload;
-      const status = (event?.status || "").toString().toUpperCase();
-      const userDecisionMade = event?.data?.userDecisionMade;
-      if (status && status === "RESOLVED") continue;
-      if (userDecisionMade !== false) continue;
-      return { entry: event, notificationId: note.id };
-    }
-    return undefined;
+    const active = findActiveBlockerChoiceFromRaw(raw);
+    if (!active?.event) return undefined;
+    return {
+      entry: active.event,
+      notificationId: active.notificationId,
+    };
   }
 
   private isBlockerChoiceEntry(entry?: any) {

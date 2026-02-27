@@ -171,6 +171,112 @@ function getLinkedAttackNotificationId(note: SlotNotification | undefined): stri
   return String(id);
 }
 
+function findNotificationById(notifications: SlotNotification[], id?: string): SlotNotification | undefined {
+  if (!id) return undefined;
+  const key = String(id);
+  for (const note of notifications) {
+    if (!note?.id) continue;
+    if (String(note.id) === key) return note;
+  }
+  return undefined;
+}
+
+function findSlotIdForCard(raw: any, playerId?: string, carduid?: string): string | undefined {
+  if (!raw || !playerId || !carduid) return undefined;
+  const players = raw?.gameEnv?.players ?? raw?.players;
+  const zones = players?.[playerId]?.zones;
+  if (!zones || typeof zones !== "object") return undefined;
+  for (const [zoneId, zoneValue] of Object.entries(zones as Record<string, any>)) {
+    if (!zoneValue || typeof zoneValue !== "object") continue;
+    const unitUid = zoneValue?.unit?.carduid ?? zoneValue?.unit?.cardUid;
+    const pilotUid = zoneValue?.pilot?.carduid ?? zoneValue?.pilot?.cardUid;
+    if (unitUid === carduid || pilotUid === carduid) {
+      return zoneId;
+    }
+  }
+  return undefined;
+}
+
+export function resolveRefreshTargetAttackNotificationId(
+  note: SlotNotification | undefined,
+  notifications: SlotNotification[],
+): string | undefined {
+  if (!note) return undefined;
+  const type = (note.type || "").toUpperCase();
+  if (type === "UNIT_ATTACK_DECLARED") {
+    return note.id ? String(note.id) : undefined;
+  }
+  if (type !== "REFRESH_TARGET") {
+    return undefined;
+  }
+  const sourceId =
+    note.payload?.sourceNotificationId ??
+    note.payload?.attackNotificationId ??
+    note.payload?.notificationId ??
+    "";
+  if (!sourceId) return undefined;
+
+  const sourceNote = findNotificationById(notifications, String(sourceId));
+  const sourceType = (sourceNote?.type || "").toUpperCase();
+  if (sourceType === "UNIT_ATTACK_DECLARED") {
+    return sourceNote?.id ? String(sourceNote.id) : String(sourceId);
+  }
+  if (sourceType === "BLOCKER_CHOICE") {
+    const linkedAttackId =
+      sourceNote?.payload?.event?.data?.originalAttackEvent?.data?.attackNotificationId ??
+      sourceNote?.payload?.event?.data?.originalAttackEvent?.id ??
+      "";
+    if (linkedAttackId) return String(linkedAttackId);
+  }
+  return String(sourceId);
+}
+
+export function resolveAttackContextForIndicator(
+  raw: any,
+  note: SlotNotification | undefined,
+  notifications: SlotNotification[],
+) {
+  const payload: any = note?.payload ?? {};
+  const attackNoteId = resolveRefreshTargetAttackNotificationId(note, notifications);
+  const linkedAttack = attackNoteId ? findNotificationById(notifications, attackNoteId) : undefined;
+  const linkedPayload: any = linkedAttack?.payload ?? {};
+  const currentBattle = raw?.gameEnv?.currentBattle ?? raw?.gameEnv?.currentbattle ?? {};
+
+  const attackingPlayerId =
+    payload.attackingPlayerId ??
+    linkedPayload.attackingPlayerId ??
+    currentBattle.attackingPlayerId;
+  const defendingPlayerId =
+    payload.defendingPlayerId ??
+    linkedPayload.defendingPlayerId ??
+    currentBattle.defendingPlayerId;
+  const attackerCarduid =
+    payload.attackerCarduid ??
+    linkedPayload.attackerCarduid ??
+    currentBattle.attackerCarduid;
+  const attackerSlot =
+    payload.attackerSlot ??
+    payload.attackerSlotName ??
+    linkedPayload.attackerSlot ??
+    linkedPayload.attackerSlotName ??
+    currentBattle.attackerSlot ??
+    currentBattle.attackerSlotName ??
+    findSlotIdForCard(raw, attackingPlayerId, attackerCarduid);
+
+  return {
+    attackingPlayerId,
+    defendingPlayerId,
+    attackerCarduid,
+    attackerSlot,
+    resolvedAttackNotificationId: attackNoteId,
+    usedCurrentBattleFallback: Boolean(
+      currentBattle &&
+        (payload.attackingPlayerId == null || payload.attackerCarduid == null || payload.attackerSlot == null) &&
+        (currentBattle.attackingPlayerId || currentBattle.attackerCarduid),
+    ),
+  };
+}
+
 function buildAttackNotificationIndex(notifications: SlotNotification[]): Map<string, SlotNotification> {
   const byId = new Map<string, SlotNotification>();
   for (const note of notifications) {
@@ -216,7 +322,7 @@ export function findLiveAttackIndicatorNotification(notifications: SlotNotificat
     }
     if (hasAnonymousBattleResolved) return undefined;
     if (type === "REFRESH_TARGET") {
-      const attackId = getLinkedAttackNotificationId(note);
+      const attackId = resolveRefreshTargetAttackNotificationId(note, notifications);
       if (attackId && resolvedAttackIds.has(attackId)) continue;
       const sourceAttack = attackId ? attackById.get(attackId) : undefined;
       if (sourceAttack?.payload?.battleEnd === true) continue;

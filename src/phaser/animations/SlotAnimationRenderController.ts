@@ -207,6 +207,21 @@ export class SlotAnimationRenderController {
 
     events.forEach((event) => {
       const keys = new Set<string>();
+      const type = (event?.type ?? "").toString().toUpperCase();
+      if (type === "TOKEN_DEPLOYED" && resolveSlotOwnerByPlayer) {
+        const payload = event?.payload ?? {};
+        const owner = resolveSlotOwnerByPlayer(payload?.playerId);
+        const toZone = typeof payload?.toZone === "string" ? payload.toZone : undefined;
+        if (owner && toZone) {
+          const key = `${owner}-${toZone}`;
+          keys.add(key);
+          if (!this.renderSnapshots.has(key)) {
+            // Hide the destination slot until TOKEN_DEPLOYED is sequenced, preventing
+            // post-battle tokens from appearing before earlier notifications complete.
+            this.renderSnapshots.set(key, null);
+          }
+        }
+      }
       // Special-case: when backend removes battle participants from slots immediately (moves to trash),
       // keep a short-lived visual snapshot from the BATTLE_RESOLVED payload so they don't "pop" out
       // before stat pulses / battle animations can run.
