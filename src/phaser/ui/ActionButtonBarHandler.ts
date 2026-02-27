@@ -602,6 +602,7 @@ export class ActionButtonBarHandler {
 
   private getRenderableDescriptors(): ActionButtonConfig[] {
     const sourceDescriptors = this.waitingOverride ?? this.state.descriptors;
-    return sourceDescriptors.filter((btn) => !!btn.label && !!btn.label.trim() && btn.enabled !== false);
+    // Keep disabled actions visible so users can understand why an expected action is unavailable.
+    return sourceDescriptors.filter((btn) => !!btn.label && !!btn.label.trim());
   }
 }

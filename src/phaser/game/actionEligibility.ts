@@ -3,6 +3,7 @@ import { getTurnOwnerId } from "./turnOwner";
 import { filterActivatedEffectRulesByAvailability } from "./activatedEffectAvailability";
 import { normalizePhaseToken } from "./phaseUtils";
 import { SLOT_KEYS } from "./slotUtils";
+import { evaluateComparisonFilter } from "../utils/comparisonFilter";
 
 export function getEnergyState(player: any) {
   const energyArea = player?.zones?.energyArea ?? player?.energyArea ?? [];
@@ -13,18 +14,135 @@ export function getEnergyState(player: any) {
   return { totalEnergy, availableEnergy };
 }
 
+function getHandCardByUid(raw: any, playerId: string | null | undefined, uid: string) {
+  const player = raw?.gameEnv?.players?.[playerId || ""];
+  const hand = player?.deck?.hand ?? [];
+  if (!Array.isArray(hand)) return undefined;
+  return hand.find((card: any) => {
+    const cardUid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
+    return cardUid === uid;
+  });
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function slotIsLinked(slot: any): boolean {
+  const unit = slot?.unit;
+  if (!unit) return false;
+
+  const pilot = slot?.pilot;
+  if (!pilot) {
+    // For GD01-002 replacement eligibility, link-capable units count even if currently unpaired.
+    return Array.isArray(unit?.cardData?.link) && unit.cardData.link.length > 0;
+  }
+
+  // Frontend snapshots may omit link metadata; treat unit+pilot pair as linked for UI gating.
+  const unitLinks: string[] = Array.isArray(unit?.cardData?.link) ? unit.cardData.link : [];
+  const pilotName = normalizeText(pilot?.cardData?.name);
+  if (!unitLinks.length || !pilotName) return true;
+
+  return unitLinks.some((name) => normalizeText(name) === pilotName);
+}
+
+function matchesNumericFilter(value: number, filter: unknown): boolean {
+  if (typeof filter === "number") {
+    return value === filter;
+  }
+
+  if (typeof filter !== "string" || filter.trim().length === 0) {
+    return true;
+  }
+
+  const normalized = filter.trim();
+  if (/^\d+$/.test(normalized)) {
+    return value === Number(normalized);
+  }
+  if (/^=\d+$/.test(normalized)) {
+    return value === Number(normalized.slice(1));
+  }
+
+  return evaluateComparisonFilter(value, normalized);
+}
+
+function getDestroyLinkedReplacementOption(raw: any, playerId: string | null | undefined, cardData: any) {
+  if (!raw?.gameEnv?.players || !playerId) {
+    return null;
+  }
+
+  const rules = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
+  const replacementRule = rules.find((rule: any) => {
+    if (!rule || typeof rule !== "object") return false;
+    if ((rule?.type || "").toString().toLowerCase() !== "play") return false;
+    if ((rule?.trigger || "").toString().toLowerCase() !== "cost") return false;
+    if ((rule?.action || "").toString().toLowerCase() !== "replace_cost") return false;
+
+    const from = rule?.parameters?.replace?.from;
+    return from?.type === "destroy" && from?.target === "friendly_linked_unit";
+  });
+
+  if (!replacementRule) {
+    return null;
+  }
+
+  const from = replacementRule?.parameters?.replace?.from ?? {};
+  const filters = from?.filters ?? {};
+  const requiredCardType = normalizeText(filters?.cardType);
+  const requiredNameIncludes = normalizeText(filters?.nameIncludes);
+  const requiredLevel = filters?.level;
+
+  const player = raw?.gameEnv?.players?.[playerId];
+  const zones = player?.zones ?? {};
+  const eligibleTargets = SLOT_KEYS
+    .map((slotId) => ({ slotId, slot: zones?.[slotId] }))
+    .filter(({ slot }) => {
+      const unit = slot?.unit;
+      if (!unit?.carduid || !unit?.cardData) return false;
+      if (!slotIsLinked(slot)) return false;
+
+      const cardType = normalizeText(unit.cardData?.cardType);
+      if (requiredCardType && cardType !== requiredCardType) return false;
+
+      const unitName = normalizeText(unit.cardData?.name || unit?.name || "");
+      if (requiredNameIncludes && !unitName.includes(requiredNameIncludes)) return false;
+
+      const level = Number(unit.cardData?.level ?? 0);
+      if (!matchesNumericFilter(Number.isFinite(level) ? level : 0, requiredLevel)) return false;
+
+      return true;
+    })
+    .map(({ slotId, slot }) => ({
+      slotId,
+      carduid: slot?.unit?.carduid,
+      unit: slot?.unit,
+      pilot: slot?.pilot,
+    }));
+
+  if (!eligibleTargets.length) {
+    return null;
+  }
+
+  const to = replacementRule?.parameters?.replace?.to ?? {};
+  const replacementCost = Number(to?.cost ?? 0);
+  const replacementLevel = Number(to?.level ?? 0);
+
+  return {
+    ruleId: replacementRule?.effectId,
+    replacementCost: Number.isFinite(replacementCost) ? Math.max(0, replacementCost) : 0,
+    replacementLevel: Number.isFinite(replacementLevel) ? Math.max(0, replacementLevel) : 0,
+    eligibleTargets,
+  };
+}
+
 export function canPlaySelectedHandCard(selection: SelectionTarget, raw: any, playerId?: string | null) {
   if (selection.kind !== "hand") return false;
   const player = raw?.gameEnv?.players?.[playerId || ""];
   if (!player) return true;
-  const hand = player?.deck?.hand ?? [];
-  const target = Array.isArray(hand)
-    ? hand.find((card: any) => {
-        const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
-        return uid === selection.uid;
-      })
-    : undefined;
+
+  const target = getHandCardByUid(raw, playerId, selection.uid);
   if (!target) return true;
+
   const cardData = target?.cardData ?? {};
   const cardType = (cardData.cardType || selection.cardType || "").toLowerCase();
   const isEnergy = cardType === "energy";
@@ -35,9 +153,18 @@ export function canPlaySelectedHandCard(selection: SelectionTarget, raw: any, pl
   const requiredCost = Number(cardData.effectiveCost ?? cardData.cost ?? 0);
   const level = Number.isNaN(requiredLevel) ? 0 : requiredLevel;
   const cost = Number.isNaN(requiredCost) ? 0 : requiredCost;
-  if (totalEnergy < level) return false;
-  if (availableEnergy < cost) return false;
-  return true;
+
+  const baseAffordable = totalEnergy >= level && availableEnergy >= cost;
+  if (baseAffordable) {
+    return true;
+  }
+
+  const replacement = getDestroyLinkedReplacementOption(raw, playerId, cardData);
+  if (!replacement) {
+    return false;
+  }
+
+  return totalEnergy >= replacement.replacementLevel && availableEnergy >= replacement.replacementCost;
 }
 
 export function getSlotCardType(selection: SelectionTarget, raw: any, playerId?: string | null) {

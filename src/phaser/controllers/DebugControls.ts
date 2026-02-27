@@ -23,6 +23,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-001/pair_draw_if_units_in_play_ge_3",
     "GD01/GD01-001/repair_no_damage_no_heal",
     "GD01/GD01-002/play_from_hand_destroy_unicorn_mode_lv5_play_as_lv0_cost0",
+    "GD01/GD01-002/play_from_hand_destroy_unicorn_mode_lv5_play_as_lv0_cost0_full",
     "GD01/GD01-003/attack_link_move_12_from_trash_shuffle_set_active_first_strike",
     "GD01/GD01-004/when_paired_choose_enemy_unit_hp_le_2_rest",
     "GD01/GD01-004/when_paired_choose_enemy_unit_hp_le_2_rest_manual_flow",
