@@ -26,21 +26,6 @@ export function findActiveChoiceEntryFromRaw(raw: any, type: string): any | unde
   const targetType = (type ?? "").toString().toUpperCase();
   if (!targetType) return undefined;
 
-  const processingQueue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
-  if (Array.isArray(processingQueue) && processingQueue.length) {
-    for (let i = processingQueue.length - 1; i >= 0; i -= 1) {
-      const entry: any = processingQueue[i];
-      if (!entry) continue;
-      const entryType = (entry?.type ?? "").toString().toUpperCase();
-      if (entryType !== targetType) continue;
-      const status = (entry?.status ?? "").toString().toUpperCase();
-      if (status && status === "RESOLVED") continue;
-      const decision = entry?.data?.userDecisionMade;
-      if (decision !== false) continue;
-      return entry;
-    }
-  }
-
   const notifications = getNotificationQueue(raw);
   for (let i = notifications.length - 1; i >= 0; i -= 1) {
     const note: any = notifications[i];

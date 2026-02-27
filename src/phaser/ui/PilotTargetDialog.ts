@@ -247,8 +247,13 @@ export class PilotTargetDialog {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
-        await opts.onSelect(slot);
-        await this.hide();
+        try {
+          await opts.onSelect(slot);
+          await this.hide();
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[PilotTargetDialog] onSelect failed", { error: err });
+        }
       });
       frame.on("pointerout", () => {
         if (this.previewController.isActive()) return;

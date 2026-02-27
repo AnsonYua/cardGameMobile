@@ -132,7 +132,13 @@ export class EffectTargetController {
           this.deps.onPlayerAction?.();
           await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
         } catch (err) {
-          void err;
+          // eslint-disable-next-line no-console
+          console.error("[EffectTargetController] auto-cancel target choice failed", {
+            eventId,
+            playerId: selfId,
+            notificationId,
+            error: err,
+          });
         }
       }
       return;
@@ -181,7 +187,13 @@ export class EffectTargetController {
             this.deps.onPlayerAction?.();
             await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
           } catch (err) {
-            void err;
+            // eslint-disable-next-line no-console
+            console.error("[EffectTargetController] cancelChoice failed", {
+              eventId,
+              playerId: selfId,
+              notificationId,
+              error: err,
+            });
           } finally {
             await finish();
           }
@@ -238,10 +250,17 @@ export class EffectTargetController {
                 this.deps.onPlayerAction?.();
                 await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
               } catch (err) {
-                void err;
-              } finally {
-                await finish();
+                // eslint-disable-next-line no-console
+                console.error("[EffectTargetController] confirmTargetChoice failed", {
+                  eventId,
+                  playerId: selfId,
+                  selectedTargets: deduped,
+                  notificationId,
+                  error: err,
+                });
+                throw err;
               }
+              await finish();
             },
           });
         } catch (err) {
@@ -281,10 +300,17 @@ export class EffectTargetController {
               this.deps.onPlayerAction?.();
               await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
             } catch (err) {
-              void err;
-            } finally {
-              await finish();
+              // eslint-disable-next-line no-console
+              console.error("[EffectTargetController] confirmTargetChoice failed", {
+                eventId,
+                playerId: selfId,
+                selectedTargets: [mapSlotToTarget(slot)],
+                notificationId,
+                error: err,
+              });
+              throw err;
             }
+            await finish();
           },
         });
       } catch (err) {

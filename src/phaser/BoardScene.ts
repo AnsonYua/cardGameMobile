@@ -829,16 +829,22 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private hasPendingBlockingChoice(raw: any): boolean {
-    const queue = raw?.gameEnv?.processingQueue ?? raw?.processingQueue;
+    const queue = raw?.gameEnv?.notificationQueue ?? raw?.notificationQueue;
     if (!Array.isArray(queue) || !queue.length) return false;
     const selfId = this.gameContext.playerId;
 
-    for (const entry of queue) {
-      const type = (entry?.type ?? '').toString().toUpperCase();
-      const status = (entry?.status ?? '').toString().toUpperCase();
+    for (const note of queue) {
+      const payload = note?.payload ?? {};
+      const event = payload?.event ?? payload;
+      const type = (event?.type ?? note?.type ?? '').toString().toUpperCase();
+      const status = (event?.status ?? '').toString().toUpperCase();
       if (status && status !== 'DECLARED') continue;
       if (type !== 'TARGET_CHOICE' && type !== 'BLOCKER_CHOICE' && type !== 'BURST_EFFECT_CHOICE') continue;
-      const ownerId = (entry?.playerId ?? entry?.data?.playerId ?? '').toString();
+      const decisionMade = event?.data?.userDecisionMade;
+      if (decisionMade !== false) continue;
+      const isCompleted = payload?.isCompleted === true;
+      if (isCompleted) continue;
+      const ownerId = (event?.playerId ?? payload?.playerId ?? event?.data?.playerId ?? '').toString();
       if (selfId && ownerId && ownerId !== selfId) continue;
       return true;
     }
