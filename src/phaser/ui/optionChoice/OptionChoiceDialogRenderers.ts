@@ -10,6 +10,7 @@ import type { NormalizedOptionChoice } from "./OptionChoiceDialogModel";
 import { DIALOG_TEXT, createDialogActionButton } from "../dialog/DialogStyleTokens";
 import { resolveDialogHeaderGap } from "../dialog/DialogHeaderGap";
 import { renderChoiceCardPlate } from "../choice/ChoiceCardPlateRenderer";
+import type { TopBottomDecisionMeta } from "../../controllers/choice/TopBottomChoiceDetector";
 import {
   computeChoiceCardPlateGridLayout,
   forEachChoiceCardPlatePosition,
@@ -240,6 +241,172 @@ export function renderOptionChoiceHybridDialog(params: {
       shell.content.add([button.rect, button.txt]);
     }
   }
+
+  if (params.showTimer) {
+    params.dialogTimer.attach(shell.dialog, layout, async () => {
+      await params.onTimeout?.();
+    });
+  }
+
+  return shell.dialog;
+}
+
+export function renderTopBottomCardDecisionDialog(params: {
+  scene: Phaser.Scene;
+  cfg: CardDialogConfig;
+  dialogTimer: DialogTimerPresenter;
+  headerText: string;
+  promptText: string;
+  showOverlay: boolean;
+  showTimer: boolean;
+  onTimeout?: () => Promise<void> | void;
+  onSelect?: (index: number) => Promise<void> | void;
+  decision: TopBottomDecisionMeta;
+  resolveTextureKey: (cardId?: string) => string | undefined;
+}): Phaser.GameObjects.Container {
+  const cam = params.scene.cameras.main;
+  const sectionGap = 10;
+  const buttonGap = 12;
+  const buttonHeight = 50;
+  const maxContentWidth = Math.min(540, Math.max(280, cam.width * 0.74));
+  const stackButtons = maxContentWidth < 300;
+  const rowButtonWidth = Math.floor((maxContentWidth - buttonGap) / 2);
+  const buttonWidth = stackButtons ? Math.min(320, maxContentWidth) : Math.max(120, rowButtonWidth);
+  const buttonBlockHeight = stackButtons ? buttonHeight * 2 + buttonGap : buttonHeight;
+  const headerGap = resolveDialogHeaderGap(params.showTimer, params.cfg.dialog.gap);
+  const cardToActionsGap = 16;
+
+  const promptText = params.promptText.trim();
+  const promptStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    ...DIALOG_TEXT.prompt,
+    fontSize: "13px",
+    fontStyle: "normal",
+    lineSpacing: 2,
+    wordWrap: { width: Math.min(maxContentWidth - 26, cam.width * 0.68) },
+  };
+  const tempPrompt = promptText
+    ? params.scene
+        .add.text(-10000, -10000, promptText, promptStyle)
+        .setOrigin(0.5)
+    : undefined;
+  const promptHeight = tempPrompt?.height ?? 0;
+  const promptMeasuredWidth = tempPrompt?.width ?? 0;
+  tempPrompt?.destroy();
+
+  const plateGrid = computeChoiceCardPlateGridLayout({
+    itemCount: 1,
+    maxContentWidth,
+    cardAspect: params.cfg.card.aspect,
+    colsMax: 1,
+    gap: 12,
+    minCellWidth: 112,
+    maxCellWidth: stackButtons ? 176 : 196,
+    extraCellHeight: 36,
+  });
+  const cardGridWidth = plateGrid.gridWidth;
+  const cardGridHeight = plateGrid.gridHeight;
+  const buttonRowWidth = stackButtons ? buttonWidth : buttonWidth * 2 + buttonGap;
+  const contentWidth = Math.max(260, promptMeasuredWidth, cardGridWidth, buttonRowWidth);
+
+  let contentHeight = 0;
+  if (promptHeight > 0) contentHeight += promptHeight + sectionGap;
+  contentHeight += cardGridHeight + cardToActionsGap + buttonBlockHeight;
+
+  const tempHeader = params.scene.add
+    .text(-10000, -10000, params.headerText, {
+      fontSize: `${params.cfg.dialog.headerFontSize ?? 20}px`,
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      color: "#f5f6f7",
+      align: "center",
+      wordWrap: { width: Math.min(520, cam.width * 0.75) },
+    })
+    .setOrigin(0.5);
+
+  const layout = computePromptDialogLayout(cam, params.cfg, {
+    contentWidth,
+    contentHeight,
+    headerHeight: tempHeader.height,
+    headerGap,
+  });
+  tempHeader.destroy();
+
+  const shell = createDialogShell(params.scene, params.cfg, layout, {
+    centerX: cam.centerX,
+    centerY: cam.centerY,
+    headerText: params.headerText,
+    showOverlay: params.showOverlay,
+    closeOnBackdrop: false,
+    showCloseButton: false,
+  });
+
+  let cursorY =
+    -layout.dialogHeight / 2 +
+    layout.headerOffset +
+    (layout.headerHeight ?? 0) / 2 +
+    (layout.headerGap ?? headerGap);
+
+  if (promptHeight > 0) {
+    const promptNode = params.scene
+      .add.text(0, cursorY + promptHeight / 2, promptText, promptStyle)
+      .setOrigin(0.5);
+    shell.content.add(promptNode);
+    cursorY += promptHeight + sectionGap;
+  }
+
+  renderChoiceCardPlate({
+    scene: params.scene,
+    container: shell.content,
+    x: 0,
+    y: cursorY + plateGrid.cellHeight / 2,
+    cardWidth: plateGrid.cellWidth,
+    cardHeight: plateGrid.imageHeight,
+    state: "read_only",
+    enabled: true,
+    showFooter: false,
+    card: {
+      cardId: params.decision.cardChoice.cardId,
+      label: params.decision.cardChoice.label,
+      textureKey: params.resolveTextureKey(params.decision.cardChoice.cardId) ?? "deckBack",
+    },
+  });
+
+  cursorY += cardGridHeight + cardToActionsGap;
+
+  const divider = params.scene.add.rectangle(0, cursorY - buttonHeight / 2 - 8, Math.min(contentWidth * 0.68, 300), 2, 0x7b89a8, 0.55);
+  shell.content.add(divider);
+
+  const topY = cursorY + buttonHeight / 2;
+  const topButton = createDialogActionButton({
+    scene: params.scene,
+    x: stackButtons ? 0 : -((buttonWidth + buttonGap) / 2),
+    y: topY,
+    width: buttonWidth,
+    height: buttonHeight,
+    label: params.decision.topLabel,
+    enabled: params.decision.topEnabled,
+    variant: "primaryTopBottom",
+    onClick: async () => {
+      await params.onSelect?.(params.decision.topIndex);
+    },
+  });
+  shell.content.add([topButton.rect, topButton.txt]);
+
+  const bottomY = stackButtons ? topY + buttonHeight + buttonGap : topY;
+  const bottomButton = createDialogActionButton({
+    scene: params.scene,
+    x: stackButtons ? 0 : (buttonWidth + buttonGap) / 2,
+    y: bottomY,
+    width: buttonWidth,
+    height: buttonHeight,
+    label: params.decision.bottomLabel,
+    enabled: params.decision.bottomEnabled,
+    variant: "secondaryTopBottom",
+    onClick: async () => {
+      await params.onSelect?.(params.decision.bottomIndex);
+    },
+  });
+  shell.content.add([bottomButton.rect, bottomButton.txt]);
 
   if (params.showTimer) {
     params.dialogTimer.attach(shell.dialog, layout, async () => {

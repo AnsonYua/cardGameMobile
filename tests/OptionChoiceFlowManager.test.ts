@@ -28,4 +28,13 @@ describe("resolveOptionChoiceTimeoutIndex", () => {
 
     expect(resolveOptionChoiceTimeoutIndex(options)).toBe(1);
   });
+
+  it("ignores disabled BOTTOM option and picks first enabled option", () => {
+    const options = [
+      { index: 0, label: "Top", payload: { action: "TOP" }, enabled: true },
+      { index: 1, label: "Bottom", payload: { action: "BOTTOM" }, enabled: false },
+    ];
+
+    expect(resolveOptionChoiceTimeoutIndex(options)).toBe(0);
+  });
 });

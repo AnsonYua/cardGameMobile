@@ -8,6 +8,7 @@ type DialogChoice = { index?: number; label?: string; enabled?: boolean };
 
 type ShowPromptChoiceDialogParams = {
   entry: any;
+  rawSnapshot?: any;
   promptChoiceDialog?: PromptChoiceDialog | null;
   tutorTopDeckRevealDialog?: TutorTopDeckRevealDialog | null;
   onSubmit: (index: number) => Promise<void>;
@@ -68,7 +69,11 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
       await params.onSubmit(Number(o?.index ?? 0));
     },
   }));
-  const mappedChoices = options.map((o: any) => mapOptionChoiceToDialogView(entry, o));
+  const mappedChoices = options.map((o: any) => mapOptionChoiceToDialogView(params.rawSnapshot ?? entry, o));
+  const optionActions = options.map((o: any) => ({
+    index: Number(o?.index ?? 0),
+    action: (o?.payload?.action ?? "").toString() || undefined,
+  }));
   const hasCardChoice = mappedChoices.some((choice) => choice.mode === "card" && !!choice.cardId);
 
   params.promptChoiceDialog?.show({
@@ -76,6 +81,7 @@ export function showPromptChoiceDialog(params: ShowPromptChoiceDialogParams) {
     promptText,
     buttons,
     choices: hasCardChoice ? mappedChoices : undefined,
+    optionActions,
     showOverlay: true,
     showTimer: true,
     onTimeout: async () => {

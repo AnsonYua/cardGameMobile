@@ -53,7 +53,7 @@ export class PromptChoiceFlowManager {
 
     const isOwner = isChoiceOwner(entry.playerId, this.deps.gameContext.playerId);
     this.applyActionBar();
-    this.showDialog();
+    this.showDialog(raw);
     if (!isOwner) return;
 
     this.pendingPromise =
@@ -112,7 +112,7 @@ export class PromptChoiceFlowManager {
     }
 
     this.applyActionBar();
-    this.showDialog();
+    this.showDialog(raw);
   }
 
   applyActionBar() {
@@ -142,7 +142,7 @@ export class PromptChoiceFlowManager {
     hidePromptChoiceDialogs(this.deps);
   }
 
-  private showDialog() {
+  private showDialog(rawSnapshot?: any) {
     if (!this.queueEntry) return;
     const hasDialog = this.deps.promptChoiceDialog || this.deps.tutorTopDeckRevealDialog;
     if (!hasDialog) return;
@@ -157,6 +157,7 @@ export class PromptChoiceFlowManager {
 
     showPromptChoiceDialog({
       entry: this.queueEntry,
+      rawSnapshot,
       promptChoiceDialog: this.deps.promptChoiceDialog,
       tutorTopDeckRevealDialog: this.deps.tutorTopDeckRevealDialog,
       resolveTimeoutIndex: (options) => this.resolveTimeoutIndex(options),

@@ -41,6 +41,95 @@ describe("resolveOptionCardId", () => {
     expect(resolveOptionCardId(raw, option)).toBe("ST03-001");
   });
 
+  it("resolves from SCRY_TOP_DECK context lookedCarduids", () => {
+    const raw = {
+      gameEnv: {
+        processingQueue: [
+          {
+            type: "PROMPT_CHOICE",
+            data: {
+              context: {
+                kind: "SCRY_TOP_DECK",
+                lookedCarduids: ["GD01-023_top_0001"],
+              },
+            },
+          },
+        ],
+        players: {
+          playerId_1: {
+            zones: {},
+            deck: {
+              mainDeck: [{ carduid: "GD01-023_top_0001", cardId: "GD01-023" }],
+            },
+          },
+        },
+      },
+    };
+    const option = {
+      index: 0,
+      label: "Top",
+      payload: { action: "TOP" },
+    };
+
+    expect(resolveOptionCardId(raw, option)).toBe("GD01-023");
+  });
+
+  it("falls back to cardId parsed from looked uid when card lookup misses", () => {
+    const raw = {
+      gameEnv: {
+        processingQueue: [
+          {
+            type: "PROMPT_CHOICE",
+            data: {
+              context: {
+                kind: "SCRY_TOP_DECK",
+                lookedCarduids: ["GD01-023_top_0001"],
+              },
+            },
+          },
+        ],
+        players: {},
+      },
+    };
+    const option = {
+      index: 1,
+      label: "Bottom",
+      payload: { action: "BOTTOM" },
+    };
+
+    expect(resolveOptionCardId(raw, option)).toBe("GD01-023");
+  });
+
+  it("resolves from notificationQueue PROMPT_CHOICE context lookedCarduids", () => {
+    const raw = {
+      gameEnv: {
+        notificationQueue: [
+          {
+            type: "PROMPT_CHOICE",
+            payload: {
+              event: {
+                data: {
+                  context: {
+                    kind: "SCRY_TOP_DECK",
+                    lookedCarduids: ["GD01-023_top_0001"],
+                  },
+                },
+              },
+            },
+          },
+        ],
+        players: {},
+      },
+    };
+    const option = {
+      index: 1,
+      label: "Bottom",
+      payload: { action: "BOTTOM" },
+    };
+
+    expect(resolveOptionCardId(raw, option)).toBe("GD01-023");
+  });
+
   it("returns undefined when no payload/notification/label match exists", () => {
     const raw = { gameEnv: { players: {}, notificationQueue: [] } };
     const option = {

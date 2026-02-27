@@ -17,7 +17,7 @@ export function mapOptionChoiceToDialogView(raw: any, option: any): OptionDialog
   const cardId = resolveChoiceCardId(display, payload, option, () => resolveOptionCardId(raw, option));
 
   const inferredMode: "card" | "text" = cardId ? "card" : "text";
-  const mode = modeFromContract ?? inferredMode;
+  const mode: "card" | "text" = modeFromContract ? (modeFromContract === "card" || cardId ? "card" : "text") : inferredMode;
   const label = resolveChoiceLabel(display, option);
 
   const isEnabled = option?.enabled !== false && option?.disabled !== true;

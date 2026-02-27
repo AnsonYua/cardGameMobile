@@ -60,11 +60,13 @@ export function renderChoiceCardPlate(params: {
   state: ChoiceCardInteractionState;
   enabled?: boolean;
   hintText?: string;
+  showFooter?: boolean;
   interactive?: boolean;
   styles?: { footerHeight?: number; platePadding?: number };
   onSelect?: () => Promise<void> | void;
 }) {
-  const footerHeight = Math.max(18, Number(params.styles?.footerHeight ?? 22));
+  const showFooter = params.showFooter !== false;
+  const footerHeight = showFooter ? Math.max(18, Number(params.styles?.footerHeight ?? 22)) : 0;
   const platePadding = Math.max(4, Number(params.styles?.platePadding ?? 7));
   const plateWidth = params.cardWidth + platePadding * 2;
   const plateHeight = params.cardHeight + footerHeight + platePadding * 2;
@@ -74,19 +76,23 @@ export function renderChoiceCardPlate(params: {
   plate.setStrokeStyle(2, visual.border, visual.borderAlpha);
 
   const cardY = params.y - (footerHeight / 2);
-  const footerY = params.y + plateHeight / 2 - footerHeight / 2 - platePadding;
-  const footer = params.scene.add.rectangle(params.x, footerY, params.cardWidth, footerHeight, visual.footerFill, visual.footerAlpha);
+  const footerY = params.y + plateHeight / 2 - Math.max(footerHeight / 2, 0) - platePadding;
+  const footer = showFooter
+    ? params.scene.add.rectangle(params.x, footerY, params.cardWidth, footerHeight, visual.footerFill, visual.footerAlpha)
+    : undefined;
   const hintText = (params.hintText ?? visual.hint).toString();
-  const hint = params.scene
-    .add.text(params.x, footerY, hintText, {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      fontStyle: "bold",
-      color: visual.hintColor,
-      align: "center",
-      wordWrap: { width: params.cardWidth - 8 },
-    })
-    .setOrigin(0.5);
+  const hint = showFooter
+    ? params.scene
+        .add.text(params.x, footerY, hintText, {
+          fontSize: "12px",
+          fontFamily: "Arial",
+          fontStyle: "bold",
+          color: visual.hintColor,
+          align: "center",
+          wordWrap: { width: params.cardWidth - 8 },
+        })
+        .setOrigin(0.5)
+    : undefined;
 
   const rawTextureKey = params.card.textureKey || params.card.cardId;
   const textureKey = rawTextureKey
@@ -95,7 +101,7 @@ export function renderChoiceCardPlate(params: {
 
   if (textureKey && params.scene.textures.exists(textureKey)) {
     const img = params.scene.add.image(params.x, cardY, textureKey).setDisplaySize(params.cardWidth, params.cardHeight).setOrigin(0.5);
-    params.container.add([plate, img, footer, hint]);
+    params.container.add(showFooter ? [plate, img, footer!, hint!] : [plate, img]);
   } else {
     const fallback = params.scene.add.rectangle(params.x, cardY, params.cardWidth, params.cardHeight, 0xcbd3df, 0.9).setOrigin(0.5);
     const fallbackLabel = params.scene.add
@@ -107,7 +113,7 @@ export function renderChoiceCardPlate(params: {
         wordWrap: { width: params.cardWidth - 10 },
       })
       .setOrigin(0.5);
-    params.container.add([plate, fallback, fallbackLabel, footer, hint]);
+    params.container.add(showFooter ? [plate, fallback, fallbackLabel, footer!, hint!] : [plate, fallback, fallbackLabel]);
   }
 
   const interactive = params.interactive ?? visual.interactive;

@@ -158,6 +158,10 @@ export class OptionChoiceFlowManager {
 
     const options = Array.isArray(this.queueEntry?.data?.availableOptions) ? this.queueEntry.data.availableOptions : [];
     const dialogChoices = options.map((o: any) => mapOptionChoiceToDialogView(raw, o));
+    const optionActions = options.map((o: any) => ({
+      index: Number(o?.index ?? 0),
+      action: (o?.payload?.action ?? "").toString() || undefined,
+    }));
     const headerText = withTutorSelectionStepHeader(
       (this.queueEntry?.data?.headerText ?? "Choose Option").toString(),
       this.queueEntry?.data?.context,
@@ -172,6 +176,7 @@ export class OptionChoiceFlowManager {
       promptText,
       layoutHint,
       choices: dialogChoices,
+      optionActions,
       showChoices: isOwner,
       showOverlay: true,
       showTimer: true,

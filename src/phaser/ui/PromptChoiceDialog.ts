@@ -7,7 +7,12 @@ import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { normalizeOptionChoices, type OptionChoiceDialogChoice } from "./optionChoice/OptionChoiceDialogModel";
 import { resolveOptionChoiceLayout } from "../controllers/choice/OptionChoiceLayoutResolver";
-import { renderOptionChoiceHybridDialog, renderOptionChoiceTextDialog } from "./optionChoice/OptionChoiceDialogRenderers";
+import { detectTopBottomDecision } from "../controllers/choice/TopBottomChoiceDetector";
+import {
+  renderOptionChoiceHybridDialog,
+  renderOptionChoiceTextDialog,
+  renderTopBottomCardDecisionDialog,
+} from "./optionChoice/OptionChoiceDialogRenderers";
 import { toBaseKey } from "./HandTypes";
 
 export type PromptChoiceDialogButton = {
@@ -21,6 +26,7 @@ export type PromptChoiceDialogOptions = {
   promptText?: string;
   buttons: PromptChoiceDialogButton[];
   choices?: OptionChoiceDialogChoice[];
+  optionActions?: Array<{ index: number; action?: string }>;
   showOverlay?: boolean;
   showTimer?: boolean;
   onTimeout?: () => Promise<void> | void;
@@ -65,10 +71,23 @@ export class PromptChoiceDialog {
     const choices = normalizeOptionChoices(opts.choices ?? []);
     const hasCardChoices = choices.some((choice) => choice.mode === "card" && !!choice.cardId);
     if (hasCardChoices) {
+      const actionByIndex = new Map(
+        (opts.optionActions ?? []).map((entry) => [Number(entry.index), (entry.action ?? "").toString()]),
+      );
+      const topBottom = detectTopBottomDecision(
+        choices.map((choice) => ({
+          index: choice.index,
+          label: choice.label,
+          enabled: choice.enabled,
+          mode: choice.mode,
+          cardId: choice.cardId,
+          interactionState: choice.interactionState,
+          action: actionByIndex.get(choice.index),
+        })),
+      );
       const choiceButtons = new Map(choices.map((choice, index) => [choice.index, opts.buttons[index]]));
-      const layout = resolveOptionChoiceLayout(choices);
-      if (layout === "text") {
-        this.container = renderOptionChoiceTextDialog({
+      if (topBottom) {
+        this.container = renderTopBottomCardDecisionDialog({
           scene: this.scene,
           cfg: this.cfg,
           dialogTimer: this.dialogTimer,
@@ -80,27 +99,46 @@ export class PromptChoiceDialog {
           onSelect: async (index) => {
             await choiceButtons.get(index)?.onClick();
           },
-          options: choices,
+          decision: topBottom,
+          resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
         });
       } else {
-        this.container = renderOptionChoiceHybridDialog({
-          scene: this.scene,
-          cfg: this.cfg,
-          dialogTimer: this.dialogTimer,
-          headerText: opts.headerText,
-          promptText: opts.promptText ?? "",
-          showOverlay: opts.showOverlay ?? true,
-          showTimer: opts.showTimer ?? false,
-          onTimeout: opts.onTimeout,
-          onSelect: async (index) => {
-            await choiceButtons.get(index)?.onClick();
-          },
-          cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
-          textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
-          resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
-          // Keep prompt-card flows visually closer to tutor/option dialogs with roomier bottom padding.
-          footerSpacer: layout === "card" ? 14 : 0,
-        });
+        const layout = resolveOptionChoiceLayout(choices);
+        if (layout === "text") {
+          this.container = renderOptionChoiceTextDialog({
+            scene: this.scene,
+            cfg: this.cfg,
+            dialogTimer: this.dialogTimer,
+            headerText: opts.headerText,
+            promptText: opts.promptText ?? "",
+            showOverlay: opts.showOverlay ?? true,
+            showTimer: opts.showTimer ?? false,
+            onTimeout: opts.onTimeout,
+            onSelect: async (index) => {
+              await choiceButtons.get(index)?.onClick();
+            },
+            options: choices,
+          });
+        } else {
+          this.container = renderOptionChoiceHybridDialog({
+            scene: this.scene,
+            cfg: this.cfg,
+            dialogTimer: this.dialogTimer,
+            headerText: opts.headerText,
+            promptText: opts.promptText ?? "",
+            showOverlay: opts.showOverlay ?? true,
+            showTimer: opts.showTimer ?? false,
+            onTimeout: opts.onTimeout,
+            onSelect: async (index) => {
+              await choiceButtons.get(index)?.onClick();
+            },
+            cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
+            textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
+            resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
+            // Keep prompt-card flows visually closer to tutor/option dialogs with roomier bottom padding.
+            footerSpacer: layout === "card" ? 14 : 0,
+          });
+        }
       }
     } else {
       const dialog = createPromptDialog(this.scene, this.cfg, {

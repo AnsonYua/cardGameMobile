@@ -4,6 +4,7 @@ import { toBaseKey } from "./HandTypes";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { resolveOptionChoiceLayout, type OptionChoiceLayoutHint } from "../controllers/choice/OptionChoiceLayoutResolver";
+import { detectTopBottomDecision } from "../controllers/choice/TopBottomChoiceDetector";
 import {
   normalizeOptionChoices,
   type OptionChoiceDialogChoice,
@@ -11,6 +12,7 @@ import {
 import {
   renderOptionChoiceHybridDialog,
   renderOptionChoiceTextDialog,
+  renderTopBottomCardDecisionDialog,
 } from "./optionChoice/OptionChoiceDialogRenderers";
 
 export type { OptionChoiceDialogChoice };
@@ -20,6 +22,7 @@ export type OptionChoiceDialogOptions = {
   promptText?: string;
   layoutHint?: OptionChoiceLayoutHint;
   choices: OptionChoiceDialogChoice[];
+  optionActions?: Array<{ index: number; action?: string }>;
   showChoices?: boolean;
   showOverlay?: boolean;
   showTimer?: boolean;
@@ -109,6 +112,80 @@ export class OptionChoiceDialog {
       return;
     }
 
+    const actionByIndex = new Map(
+      (opts.optionActions ?? []).map((entry) => [Number(entry.index), (entry.action ?? "").toString()]),
+    );
+    const topBottom = detectTopBottomDecision(
+      choices.map((choice) => ({
+        index: choice.index,
+        label: choice.label,
+        enabled: choice.enabled,
+        mode: choice.mode,
+        cardId: choice.cardId,
+        interactionState: choice.interactionState,
+        action: actionByIndex.get(choice.index),
+      })),
+    );
+    if (topBottom) {
+      this.dialog = renderTopBottomCardDecisionDialog({
+        scene: this.scene,
+        cfg: this.cfg,
+        dialogTimer: this.dialogTimer,
+        headerText,
+        promptText,
+        showOverlay: opts.showOverlay ?? true,
+        showTimer: opts.showTimer ?? false,
+        onTimeout: opts.onTimeout,
+        onSelect: opts.onSelect,
+        decision: topBottom,
+        resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
+      });
+      return;
+    }
+
+    // Tutor-style single-card decision: show card preview + 2 explicit buttons
+    // instead of "tap card + bottom button".
+    const takeBottom = detectTakeBottomDecision(
+      choices.map((choice) => ({
+        index: choice.index,
+        label: choice.label,
+        enabled: choice.enabled,
+        cardId: choice.cardId,
+        interactionState: choice.interactionState,
+        action: actionByIndex.get(choice.index),
+      })),
+    );
+    if (takeBottom) {
+      this.dialog = renderTopBottomCardDecisionDialog({
+        scene: this.scene,
+        cfg: this.cfg,
+        dialogTimer: this.dialogTimer,
+        headerText,
+        promptText,
+        showOverlay: opts.showOverlay ?? true,
+        showTimer: opts.showTimer ?? false,
+        onTimeout: opts.onTimeout,
+        onSelect: opts.onSelect,
+        decision: {
+          topIndex: takeBottom.takeIndex,
+          bottomIndex: takeBottom.bottomIndex,
+          topLabel: "Add to hand",
+          bottomLabel: takeBottom.bottomLabel,
+          topEnabled: takeBottom.takeEnabled,
+          bottomEnabled: takeBottom.bottomEnabled,
+          cardChoice: {
+            index: takeBottom.cardChoice.index,
+            cardId: takeBottom.cardChoice.cardId,
+            label: takeBottom.cardChoice.label,
+            enabled: true,
+            interactionState: "read_only",
+          },
+        },
+        resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
+      });
+      return;
+    }
+
     this.dialog = renderOptionChoiceHybridDialog({
       scene: this.scene,
       cfg: this.cfg,
@@ -164,4 +241,43 @@ export class OptionChoiceDialog {
     }
     this.automationState = undefined;
   }
+}
+
+function detectTakeBottomDecision(
+  choices: Array<{
+    index: number;
+    label: string;
+    enabled: boolean;
+    cardId?: string;
+    interactionState: "read_only" | "selectable";
+    action?: string;
+  }>,
+):
+  | {
+      takeIndex: number;
+      bottomIndex: number;
+      bottomLabel: string;
+      takeEnabled: boolean;
+      bottomEnabled: boolean;
+      cardChoice: { index: number; cardId: string; label: string };
+    }
+  | undefined {
+  if (!Array.isArray(choices) || choices.length !== 2) return undefined;
+  const take = choices.find((choice) => (choice.action ?? "").toString().toUpperCase() === "TAKE");
+  const bottom = choices.find((choice) => (choice.action ?? "").toString().toUpperCase() === "BOTTOM");
+  if (!take || !bottom) return undefined;
+  const cardChoice = choices.find((choice) => !!choice.cardId);
+  if (!cardChoice?.cardId) return undefined;
+  return {
+    takeIndex: take.index,
+    bottomIndex: bottom.index,
+    bottomLabel: bottom.label || "Bottom",
+    takeEnabled: take.enabled !== false,
+    bottomEnabled: bottom.enabled !== false,
+    cardChoice: {
+      index: cardChoice.index,
+      cardId: cardChoice.cardId,
+      label: cardChoice.label || "Card",
+    },
+  };
 }

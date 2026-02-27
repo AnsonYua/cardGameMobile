@@ -23,6 +23,15 @@ export function resolveOptionCardId(raw: any, option: any): string | undefined {
     if (viewedCardId) return String(viewedCardId);
   }
 
+  // Legacy compatibility fallback: older top/bottom prompts only expose lookedCarduids in context.
+  const scryContextUid = resolveScryLookedUid(raw);
+  if (scryContextUid) {
+    const lookup = findCardByUid(raw, scryContextUid);
+    if (lookup?.id) return String(lookup.id);
+    const parsed = extractCardIdFromUid(scryContextUid);
+    if (parsed) return parsed;
+  }
+
   const label = (option?.label ?? "").toString();
   const tutorCardId = extractTutorCardId(label);
   if (tutorCardId) return tutorCardId;
@@ -32,9 +41,38 @@ export function resolveOptionCardId(raw: any, option: any): string | undefined {
   return byName?.id ? String(byName.id) : undefined;
 }
 
+function resolveScryLookedUid(raw: any): string | undefined {
+  const contexts: any[] = [];
+  const fromRawQueue = Array.isArray(raw?.gameEnv?.processingQueue) ? raw.gameEnv.processingQueue : [];
+  const fromNotificationQueue = Array.isArray(raw?.gameEnv?.notificationQueue)
+    ? raw.gameEnv.notificationQueue
+    : Array.isArray(raw?.notificationQueue)
+      ? raw.notificationQueue
+      : [];
+  const fromRawEvent = raw?.event ? [raw.event] : [];
+  const fromRawData = raw?.data ? [raw] : [];
+  const queue = fromRawQueue.concat(fromNotificationQueue, fromRawEvent, fromRawData);
+  for (const item of queue) {
+    const data = item?.data ?? item?.payload?.event?.data;
+    const context = data?.context;
+    if ((context?.kind ?? "").toString() !== "SCRY_TOP_DECK") continue;
+    const looked = Array.isArray(context?.lookedCarduids) ? context.lookedCarduids : [];
+    const firstUid = looked.find((entry: unknown) => typeof entry === "string" && entry.length > 0);
+    if (firstUid) contexts.push(firstUid);
+  }
+  const first = contexts.find((entry) => typeof entry === "string" && entry.length > 0);
+  return typeof first === "string" ? first : undefined;
+}
+
 function extractTutorCardId(label: string): string | undefined {
   // Handles labels like: "Reveal and add ST03-001 to hand"
   const m = label.match(/\b([A-Z]{1,4}\d{0,2}-\d{3})\b/);
+  return m?.[1];
+}
+
+function extractCardIdFromUid(uid: string): string | undefined {
+  const value = (uid ?? "").toString();
+  const m = value.match(/\b([A-Z]{1,4}\d{0,2}-\d{3})_/);
   return m?.[1];
 }
 
