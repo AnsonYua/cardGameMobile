@@ -11,6 +11,7 @@ export type SlotControls = {
   getBoardSlotPositions?: () => Record<string, Record<string, { x: number; y: number }>> | undefined;
   setSlotClickEnabled?: (enabled: boolean) => void;
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
+  flashTargetedSlot?: (slotKey: string, opts?: { color?: number; durationMs?: number }) => Promise<void> | void;
   hidePreviewNow?: () => void;
   setSlotPreviewEnabled?: (enabled: boolean) => void;
 };

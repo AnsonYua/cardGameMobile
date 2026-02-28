@@ -230,6 +230,8 @@ export class FieldHandler {
       setSlotClickEnabled: (enabled: boolean) => this.slotDisplay.setSlotClickEnabled(enabled),
       setSlotVisible: (owner: SlotOwner, slotId: string, visible: boolean) =>
         this.slotDisplay.setSlotVisible(owner, slotId, visible),
+      flashTargetedSlot: (slotKey: string, opts?: { color?: number; durationMs?: number }) =>
+        this.slotDisplay.flashTargetedSlot(slotKey, opts),
       createSlotSprite: (slot: SlotViewModel, size: { w: number; h: number }) =>
         this.slotDisplay.createSlotSprite(slot, size),
       hidePreviewNow: () => this.slotDisplay.hidePreviewNow(),

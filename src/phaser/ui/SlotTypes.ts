@@ -1,5 +1,14 @@
 export type SlotOwner = "player" | "opponent";
 
+export type ActivationLockView = {
+  kind?: string;
+  sourceCarduid?: string;
+  appliedBy?: string;
+  appliedTurn?: number;
+  remainingStartPhases?: number;
+  [key: string]: any;
+};
+
 export type SlotCardView = {
   id?: string;
   textureKey?: string;
@@ -7,6 +16,7 @@ export type SlotCardView = {
   isRested?: boolean;
   canAttackThisTurn?: boolean;
   temporaryEffects?: any[];
+  activationLocks?: ActivationLockView[];
   damageReceived?: number;
   cardData?: any;
   cardUid?: string;

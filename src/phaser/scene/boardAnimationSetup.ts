@@ -16,6 +16,7 @@ import type { ChooseFirstPlayerDialog } from "../ui/ChooseFirstPlayerDialog";
 import type { TurnOrderStatusDialog } from "../ui/TurnOrderStatusDialog";
 import type { CoinFlipOverlay } from "../ui/CoinFlipOverlay";
 import type { PhaseChangeDialog } from "../ui/PhaseChangeDialog";
+import type { TargetNoticeDialog } from "../ui/TargetNoticeDialog";
 import type { BoardUiControls } from "./boardUiSetup";
 import type { GameEndInfo } from "./gameEndHelpers";
 import type { EffectTargetController } from "../controllers/EffectTargetController";
@@ -39,6 +40,7 @@ export type AnimationPipelineParams = {
     waitingOpponentDialog: TurnOrderStatusDialog;
     mulliganWaitingDialog: TurnOrderStatusDialog;
     coinFlipOverlay: CoinFlipOverlay;
+    targetNoticeDialog: TargetNoticeDialog;
     phaseChangeDialog: PhaseChangeDialog;
   };
   api: ApiManager;
@@ -117,6 +119,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     waitingOpponentDialog: dialogs.waitingOpponentDialog,
     mulliganWaitingDialog: dialogs.mulliganWaitingDialog,
     coinFlipOverlay: dialogs.coinFlipOverlay,
+    targetNoticeDialog: dialogs.targetNoticeDialog,
     phaseChangeDialog: dialogs.phaseChangeDialog,
     burstFlow,
     burstGroupFlow,

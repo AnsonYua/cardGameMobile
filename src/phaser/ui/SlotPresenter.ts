@@ -64,6 +64,7 @@ export class SlotPresenter {
       isRested: card?.isRested,
       canAttackThisTurn: card?.canAttackThisTurn,
       temporaryEffects: Array.isArray(card?.temporaryEffects) ? card.temporaryEffects : undefined,
+      activationLocks: Array.isArray(card?.activationLocks) ? card.activationLocks : undefined,
       damageReceived: typeof card?.damageReceived === "number" ? card.damageReceived : undefined,
       cardData: card?.cardData,
       cardUid,

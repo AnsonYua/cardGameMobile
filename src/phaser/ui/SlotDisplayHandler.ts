@@ -55,6 +55,8 @@ export class SlotDisplayHandler {
   private animatingSlots = new Map<string, string | null>();
   private statLabelNodes = new Map<string, { text: Phaser.GameObjects.Text; pill: Phaser.GameObjects.GameObject }>();
   private hiddenSlots = new Set<string>();
+  private targetedFlashNodes = new Map<string, Phaser.GameObjects.Graphics>();
+  private targetedFlashTweens = new Map<string, Phaser.Tweens.Tween>();
   private debugSlotVisibility = isDebugFlagEnabled("debugSlotVisibility");
   private debugSlotTextures = isDebugFlagEnabled("debugSlotTextures");
   private debugPreview = isDebugFlagEnabled("debug.cardPreview");
@@ -139,6 +141,49 @@ export class SlotDisplayHandler {
     }
   }
 
+  flashTargetedSlot(slotKey: string, opts?: { color?: number; durationMs?: number }) {
+    if (!slotKey) return Promise.resolve();
+    const [owner, slotId] = slotKey.split("-");
+    if (owner && slotId) {
+      this.setSlotVisible(owner as SlotOwner, slotId, true);
+    }
+
+    const container = this.slotContainers.get(slotKey);
+    if (!container || !container.scene) return Promise.resolve();
+
+    this.clearTargetedSlotFlash(slotKey);
+
+    const color = Number.isFinite(opts?.color) ? Number(opts?.color) : 0xffd166;
+    const durationMs = Number.isFinite(opts?.durationMs) ? Math.max(300, Number(opts?.durationMs)) : 1200;
+    const width = Math.max(20, container.width || 100);
+    const height = Math.max(20, container.height || 140);
+
+    const ring = this.scene.add.graphics();
+    ring.lineStyle(5, color, 1);
+    ring.strokeRoundedRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 12);
+    ring.setAlpha(0);
+    ring.setScale(0.94);
+    ring.setDepth(20);
+    container.add(ring);
+    this.targetedFlashNodes.set(slotKey, ring);
+
+    const tween = this.scene.tweens.add({
+      targets: ring,
+      alpha: { from: 0, to: 0.95 },
+      scaleX: { from: 0.94, to: 1.04 },
+      scaleY: { from: 0.94, to: 1.04 },
+      ease: "Sine.easeInOut",
+      duration: Math.max(120, Math.floor(durationMs / 4)),
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => {
+        this.clearTargetedSlotFlash(slotKey);
+      },
+    });
+    this.targetedFlashTweens.set(slotKey, tween);
+    return Promise.resolve();
+  }
+
   getSlotAreaCenter(owner: SlotOwner): { x: number; y: number } | undefined {
     const positions = this.lastPositions?.[owner];
     if (!positions) return undefined;
@@ -186,6 +231,7 @@ export class SlotDisplayHandler {
       const hadCard = !!(prev && (prev.unit || prev.pilot));
       const hasCard = !!(slot.unit || slot.pilot);
       const pilotAdded = !prev?.pilot && !!slot.pilot;
+      this.clearTargetedSlotFlash(key);
       this.slotContainers.get(key)?.destroy();
 
       const isSelected = this.selectedKey === key;
@@ -247,6 +293,7 @@ export class SlotDisplayHandler {
 
     Array.from(this.slotContainers.entries()).forEach(([key, container]) => {
       if (!nextKeys.has(key)) {
+        this.clearTargetedSlotFlash(key);
         container.destroy();
         this.slotContainers.delete(key);
         this.hiddenSlots.delete(key);
@@ -303,14 +350,18 @@ export class SlotDisplayHandler {
     const ap = slot.fieldCardValue?.totalAP ?? slot.ap ?? 0;
     const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
     this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6);
+    this.drawActivationLockBadge(container, slot, cardSize.w, cardSize.h, 8);
     container.setAlpha(slot.isRested ? this.config.slot.restedAlpha : 1);
     container.setAngle(slot.isRested ? this.config.slot.restedAngle : 0);
     return container;
   }
 
   clear() {
+    Array.from(this.targetedFlashTweens.keys()).forEach((key) => this.clearTargetedSlotFlash(key));
     this.slotContainers.forEach((c) => c.destroy());
     this.slotContainers.clear();
+    this.targetedFlashNodes.clear();
+    this.targetedFlashTweens.clear();
     this.lastStatLabels.clear();
     this.animatingSlots.clear();
     this.statLabelNodes.clear();
@@ -374,6 +425,7 @@ export class SlotDisplayHandler {
     const hp = slot.fieldCardValue?.totalHP ?? slot.hp ?? 0;
     const slotKey = `${slot.owner}-${slot.slotId}`;
     this.drawStatsBadge(container, 0, 0, cardSize.w, cardSize.h, ap, hp, 6, slotKey);
+    this.drawActivationLockBadge(container, slot, cardSize.w, cardSize.h, 10);
   }
 
   private computeCardSize(slotW: number, slotH: number, cardScale: number) {
@@ -746,7 +798,7 @@ export class SlotDisplayHandler {
       hp: slot.fieldCardValue?.totalHP ?? slot.hp ?? 0,
     };
     const size = this.computeHandFlightSize();
-    
+
     this.playAnimator.play({
       textureKey: card?.textureKey,
       fallbackLabel: card?.id,
@@ -766,6 +818,72 @@ export class SlotDisplayHandler {
 
   private isCommandCard(card?: SlotCardView) {
     return (card?.cardType || card?.cardData?.cardType || "").toLowerCase() === "command";
+  }
+
+  private drawActivationLockBadge(
+    container: Phaser.GameObjects.Container,
+    slot: SlotViewModel,
+    cardW: number,
+    cardH: number,
+    depthBase = 8,
+  ) {
+    const lock = this.resolvePreventSetActiveLock(slot.unit?.activationLocks);
+    if (!lock) return;
+    const labelText = "LOCK";
+    const badgeW = Math.min(44, Math.max(30, cardW * 0.28));
+    const badgeH = Math.min(18, Math.max(14, cardH * 0.12));
+    const badgeLayer = this.scene.add.container(0, 0);
+    const badge = this.drawHelpers.drawRoundedRect({
+      x: 0,
+      y: 0,
+      width: badgeW,
+      height: badgeH,
+      radius: 6,
+      fillColor: 0xffd166,
+      fillAlpha: 0.95,
+      strokeColor: 0x000000,
+      strokeAlpha: 0.9,
+      strokeWidth: 2,
+    });
+    badge.setDepth(depthBase);
+    const text = this.scene.add
+      .text(0, 0, labelText, {
+        fontSize: "9px",
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#1f1400",
+      })
+      .setOrigin(0.5)
+      .setDepth(depthBase + 1);
+    badgeLayer.add(badge);
+    badgeLayer.add(text);
+    // Keep lock text horizontal even when rested slots rotate their parent container.
+    if (slot.isRested) {
+      badgeLayer.setAngle(-this.config.slot.restedAngle);
+    }
+    container.add(badgeLayer);
+  }
+
+  private resolvePreventSetActiveLock(activationLocks?: Array<{ kind?: string; restriction?: string }>) {
+    if (!Array.isArray(activationLocks) || activationLocks.length === 0) return undefined;
+    return activationLocks.find((entry) => {
+      const kind = (entry?.kind ?? "").toString().toLowerCase();
+      const restriction = (entry?.restriction ?? "").toString().toLowerCase();
+      return kind === "prevent_set_active_next_turn" || restriction === "prevent_set_active";
+    });
+  }
+
+  private clearTargetedSlotFlash(slotKey: string) {
+    const tween = this.targetedFlashTweens.get(slotKey);
+    if (tween) {
+      tween.stop();
+      this.targetedFlashTweens.delete(slotKey);
+    }
+    const node = this.targetedFlashNodes.get(slotKey);
+    if (node) {
+      node.destroy();
+      this.targetedFlashNodes.delete(slotKey);
+    }
   }
 
 }

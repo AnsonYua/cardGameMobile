@@ -5,6 +5,16 @@ import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
+import type { DrawPopupDialog } from "../ui/DrawPopupDialog";
+import type { PhaseChangeDialog } from "../ui/PhaseChangeDialog";
+import type { MulliganDialog } from "../ui/MulliganDialog";
+import type { ChooseFirstPlayerDialog } from "../ui/ChooseFirstPlayerDialog";
+import type { TurnOrderStatusDialog } from "../ui/TurnOrderStatusDialog";
+import type { CoinFlipOverlay } from "../ui/CoinFlipOverlay";
+import type { PilotTargetDialog } from "../ui/PilotTargetDialog";
+import type { PilotDesignationDialog } from "../ui/PilotDesignationDialog";
+import type { EffectTargetDialog } from "../ui/EffectTargetDialog";
+import type { TrashAreaDialog } from "../ui/TrashAreaDialog";
 
 export type BoardDialogSet = {
   drawPopupDialog: DrawPopupDialog;
@@ -28,6 +38,7 @@ export type BoardDialogSet = {
   tutorTopDeckRevealDialog: import("../ui/TutorTopDeckRevealDialog").TutorTopDeckRevealDialog;
   tokenChoiceDialog: import("../ui/TokenChoiceDialog").TokenChoiceDialog;
   gameOverDialog: import("../ui/GameOverDialog").GameOverDialog;
+  targetNoticeDialog: import("../ui/TargetNoticeDialog").TargetNoticeDialog;
 };
 
 type CreateSlotSprite = (
@@ -67,5 +78,6 @@ export function setupBoardDialogs(
     tutorTopDeckRevealDialog: timedDialogs.tutorTopDeckRevealDialog,
     tokenChoiceDialog: timedDialogs.tokenChoiceDialog,
     gameOverDialog: coreDialogs.gameOverDialog,
+    targetNoticeDialog: coreDialogs.targetNoticeDialog,
   };
 }

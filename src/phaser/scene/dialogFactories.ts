@@ -19,6 +19,7 @@ import { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
 import { TutorTopDeckRevealDialog } from "../ui/TutorTopDeckRevealDialog";
 import { ErrorDialog } from "../ui/ErrorDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
+import { TargetNoticeDialog } from "../ui/TargetNoticeDialog";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
@@ -35,6 +36,7 @@ export function createCoreDialogs(scene: Phaser.Scene) {
     trashAreaDialog: new TrashAreaDialog(scene),
     errorDialog: new ErrorDialog(scene),
     gameOverDialog: new GameOverDialog(scene),
+    targetNoticeDialog: new TargetNoticeDialog(scene),
   };
 }
 

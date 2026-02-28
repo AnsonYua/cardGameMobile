@@ -59,10 +59,14 @@ export class AnimationQueue {
       waitingOpponentDialog?: { hide: () => void };
       mulliganWaitingDialog?: { hide: () => void };
       coinFlipOverlay?: { play: () => Promise<void> | void };
+      targetNoticeDialog?: { showNotice: (opts: { headerText?: string; message: string; holdMs?: number }) => Promise<void> | void };
       startGame?: () => Promise<void> | void;
       startReady?: (isRedraw: boolean) => Promise<void> | void;
       chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;
-      slotControls?: { playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void } | null;
+      slotControls?: {
+        playStatPulse?: (slotKey: string, delta: number) => Promise<void> | void;
+        flashTargetedSlot?: (slotKey: string, opts?: { color?: number; durationMs?: number }) => Promise<void> | void;
+      } | null;
     },
     private opts: {
       maxProcessed?: number;

@@ -272,6 +272,7 @@ export class BoardScene extends Phaser.Scene {
         waitingOpponentDialog: dialogs.waitingOpponentDialog,
         mulliganWaitingDialog: dialogs.mulliganWaitingDialog,
         coinFlipOverlay: dialogs.coinFlipOverlay,
+        targetNoticeDialog: dialogs.targetNoticeDialog,
         phaseChangeDialog: dialogs.phaseChangeDialog,
       },
       api: this.api,

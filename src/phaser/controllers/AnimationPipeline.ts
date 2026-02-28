@@ -14,6 +14,7 @@ import type { EffectTargetController } from "./EffectTargetController";
 
 type SlotControls = {
   setSlotVisible?: (owner: SlotOwner, slotId: string, visible: boolean) => void;
+  flashTargetedSlot?: (slotKey: string, opts?: { color?: number; durationMs?: number }) => Promise<void> | void;
   createSlotSprite?: (slot: SlotViewModel, size: { w: number; h: number }) => Phaser.GameObjects.Container | undefined;
   setPlayAnimations?: (enabled: boolean) => void;
   getSlotAreaCenter?: (owner: SlotOwner) => { x: number; y: number } | undefined;
@@ -66,6 +67,10 @@ type CoinFlipOverlay = {
   play: () => Promise<void> | void;
 };
 
+type TargetNoticeDialog = {
+  showNotice: (opts: { headerText?: string; message: string; holdMs?: number }) => Promise<void> | void;
+};
+
 export function createAnimationPipeline(deps: {
   scene: Phaser.Scene;
   slotControls: SlotControls | null;
@@ -87,6 +92,7 @@ export function createAnimationPipeline(deps: {
   waitingOpponentDialog?: TurnOrderStatusDialog;
   mulliganWaitingDialog?: TurnOrderStatusDialog;
   coinFlipOverlay?: CoinFlipOverlay;
+  targetNoticeDialog?: TargetNoticeDialog;
   phaseChangeDialog?: { showPhaseChange: (opts: { nextPhase: string; header?: string }) => Promise<void> };
   startGame?: () => Promise<void> | void;
   startReady?: (isRedraw: boolean) => Promise<void> | void;
@@ -165,6 +171,7 @@ export function createAnimationPipeline(deps: {
     waitingOpponentDialog: deps.waitingOpponentDialog,
     mulliganWaitingDialog: deps.mulliganWaitingDialog,
     coinFlipOverlay: deps.coinFlipOverlay,
+    targetNoticeDialog: deps.targetNoticeDialog,
     startGame: deps.startGame,
     startReady: deps.startReady,
     chooseFirstPlayer: deps.chooseFirstPlayer,

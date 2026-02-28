@@ -11,6 +11,7 @@ import { createLogger } from "../utils/logger";
 import { shouldSkipBattleResolutionAnimation } from "../utils/BattleAnimationPolicy";
 import { handleGameEnvRefresh } from "./handlers/GameEnvRefreshHandler";
 import { buildStatPulseNotificationEntries, createStatPulseHandler } from "./handlers/StatPulseNotificationHandlers";
+import { resolveTargetGrantNotice } from "./handlers/TargetGrantNoticeResolver";
 
 export type NotificationHandler = (event: SlotNotification, ctx: AnimationContext) => Promise<void>;
 
@@ -44,6 +45,8 @@ export function buildNotificationHandlers(
     waitingOpponentDialog?: { hide: () => void };
     mulliganWaitingDialog?: { hide: () => void };
     coinFlipOverlay?: { play: () => Promise<void> | void };
+    targetNoticeDialog?: { showNotice: (opts: { headerText?: string; message: string; holdMs?: number }) => Promise<void> | void };
+    slotControls?: { flashTargetedSlot?: (slotKey: string, opts?: { color?: number; durationMs?: number }) => Promise<void> | void } | null;
     startGame?: () => Promise<void> | void;
     startReady?: (isRedraw: boolean) => Promise<void> | void;
     chooseFirstPlayer?: (chosenFirstPlayerId: string) => Promise<void> | void;
@@ -155,6 +158,30 @@ export function buildNotificationHandlers(
       "CARD_SET_ACTIVE",
       async () => {
         // No-op: keep slot active/rested state notifications visible in animation order.
+      },
+    ],
+    [
+      "PREVENT_SET_ACTIVE_NEXT_TURN_GRANTED",
+      async (event, ctx) => {
+        const notice = resolveTargetGrantNotice(event, ctx);
+        if (!notice) return;
+
+        const flashTargetedSlot = deps.slotControls?.flashTargetedSlot;
+        const flashTasks = flashTargetedSlot
+          ? notice.slotKeys.map((slotKey) => Promise.resolve(flashTargetedSlot(slotKey, { color: 0xffd166, durationMs: 1200 })))
+          : [];
+
+        const showNoticeTask = deps.targetNoticeDialog?.showNotice
+          ? Promise.resolve(
+              deps.targetNoticeDialog.showNotice({
+                headerText: notice.headerText,
+                message: notice.message,
+                holdMs: 1600,
+              }),
+            )
+          : Promise.resolve();
+
+        await Promise.all([...flashTasks, showNoticeTask]);
       },
     ],
     [
