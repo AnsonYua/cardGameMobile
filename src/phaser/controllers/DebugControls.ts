@@ -72,6 +72,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-047/attack_if_two_other_rested_choose_enemy_damage_3",
     "GD01/GD01-048/deploy_tutor_top_choose_bottom",
     "GD01/GD01-048/deploy_tutor_top_take_zeon_unit",
+    "GD01/GD01-049/deploy_choose_zaft_ap_ge_5_grant_first_strike_manual_battle_flow",
     "GD01/GD01-050/attack_ap_ge_5_choose_enemy_damage_2",
     "GD01/GD01-058/activate_action_choose_lv4_or_higher_unit_ap_plus_1_until_end_of_battle",
     "GD01/GD01-059/attack_ap_plus_2_auto_target_source",

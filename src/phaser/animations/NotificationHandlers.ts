@@ -8,6 +8,7 @@ import type { GameEndInfo } from "../scene/gameEndHelpers";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import { normalizePhaseToken, phaseEquals } from "../game/phaseUtils";
 import { createLogger } from "../utils/logger";
+import { shouldSkipBattleResolutionAnimation } from "../utils/BattleAnimationPolicy";
 import { handleGameEnvRefresh } from "./handlers/GameEnvRefreshHandler";
 import { buildStatPulseNotificationEntries, createStatPulseHandler } from "./handlers/StatPulseNotificationHandlers";
 
@@ -308,7 +309,8 @@ export function buildNotificationHandlers(
           payload.notificationId ??
           payload?.result?.attackNotificationId;
         deps.attackIndicator.markAttackResolved(attackRef ? String(attackRef) : undefined);
-        if (ctx.allowAnimations) {
+        const skipBattleAnimation = shouldSkipBattleResolutionAnimation(payload);
+        if (ctx.allowAnimations && !skipBattleAnimation) {
           await deps.battleAnimator.playBattleResolution(
             event,
             ctx.getRenderSlots ? ctx.getRenderSlots() : ctx.slots,

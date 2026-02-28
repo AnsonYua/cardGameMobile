@@ -15,6 +15,7 @@ function createDeps() {
       playBattleResolution: vi.fn(async () => undefined),
     },
     attackIndicator: {
+      markAttackResolved: vi.fn(),
       updateFromNotification: vi.fn(async () => undefined),
       clear: vi.fn(),
     },
@@ -63,5 +64,41 @@ describe('NotificationHandlers pairing notifications', () => {
       slots: [],
       allowAnimations: true,
     } as any);
+  });
+
+  it('skips battle animation when BATTLE_RESOLVED is pre-battle aborted', async () => {
+    const triggerStatPulse = vi.fn(async () => undefined);
+    const deps = createDeps();
+    const handlers = buildNotificationHandlers(deps, { triggerStatPulse });
+    const handler = handlers.get('BATTLE_RESOLVED');
+    expect(handler).toBeTruthy();
+
+    const event = {
+      id: 'battle_abort_1',
+      type: 'BATTLE_RESOLVED',
+      payload: {
+        attackNotificationId: 'attack_declared_1',
+        battleType: 'attackUnit',
+        result: {
+          aborted: true,
+          battleEndedEarly: true,
+          preBattle: true,
+          damageStepExecuted: false,
+          attackerDamageTaken: 0,
+        },
+      },
+    };
+
+    await handler?.(event as any, {
+      slots: [],
+      allowAnimations: true,
+      boardSlotPositions: undefined,
+      currentRaw: {},
+      getRenderSlots: () => [],
+    } as any);
+
+    expect(deps.battleAnimator.playBattleResolution).not.toHaveBeenCalled();
+    expect(deps.attackIndicator.markAttackResolved).toHaveBeenCalledWith('attack_declared_1');
+    expect(deps.attackIndicator.clear).toHaveBeenCalled();
   });
 });

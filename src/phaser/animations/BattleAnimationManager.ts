@@ -3,7 +3,11 @@ import type { SlotNotification } from "./NotificationAnimationController";
 import type { SlotViewModel, SlotOwner, SlotPositionMap, SlotCardView } from "../ui/SlotTypes";
 import type { TargetAnchorProviders } from "../utils/AttackResolver";
 import { findSlotForAttack, getSlotPositionEntry, resolveAttackTargetPoint } from "../utils/AttackResolver";
-import { isAttackUnitBattle, shouldSuppressMissingTargetPlaceholder } from "../utils/BattleAnimationPolicy";
+import {
+  isAttackUnitBattle,
+  shouldSkipBattleResolutionAnimation,
+  shouldSuppressMissingTargetPlaceholder,
+} from "../utils/BattleAnimationPolicy";
 import { FxToolkit } from "./FxToolkit";
 import { toPreviewKey } from "../ui/HandTypes";
 
@@ -411,6 +415,15 @@ export class BattleAnimationManager {
     rawSlots?: SlotViewModel[],
   ): { attackerDestroyed: boolean; defenderDestroyed: boolean } {
     const result = payload?.result ?? {};
+    if (shouldSkipBattleResolutionAnimation(payload)) {
+      const explicitAttacker = this.coerceOptionalBool(result.attackerDestroyed);
+      const explicitDefender = this.coerceOptionalBool(result.defenderDestroyed);
+      return {
+        attackerDestroyed: explicitAttacker === true,
+        defenderDestroyed: explicitDefender === true,
+      };
+    }
+
     let attackerDestroyed = this.coerceOptionalBool(result.attackerDestroyed);
     let defenderDestroyed = this.coerceOptionalBool(result.defenderDestroyed);
 
