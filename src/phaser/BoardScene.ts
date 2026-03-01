@@ -81,6 +81,8 @@ import { CardAutomationBridge } from "./automation/CardAutomationBridge";
 import { isAutomationEnabled } from "./automation/automationFlag";
 import type { CardAutomation } from "./automation/AutomationTypes";
 import { findActiveBlockerChoiceFromRaw } from "./controllers/choice/ChoiceFlowUtils";
+import { resolveAutoFollowChoiceOwner } from "./controllers/choice/ChoiceOwnerResolver";
+import { updateSession } from "./game/SessionStore";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -169,6 +171,9 @@ export class BoardScene extends Phaser.Scene {
   private gameEnded = false;
   private gameEndInfo?: GameEndInfo;
   private automationBridge?: CardAutomationBridge;
+  private autoFollowChoiceOwnerEnabled = isDebugFlagEnabled("autoFollowChoiceOwner");
+  private autoFollowChoiceOwnerInFlight = false;
+  private autoFollowAttemptedChoiceIds = new Set<string>();
 
   create() {
     // Center everything based on the actual viewport, not just BASE_W/H.
@@ -602,6 +607,7 @@ export class BoardScene extends Phaser.Scene {
     // updateTurnTimer() already calls TurnStartDrawGate.updateFromSnapshot(raw) via updateTurnTimerWithGate().
     // Keep it early so action bar gating sees the latest gate state.
     this.updateTurnTimer(ctx.raw);
+    void this.maybeAutoFollowChoiceOwner(ctx.raw);
 
     // Notification-driven events can affect multiple UI areas; run them first and stop the normal UI pass
     // while the animation queue is running.
@@ -987,6 +993,81 @@ export class BoardScene extends Phaser.Scene {
     // eslint-disable-next-line no-console
     this.log.debug("updateSlots render current", { queueRunning });
     this.renderSlots(currentSlots);
+  }
+
+  private async maybeAutoFollowChoiceOwner(raw: any) {
+    if (!this.autoFollowChoiceOwnerEnabled) return;
+    if (this.autoFollowChoiceOwnerInFlight) return;
+    const selfPlayerId = this.gameContext.playerId;
+    if (!selfPlayerId) return;
+    const gameId = this.gameContext.gameId;
+    if (!gameId) return;
+
+    const decision = resolveAutoFollowChoiceOwner({
+      raw,
+      selfPlayerId,
+      attemptedChoiceIds: this.autoFollowAttemptedChoiceIds,
+    });
+    if (!decision) return;
+
+    this.autoFollowChoiceOwnerInFlight = true;
+    this.autoFollowAttemptedChoiceIds.add(decision.eventId);
+    if (this.autoFollowAttemptedChoiceIds.size > 80) {
+      const oldest = this.autoFollowAttemptedChoiceIds.values().next().value;
+      if (oldest) this.autoFollowAttemptedChoiceIds.delete(oldest);
+    }
+    this.log.warn("auto follow choice owner: start seat switch", {
+      gameId,
+      fromPlayerId: selfPlayerId,
+      toOwnerPlayerId: decision.ownerPlayerId,
+      choiceType: decision.type,
+      choiceEventId: decision.eventId,
+      selector: decision.selector,
+    });
+
+    try {
+      const seatResp = await this.match.resolveSeatSession(gameId, decision.selector);
+      if (!seatResp?.success || !seatResp?.resolvedPlayerId || !seatResp?.sessionToken) {
+        this.log.warn("auto follow choice owner: resolveSeatSession failed", {
+          gameId,
+          selector: decision.selector,
+          response: seatResp,
+        });
+        return;
+      }
+
+      updateSession({
+        gameId,
+        playerId: seatResp.resolvedPlayerId,
+        sessionToken: seatResp.sessionToken,
+        sessionExpiresAt: seatResp.sessionExpiresAt ?? null,
+      });
+      this.contextStore.update({
+        playerId: seatResp.resolvedPlayerId,
+        playerSelector: decision.selector,
+      });
+
+      await this.engine.updateGameStatus(gameId, seatResp.resolvedPlayerId, {
+        fromScenario: false,
+        silent: true,
+        allowEnvScanFallback: true,
+      });
+      this.log.warn("auto follow choice owner: seat switched", {
+        gameId,
+        fromPlayerId: selfPlayerId,
+        toPlayerId: seatResp.resolvedPlayerId,
+        choiceEventId: decision.eventId,
+      });
+      this.selectionAction?.refreshActions("neutral");
+    } catch (error) {
+      this.log.warn("auto follow choice owner: seat switch exception", {
+        gameId,
+        choiceEventId: decision.eventId,
+        error,
+      });
+    } finally {
+      this.autoFollowChoiceOwnerInFlight = false;
+    }
   }
 
   private updateHeaderPhaseStatus(raw: any) {

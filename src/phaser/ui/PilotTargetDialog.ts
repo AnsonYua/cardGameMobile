@@ -17,6 +17,7 @@ export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
   header?: string;
+  subHeader?: string;
   allowPiloted?: boolean;
   closeOnBackdrop?: boolean;
   showCloseButton?: boolean;
@@ -160,6 +161,7 @@ export class PilotTargetDialog {
     } = this.cfg.dialog;
     const { aspect, widthFactor: cardWidthFactor, framePadding, extraCellHeight, frameExtra } = this.cfg.card;
     const headerText = opts.header || "Choose a Unit";
+    const subHeaderText = (opts.subHeader || "").trim();
     const dialogWidth = Math.max(minWidth, cam.width * widthFactor);
     const headerLayout = computeDialogHeaderLayout(this.scene, {
       text: headerText,
@@ -170,6 +172,22 @@ export class PilotTargetDialog {
       closeSize,
       closeOffset,
     });
+    const subHeaderWrapWidth = Math.max(160, dialogWidth - headerWrapPad * 2);
+    let subHeaderHeight = 0;
+    if (subHeaderText) {
+      const measure = this.scene.add
+        .text(0, 0, subHeaderText, {
+          fontSize: "13px",
+          fontFamily: "Arial",
+          color: "#c7ccd4",
+          align: "center",
+          wordWrap: { width: subHeaderWrapWidth, useAdvancedWrap: true },
+        })
+        .setVisible(false);
+      subHeaderHeight = Math.ceil(measure.getBounds().height);
+      measure.destroy();
+    }
+    const subHeaderGap = subHeaderHeight > 0 ? 8 : 0;
 
     const visibleRows = targets.length <= cols ? 1 : rows;
     const totalRows = Math.max(visibleRows, Math.ceil(targets.length / cols));
@@ -182,9 +200,10 @@ export class PilotTargetDialog {
     const cellHeight = cardHeight + extraCellHeight;
     const gridVisibleHeight = visibleRows * cellHeight + (visibleRows - 1) * gap;
     const gridTotalHeight = totalRows * cellHeight + (totalRows - 1) * gap;
+    const headerStackHeight = headerLayout.height + subHeaderGap + subHeaderHeight;
     const timerGap = getCompactDialogTimerHeaderGap();
     const footerPad = 22;
-    const topToGrid = headerLayout.headerOffsetUsed + headerLayout.height / 2 + timerGap;
+    const topToGrid = headerLayout.headerOffsetUsed + headerStackHeight / 2 + timerGap;
     const dialogHeight = Math.max(minHeight, topToGrid + gridVisibleHeight + footerPad);
 
     const shell = createTargetDialogShell(
@@ -212,6 +231,24 @@ export class PilotTargetDialog {
       .text(0, -dialogHeight / 2 + headerLayout.headerOffsetUsed, headerText, headerLayout.style)
       .setOrigin(0.5);
     dialog.add(header);
+    if (subHeaderText) {
+      const subHeaderY =
+        -dialogHeight / 2 +
+        headerLayout.headerOffsetUsed +
+        headerLayout.height / 2 +
+        subHeaderGap +
+        subHeaderHeight / 2;
+      const subHeader = this.scene.add
+        .text(0, subHeaderY, subHeaderText, {
+          fontSize: "13px",
+          fontFamily: "Arial",
+          color: "#c7ccd4",
+          align: "center",
+          wordWrap: { width: subHeaderWrapWidth, useAdvancedWrap: true },
+        })
+        .setOrigin(0.5);
+      dialog.add(subHeader);
+    }
 
     const startX = -dialogWidth / 2 + margin + cellWidth / 2;
     const startY = -dialogHeight / 2 + topToGrid + cellHeight / 2;
@@ -324,7 +361,7 @@ export class PilotTargetDialog {
         gap,
         headerOffset: headerLayout.headerOffsetUsed,
         headerWrapPad,
-        headerHeight: headerLayout.height,
+        headerHeight: headerStackHeight,
         cols,
         visibleRows,
       },

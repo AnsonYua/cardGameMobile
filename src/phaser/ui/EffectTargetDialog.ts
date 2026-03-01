@@ -6,6 +6,7 @@ import type { TurnTimerController } from "../controllers/TurnTimerController";
 type EffectTargetDialogShowOpts = {
   targets: SlotViewModel[];
   header?: string;
+  subHeader?: string;
   onSelect: (slot: SlotViewModel) => Promise<void> | void;
   showCloseButton?: boolean;
   onClose?: () => void;
@@ -26,6 +27,7 @@ export class EffectTargetDialog extends PilotTargetDialog {
       targets: opts.targets,
       onSelect: opts.onSelect,
       header: opts.header ?? "Choose a Target",
+      subHeader: opts.subHeader,
       allowPiloted: true,
       closeOnBackdrop: false,
       showCloseButton: opts.showCloseButton ?? false,

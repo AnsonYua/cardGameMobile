@@ -11,6 +11,7 @@ import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { mapSlotToApiTargetRef } from "./targeting/TargetChoiceMapping";
 import { resolveTargetChoiceHeader } from "./targeting/TargetChoiceTitles";
 import { resolveTargetChoiceEffectDescription } from "./targeting/TargetChoiceEffectDescription";
+import { buildTargetChoiceHint } from "./targeting/TargetChoiceHintBuilder";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -164,6 +165,7 @@ export class EffectTargetController {
         effectDescription,
         isMulti,
       });
+      const subHeader = buildTargetChoiceHint({ raw, payload, data, availableTargets });
 
       const confirmEmptyIfAllowed = () => {
         if (!allowEmptySelection || !selfId) {
@@ -213,7 +215,7 @@ export class EffectTargetController {
         try {
           this.deps.dialog.showMulti({
             targets,
-            header,
+            header: subHeader ? `${header}\n${subHeader}` : header,
             // Optional effects can be declined by closing; the minimum selection still applies
             // when the player confirms.
             showCloseButton: allowEmptySelection,
@@ -275,6 +277,7 @@ export class EffectTargetController {
         this.deps.dialog.show({
           targets,
           header,
+          subHeader,
           showCloseButton: allowEmptySelection,
           allowPiloted: true,
           onClose: confirmEmptyIfAllowed,
