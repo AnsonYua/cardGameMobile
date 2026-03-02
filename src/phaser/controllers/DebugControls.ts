@@ -204,6 +204,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD02/GD02-073/opponent_turn_grant_first_strike_to_battling_enemy",
     "GD02/GD02-074/paired_trash4_command_gain_blocker_and_high_maneuver_skip_blocker_manual_flow.json",
     "GD02/GD02-076/ap5_gain_blocker_redirect_attack_target_manual_flow.json",
+    "GD02/GD02-076/ap5_gain_blocker_redirect_attack_target_manual_flow_ap5",
     "GD02/GD02-081/deploy_if_friendly_white_base_choose_enemy_unit_ap_minus_2_during_turn_manual_flow.json",
     "GD02/GD02-082/while_another_gjallarhorn_in_play_gain_blocker_redirect_attack_target_manual_flow.json",
     "GD02/GD02-083/destroyed_opponent_turn_choose_friendly_gjallarhorn_set_active_manual_battle.json",
