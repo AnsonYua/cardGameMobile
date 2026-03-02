@@ -48,14 +48,15 @@ export function createPromptDialog(
   const maxButtonLabelLength = opts.buttons.reduce((max, btn) => Math.max(max, (btn?.label ?? "").toString().length), 0);
   const useStackedButtons = count > 1 && (cam.width <= 900 || hasLongButtonLabel);
   const stackedButtonHeight =
-    maxButtonLabelLength > 72 ? 92 : maxButtonLabelLength > 44 ? 74 : maxButtonLabelLength > 28 ? 60 : 52;
+    maxButtonLabelLength > 72 ? 78 : maxButtonLabelLength > 44 ? 64 : maxButtonLabelLength > 28 ? 56 : 48;
   const buttonHeight = useStackedButtons ? stackedButtonHeight : 46;
-  const buttonGap = useStackedButtons ? 12 : 24;
+  const buttonGap = useStackedButtons ? 10 : 22;
   const buttonRows = hasButtons ? (useStackedButtons ? count : 1) : 0;
   const promptHeight = tempPrompt?.height ?? 0;
   const buttonsBlockHeight = buttonRows > 0 ? buttonRows * buttonHeight + Math.max(0, buttonRows - 1) * buttonGap : 0;
   const buttonContentHeight = promptHeight + (hasPrompt && hasButtons ? gap : 0) + buttonsBlockHeight;
-  const minButtonContentWidth = useStackedButtons ? 260 : hasButtons ? 200 : 260;
+  const stackedMinWidth = Math.min(440, Math.max(280, Math.round(maxButtonLabelLength * 8.2 + 64)));
+  const minButtonContentWidth = useStackedButtons ? stackedMinWidth : hasButtons ? 220 : 260;
   const layout = computePromptDialogLayout(cam, cfg, {
     contentWidth: Math.max(tempPrompt?.width ?? 0, minButtonContentWidth),
     contentHeight: buttonContentHeight,

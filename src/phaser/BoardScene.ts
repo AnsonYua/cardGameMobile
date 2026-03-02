@@ -81,7 +81,8 @@ import { CardAutomationBridge } from "./automation/CardAutomationBridge";
 import { isAutomationEnabled } from "./automation/automationFlag";
 import type { CardAutomation } from "./automation/AutomationTypes";
 import { findActiveBlockerChoiceFromRaw } from "./controllers/choice/ChoiceFlowUtils";
-import { resolveAutoFollowChoiceOwner } from "./controllers/choice/ChoiceOwnerResolver";
+import { sliceEventsForBlockingChoice } from "./animations/ChoiceNotificationWindow";
+import { autoFollowChoiceOwner } from "./controllers/choice/AutoFollowChoiceOwner";
 import { updateSession } from "./game/SessionStore";
 
 export class BoardScene extends Phaser.Scene {
@@ -856,7 +857,7 @@ export class BoardScene extends Phaser.Scene {
 
     const notificationQueue = getNotificationQueue(raw);
     const builtEvents = this.animationQueue?.buildEvents(notificationQueue) ?? [];
-    const events = this.filterNotificationEventsForPendingChoice(builtEvents, raw);
+    const events = this.filterNotificationEventsForPendingChoice(builtEvents);
     if (!events.length) return false;
 
     // Keep blocker controls visible for the defending player while waiting for blocker decision.
@@ -921,28 +922,23 @@ export class BoardScene extends Phaser.Scene {
     return true;
   }
 
-  private hasPendingBlockingChoice(raw: any): boolean {
-    const queue = raw?.gameEnv?.notificationQueue ?? raw?.notificationQueue;
-    if (!Array.isArray(queue) || !queue.length) return false;
-    const selfId = this.gameContext.playerId;
+  private filterNotificationEventsForPendingChoice(events: any[]): any[] {
+    if (!Array.isArray(events) || events.length === 0) return [];
 
-    for (const note of queue) {
-      const payload = note?.payload ?? {};
-      const event = payload?.event ?? payload;
-      const type = (event?.type ?? note?.type ?? '').toString().toUpperCase();
-      const status = (event?.status ?? '').toString().toUpperCase();
-      if (status && status !== 'DECLARED') continue;
-      if (type !== 'TARGET_CHOICE' && type !== 'BLOCKER_CHOICE' && type !== 'BURST_EFFECT_CHOICE') continue;
-      const decisionMade = event?.data?.userDecisionMade;
-      if (decisionMade !== false) continue;
-      const isCompleted = payload?.isCompleted === true;
-      if (isCompleted) continue;
-      const ownerId = (event?.playerId ?? payload?.playerId ?? event?.data?.playerId ?? '').toString();
-      if (selfId && ownerId && ownerId !== selfId) continue;
-      return true;
+    const filtered = sliceEventsForBlockingChoice(events, this.gameContext.playerId);
+    if (filtered.length < events.length) {
+      const deferredTypes = events
+        .slice(filtered.length)
+        .map((event) => (event?.type ?? '').toString().toUpperCase())
+        .filter((type) => type);
+
+      this.log.debug('defer notifications while choice pending', {
+        deferredTypes,
+        keptTypes: filtered.map((event) => (event?.type ?? '').toString().toUpperCase()),
+      });
     }
 
-    return false;
+    return filtered;
   }
 
   private hasPendingSelfBlockerChoice(raw: any): boolean {
@@ -951,28 +947,6 @@ export class BoardScene extends Phaser.Scene {
     const active = findActiveBlockerChoiceFromRaw(raw);
     const ownerId = (active?.event?.playerId ?? "").toString();
     return Boolean(ownerId && ownerId === selfId);
-  }
-
-  private filterNotificationEventsForPendingChoice(events: any[], raw: any): any[] {
-    if (!Array.isArray(events) || events.length === 0) return [];
-    if (!this.hasPendingBlockingChoice(raw)) return events;
-
-    const isChoiceType = (type: string) =>
-      type === 'TARGET_CHOICE' || type === 'BLOCKER_CHOICE' || type === 'BURST_EFFECT_CHOICE';
-
-    const prioritized = events.filter((event) => isChoiceType((event?.type ?? '').toString().toUpperCase()));
-    const deferredTypes = events
-      .map((event) => (event?.type ?? '').toString().toUpperCase())
-      .filter((type) => type && !isChoiceType(type));
-
-    if (deferredTypes.length > 0) {
-      this.log.debug('defer notifications while choice pending', {
-        deferredTypes,
-        keptTypes: prioritized.map((event) => (event?.type ?? '').toString().toUpperCase()),
-      });
-    }
-
-    return prioritized;
   }
 
   private updateSlots() {
@@ -998,72 +972,28 @@ export class BoardScene extends Phaser.Scene {
   private async maybeAutoFollowChoiceOwner(raw: any) {
     if (!this.autoFollowChoiceOwnerEnabled) return;
     if (this.autoFollowChoiceOwnerInFlight) return;
-    const selfPlayerId = this.gameContext.playerId;
-    if (!selfPlayerId) return;
-    const gameId = this.gameContext.gameId;
-    if (!gameId) return;
-
-    const decision = resolveAutoFollowChoiceOwner({
-      raw,
-      selfPlayerId,
-      attemptedChoiceIds: this.autoFollowAttemptedChoiceIds,
-    });
-    if (!decision) return;
+    if (!this.gameContext.gameId || !this.gameContext.playerId) return;
 
     this.autoFollowChoiceOwnerInFlight = true;
-    this.autoFollowAttemptedChoiceIds.add(decision.eventId);
-    if (this.autoFollowAttemptedChoiceIds.size > 80) {
-      const oldest = this.autoFollowAttemptedChoiceIds.values().next().value;
-      if (oldest) this.autoFollowAttemptedChoiceIds.delete(oldest);
-    }
-    this.log.warn("auto follow choice owner: start seat switch", {
-      gameId,
-      fromPlayerId: selfPlayerId,
-      toOwnerPlayerId: decision.ownerPlayerId,
-      choiceType: decision.type,
-      choiceEventId: decision.eventId,
-      selector: decision.selector,
-    });
-
     try {
-      const seatResp = await this.match.resolveSeatSession(gameId, decision.selector);
-      if (!seatResp?.success || !seatResp?.resolvedPlayerId || !seatResp?.sessionToken) {
-        this.log.warn("auto follow choice owner: resolveSeatSession failed", {
-          gameId,
-          selector: decision.selector,
-          response: seatResp,
-        });
-        return;
-      }
-
-      updateSession({
-        gameId,
-        playerId: seatResp.resolvedPlayerId,
-        sessionToken: seatResp.sessionToken,
-        sessionExpiresAt: seatResp.sessionExpiresAt ?? null,
-      });
-      this.contextStore.update({
-        playerId: seatResp.resolvedPlayerId,
-        playerSelector: decision.selector,
-      });
-
-      await this.engine.updateGameStatus(gameId, seatResp.resolvedPlayerId, {
-        fromScenario: false,
-        silent: true,
-        allowEnvScanFallback: true,
-      });
-      this.log.warn("auto follow choice owner: seat switched", {
-        gameId,
-        fromPlayerId: selfPlayerId,
-        toPlayerId: seatResp.resolvedPlayerId,
-        choiceEventId: decision.eventId,
-      });
-      this.selectionAction?.refreshActions("neutral");
-    } catch (error) {
-      this.log.warn("auto follow choice owner: seat switch exception", {
-        gameId,
-        choiceEventId: decision.eventId,
-        error,
+      await autoFollowChoiceOwner({
+        enabled: this.autoFollowChoiceOwnerEnabled,
+        inFlight: false,
+        raw,
+        gameId: this.gameContext.gameId,
+        selfPlayerId: this.gameContext.playerId,
+        attemptedChoiceIds: this.autoFollowAttemptedChoiceIds,
+        resolveSeatSession: (gameId, selector) => this.match.resolveSeatSession(gameId, selector),
+        updateSession,
+        updateContext: (partial) => this.contextStore.update(partial),
+        refreshGameStatus: (gameId, playerId) =>
+          this.engine.updateGameStatus(gameId, playerId, {
+            fromScenario: false,
+            silent: true,
+            allowEnvScanFallback: true,
+          }),
+        refreshActions: () => this.selectionAction?.refreshActions("neutral"),
+        log: this.log,
       });
     } finally {
       this.autoFollowChoiceOwnerInFlight = false;

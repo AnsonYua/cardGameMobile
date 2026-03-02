@@ -9,11 +9,16 @@ export type TutorTopDeckRevealCard = {
 };
 
 export function isTutorTopDeckRevealPrompt(context: any): boolean {
-  return (context?.kind ?? "").toString() === "TUTOR_TOP_DECK_REVEAL_CONFIRM";
+  const kind = (context?.kind ?? "").toString();
+  return kind === "TUTOR_TOP_DECK_REVEAL_CONFIRM" || kind === "DEPLOY_FROM_TOP_DECK_REVIEW_CONFIRM";
 }
 
 export function getTutorTopDeckRevealCards(context: any): TutorTopDeckRevealCard[] {
-  const cards = context?.tutor?.lookedCards;
+  const cards = Array.isArray(context?.tutor?.lookedCards)
+    ? context.tutor.lookedCards
+    : Array.isArray(context?.deployFromTopDeck?.lookedCards)
+      ? context.deployFromTopDeck.lookedCards
+      : [];
   if (!Array.isArray(cards)) return [];
   return cards
     .filter((c: any) => !!c && typeof c === "object")

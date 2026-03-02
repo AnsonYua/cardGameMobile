@@ -15,7 +15,7 @@ export const DIALOG_TEXT = {
     align: "center",
   } as const,
   button: {
-    fontSize: "15px",
+    fontSize: "14px",
     fontFamily: "Arial",
     fontStyle: "bold",
     align: "center",

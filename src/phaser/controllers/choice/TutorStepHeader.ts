@@ -13,6 +13,9 @@ export function withTutorRevealStepHeader(headerText: string, context: any): str
 export function withTutorSelectionStepHeader(headerText: string, context: any): string {
   const header = (headerText || "Choose Option").toString();
   const hasTutorContext = Array.isArray(context?.tutor?.lookedCarduids) || Array.isArray(context?.tutor?.lookedCards);
-  if (!hasTutorContext || hasStepMarker(header)) return header;
+  const hasDeployContext =
+    Array.isArray(context?.deployFromTopDeck?.lookedCarduids) ||
+    Array.isArray(context?.deployFromTopDeck?.lookedCards);
+  if ((!hasTutorContext && !hasDeployContext) || hasStepMarker(header)) return header;
   return `${header} (Step 2/2)`;
 }
