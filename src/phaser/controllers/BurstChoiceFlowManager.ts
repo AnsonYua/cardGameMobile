@@ -94,7 +94,8 @@ export class BurstChoiceFlowManager {
     }
     this.applyActionBar();
     if (!isOwner) {
-      this.deps.burstChoiceDialog?.hide();
+      // Opponent should still see which burst card was revealed, but cannot act on it.
+      this.showDialog(raw);
       return;
     }
     this.pendingPromise =
@@ -160,13 +161,6 @@ export class BurstChoiceFlowManager {
     }
     const selfId = this.deps.gameContext.playerId;
     const isOwner = this.queueEntry.playerId === selfId;
-    if (!isOwner) {
-      dialog.hide();
-      this.log.debug("showDialog skipped: non-owner", {
-        entryId: this.queueEntry.id,
-      });
-      return;
-    }
     const card = this.resolveCard(raw);
     if (!card) {
       this.log.debug("showDialog skipped: card not resolved", {
@@ -192,12 +186,15 @@ export class BurstChoiceFlowManager {
       showTimer: isOwner,
       showOverlay: false,
       onTrigger: async () => {
+        if (!isOwner) return;
         await this.submitChoice("ACTIVATE");
       },
       onCancel: async () => {
+        if (!isOwner) return;
         await this.submitChoice("DECLINE");
       },
       onTimeout: async () => {
+        if (!isOwner) return;
         await this.submitChoice("ACTIVATE");
       },
     });
