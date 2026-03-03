@@ -209,9 +209,21 @@ export function commandHasTimingWindow(
   if (!rules.length) return false;
   const currentPhase = normalizePhaseToken(phase);
   if (!currentPhase) return false;
-  return rules.some((rule) => {
+  const playRules = rules.filter((rule) => (rule?.type || "").toString().toLowerCase() === "play");
+  if (!playRules.length) return false;
+
+  const hasExplicitWindow = playRules.some((rule) => {
     const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
     return windows.some((window) => normalizePhaseToken(window) === currentPhase);
+  });
+  if (hasExplicitWindow) return true;
+
+  const mainPhaseToken = normalizePhaseToken("MAIN_PHASE");
+  if (currentPhase !== mainPhaseToken) return false;
+
+  return playRules.some((rule) => {
+    const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
+    return windows.length === 0;
   });
 }
 
