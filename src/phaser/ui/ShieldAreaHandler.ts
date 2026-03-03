@@ -50,6 +50,7 @@ export type ShieldAreaControls = Pick<
   | "setBasePreviewData"
   | "setBaseClickHandler"
   | "setBaseInputEnabled"
+  | "setSelectedBase"
   | "getBaseAnchor"
   | "getShieldTopAnchor"
 >;
@@ -78,6 +79,8 @@ export class ShieldAreaHandler {
   private previewTimer?: any;
   private previewActive = false;
   private baseClickHandler?: (payload: { side: BaseSide; card?: any }) => void;
+  private selectedBaseSide?: BaseSide;
+  private baseSelectionRings: Partial<Record<BaseSide, Phaser.GameObjects.Graphics>> = {};
   private baseAnchors: Partial<Record<BaseSide, { x: number; y: number; isOpponent: boolean; w: number; h: number }>> =
     {};
   private shieldAnchors: Partial<Record<BaseSide, { x: number; y: number }>> = {};
@@ -122,6 +125,12 @@ export class ShieldAreaHandler {
         hit.disableInteractive();
       }
     });
+  }
+
+  setSelectedBase(side?: BaseSide) {
+    this.selectedBaseSide = side;
+    this.applyBaseSelection("player");
+    this.applyBaseSelection("opponent");
   }
 
   getShieldCount(isOpponent?: boolean) {
@@ -367,6 +376,8 @@ export class ShieldAreaHandler {
     this.badges[overlayKey] = undefined;
     this.baseHits[overlayKey]?.destroy();
     this.baseHits[overlayKey] = undefined;
+    this.baseSelectionRings[overlayKey]?.destroy();
+    this.baseSelectionRings[overlayKey] = undefined;
 
     const container = this.scene.add.container(x, y).setDepth(490);
     this.baseContainers[overlayKey] = container;
@@ -430,6 +441,7 @@ export class ShieldAreaHandler {
 
     // Apply any previously-set status now that visuals exist.
     this.applyBaseStatus(overlayKey);
+    this.applyBaseSelection(overlayKey);
   }
 
   private applyBaseStatus(side: BaseSide) {
@@ -443,6 +455,27 @@ export class ShieldAreaHandler {
     // Base visibility (hidden if destroyed)
     container.setVisible(status !== "destroyed");
     container.setAngle(this.getBaseAngle(side, status));
+  }
+
+  private applyBaseSelection(side: BaseSide) {
+    this.baseSelectionRings[side]?.destroy();
+    this.baseSelectionRings[side] = undefined;
+    if (this.selectedBaseSide !== side) return;
+    const container = this.baseContainers[side];
+    const anchor = this.baseAnchors[side];
+    if (!container || !anchor) return;
+    const ring = this.scene.add.graphics();
+    ring.lineStyle(3, 0x18c56c, 1);
+    ring.strokeRoundedRect(
+      -anchor.w / 2,
+      -anchor.h / 2,
+      anchor.w,
+      anchor.h,
+      2,
+    );
+    ring.setDepth(520);
+    container.add(ring);
+    this.baseSelectionRings[side] = ring;
   }
 
   private getBaseAngle(side: BaseSide, status: ShieldAreaStatus) {

@@ -167,6 +167,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     engine: deps.engine,
     handControls: deps.handControls,
     slotControls: deps.slotControls,
+    baseControls: deps.baseControls,
     gameContext: deps.gameContext,
     blockerFlow,
     attackCoordinator,

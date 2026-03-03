@@ -13,6 +13,10 @@ type HandControls = {
   clearSelection?: () => void;
 };
 
+type BaseControls = {
+  setSelectedBase?: (side?: "player" | "opponent") => void;
+};
+
 export class SelectionHandler {
   private selectedHandCard?: HandCardView;
   private selectedSlot?: SlotViewModel;
@@ -22,6 +26,7 @@ export class SelectionHandler {
       engine: GameEngine;
       handControls?: HandControls | null;
       slotControls?: SlotControls | null;
+      baseControls?: BaseControls | null;
       gameContext: GameContext;
       blockerFlow: BlockerFlowManager;
       attackCoordinator: AttackTargetCoordinator;
@@ -44,6 +49,7 @@ export class SelectionHandler {
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSelectedSlot?.();
     this.deps.slotControls?.setSlotPreviewEnabled?.(true);
+    this.deps.baseControls?.setSelectedBase?.();
     this.deps.handControls?.clearSelection?.();
     if (opts.clearEngine) {
       this.deps.engine.clearSelection();
@@ -88,6 +94,7 @@ export class SelectionHandler {
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSlotPreviewEnabled?.(false);
     this.deps.slotControls?.setSelectedSlot?.();
+    this.deps.baseControls?.setSelectedBase?.();
     this.deps.engine.select({
       kind: "hand",
       uid: card.uid || "",
@@ -147,6 +154,7 @@ export class SelectionHandler {
     this.selectedHandCard = undefined;
     this.deps.slotControls?.setSlotPreviewEnabled?.(true);
     this.deps.handControls?.clearSelection?.();
+    this.deps.baseControls?.setSelectedBase?.();
     this.deps.slotControls?.setSelectedSlot?.(slot.owner, slot.slotId);
     this.deps.engine.select({ kind: "slot", slotId: slot.slotId, owner: slot.owner });
     this.deps.refreshActions("slot");
@@ -163,12 +171,22 @@ export class SelectionHandler {
     this.selectedSlot = undefined;
     this.deps.slotControls?.setSlotPreviewEnabled?.(true);
     this.deps.slotControls?.setSelectedSlot?.();
+    this.deps.baseControls?.setSelectedBase?.();
     if (!payload?.card) return;
+    if (payload.side !== "player") {
+      this.clearSelectionUI({ clearEngine: true });
+      this.deps.refreshActions("neutral");
+      return;
+    }
+    if (this.deps.attackCoordinator.isActive()) {
+      this.deps.attackCoordinator.reset();
+    }
     if (this.deps.actionStepCoordinator.isInActionStep() && !this.deps.actionStepCoordinator.cardDataHasActionStepWindow(payload.card?.cardData)) {
       this.clearSelectionUI({ clearEngine: true });
       this.deps.refreshActions("neutral");
       return;
     }
+    this.deps.baseControls?.setSelectedBase?.(payload.side);
     this.deps.engine.select({ kind: "base", side: payload.side, cardId: payload.card?.cardId });
     this.deps.refreshActions("base");
   }

@@ -30,6 +30,10 @@ type HandControls = {
   hidePreviewNow?: () => void;
 };
 
+type BaseControls = {
+  setSelectedBase?: (side?: "player" | "opponent") => void;
+};
+
 export type SelectionActionControllerDeps = {
   engine: GameEngine;
   slotPresenter: SlotPresenter;
@@ -37,6 +41,7 @@ export type SelectionActionControllerDeps = {
   api: ApiManager;
   handControls?: HandControls | null;
   slotControls?: SlotControls | null;
+  baseControls?: BaseControls | null;
   actionControls?: ActionControls | null;
   effectTargetController?: EffectTargetController | null;
   gameContext: GameContext;

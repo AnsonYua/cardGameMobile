@@ -348,6 +348,7 @@ export class BoardScene extends Phaser.Scene {
       handPresenter: this.handPresenter,
       handControls: this.handControls,
       slotControls: this.slotControls,
+      baseControls: this.baseControls,
       actionControls: this.actionControls,
       effectTargetController: this.effectTargetController,
       abilityChoiceDialog: this.abilityChoiceDialogUi,

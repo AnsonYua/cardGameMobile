@@ -137,6 +137,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-121/burst_activate_main_set_active_rested_blocker_cannot_attack_manual_flow",
     "GD01/GD01-122/main_return_enemy_hp_le_4_if_link_unit_in_play_and_shaddiq_pilot_manual_flow",
     "GD01/GD01-123/deploy_add_shield_then_rest_enemy_hp_le_3",
+    "GD01/GD01-123/deploy_add_shield_then_rest_enemy_hp_le_3_no_target",
     "GD01/GD01-124/activate_main_rest_base_choose_friendly_unit_recover_1_hp",
     "GD01/GD01-125/burst_deploy_opponent_turn_skip_optional_deploy",
     "GD01/GD01-125/your_turn_deploy",
