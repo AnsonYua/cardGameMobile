@@ -139,6 +139,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-123/deploy_add_shield_then_rest_enemy_hp_le_3",
     "GD01/GD01-124/activate_main_rest_base_choose_friendly_unit_recover_1_hp",
     "GD01/GD01-125/burst_deploy_opponent_turn_skip_optional_deploy",
+    "GD01/GD01-125/your_turn_deploy",
   ],
   GD02: [
     "GD02/GD02-001/paired_titans_shield_area_battle_damage_heal_2",
@@ -255,7 +256,9 @@ const SCENARIO_PRESET_GROUPS = {
     "GD02/GD02-127/destroyed_mill_top_2_cards_from_own_deck_manual_flow.json",
     "GD02/GD02-128/deploy_add_shield_then_if_your_turn_and_teiwaz_link_destroy_enemy_ap_le_2_manual_flow.json",
     "GD02/GD02-129/deploy_add_shield_then_prevent_enemy_effect_damage_to_this_base_manual_flow.json",
+    "GD02/GD02-129/deploy_add_shield_then_prevent_enemy_effect_damage_to_this_base_manual_flow_breach",
     "GD02/GD02-130/deploy_add_shield_then_if_friendly_gjallarhorn_unit_in_play_choose_enemy_unit_ap_minus_2_during_turn_manual_flow.json",
+    "GD02/GD02-130/deploy_add_shield_then_if_friendly_gjallarhorn_unit_in_play_choose_enemy_unit_ap_minus_2_during_turn_manual_flow_no_gjall"
   ],
   GD03: [
     "GD03/GD03-001/pair_damage_rested_destroy_draw_1",

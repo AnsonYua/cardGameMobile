@@ -222,6 +222,16 @@ export class NotificationAnimationController {
     const playerId = payload?.playerId ? String(payload.playerId) : "";
     const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
     const reveal = payload?.reveal === true;
+    const hasResolvableOpponentCards =
+      !isSelf &&
+      cardUids.some((uid) => {
+        if (!uid) return false;
+        return !!ctx.cardLookup?.findCardByUid?.(uid);
+      });
+    // If backend marks reveal=false but the current snapshot already exposes those cards
+    // (e.g. visible in trash), skip the hidden-card popup to avoid contradictory UX.
+    const suppressHiddenPopup = !reveal && !isSelf && hasResolvableOpponentCards;
+    if (suppressHiddenPopup) return null;
 
     const popupCards = new Array(total).fill(null).map((_, idx) => {
       const uid = cardUids[idx];
