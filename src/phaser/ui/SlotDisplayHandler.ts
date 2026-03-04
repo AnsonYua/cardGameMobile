@@ -9,6 +9,7 @@ import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
 import { toBaseKey, toPreviewKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { computeHandCardSize } from "../utils/handCardSizing";
+import { computeDisplaySizeFromTexture } from "./cardSizing";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -482,7 +483,8 @@ export class SlotDisplayHandler {
         img.setDisplaySize(w, h);
         this.applySquareCrop(textureKey, img, cropFromTop, w, h, pilotSliceRatio);
       } else {
-        img.setDisplaySize(fitted.w, fitted.h);
+        const displaySize = computeDisplaySizeFromTexture(this.scene, textureKey, fitted.w, fitted.h, this.cardAspect);
+        img.setDisplaySize(displaySize.width, displaySize.height);
       }
       container.add(img);
       return img;

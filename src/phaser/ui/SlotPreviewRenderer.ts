@@ -3,6 +3,7 @@ import type { SlotCardView, SlotViewModel } from "./SlotTypes";
 import type { DrawHelpers } from "./HeaderHandler";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { UI_LAYOUT } from "./UiLayoutConfig";
+import { computeDisplaySizeFromTexture } from "./cardSizing";
 
 type SlotPreviewRenderOpts = {
   scene: Phaser.Scene;
@@ -31,10 +32,13 @@ export function renderSlotPreviewCard(opts: SlotPreviewRenderOpts) {
 
   if (slot.pilot) {
     const pilotTex = toTextureKey(slot.pilot);
-    const pilotImg =
-      pilotTex && scene.textures.exists(pilotTex)
-        ? scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(w, h).setOrigin(0.5)
-        : drawFallbackCard(scene, drawHelpers, x, y + pilotOffsetY, w, h, 0xcbd3df, 1);
+    let pilotImg: Phaser.GameObjects.GameObject;
+    if (pilotTex && scene.textures.exists(pilotTex)) {
+      const display = computeDisplaySizeFromTexture(scene, pilotTex, w, h, 63 / 88);
+      pilotImg = scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(display.width, display.height).setOrigin(0.5);
+    } else {
+      pilotImg = drawFallbackCard(scene, drawHelpers, x, y + pilotOffsetY, w, h, 0xcbd3df, 1);
+    }
     pilotImg.setDepth(depthOffset + 1);
     container.add(pilotImg);
 
@@ -73,10 +77,16 @@ export function renderSlotPreviewCard(opts: SlotPreviewRenderOpts) {
 
   if (slot.unit) {
     const unitTex = toTextureKey(slot.unit);
-    const unitImg =
-      unitTex && scene.textures.exists(unitTex)
-        ? scene.add.image(x, y + pilotOffsetY * cfg.unitYOffsetFactor, unitTex).setDisplaySize(w, h).setOrigin(0.5)
-        : drawFallbackCard(scene, drawHelpers, x, y + pilotOffsetY * cfg.unitYOffsetFactor, w, h, 0xcbd3df, 0.9);
+    let unitImg: Phaser.GameObjects.GameObject;
+    if (unitTex && scene.textures.exists(unitTex)) {
+      const display = computeDisplaySizeFromTexture(scene, unitTex, w, h, 63 / 88);
+      unitImg = scene
+        .add.image(x, y + pilotOffsetY * cfg.unitYOffsetFactor, unitTex)
+        .setDisplaySize(display.width, display.height)
+        .setOrigin(0.5);
+    } else {
+      unitImg = drawFallbackCard(scene, drawHelpers, x, y + pilotOffsetY * cfg.unitYOffsetFactor, w, h, 0xcbd3df, 0.9);
+    }
     unitImg.setDepth(depthOffset + 2);
     container.add(unitImg);
 

@@ -39,5 +39,7 @@ describe("SlotPresenter", () => {
     expect(opponentSlot1?.unit?.activationLocks).toBeTruthy();
     expect(opponentSlot1?.unit?.activationLocks?.[0]?.kind).toBe("prevent_set_active_next_turn");
     expect(opponentSlot1?.unit?.activationLocks?.[0]?.remainingStartPhases).toBe(1);
+    expect(opponentSlot1?.unit?.textureKey).toBe("GD02-015");
+    expect(opponentSlot1?.unit?.textureKey?.endsWith("-preview")).toBe(false);
   });
 });
