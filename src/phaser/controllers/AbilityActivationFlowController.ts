@@ -105,7 +105,14 @@ export class AbilityActivationFlowController {
   private mapOptions(
     sourceLabel: string,
     carduid: string,
-    options: Array<{ effectId: string; enabled: boolean; requiredEnergy: number; availableEnergy?: number; alreadyUsed?: boolean }>,
+    options: Array<{
+      effectId: string;
+      enabled: boolean;
+      requiredEnergy: number;
+      availableEnergy?: number;
+      alreadyUsed?: boolean;
+      conditionsMet?: boolean;
+    }>,
   ): AbilityChoiceDialogOption[] {
     const multiple = options.length > 1;
     return options.map((opt, idx) => {
@@ -123,6 +130,8 @@ export class AbilityActivationFlowController {
                 ? `Not enough energy (need ${opt.requiredEnergy}, have ${available}).`
                 : opt.alreadyUsed
                   ? "Already used this turn."
+                  : opt.conditionsMet === false
+                    ? "Effect conditions are not met."
                   : opt.requiredEnergy
                     ? `Not enough energy to pay cost (${opt.requiredEnergy}).`
                     : "Not enough cost.";

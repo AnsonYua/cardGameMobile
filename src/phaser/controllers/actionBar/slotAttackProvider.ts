@@ -29,6 +29,36 @@ function collectActiveEffects(unit?: any) {
   return effects.filter(Boolean);
 }
 
+function matchesRestrictionToken(value: any, token: string): boolean {
+  if (!value) return false;
+  if (typeof value === "string") return value.toLowerCase() === token;
+  if (Array.isArray(value)) return value.some((entry) => matchesRestrictionToken(entry, token));
+  if (typeof value === "object") {
+    if (value.restriction || value.restrictions) {
+      return matchesRestrictionToken(value.restriction ?? value.restrictions, token);
+    }
+    if (value.type) {
+      return matchesRestrictionToken(value.type, token);
+    }
+    return Object.values(value).some((entry) => matchesRestrictionToken(entry, token));
+  }
+  return false;
+}
+
+function getRuntimeRestrictionState(unit?: any): { cannotAttack: boolean; cannotAttackPlayer: boolean } {
+  const cannotAttack =
+    matchesRestrictionToken(unit?.activeRestrictions, "cannot_attack") ||
+    matchesRestrictionToken(unit?.attackRestrictions, "cannot_attack") ||
+    matchesRestrictionToken(unit?.activeRestrictions, "all") ||
+    matchesRestrictionToken(unit?.attackRestrictions, "all");
+
+  const cannotAttackPlayer =
+    matchesRestrictionToken(unit?.activeRestrictions, "cannot_attack_player") ||
+    matchesRestrictionToken(unit?.attackRestrictions, "cannot_attack_player");
+
+  return { cannotAttack, cannotAttackPlayer };
+}
+
 function hasAttackShieldRestriction(raw: any, playerId: string, slotId?: string) {
   const cardRestriction = getCardRestrictionState(raw, playerId, slotId);
   if (cardRestriction.cannotAttack || cardRestriction.cannotAttackPlayer) {
@@ -71,9 +101,10 @@ function getCardRestrictionState(raw: any, playerId: string, slotId?: string): {
   const unit = slot?.unit;
   if (!unit) return { cannotAttack: false, cannotAttackPlayer: false };
 
+  const runtimeRestriction = getRuntimeRestrictionState(unit);
   const rules = Array.isArray(unit?.cardData?.effects?.rules) ? unit.cardData.effects.rules : [];
-  let cannotAttack = false;
-  let cannotAttackPlayer = false;
+  let cannotAttack = runtimeRestriction.cannotAttack;
+  let cannotAttackPlayer = runtimeRestriction.cannotAttackPlayer;
 
   for (const rule of rules) {
     const action = (rule?.action ?? "").toString().toLowerCase();

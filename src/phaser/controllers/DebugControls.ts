@@ -82,6 +82,7 @@ const SCENARIO_PRESET_GROUPS = {
     "GD01/GD01-056/destroyed_choose_enemy_unit_ap_le_5_deal_1_damage_manual_battle",
     "GD01/GD01-058/activate_action_choose_lv4_or_higher_unit_ap_plus_1_until_end_of_battle",
     "GD01/GD01-059/attack_ap_plus_2_auto_target_source",
+    "GD01/GD01-059/attack_ap_plus_2_auto_target_source_base",
     "GD01/GD01-061/activate_support_1_rest_self_choose_other_friendly_unit_ap_plus_1",
     "GD01/GD01-063/first_strike_vs_battle_opponent_level_le_2",
     "GD01/GD01-065/during_pair_once_per_turn_pair_white_unit_choose_enemy_ap_minus_2_manual_flow",

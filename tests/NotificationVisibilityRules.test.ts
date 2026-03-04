@@ -37,6 +37,19 @@ describe("resolveCardAddedToHandView", () => {
     });
   });
 
+  it("shows opponent trash-to-hand reveal", () => {
+    const result = resolveCardAddedToHandView({
+      eventType: "CARD_ADDED_TO_HAND",
+      payload: { playerId: "p2", sourceZone: "trash" },
+      currentPlayerId: "p1",
+    });
+    expect(result).toEqual({
+      visible: true,
+      mode: "opponent_reveal",
+      title: "Opponent Revealed Card Added to Hand",
+    });
+  });
+
   it("hides non-revealed opponent add-to-hand", () => {
     const result = resolveCardAddedToHandView({
       eventType: "CARD_ADDED_TO_HAND",

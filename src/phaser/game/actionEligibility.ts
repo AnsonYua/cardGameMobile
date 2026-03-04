@@ -66,6 +66,64 @@ function matchesNumericFilter(value: number, filter: unknown): boolean {
   return evaluateComparisonFilter(value, normalized);
 }
 
+function resolveScopedPlayerId(raw: any, rootPlayerId: string, scopeRaw: unknown): string | undefined {
+  const env = raw?.gameEnv ?? raw;
+  const players = env?.players ?? {};
+  const scope = normalizeText(scopeRaw) || "opponent";
+  if (scope === "self") {
+    return rootPlayerId;
+  }
+  if (scope === "opponent") {
+    if (env?.playerId_1 === rootPlayerId) return env?.playerId_2;
+    if (env?.playerId_2 === rootPlayerId) return env?.playerId_1;
+    return Object.keys(players).find((id) => id !== rootPlayerId);
+  }
+  if (typeof scopeRaw === "string" && players[scopeRaw]) {
+    return scopeRaw;
+  }
+  return undefined;
+}
+
+function getPlayerHandSize(raw: any, playerId: string): number {
+  const env = raw?.gameEnv ?? raw;
+  const player = env?.players?.[playerId];
+  if (!player) return 0;
+  const handUids = player?.deck?.handUids;
+  if (Array.isArray(handUids)) return handUids.length;
+  const hand = player?.deck?.hand;
+  if (Array.isArray(hand)) return hand.length;
+  return 0;
+}
+
+function evaluateActivatedEffectCondition(raw: any, rootPlayerId: string, condition: any): boolean {
+  if (!condition || typeof condition !== "object") {
+    return true;
+  }
+  const type = normalizeText(condition.type);
+  switch (type) {
+    case "opponenthandsize": {
+      const scopedPlayerId = resolveScopedPlayerId(raw, rootPlayerId, condition.scope);
+      if (!scopedPlayerId) return false;
+      const handSize = getPlayerHandSize(raw, scopedPlayerId);
+      if (typeof condition.value === "number") {
+        return handSize === condition.value;
+      }
+      if (typeof condition.value === "string") {
+        return evaluateComparisonFilter(handSize, condition.value);
+      }
+      return true;
+    }
+    default:
+      return true;
+  }
+}
+
+function evaluateActivatedEffectConditions(raw: any, rootPlayerId: string, effectRule: any): boolean {
+  const conditions = Array.isArray(effectRule?.conditions) ? effectRule.conditions : [];
+  if (!conditions.length) return true;
+  return conditions.every((condition) => evaluateActivatedEffectCondition(raw, rootPlayerId, condition));
+}
+
 function getDestroyLinkedReplacementOption(raw: any, playerId: string | null | undefined, cardData: any) {
   if (!raw?.gameEnv?.players || !playerId) {
     return null;
@@ -260,6 +318,7 @@ export type ActivatedEffectOption = {
   requiredEnergy: number;
   oncePerTurn: boolean;
   alreadyUsed: boolean;
+  conditionsMet: boolean;
 };
 
 export function getActivatedEffectOptions(card: any, raw: any, playerId: string): ActivatedEffectOption[] {
@@ -281,13 +340,15 @@ export function getActivatedEffectOptions(card: any, raw: any, playerId: string)
     const alreadyUsed = oncePerTurn && currentTurn !== undefined && lastUsed === currentTurn;
     const restCost = (effectRule?.cost?.rest ?? "").toString().toLowerCase();
     const restOk = restCost !== "self" || card?.isRested !== true;
+    const conditionsMet = evaluateActivatedEffectConditions(raw, playerId, effectRule);
     return {
       effectId: effectRule.effectId,
       availableEnergy,
       requiredEnergy,
       oncePerTurn,
       alreadyUsed,
-      enabled: isSelfTurn && availableEnergy >= requiredEnergy && restOk && !alreadyUsed,
+      conditionsMet,
+      enabled: isSelfTurn && availableEnergy >= requiredEnergy && restOk && !alreadyUsed && conditionsMet,
     };
   });
 }

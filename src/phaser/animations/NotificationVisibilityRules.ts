@@ -25,6 +25,11 @@ export function resolveCardAddedToHandView(params: {
     return { visible: true, mode: "opponent_burst", title: "Burst - Opponent added card to hand" };
   }
 
+  const sourceZone = (params.payload?.sourceZone ?? "").toString().toLowerCase();
+  if (sourceZone === "trash") {
+    return { visible: true, mode: "opponent_reveal", title: "Opponent Revealed Card Added to Hand" };
+  }
+
   if (params.payload?.reveal === true || params.payload?.revealToOpponent === true) {
     return { visible: true, mode: "opponent_reveal", title: "Opponent Revealed Card Added to Hand" };
   }

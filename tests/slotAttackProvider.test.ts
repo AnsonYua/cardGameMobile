@@ -29,6 +29,45 @@ function createOpponentRestedSlot(slotId = "slot1"): SlotViewModel {
 }
 
 describe("slotAttackProvider", () => {
+  it("disables attack actions when runtime activeRestrictions include cannot_attack", () => {
+    const raw = {
+      gameEnv: {
+        phase: "MAIN_PHASE",
+        players: {
+          playerId_1: {
+            zones: {
+              slot1: {
+                unit: {
+                  carduid: "slot1_unit",
+                  activeRestrictions: [{ restriction: "cannot_attack", duration: "UNTIL_END_OF_TURN" }],
+                  cardData: {
+                    effects: {
+                      rules: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const descriptors = buildSlotAttackActionDescriptors({
+      raw,
+      selection: { kind: "slot", owner: "player", slotId: "slot1" },
+      selectedSlot: createSelectedSlot("slot1"),
+      opponentUnitSlots: [createOpponentRestedSlot("slotA")],
+      playerId: "playerId_1",
+    });
+
+    const attackUnit = descriptors.find((d) => d.id === "attackUnit");
+    const attackShield = descriptors.find((d) => d.id === "attackShieldArea");
+    expect(attackUnit).toBeTruthy();
+    expect(attackUnit?.enabled).toBe(false);
+    expect(attackShield).toBeFalsy();
+  });
+
   it("hides Attack Shield when static restrict_attack disallow=player exists", () => {
     const raw = {
       gameEnv: {
