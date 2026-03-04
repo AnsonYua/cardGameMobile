@@ -29,6 +29,29 @@ export class BurstChoiceFlowManager {
 
   constructor(private deps: BurstChoiceDeps) {}
 
+  /**
+   * Keep burst dialog state aligned with snapshot progress without opening new prompts.
+   * Used when another blocking choice currently owns queue progression.
+   */
+  reconcileResolvedState(raw: any) {
+    const notifications = this.getNotificationQueue(raw);
+    const preferChoiceKey = this.queueEntry?.eventId ?? this.queueEntry?.id;
+    const active = findActiveBurstChoiceNotification(notifications, { preferChoiceKey });
+    if (active) return;
+
+    const dialogOpen = this.deps.burstChoiceDialog?.isOpen?.() === true;
+    if (!this.queueEntry && !this.pendingResolve && !dialogOpen) {
+      return;
+    }
+
+    this.log.debug("reconcileResolvedState clear stale burst dialog", {
+      entryId: this.queueEntry?.id,
+      dialogOpen,
+    });
+    this.resolvePending();
+    this.clear();
+  }
+
   syncDecisionState(raw: any) {
     const notifications = this.getNotificationQueue(raw);
     const preferChoiceKey = this.queueEntry?.eventId ?? this.queueEntry?.id;

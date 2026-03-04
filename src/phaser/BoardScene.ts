@@ -840,6 +840,10 @@ export class BoardScene extends Phaser.Scene {
     const raw = params.raw as any;
     const previousRaw = params.previousRaw as any;
 
+    // Burst prompts can become stale if their resolved event is deferred behind another blocking choice.
+    // Reconcile against the latest snapshot here without opening new prompt UI.
+    this.burstFlow?.reconcileResolvedState(raw);
+
     const queueRunning = this.animationQueue?.isRunning() ?? false;
     if (queueRunning) {
       const controlsVisible = this.hasPendingSelfBlockerChoice(raw);

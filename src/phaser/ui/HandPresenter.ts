@@ -45,7 +45,7 @@ export class HandPresenter {
         cardId,
         color: 0x2a2d38,
         textureKey,
-        cost: data?.cost,
+        cost: data?.effectiveCost ?? data?.cost,
         ap,
         hp,
         cardType,

@@ -608,6 +608,8 @@ const SCENARIO_PRESET_GROUPS = {
     "ST08/ST08-001/costing",
     "ST08/ST08-001/costing_level6_onfield",
     "ST08/ST08-001/costingnotfill",
+    "ST08/ST08-001/hand_cost_and_level_minus_per_enemy_blocked_by_friendly_level_6_or_higher_negative.json",
+    "ST08/ST08-001/hand_cost_and_level_minus_per_enemy_if_no_friendly_level_6_or_higher_positive.json",
     "ST08/ST08-001/pair_damage_highest_level_enemy_3",
     "ST08/ST08-001/pair_damage_highest_level_enemy_3_multiple",
     "ST08/ST08-002/deploy_choose_enemy_unit_deal_1_damage_manual_flow",

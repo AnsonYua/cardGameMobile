@@ -15,10 +15,12 @@ type SlotPreviewRenderOpts = {
   w: number;
   h: number;
   depthOffset?: number;
+  resolveTextureKey?: (card?: SlotCardView) => string | undefined;
 };
 
 export function renderSlotPreviewCard(opts: SlotPreviewRenderOpts) {
   const { scene, drawHelpers, container, slot, x, y, w, h, depthOffset = 0 } = opts;
+  const resolveTextureKey = opts.resolveTextureKey ?? toTextureKey;
   const cfg = UI_LAYOUT.slot.preview;
   const badgeW = cfg.badgeSize.w;
   const badgeH = cfg.badgeSize.h;
@@ -31,7 +33,7 @@ export function renderSlotPreviewCard(opts: SlotPreviewRenderOpts) {
   let slotCardEnd = -1;
 
   if (slot.pilot) {
-    const pilotTex = toTextureKey(slot.pilot);
+    const pilotTex = resolveTextureKey(slot.pilot);
     let pilotImg: Phaser.GameObjects.GameObject;
     if (pilotTex && scene.textures.exists(pilotTex)) {
       const display = computeDisplaySizeFromTexture(scene, pilotTex, w, h, 63 / 88);
@@ -76,7 +78,7 @@ export function renderSlotPreviewCard(opts: SlotPreviewRenderOpts) {
   }
 
   if (slot.unit) {
-    const unitTex = toTextureKey(slot.unit);
+    const unitTex = resolveTextureKey(slot.unit);
     let unitImg: Phaser.GameObjects.GameObject;
     if (unitTex && scene.textures.exists(unitTex)) {
       const display = computeDisplaySizeFromTexture(scene, unitTex, w, h, 63 / 88);

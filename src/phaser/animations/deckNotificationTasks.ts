@@ -1,6 +1,10 @@
 import type Phaser from "phaser";
 import { toBaseKey } from "../ui/HandTypes";
-import { findTopDeckViewedCard, hasActiveTutorRevealPrompt } from "../utils/TutorNotificationUtils";
+import {
+  findHandRevealedCard,
+  findTopDeckViewedCard,
+  hasActiveTutorRevealPrompt,
+} from "../utils/TutorNotificationUtils";
 
 type PopupCard = any;
 
@@ -108,16 +112,40 @@ export function createCardsMovedToDeckBottomTask(
   deps: PopupDeps & { buildPopupCardData: (card: any, fallbackUid?: string) => PopupCard },
 ): (() => Promise<void>) | null {
   const playerId = payload?.playerId ? String(payload.playerId) : "";
-  if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
+  const isSelf = !!ctx.currentPlayerId && playerId === ctx.currentPlayerId;
+  const revealToOpponent = payload?.reveal === true || payload?.revealToOpponent === true;
+  if (!ctx.currentPlayerId || (!isSelf && !revealToOpponent)) return null;
+
   const cardUids: string[] = Array.isArray(payload?.carduids) ? payload.carduids.filter(Boolean).map(String) : [];
-  const count = Number(payload?.count ?? cardUids.length);
-  const total = cardUids.length || (Number.isFinite(count) ? Math.max(0, count) : 0);
+  const revealedCards: any[] = Array.isArray(payload?.cards) ? payload.cards.filter(Boolean) : [];
+  const count = Number(payload?.count ?? Math.max(cardUids.length, revealedCards.length));
+  const total = Math.max(
+    cardUids.length,
+    revealedCards.length,
+    Number.isFinite(count) ? Math.max(0, count) : 0,
+  );
   if (total <= 0) return null;
 
   const popupCards = new Array(total).fill(null).map((_, idx) => {
     const uid = cardUids[idx];
+    const revealedByPayload =
+      (uid
+        ? revealedCards.find((entry) => String(entry?.carduid ?? entry?.cardUid ?? "") === uid)
+        : undefined) ?? revealedCards[idx];
+    if (revealedByPayload) return buildPopupCardDataFromPartial(revealedByPayload, { preferPreview: false });
+
     const found = uid ? ctx.cardLookup?.findCardByUid?.(uid) : undefined;
     if (found) return { ...deps.buildPopupCardData(found, uid), preferPreview: false };
+
+    const revealedByHandNote = uid
+      ? findHandRevealedCard(ctx.notificationQueue ?? [], {
+          playerId: payload?.playerId,
+          effectId: payload?.effectId,
+          cardUid: uid,
+        })
+      : undefined;
+    if (revealedByHandNote) return buildPopupCardDataFromPartial(revealedByHandNote, { preferPreview: false });
+
     const partial = uid
       ? findTopDeckViewedCard(ctx.notificationQueue ?? [], {
           playerId: payload?.playerId,
@@ -126,6 +154,7 @@ export function createCardsMovedToDeckBottomTask(
         })
       : undefined;
     if (partial) return buildPopupCardDataFromPartial(partial, { preferPreview: false });
+
     return {
       cardId: uid || `hidden_bottom_${payload?.timestamp ?? "event"}_${idx + 1}`,
       cardType: "command",

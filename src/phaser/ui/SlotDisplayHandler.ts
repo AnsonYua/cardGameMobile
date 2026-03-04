@@ -10,6 +10,7 @@ import { toBaseKey, toPreviewKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { computeHandCardSize } from "../utils/handCardSizing";
 import { computeDisplaySizeFromTexture } from "./cardSizing";
+import { resolveSlotTextureKey, SlotHiResTextureLoader } from "./SlotHiResTextureLoader";
 
 type RenderOptions = {
   positions: SlotPositionMap;
@@ -28,7 +29,7 @@ export class SlotDisplayHandler {
   // Centralized tuning knobs so visuals stay consistent without hunting magic numbers.
   private config = {
     slot: {
-      cardScale: 0.75,
+      cardScale: 0.83,
       restedScale: 0.65,
       restedAngle: -90,
       restedAlpha: 1,
@@ -62,6 +63,8 @@ export class SlotDisplayHandler {
   private debugSlotTextures = isDebugFlagEnabled("debugSlotTextures");
   private debugPreview = isDebugFlagEnabled("debug.cardPreview");
   private slotPreviewEnabled = true;
+  private hiResLoader: SlotHiResTextureLoader;
+  private hiResRerenderQueued = false;
 
   private previewController: PreviewController;
   private readonly onGlobalPointerUp = () => {
@@ -70,6 +73,7 @@ export class SlotDisplayHandler {
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {
     this.playAnimator = new PlayCardAnimationManager(scene);
+    this.hiResLoader = new SlotHiResTextureLoader(scene);
     this.previewController = new PreviewController(scene, {
       overlayAlpha: this.config.preview.overlayAlpha,
       fadeIn: this.config.preview.fadeIn,
@@ -226,6 +230,7 @@ export class SlotDisplayHandler {
     slots.forEach((slot) => {
       const pos = positions[slot.owner]?.[slot.slotId];
       if (!pos) return;
+      this.preloadSlotHiResTextures(slot);
       const key = `${slot.owner}-${slot.slotId}`;
       nextKeys.add(key);
       const prev = prevSlots.find((s) => s.owner === slot.owner && s.slotId === slot.slotId);
@@ -372,6 +377,7 @@ export class SlotDisplayHandler {
   destroy() {
     this.scene.input.off("pointerup", this.onGlobalPointerUp);
     this.previewController.destroy();
+    this.hiResLoader.destroy();
     this.clear();
   }
 
@@ -455,7 +461,8 @@ export class SlotDisplayHandler {
     isPilot = false,
     pilotSliceRatio = this.config.slot.pilotSliceRatio
   ) {
-    const hasTexture = textureKey && this.scene.textures.exists(textureKey);
+    const resolvedTextureKey = this.resolveTextureKey(fallbackLabel, textureKey);
+    const hasTexture = !!(resolvedTextureKey && this.scene.textures.exists(resolvedTextureKey));
     if (isDebugFlagEnabled("debug.textures") && textureKey && !hasTexture && !slotTextureDebugSeen.has(textureKey)) {
       slotTextureDebugSeen.add(textureKey);
       const baseFromKey = textureKey.replace(/-preview$/i, "");
@@ -477,13 +484,13 @@ export class SlotDisplayHandler {
     }
     const scale = isPilot ? pilotSliceRatio : 1;
     const fitted = this.fitCardSize(w * scale, h * scale);
-    if (hasTexture && textureKey) {
-      const img = this.scene.add.image(0, offsetY, textureKey).setOrigin(0.5);
+    if (hasTexture && resolvedTextureKey) {
+      const img = this.scene.add.image(0, offsetY, resolvedTextureKey).setOrigin(0.5);
       if (isPilot) {
         img.setDisplaySize(w, h);
-        this.applySquareCrop(textureKey, img, cropFromTop, w, h, pilotSliceRatio);
+        this.applySquareCrop(resolvedTextureKey, img, cropFromTop, w, h, pilotSliceRatio);
       } else {
-        const displaySize = computeDisplaySizeFromTexture(this.scene, textureKey, fitted.w, fitted.h, this.cardAspect);
+        const displaySize = computeDisplaySizeFromTexture(this.scene, resolvedTextureKey, fitted.w, fitted.h, this.cardAspect);
         img.setDisplaySize(displaySize.width, displaySize.height);
       }
       container.add(img);
@@ -744,6 +751,7 @@ export class SlotDisplayHandler {
         w: cardW,
         h: cardH,
         depthOffset: 0,
+        resolveTextureKey: (card) => this.resolveTextureKey(card?.id, card?.textureKey),
       });
     });
   }
@@ -778,6 +786,37 @@ export class SlotDisplayHandler {
 
   private hidePreview(skipTween = false) {
     this.previewController.hide(skipTween);
+  }
+
+  private preloadSlotHiResTextures(slot: SlotViewModel) {
+    [slot.unit, slot.pilot].forEach((card) => {
+      const cardId = card?.id;
+      if (!cardId) return;
+      if (this.hiResLoader.getLoadedKey(cardId)) return;
+      void this.hiResLoader.ensureLoaded(cardId).then((loadedKey) => {
+        if (!loadedKey) return;
+        this.scheduleHiResRerender();
+      }).catch(() => null);
+    });
+  }
+
+  private scheduleHiResRerender() {
+    if (this.hiResRerenderQueued) return;
+    this.hiResRerenderQueued = true;
+    this.scene.time.delayedCall(0, () => {
+      this.hiResRerenderQueued = false;
+      this.rerenderLast();
+    });
+  }
+
+  private resolveTextureKey(cardId?: string, baseTextureKey?: string) {
+    const hiResTextureKey = cardId ? this.hiResLoader.getLoadedKey(cardId) : undefined;
+    const normalizedBase = baseTextureKey ? String(baseTextureKey).replace(/-preview$/i, "") : undefined;
+    return resolveSlotTextureKey({
+      hiResTextureKey,
+      baseTextureKey: normalizedBase,
+      hasTexture: (key) => this.scene.textures.exists(key),
+    });
   }
 
   private animateCardEntry(
