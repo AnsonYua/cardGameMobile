@@ -1,0 +1,63 @@
+export const WAITING_DIALOG_THEME_HEX = {
+  panel: "#3a3d42",
+  panelStroke: "#5b6068",
+  panelInner: "#2f3238",
+  panelHover: "#404651",
+  closeFill: "#4a4f57",
+  closeStroke: "#6f7680",
+  borderStrong: "#7b8591",
+  textPrimary: "#f5f6f7",
+  textSecondary: "#d7dce2",
+  menuHalo: "#8d97a3",
+  menuSheen: "#dfe4ea",
+} as const;
+
+export const WAITING_DIALOG_THEME_NUM = {
+  panel: 0x3a3d42,
+  panelStroke: 0x5b6068,
+  panelInner: 0x2f3238,
+  panelHover: 0x404651,
+  closeFill: 0x4a4f57,
+  closeStroke: 0x6f7680,
+  borderStrong: 0x7b8591,
+  textPrimary: 0xf5f6f7,
+  textSecondary: 0xd7dce2,
+  menuHalo: 0x8d97a3,
+  menuSheen: 0xdfe4ea,
+  backdrop: 0x000000,
+  shadow: 0x000000,
+} as const;
+
+export const HEADER_WAITING_THEME = {
+  base: WAITING_DIALOG_THEME_HEX.panel,
+  topGlow: WAITING_DIALOG_THEME_HEX.closeFill,
+  glassSheen: "#ffffff",
+  bottomShade: WAITING_DIALOG_THEME_HEX.panelInner,
+  bottomLine: WAITING_DIALOG_THEME_HEX.panelStroke,
+  menuFill: WAITING_DIALOG_THEME_HEX.panel,
+  menuStroke: WAITING_DIALOG_THEME_HEX.borderStrong,
+  menuIcon: WAITING_DIALOG_THEME_HEX.textPrimary,
+  statusText: WAITING_DIALOG_THEME_HEX.textPrimary,
+  detailText: WAITING_DIALOG_THEME_HEX.textSecondary,
+  textStroke: "#2b2f35",
+  menuHalo: WAITING_DIALOG_THEME_HEX.menuHalo,
+  menuSheen: WAITING_DIALOG_THEME_HEX.menuSheen,
+  loadingBg: WAITING_DIALOG_THEME_HEX.panel,
+  loadingStroke: WAITING_DIALOG_THEME_HEX.panelStroke,
+} as const;
+
+export const DEBUG_POPUP_WAITING_THEME = {
+  backdrop: WAITING_DIALOG_THEME_NUM.backdrop,
+  shadow: WAITING_DIALOG_THEME_NUM.shadow,
+  panel: WAITING_DIALOG_THEME_NUM.panel,
+  panelStroke: WAITING_DIALOG_THEME_NUM.panelStroke,
+  panelInner: WAITING_DIALOG_THEME_NUM.panelInner,
+  row: WAITING_DIALOG_THEME_NUM.panel,
+  rowBorder: WAITING_DIALOG_THEME_NUM.panelStroke,
+  rowHover: WAITING_DIALOG_THEME_NUM.panelHover,
+  rowHoverBorder: WAITING_DIALOG_THEME_NUM.borderStrong,
+  closeFill: WAITING_DIALOG_THEME_NUM.closeFill,
+  closeStroke: WAITING_DIALOG_THEME_NUM.closeStroke,
+  textPrimary: WAITING_DIALOG_THEME_HEX.textPrimary,
+  textSecondary: WAITING_DIALOG_THEME_HEX.textSecondary,
+} as const;

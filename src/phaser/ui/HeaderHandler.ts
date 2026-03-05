@@ -3,6 +3,7 @@ import { BASE_W } from "../../config/gameLayout";
 import { Offset, Palette, RoundedRectConfig, toColor } from "./types";
 import { TimerBar } from "./TimerBar";
 import { HEADER_TIMER_BAR_STYLE } from "./timerBarStyles";
+import { HEADER_WAITING_THEME } from "./style/WaitingDialogTheme";
 
 // Shared frame styling used by BoardUI.
 export const FRAME_STYLE: Pick<RoundedRectConfig, "radius" | "fillAlpha" | "strokeColor" | "strokeAlpha" | "strokeWidth"> = {
@@ -74,23 +75,7 @@ type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 
 const HEADER_BG_ALPHA = 1;
 const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "softPulse";
-const HEADER_THEME = {
-  base: "#3a3d42",
-  topGlow: "#4a4f57",
-  glassSheen: "#ffffff",
-  bottomShade: "#2f3238",
-  bottomLine: "#5b6068",
-  menuFill: "#353a43",
-  menuStroke: "#7b8591",
-  menuIcon: "#f5f6f7",
-  statusText: "#f5f6f7",
-  detailText: "#d7dce2",
-  textStroke: "#2b2f35",
-  menuHalo: "#8d97a3",
-  menuSheen: "#dfe4ea",
-  loadingBg: "#353a43",
-  loadingStroke: "#5b6068",
-} as const;
+const HEADER_THEME = HEADER_WAITING_THEME;
 
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, menuButton: 45 };
