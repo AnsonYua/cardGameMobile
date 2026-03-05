@@ -1,10 +1,11 @@
-import { GameMode, GameStatus } from "../game/GameSessionService";
+import { GameMode } from "../game/GameSessionService";
 import type { GameEngine } from "../game/GameEngine";
 import type { MatchStateMachine } from "../game/MatchStateMachine";
 import type { GameContextStore } from "../game/GameContextStore";
 import { parseSessionParams } from "../game/SessionParams";
 import type { DebugControls } from "./DebugControls";
 import { runHostFlow, runJoinFlow } from "./sessionFlows";
+import { mapSessionInitError, type SessionInitErrorSpec } from "./SessionErrorMapper";
 
 export class SessionController {
   constructor(
@@ -14,18 +15,21 @@ export class SessionController {
       contextStore: GameContextStore;
       debugControls?: DebugControls;
       onOfflineFallback: (gameId: string, message: string) => void;
+      onSessionInitError: (spec: SessionInitErrorSpec) => void;
     },
   ) {}
 
   async initSession(locationSearch: string) {
+    const parsed = parseSessionParams(locationSearch);
     const { match, engine, contextStore, debugControls } = this.deps;
     try {
-      const parsed = parseSessionParams(locationSearch);
       const mode = parsed.mode;
       const gameId = parsed.gameId;
       const playerSelector = parsed.player;
       const hasPlayerOverride = parsed.hasPlayerOverride;
+      const allowSeatSessionFallback = parsed.allowSeatSessionFallback;
       const playerNameParam = parsed.playerName;
+      const joinToken = parsed.joinToken;
       const isAutoPolling = parsed.isAutoPolling;
       const aiMode = parsed.aiMode;
 
@@ -34,6 +38,7 @@ export class SessionController {
       contextStore.update({ mode });
       contextStore.update({ playerSelector });
       if (gameId) contextStore.update({ gameId });
+      if (joinToken) contextStore.update({ joinToken });
 
       if (mode === GameMode.Join) {
         if (!gameId) {
@@ -41,7 +46,15 @@ export class SessionController {
         }
         await runJoinFlow(
           { match, engine, contextStore, debugControls },
-          { gameId, playerName: playerNameParam, isAutoPolling, playerSelector, hasPlayerOverride },
+          {
+            gameId,
+            joinToken,
+            playerName: playerNameParam,
+            isAutoPolling,
+            playerSelector,
+            hasPlayerOverride,
+            allowSeatSessionFallback,
+          },
         );
         return;
       }
@@ -65,6 +78,13 @@ export class SessionController {
         }
         return;
       }
+
+      const mapped = mapSessionInitError(err, parsed);
+      if (!mapped.allowOfflineFallback) {
+        this.deps.onSessionInitError(mapped);
+        return;
+      }
+
       const context = contextStore.get();
       const params = new URLSearchParams(locationSearch);
       const fallbackGameId =

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiManager, type LobbyRoomSummary } from "../phaser/api/ApiManager";
+import { requestJoinToken } from "./JoinTokenPrompt";
 
 type LobbyViewProps = {
   isFallback?: boolean;
@@ -52,9 +53,16 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
     setJoiningId(gameId);
     setErrorMessage(null);
     try {
+      const joinToken = requestJoinToken("Enter invite token from host:");
+      if (!joinToken) {
+        setErrorMessage("Join cancelled. Invite token is required.");
+        setJoiningId(null);
+        return;
+      }
       const params = new URLSearchParams({
         mode: "join",
         gameId,
+        joinToken,
         isAutoPolling: "true",
         automation: "1",
       });

@@ -187,7 +187,6 @@ export class TestButtonPopup {
     url.searchParams.set("mode", "join");
     url.searchParams.set("gameId", opts.gameId);
     url.searchParams.set("isAutoPolling", String(opts.isAutoPolling ?? true));
-    url.searchParams.set("player", "opponent");
     if (opts.joinToken) url.searchParams.set("joinToken", opts.joinToken);
     return url.toString();
   }

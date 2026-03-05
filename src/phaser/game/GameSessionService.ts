@@ -83,10 +83,10 @@ export class GameSessionService {
     return this.api.submitDeck(body);
   }
 
-  async joinRoom(gameId: string) {
+  async joinRoom(gameId: string, joinToken?: string | null) {
     this.gameMode = GameMode.Join;
     this.status = GameStatus.CreatingRoom;
-    const resp = await this.api.joinRoom(gameId);
+    const resp = await this.api.joinRoom(gameId, joinToken);
     this.gameId = gameId;
     updateSession({
       gameId,

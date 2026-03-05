@@ -6,6 +6,7 @@ export type ParsedSessionParams = {
   gameId: string | null;
   player: ScenarioPlayerSelector;
   hasPlayerOverride: boolean;
+  allowSeatSessionFallback: boolean;
   playerName: string | null;
   joinToken: string | null;
   isAutoPolling: boolean;
@@ -33,6 +34,9 @@ export function parseSessionParams(locationSearch: string): ParsedSessionParams 
     gameId: getParam(["gameId", "gameid", "roomid"]),
     player,
     hasPlayerOverride: rawPlayer !== null,
+    allowSeatSessionFallback:
+      getParam(["allowSeatSessionFallback", "allowseatsessionfallback", "allowSeatFallback", "allowseatfallback"]) === "true" ||
+      getParam(["allowSeatSessionFallback", "allowseatsessionfallback", "allowSeatFallback", "allowseatfallback"]) === "1",
     playerName: getParam(["playerName", "playername"]),
     joinToken: getParam(["joinToken", "jointoken"]),
     isAutoPolling: getParam(["isAutoPolling", "isautopolling"]) === "true" || getParam(["isAutoPolling", "isautopolling"]) === "1",

@@ -18,10 +18,12 @@ export async function runJoinFlow(
   deps: FlowDeps,
   params: {
     gameId: string;
+    joinToken?: string | null;
     playerName?: string | null;
     isAutoPolling?: boolean;
     playerSelector?: ScenarioPlayerSelector;
     hasPlayerOverride?: boolean;
+    allowSeatSessionFallback?: boolean;
   },
 ) {
   const { match, engine, contextStore, debugControls } = deps;
@@ -30,9 +32,9 @@ export async function runJoinFlow(
   let joinResp: any = null;
 
   try {
-    joinResp = await match.joinRoom(params.gameId);
+    joinResp = await match.joinRoom(params.gameId, params.joinToken);
   } catch (err) {
-    if (!params.hasPlayerOverride) {
+    if (!params.hasPlayerOverride || !params.allowSeatSessionFallback) {
       throw err;
     }
     const selector = params.playerSelector || "currentPlayer";

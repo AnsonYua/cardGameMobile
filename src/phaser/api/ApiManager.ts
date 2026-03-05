@@ -279,8 +279,8 @@ export class ApiManager {
     return this.client.postJson("/api/game/player/playerAction", payload, { auth: true });
   }
 
-  joinRoom(gameId: string): Promise<JoinRoomResponse> {
-    return this.client.postJson("/api/game/player/joinRoom", { gameId });
+  joinRoom(gameId: string, joinToken?: string | null): Promise<JoinRoomResponse> {
+    return this.client.postJson("/api/game/player/joinRoom", { gameId, joinToken: joinToken ?? undefined });
   }
 
   private postPlayerDecision(path: string, payload: Record<string, unknown>) {

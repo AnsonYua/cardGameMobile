@@ -31,10 +31,10 @@ export class MatchStateMachine {
     */
   }
 
-  async joinRoom(gameId: string) {
+  async joinRoom(gameId: string, joinToken?: string | null) {
     this.mode = GameMode.Join;
     this.transition(GameStatus.CreatingRoom);
-    const resp = await this.session.joinRoom(gameId);
+    const resp = await this.session.joinRoom(gameId, joinToken);
     this.gameId = gameId;
     this.transition(GameStatus.Ready);
     return resp;

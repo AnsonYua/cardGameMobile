@@ -7,6 +7,7 @@ import type { GameContext } from "../game/GameContextStore";
 import { ApiManager } from "../api/ApiManager";
 import { updateSession } from "../game/SessionStore";
 import { resolveScenarioPlayerId, type ScenarioPlayerSelector } from "../game/SeatSelector";
+import { requestJoinToken } from "../../components/JoinTokenPrompt";
 
 const DEFAULT_SCENARIO_PATH = "GD01/GD01-118/draw2_dis1";
 const SCENARIO_PRESET_GROUPS = {
@@ -842,8 +843,13 @@ export class DebugControls {
   private async handleTestJoinButton() {
     await this.popup?.hide();
     const id = this.context.gameId ?? `demo-${Date.now()}`;
+    const joinToken = this.context.joinToken || requestJoinToken("Enter invite token for debug join:");
+    if (!joinToken) {
+      console.warn("Test join cancelled: join token required");
+      return;
+    }
     try {
-      await this.match.joinRoom(id);
+      await this.match.joinRoom(id, joinToken);
     } catch (err) {
       console.error("Test join failed", err);
     }

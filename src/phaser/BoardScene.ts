@@ -87,6 +87,7 @@ import { updateSession } from "./game/SessionStore";
 import { showActionError } from "./controllers/ActionErrorUtils";
 import type { InteractionHooks } from "./controllers/InteractionHooks";
 import { InteractionLoadingController } from "./scene/InteractionLoadingController";
+import { toSessionInitDialogButtons } from "./controllers/SessionInitDialogActions";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -348,6 +349,13 @@ export class BoardScene extends Phaser.Scene {
       engine: this.engine,
       contextStore: this.contextStore,
       debugControls: this.debugControls,
+      onSessionInitError: (spec) => {
+        this.errorDialogUi?.show({
+          headerText: spec.headerText,
+          message: spec.message,
+          buttons: toSessionInitDialogButtons(spec),
+        });
+      },
       onOfflineFallback: (gameId, message) => {
         this.offlineFallback = true;
         this.headerControls?.setStatusFromEngine?.(GameStatus.Ready, { offlineFallback: true });
