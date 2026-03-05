@@ -75,17 +75,21 @@ type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 const HEADER_BG_ALPHA = 1;
 const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "softPulse";
 const HEADER_THEME = {
-  base: "#101a24",
-  topGlow: "#2f4f66",
-  glassSheen: "#9fe7ff",
-  bottomShade: "#060b12",
-  bottomLine: "#7be8ff",
-  menuFill: "#1b3347",
-  menuStroke: "#b5eeff",
-  menuIcon: "#ecfbff",
-  statusText: "#f4fbff",
-  detailText: "#ccefff",
-  textStroke: "#07101a",
+  base: "#3a3d42",
+  topGlow: "#4a4f57",
+  glassSheen: "#ffffff",
+  bottomShade: "#2f3238",
+  bottomLine: "#5b6068",
+  menuFill: "#353a43",
+  menuStroke: "#7b8591",
+  menuIcon: "#f5f6f7",
+  statusText: "#f5f6f7",
+  detailText: "#d7dce2",
+  textStroke: "#2b2f35",
+  menuHalo: "#8d97a3",
+  menuSheen: "#dfe4ea",
+  loadingBg: "#353a43",
+  loadingStroke: "#5b6068",
 } as const;
 
 export class HeaderHandler {
@@ -151,7 +155,7 @@ export class HeaderHandler {
       height: highlightH,
       radius: 0,
       fillColor: HEADER_THEME.topGlow,
-      fillAlpha: 0.3,
+      fillAlpha: 0.22,
       strokeWidth: 0,
     }).setDepth(this.depth + 1);
     this.drawHelpers.drawRoundedRectOrigin({
@@ -161,7 +165,7 @@ export class HeaderHandler {
       height: sheenH,
       radius: 0,
       fillColor: HEADER_THEME.glassSheen,
-      fillAlpha: 0.14,
+      fillAlpha: 0.08,
       strokeWidth: 0,
     }).setDepth(this.depth + 2);
     this.drawHelpers.drawRoundedRectOrigin({
@@ -171,7 +175,7 @@ export class HeaderHandler {
       height: bottomShadeH,
       radius: 0,
       fillColor: HEADER_THEME.bottomShade,
-      fillAlpha: 0.5,
+      fillAlpha: 0.56,
       strokeWidth: 0,
     }).setDepth(this.depth + 1);
     this.scene.add
@@ -187,8 +191,8 @@ export class HeaderHandler {
       width: menuButton + 6,
       height: menuButton + 6,
       radius: 10,
-      fillColor: "#9deeff",
-      fillAlpha: 0.1,
+      fillColor: HEADER_THEME.menuHalo,
+      fillAlpha: 0.12,
       strokeWidth: 0,
     }).setDepth(this.depth + 1);
     this.drawHelpers.drawRoundedRect({
@@ -209,8 +213,8 @@ export class HeaderHandler {
       width: menuButton - 4,
       height: Math.round((menuButton - 4) * 0.45),
       radius: 6,
-      fillColor: "#b5f3ff",
-      fillAlpha: 0.18,
+      fillColor: HEADER_THEME.menuSheen,
+      fillAlpha: 0.12,
       strokeWidth: 0,
     }).setDepth(this.depth + 3);
     this.drawMenuIcon(menuX, menuY, menuButton);
@@ -341,8 +345,8 @@ export class HeaderHandler {
     const y = containerTop + stripHeight / 2 + 2;
     const container = this.scene.add.container(centerX, y).setDepth(this.depth + 3);
     const bg = this.scene
-      .add.rectangle(0, 0, stripWidth, stripHeight, this.drawHelpers.toColor("#173244"), 0.92)
-      .setStrokeStyle(1, this.drawHelpers.toColor("#8cecff"), 0.82);
+      .add.rectangle(0, 0, stripWidth, stripHeight, this.drawHelpers.toColor(HEADER_THEME.loadingBg), 0.92)
+      .setStrokeStyle(1, this.drawHelpers.toColor(HEADER_THEME.loadingStroke), 0.82);
     const indicator = this.createLoadingIndicator(stripWidth);
     const label = this.scene
       .add.text(8, -1, this.interactionLoadingLabel, {

@@ -40,89 +40,114 @@ export class TestButtonPopup {
     const footerBlockH = gameId ? 72 : 26;
     const desiredH = 116 + pickerBlockH + buttonBlockH + footerBlockH;
 
-    const popupW = Math.max(280, Math.min(360, width - 24));
-    const popupH = Math.max(320, Math.min(desiredH, height - 20));
+    const popupW = Math.max(300, Math.min(380, width - 24));
+    const popupH = Math.max(340, Math.min(desiredH, height - 18));
     const centerX = width / 2;
     const centerY = height / 2;
 
-    this.backdrop = this.scene.add.rectangle(centerX, centerY, width, height, 0x020817, 0.64).setDepth(this.depth - 1);
+    this.backdrop = this.scene.add.rectangle(centerX, centerY, width, height, 0x000000, 0.44).setDepth(this.depth - 1);
     this.backdrop.setAlpha(0).setInteractive();
 
-    const bgShadow = this.scene.add.rectangle(0, 4, popupW + 8, popupH + 10, 0x000000, 0.36).setDepth(this.depth);
-    const bg = this.scene.add.rectangle(0, 0, popupW, popupH, 0x0f172a, 0.97).setDepth(this.depth + 1);
-    bg.setStrokeStyle(2, 0x7dd3fc, 0.45);
+    const drawRounded = (
+      g: Phaser.GameObjects.Graphics,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      radius: number,
+      fillColor: number,
+      fillAlpha: number,
+      strokeColor?: number,
+      strokeAlpha = 1,
+      strokeWidth = 1,
+    ) => {
+      g.clear();
+      g.fillStyle(fillColor, fillAlpha);
+      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, radius);
+      if (strokeColor !== undefined && strokeWidth > 0) {
+        g.lineStyle(strokeWidth, strokeColor, strokeAlpha);
+        g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, radius);
+      }
+    };
 
-    const headerY = -popupH / 2 + 24;
-    const headerBar = this.scene.add.rectangle(0, headerY, popupW - 14, 40, 0x13233f, 0.94).setDepth(this.depth + 2);
-    headerBar.setStrokeStyle(1, 0x8ce7ff, 0.4);
-    const headerSheen = this.scene.add.rectangle(0, headerY - 7, popupW - 18, 12, 0xa5f3fc, 0.1).setDepth(this.depth + 3);
+    const bgShadow = this.scene.add.graphics().setDepth(this.depth);
+    drawRounded(bgShadow, 0, 4, popupW + 10, popupH + 12, 24, 0x000000, 0.34);
+
+    const bg = this.scene.add.graphics().setDepth(this.depth + 1);
+    drawRounded(bg, 0, 0, popupW, popupH, 20, 0x3a3d42, 0.96, 0x5b6068, 1, 2);
+    const inner = this.scene.add.graphics().setDepth(this.depth + 2);
+    drawRounded(inner, 0, 0, popupW - 14, popupH - 14, 16, 0x2f3238, 0.45);
+
+    const headerY = -popupH / 2 + 30;
     const title = this.scene.add
       .text(-popupW / 2 + 16, headerY, "Debug Controls", {
         fontSize: "18px",
         fontFamily: "Arial",
         fontStyle: "bold",
-        color: "#e7f8ff",
+        color: "#f5f6f7",
       })
       .setOrigin(0, 0.5)
       .setDepth(this.depth + 4);
 
-    const closeBtn = this.scene.add.circle(popupW / 2 - 20, headerY, 14, 0x244060, 0.95).setDepth(this.depth + 4);
-    closeBtn.setStrokeStyle(1, 0x9eeaff, 0.75);
+    const closeBtn = this.scene.add.circle(popupW / 2 - 20, headerY, 14, 0x4a4f57, 0.95).setDepth(this.depth + 4);
+    closeBtn.setStrokeStyle(1, 0x6f7680, 0.92);
     const closeLabel = this.scene.add
-      .text(closeBtn.x, closeBtn.y - 1, "×", { fontSize: "22px", fontFamily: "Arial", color: "#effcff" })
+      .text(closeBtn.x, closeBtn.y - 1, "×", { fontSize: "22px", fontFamily: "Arial", color: "#f5f6f7" })
       .setOrigin(0.5)
       .setDepth(this.depth + 5);
 
     closeBtn.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
     closeLabel.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.hide());
-    closeBtn.on("pointerover", () => closeBtn.setFillStyle(0x33557e, 1));
-    closeBtn.on("pointerout", () => closeBtn.setFillStyle(0x244060, 0.95));
+    closeBtn.on("pointerover", () => closeBtn.setFillStyle(0x5b6068, 1));
+    closeBtn.on("pointerout", () => closeBtn.setFillStyle(0x4a4f57, 0.95));
 
     let btnGap = 10;
     let btnH = 42;
     const minBtnH = 34;
     const minGap = 6;
     const maxGap = 14;
-    const btnW = popupW - 32;
+    const btnW = popupW - 36;
     const btnObjs: Phaser.GameObjects.GameObject[] = [];
-    const footerReserve = gameId ? 72 : 24;
+    const footerReserve = gameId ? 78 : 24;
     const sectionGap = 14;
 
-    let yCursor = -popupH / 2 + 70;
+    let yTop = -popupH / 2 + 58;
 
     const picker = config.scenarioPicker;
     if (picker) {
       const title = this.scene.add
-        .text(-btnW / 2, yCursor, picker.title ?? "Scenario", {
+        .text(-btnW / 2, yTop, picker.title ?? "Scenario", {
           fontSize: "13px",
           fontFamily: "Arial",
           fontStyle: "bold",
-          color: "#bcefff",
+          color: "#f5f6f7",
         })
-        .setOrigin(0, 0.5)
+        .setOrigin(0, 0)
         .setDepth(this.depth + 4);
       btnObjs.push(title);
-      yCursor += 28;
+      yTop += 24;
 
-      const pickerBg = this.scene.add.rectangle(0, yCursor, btnW, 36, 0x11243d, 0.92).setDepth(this.depth + 2);
-      pickerBg.setStrokeStyle(1, 0x8ce7ff, 0.55);
+      const pickerH = 38;
+      const pickerY = yTop + pickerH / 2;
+      const pickerBg = this.scene.add.graphics().setDepth(this.depth + 2);
+      drawRounded(pickerBg, 0, pickerY, btnW, pickerH, 10, 0x32363d, 0.96, 0x5b6068, 1, 1);
       btnObjs.push(pickerBg);
 
       const wrapper = document.createElement("div");
-      wrapper.style.width = `${btnW - 10}px`;
-      wrapper.style.height = "30px";
+      wrapper.style.width = `${btnW - 12}px`;
+      wrapper.style.height = "32px";
       wrapper.style.display = "flex";
       wrapper.style.alignItems = "center";
       wrapper.style.justifyContent = "center";
 
       const select = document.createElement("select");
       select.style.width = "100%";
-      select.style.height = "30px";
+      select.style.height = "32px";
       select.style.fontSize = "12px";
-      select.style.borderRadius = "6px";
-      select.style.border = "1px solid rgba(136, 232, 255, 0.55)";
-      select.style.background = "rgba(9, 24, 43, 0.9)";
-      select.style.color = "#e8f9ff";
+      select.style.borderRadius = "8px";
+      select.style.border = "1px solid rgba(91, 96, 104, 0.98)";
+      select.style.background = "rgba(47, 50, 56, 0.98)";
+      select.style.color = "#f5f6f7";
       select.style.padding = "0 8px";
       select.style.outline = "none";
       select.style.boxShadow = "inset 0 0 0 1px rgba(255,255,255,0.04)";
@@ -139,15 +164,15 @@ export class TestButtonPopup {
       select.addEventListener("change", () => picker.onChange?.(select.value));
       wrapper.appendChild(select);
 
-      const dropdown = this.scene.add.dom(0, yCursor, wrapper).setOrigin(0.5).setDepth(this.depth + 4);
+      const dropdown = this.scene.add.dom(0, pickerY, wrapper).setOrigin(0.5).setDepth(this.depth + 4);
       btnObjs.push(dropdown);
-      yCursor += 36 + sectionGap;
+      yTop += pickerH + sectionGap;
     }
 
     const maxButtonsBottom = popupH / 2 - footerReserve;
     if (buttons.length > 0) {
       const gapCount = Math.max(0, buttons.length - 1);
-      const maxBlock = maxButtonsBottom - yCursor;
+      const maxBlock = maxButtonsBottom - yTop;
       const targetBtnH = Math.floor((maxBlock - gapCount * btnGap) / buttons.length);
       if (targetBtnH < btnH) {
         btnH = Math.max(minBtnH, targetBtnH);
@@ -167,20 +192,19 @@ export class TestButtonPopup {
       }
       const finalRemaining = maxBlock - blockHeight;
       if (finalRemaining > sectionGap) {
-        yCursor += Math.min(20, Math.floor((finalRemaining - sectionGap) / 2));
+        yTop += Math.min(20, Math.floor((finalRemaining - sectionGap) / 2));
       }
     }
 
     buttons.forEach((btn, idx) => {
-      const y = yCursor + idx * (btnH + btnGap);
-      const rect = this.scene.add.rectangle(0, y, btnW, btnH, 0x12253f, 0.92).setDepth(this.depth + 2);
-      rect.setStrokeStyle(1, 0x79e4ff, 0.62);
-      const accent = this.scene.add.rectangle(-btnW / 2 + 4, y, 6, btnH - 8, 0x7dd3fc, 0.86).setDepth(this.depth + 3);
+      const y = yTop + btnH / 2 + idx * (btnH + btnGap);
+      const rect = this.scene.add.graphics().setDepth(this.depth + 2);
+      drawRounded(rect, 0, y, btnW, btnH, 10, 0x353a43, 0.96, 0x5b6068, 1, 1);
       const label = this.scene.add
         .text(0, y, btn.label, {
           fontSize: "15px",
           fontFamily: "Arial",
-          color: "#ecfaff",
+          color: "#f5f6f7",
           fontStyle: "bold",
         })
         .setOrigin(0.5)
@@ -195,30 +219,28 @@ export class TestButtonPopup {
       };
       hit.on("pointerdown", handleClick);
       hit.on("pointerover", () => {
-        rect.setFillStyle(0x18365a, 0.97);
-        rect.setStrokeStyle(1, 0x9fe9ff, 0.95);
-        accent.setFillStyle(0xa5f3fc, 1);
+        drawRounded(rect, 0, y, btnW, btnH, 10, 0x404651, 1, 0x7b8591, 1, 1);
         label.setColor("#ffffff");
       });
       hit.on("pointerout", () => {
-        rect.setFillStyle(0x12253f, 0.92);
-        rect.setStrokeStyle(1, 0x79e4ff, 0.62);
-        accent.setFillStyle(0x7dd3fc, 0.86);
-        label.setColor("#ecfaff");
+        drawRounded(rect, 0, y, btnW, btnH, 10, 0x353a43, 0.96, 0x5b6068, 1, 1);
+        label.setColor("#f5f6f7");
       });
-      btnObjs.push(rect, accent, label, hit);
+      btnObjs.push(rect, label, hit);
     });
 
     // Game ID footer
     if (gameId) {
       const footerY = popupH / 2 - 30;
-      const footerBg = this.scene.add.rectangle(0, footerY, popupW - 22, 46, 0x0f2138, 0.94).setDepth(this.depth + 2);
-      footerBg.setStrokeStyle(1, 0x85e9ff, 0.7);
+      const footerW = popupW - 22;
+      const footerH = 48;
+      const footerBg = this.scene.add.graphics().setDepth(this.depth + 2);
+      drawRounded(footerBg, 0, footerY, footerW, footerH, 10, 0x2f3238, 0.96, 0x5b6068, 1, 1);
       const footerText = this.scene.add
         .text(0, footerY, `Game ID: ${gameId}\nTap to copy join link`, {
           fontSize: "12px",
           fontFamily: "Arial",
-          color: "#dff8ff",
+          color: "#f5f6f7",
           align: "center",
         })
         .setOrigin(0.5)
@@ -233,15 +255,16 @@ export class TestButtonPopup {
         this.copyToClipboard(joinUrl);
         void this.hide();
       };
-      footerBg.setInteractive({ useHandCursor: true }).on("pointerdown", handleCopyGameLink);
+      const footerHit = this.scene.add.rectangle(0, footerY, footerW, footerH, 0x000000, 0.001).setDepth(this.depth + 5);
+      footerHit.setInteractive({ useHandCursor: true }).on("pointerdown", handleCopyGameLink);
       footerText.setInteractive({ useHandCursor: true }).on("pointerdown", handleCopyGameLink);
-      footerBg.on("pointerover", () => footerBg.setFillStyle(0x143055, 0.96));
-      footerBg.on("pointerout", () => footerBg.setFillStyle(0x0f2138, 0.94));
-      btnObjs.push(footerBg, footerText);
+      footerHit.on("pointerover", () => drawRounded(footerBg, 0, footerY, footerW, footerH, 10, 0x404651, 1, 0x7b8591, 1, 1));
+      footerHit.on("pointerout", () => drawRounded(footerBg, 0, footerY, footerW, footerH, 10, 0x2f3238, 0.96, 0x5b6068, 1, 1));
+      btnObjs.push(footerBg, footerText, footerHit);
     }
 
     this.container = this.scene.add
-      .container(centerX, centerY, [bgShadow, bg, headerBar, headerSheen, title, closeBtn, closeLabel, ...btnObjs])
+      .container(centerX, centerY, [bgShadow, bg, inner, title, closeBtn, closeLabel, ...btnObjs])
       .setDepth(this.depth);
     this.container.setAlpha(0);
 
