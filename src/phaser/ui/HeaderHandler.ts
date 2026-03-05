@@ -104,7 +104,7 @@ export class HeaderHandler {
 
   draw(offset: Offset) {
     const { height, padding, avatar } = this.layout;
-    const { handCount, name, opponentHand } = this.state;
+    const { handCount, opponentHand } = this.state;
 
     const containerW = BASE_W;
     const containerX = BASE_W / 2 + offset.x;
@@ -144,21 +144,16 @@ export class HeaderHandler {
     }).setDepth(this.depth);
     this.drawAvatarHit(avatarX, avatarY, avatar, avatar);
 
-    // Name next to avatar (left side)
-    const nameX = avatarX + avatar / 2 + padding;
+    // Remove left-side opponent name label; keep only avatar.
     this.nameLabel?.destroy();
-    this.nameLabel = this.scene.add
-      .text(nameX, containerTop + padding, name, {
-        fontSize: "20px",
-        fontFamily: "Arial",
-        color:"#ffffff",
-      })
-      .setOrigin(0, 0)
-      .setDepth(this.depth);
+    this.nameLabel = undefined;
 
-    // Hand count below name
-    const handTextX = nameX;
-    const handY = containerTop + padding +25;
+    const turnTextX = containerRight - 5;
+    const turnY = containerY + 2;
+
+    // Opponent hand under turn label in the top-right info stack.
+    const handTextX = turnTextX;
+    const handY = turnY + 18;
     const handLabel = opponentHand !== undefined ? opponentHand : handCount;
     const handDisplay = handLabel === null || handLabel === undefined || handLabel === "" ? "-" : `${handLabel}`;
     this.handLabel?.destroy();
@@ -168,11 +163,11 @@ export class HeaderHandler {
         fontFamily: "Arial",
         color:"#ffffff",
       })
-      .setOrigin(0, 0)
+      .setOrigin(1, 0.5)
       .setDepth(this.depth);
 
     this.drawStatus(containerRight - 5, containerY - 18);
-    this.drawTurnLabel(containerRight - 5, containerY + 2);
+    this.drawTurnLabel(turnTextX, turnY);
     this.drawTimerBar(containerLeft, containerTop + height - 2, containerW);
     this.drawLoadingStrip(containerX, containerTop, containerW);
   }
@@ -239,7 +234,6 @@ export class HeaderHandler {
       .text(x, y, "Turn: -", {
         fontSize: "14px",
         fontFamily: "Arial",
-        fontStyle: "bold",
         color: "#ffffff",
       })
       .setOrigin(1, 0.5)
