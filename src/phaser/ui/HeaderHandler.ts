@@ -73,7 +73,7 @@ type HeaderState = { handCount: number; name: string; opponentHand?: number | st
 type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 
 const HEADER_BG_ALPHA = 1;
-const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "orbital";
+const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "softPulse";
 
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
