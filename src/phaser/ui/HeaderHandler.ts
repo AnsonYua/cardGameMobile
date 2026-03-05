@@ -70,8 +70,10 @@ export class DrawHelpers {
 
 type HeaderLayout = { height: number; padding: number; avatar: number };
 type HeaderState = { handCount: number; name: string; opponentHand?: number | string };
+type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 
 const HEADER_BG_ALPHA = 1;
+const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "orbital";
 
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
@@ -86,9 +88,17 @@ export class HeaderHandler {
   private timerBar?: TimerBar;
   private loadingContainer?: Phaser.GameObjects.Container;
   private loadingBg?: Phaser.GameObjects.Rectangle;
+  private loadingIndicator?: Phaser.GameObjects.Container;
+  private loadingIndicatorNodes: Phaser.GameObjects.GameObject[] = [];
+  private loadingIndicatorTweens: Phaser.Tweens.Tween[] = [];
   private loadingLabel?: Phaser.GameObjects.Text;
+  private readonly loadingVariant: LoadingVisualVariant = LOADING_VISUAL_VARIANT;
+  private loadingPulseTween?: Phaser.Tweens.Tween;
+  private loadingLabelTween?: Phaser.Tweens.Tween;
+  private loadingDotsTimer?: Phaser.Time.TimerEvent;
+  private loadingDotsFrame = 0;
   private interactionLoadingVisible = false;
-  private interactionLoadingLabel = "Processing...";
+  private interactionLoadingLabel = "Processing";
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -199,9 +209,15 @@ export class HeaderHandler {
 
   setInteractionLoading(visible: boolean, label?: string) {
     this.interactionLoadingVisible = visible;
-    this.interactionLoadingLabel = (label || "Processing...").trim() || "Processing...";
-    this.loadingLabel?.setText(this.interactionLoadingLabel);
+    this.interactionLoadingLabel = this.normalizeLoadingLabel(label);
+    this.loadingDotsFrame = 0;
+    this.syncLoadingLabel();
     this.loadingContainer?.setVisible(visible);
+    if (visible) {
+      this.startLoadingAnimation();
+      return;
+    }
+    this.stopLoadingAnimation();
   }
 
   private drawStatus(x: number, y: number) {
@@ -244,20 +260,24 @@ export class HeaderHandler {
   }
 
   private drawLoadingStrip(centerX: number, containerTop: number, containerW: number) {
+    this.stopLoadingAnimation();
     this.loadingContainer?.destroy();
     this.loadingContainer = undefined;
     this.loadingBg = undefined;
+    this.loadingIndicator = undefined;
+    this.loadingIndicatorNodes = [];
     this.loadingLabel = undefined;
 
-    const stripHeight = 22;
+    const stripHeight = 24;
     const stripWidth = Math.min(260, Math.max(170, Math.floor(containerW * 0.32)));
     const y = containerTop + stripHeight / 2 + 2;
     const container = this.scene.add.container(centerX, y).setDepth(this.depth + 3);
     const bg = this.scene
       .add.rectangle(0, 0, stripWidth, stripHeight, 0x0b1e7f, 0.92)
       .setStrokeStyle(1, 0x9cb8ff, 0.85);
+    const indicator = this.createLoadingIndicator(stripWidth);
     const label = this.scene
-      .add.text(0, 0, this.interactionLoadingLabel, {
+      .add.text(8, -1, this.interactionLoadingLabel, {
         fontSize: "12px",
         fontFamily: "Arial",
         fontStyle: "bold",
@@ -265,11 +285,194 @@ export class HeaderHandler {
         align: "center",
       })
       .setOrigin(0.5);
-    container.add([bg, label]);
+    container.add([bg, indicator, label]);
     container.setVisible(this.interactionLoadingVisible);
     this.loadingContainer = container;
     this.loadingBg = bg;
+    this.loadingIndicator = indicator;
     this.loadingLabel = label;
+    this.syncLoadingLabel();
+    if (this.interactionLoadingVisible) {
+      this.startLoadingAnimation();
+    }
+  }
+
+  private startLoadingAnimation() {
+    if (!this.loadingContainer || !this.loadingBg || !this.loadingIndicator || !this.loadingLabel) return;
+    if (this.loadingPulseTween) return;
+
+    this.loadingPulseTween = this.scene.tweens.add({
+      targets: this.loadingBg,
+      alpha: 0.7,
+      duration: 560,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.loadingIndicatorTweens = this.createIndicatorTweens();
+
+    this.loadingLabelTween = this.scene.tweens.add({
+      targets: this.loadingLabel,
+      alpha: 0.75,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.loadingDotsTimer = this.scene.time.addEvent({
+      delay: 320,
+      loop: true,
+      callback: () => {
+        this.loadingDotsFrame = (this.loadingDotsFrame + 1) % 4;
+        this.syncLoadingLabel();
+      },
+    });
+  }
+
+  private stopLoadingAnimation() {
+    this.loadingPulseTween?.remove();
+    this.loadingPulseTween = undefined;
+    this.loadingIndicatorTweens.forEach((tween) => tween.remove());
+    this.loadingIndicatorTweens = [];
+    this.loadingLabelTween?.remove();
+    this.loadingLabelTween = undefined;
+    this.loadingDotsTimer?.remove(false);
+    this.loadingDotsTimer = undefined;
+    this.loadingDotsFrame = 0;
+    if (this.loadingBg) {
+      this.loadingBg.setAlpha(0.92);
+    }
+    if (this.loadingLabel) {
+      this.loadingLabel.setAlpha(1);
+    }
+    this.resetLoadingIndicatorVisuals();
+    this.syncLoadingLabel();
+  }
+
+  private syncLoadingLabel() {
+    const suffix = ".".repeat(this.loadingDotsFrame);
+    this.loadingLabel?.setText(`${this.interactionLoadingLabel}${suffix}`);
+  }
+
+  private normalizeLoadingLabel(label?: string): string {
+    const fallback = "Processing";
+    const text = (label || fallback).trim() || fallback;
+    return text.replace(/\s*\.+$/, "");
+  }
+
+  private createLoadingIndicator(stripWidth: number): Phaser.GameObjects.Container {
+    const indicator = this.scene.add.container(-stripWidth / 2 + 16, 0);
+    this.loadingIndicatorNodes = [];
+
+    if (this.loadingVariant === "minimalDots") {
+      const offsets = [-4, 0, 4];
+      offsets.forEach((x) => {
+        const dot = this.scene.add.circle(x, 0, 1.9, 0xe8f0ff, 0.55);
+        indicator.add(dot);
+        this.loadingIndicatorNodes.push(dot);
+      });
+      return indicator;
+    }
+
+    if (this.loadingVariant === "softPulse") {
+      const glow = this.scene.add.circle(0, 0, 5.2, 0xbdd0ff, 0.16);
+      const core = this.scene.add.circle(0, 0, 2.2, 0xeaf2ff, 0.95);
+      indicator.add([glow, core]);
+      this.loadingIndicatorNodes.push(glow, core);
+      return indicator;
+    }
+
+    // orbital (default): rotating accent dot around a ring.
+    const ring = this.scene.add.circle(0, 0, 5, 0x000000, 0).setStrokeStyle(1, 0x9cb8ff, 0.7);
+    const dot = this.scene.add.circle(0, -5, 1.8, 0xe8f0ff, 1);
+    indicator.add([ring, dot]);
+    this.loadingIndicatorNodes.push(ring, dot);
+    return indicator;
+  }
+
+  private createIndicatorTweens(): Phaser.Tweens.Tween[] {
+    const indicator = this.loadingIndicator;
+    if (!indicator) return [];
+
+    if (this.loadingVariant === "minimalDots") {
+      const dots = this.loadingIndicatorNodes.filter((node): node is Phaser.GameObjects.Arc => node instanceof Phaser.GameObjects.Arc);
+      return dots.map((dot, index) =>
+        this.scene.tweens.add({
+          targets: dot,
+          alpha: 1,
+          scale: 1.24,
+          duration: 280,
+          yoyo: true,
+          repeat: -1,
+          delay: index * 100,
+          ease: "Sine.easeInOut",
+        }),
+      );
+    }
+
+    if (this.loadingVariant === "softPulse") {
+      const [glow, core] = this.loadingIndicatorNodes;
+      const tweens: Phaser.Tweens.Tween[] = [];
+      if (glow) {
+        tweens.push(
+          this.scene.tweens.add({
+            targets: glow,
+            alpha: 0.36,
+            scale: 1.35,
+            duration: 520,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+          }),
+        );
+      }
+      if (core) {
+        tweens.push(
+          this.scene.tweens.add({
+            targets: core,
+            alpha: 0.78,
+            duration: 460,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+          }),
+        );
+      }
+      return tweens;
+    }
+
+    // orbital
+    return [
+      this.scene.tweens.add({
+        targets: indicator,
+        angle: 360,
+        duration: 860,
+        repeat: -1,
+        ease: "Linear",
+      }),
+    ];
+  }
+
+  private resetLoadingIndicatorVisuals() {
+    if (this.loadingIndicator) {
+      this.loadingIndicator.setAngle(0);
+    }
+    this.loadingIndicatorNodes.forEach((node) => {
+      if (typeof (node as any).setAlpha === "function") (node as any).setAlpha(1);
+      if (typeof (node as any).setScale === "function") (node as any).setScale(1);
+    });
+    if (this.loadingVariant === "minimalDots") {
+      const dots = this.loadingIndicatorNodes.filter((node): node is Phaser.GameObjects.Arc => node instanceof Phaser.GameObjects.Arc);
+      dots.forEach((dot) => dot.setAlpha(0.55));
+    }
+    if (this.loadingVariant === "softPulse") {
+      const [glow] = this.loadingIndicatorNodes;
+      if (glow && typeof (glow as any).setAlpha === "function") {
+        (glow as any).setAlpha(0.16);
+      }
+    }
   }
 
   private drawAvatarHit(x: number, y: number, w: number, h: number) {
