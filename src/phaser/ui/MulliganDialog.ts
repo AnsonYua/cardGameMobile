@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
-import { TimedPromptDialog } from "./TimedPromptDialog";
+import { BinaryTimedChoiceDialog } from "./dialog/BinaryTimedChoiceDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type MulliganDialogOpts = {
@@ -16,14 +16,14 @@ type MulliganDialogOpts = {
  * Mulligan prompt styled like other dialogs. Only buttons are interactive.
  */
 export class MulliganDialog {
-  private prompt: TimedPromptDialog<boolean>;
+  private prompt: BinaryTimedChoiceDialog;
 
   constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
     const cfg = {
       ...DEFAULT_CARD_DIALOG_CONFIG,
       z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
     };
-    this.prompt = new TimedPromptDialog<boolean>(scene, timerController, cfg);
+    this.prompt = new BinaryTimedChoiceDialog(scene, timerController, cfg);
   }
 
   async showPrompt(opts: MulliganDialogOpts): Promise<boolean> {
@@ -32,22 +32,17 @@ export class MulliganDialog {
     return this.prompt.showPrompt({
       headerText,
       promptText,
-      buttons: [
-        { label: "Yes", result: true, onClick: opts.onYes },
-        { label: "No", result: false, onClick: opts.onNo },
-      ],
-      timeoutResult: true,
-      onTimeout: opts.onYes,
+      leftLabel: "Yes",
+      rightLabel: "No",
+      onLeft: opts.onYes,
+      onRight: opts.onNo,
+      timeoutChoice: "left",
       showOverlay: false,
       closeOnBackdrop: false,
       showCloseButton: false,
       headerFontSize: opts.headerFontSize,
       headerGap: getDialogTimerHeaderGap(),
     });
-  }
-
-  private destroy() {
-    this.prompt.destroy();
   }
 
   getAutomationState() {

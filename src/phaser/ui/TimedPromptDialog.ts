@@ -54,14 +54,24 @@ export class TimedPromptDialog<T> {
       const close = async (result: T, cb?: () => Promise<void> | void) => {
         if (this.closing) return;
         this.closing = true;
-        if (!this.container) return;
         this.dialogTimer.stop();
         this.buttonTargets.forEach((btn) => btn.disableInteractive());
+        const target = this.container;
+        this.container = undefined;
+        if (target) {
+          await new Promise<void>((done) => {
+            animateDialogOut(this.scene, target, () => {
+              target.destroy();
+              done();
+            });
+          });
+        }
+        this.buttonTargets = [];
+        this.lastState = undefined;
+        this.chooseHandlers = [];
+        this.closing = false;
         await cb?.();
-        animateDialogOut(this.scene, this.container, () => {
-          this.destroy();
-          resolve(result);
-        });
+        resolve(result);
       };
 
       this.lastState = {

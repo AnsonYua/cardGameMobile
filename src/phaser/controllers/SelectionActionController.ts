@@ -23,6 +23,8 @@ import { AbilityActivationFlowController } from "./AbilityActivationFlowControll
 import { createLogger } from "../utils/logger";
 import { getUserFacingActionErrorMessage, showActionError } from "./ActionErrorUtils";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -64,7 +66,7 @@ export type SelectionActionControllerDeps = {
   optionChoiceFlow?: import("./OptionChoiceFlowManager").OptionChoiceFlowManager;
   promptChoiceFlow?: import("./PromptChoiceFlowManager").PromptChoiceFlowManager;
   tokenChoiceFlow?: import("./TokenChoiceFlowManager").TokenChoiceFlowManager;
-};
+} & InteractionHooks;
 
 export type SelectionActionControllerModules = {
   slotGate: SlotInteractionGate;
@@ -197,7 +199,7 @@ export class SelectionActionController {
     }
     this.log.debug("runActionThenRefresh");
     try {
-      const result = await this.deps.engine.runAction(actionId);
+      const result = await withInteractionLoading(this.deps, async () => this.deps.engine.runAction(actionId));
       if (result === false) return;
     } catch (err: any) {
       const message = getUserFacingActionErrorMessage(err);

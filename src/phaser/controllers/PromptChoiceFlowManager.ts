@@ -8,6 +8,8 @@ import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 import { hidePromptChoiceDialogs, isPromptChoiceDialogOpen, showPromptChoiceDialog } from "./choice/PromptChoiceDialogRouter";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type PromptChoiceDeps = {
   api: ApiManager;
@@ -19,7 +21,7 @@ type PromptChoiceDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 export class PromptChoiceFlowManager {
   private readonly log = createLogger("PromptChoiceFlow");
@@ -182,22 +184,25 @@ export class PromptChoiceFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
+    const eventId = this.queueEntry.id;
     this.requestPending = true;
-    this.submittedEntryId = this.queueEntry.id;
+    this.submittedEntryId = eventId;
     this.submittedAt = Date.now();
     hidePromptChoiceDialogs(this.deps);
-    this.shownEntryId = this.queueEntry.id;
+    this.shownEntryId = eventId;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmOptionChoice({
-        gameId,
-        playerId,
-        eventId: this.queueEntry.id,
-        selectedOptionIndex,
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmOptionChoice({
+          gameId,
+          playerId,
+          eventId,
+          selectedOptionIndex,
+        });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
       });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (err) {
-      void err;
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
       this.submittedEntryId = undefined;
       this.submittedAt = undefined;
       this.shownEntryId = undefined;

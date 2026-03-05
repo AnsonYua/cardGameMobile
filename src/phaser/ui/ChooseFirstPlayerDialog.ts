@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { getDialogTimerHeaderGap } from "./timerBarStyles";
-import { TimedPromptDialog } from "./TimedPromptDialog";
+import { BinaryTimedChoiceDialog } from "./dialog/BinaryTimedChoiceDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 type ChooseFirstPlayerDialogOpts = {
@@ -15,39 +15,33 @@ type ChooseFirstPlayerDialogOpts = {
  * Turn order dialog styled like the mulligan prompt.
  */
 export class ChooseFirstPlayerDialog {
-  private prompt: TimedPromptDialog<boolean>;
+  private prompt: BinaryTimedChoiceDialog;
 
   constructor(scene: Phaser.Scene, timerController?: TurnTimerController) {
     const cfg = {
       ...DEFAULT_CARD_DIALOG_CONFIG,
       z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
     };
-    this.prompt = new TimedPromptDialog<boolean>(scene, timerController, cfg);
+    this.prompt = new BinaryTimedChoiceDialog(scene, timerController, cfg);
   }
 
   async showPrompt(opts: ChooseFirstPlayerDialogOpts): Promise<boolean> {
     const headerText = "Choose Turn Order";
     const firstLabel = opts.firstLabel || "Go First";
     const secondLabel = opts.secondLabel || "Go Second";
-    const defaultAction = opts.onFirst ?? opts.onSecond;
     return this.prompt.showPrompt({
       headerText,
       promptText: "",
-      buttons: [
-        { label: firstLabel, result: true, onClick: opts.onFirst },
-        { label: secondLabel, result: false, onClick: opts.onSecond },
-      ],
-      timeoutResult: true,
-      onTimeout: defaultAction,
+      leftLabel: firstLabel,
+      rightLabel: secondLabel,
+      onLeft: opts.onFirst,
+      onRight: opts.onSecond,
+      timeoutChoice: "left",
       showOverlay: false,
       closeOnBackdrop: false,
       showCloseButton: false,
       headerGap: getDialogTimerHeaderGap(),
     });
-  }
-
-  private destroy() {
-    this.prompt.destroy();
   }
 
   getAutomationState() {

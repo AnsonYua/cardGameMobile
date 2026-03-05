@@ -1,10 +1,9 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { createPromptDialog } from "./PromptDialog";
+import { SimplePromptModal } from "./dialog/SimplePromptModal";
 
 export class TurnOrderStatusDialog {
-  private container?: Phaser.GameObjects.Container;
+  private modal: SimplePromptModal;
   private currentPrompt?: string;
   private currentHeader?: string;
   private cfg = {
@@ -12,17 +11,19 @@ export class TurnOrderStatusDialog {
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(private scene: Phaser.Scene) {
+    this.modal = new SimplePromptModal(scene, this.cfg);
+  }
 
   showMessage(promptText: string, headerText = "Turn Order") {
-    if (this.container && this.currentPrompt === promptText && this.currentHeader === headerText) {
+    if (this.modal.isOpen() && this.currentPrompt === promptText && this.currentHeader === headerText) {
       return;
     }
     this.destroy();
     this.currentPrompt = promptText;
     this.currentHeader = headerText;
 
-    const dialog = createPromptDialog(this.scene, this.cfg, {
+    this.modal.show({
       headerText,
       promptText,
       buttons: [],
@@ -30,24 +31,17 @@ export class TurnOrderStatusDialog {
       closeOnBackdrop: false,
       showCloseButton: false,
     });
-    this.container = dialog.dialog;
-    animateDialogIn(this.scene, this.container);
   }
 
   hide() {
-    if (!this.container) return;
+    if (!this.modal.isOpen()) return;
     this.currentPrompt = undefined;
     this.currentHeader = undefined;
-    const container = this.container;
-    this.container = undefined;
-    animateDialogOut(this.scene, container, () => {
-      container.destroy();
-    });
+    void this.modal.hide();
   }
 
   private destroy() {
-    this.container?.destroy();
-    this.container = undefined;
+    this.modal.destroyImmediate();
     this.currentPrompt = undefined;
     this.currentHeader = undefined;
   }

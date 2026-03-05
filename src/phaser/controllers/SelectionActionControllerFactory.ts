@@ -41,6 +41,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     actionControls: deps.actionControls,
     effectTargetController: deps.effectTargetController,
     refreshActions: () => getController()?.refreshActions("neutral"),
+    onLoadingStart: deps.onLoadingStart,
+    onLoadingEnd: deps.onLoadingEnd,
+    onReportError: deps.onReportError,
     slotGate,
     onPlayerAction: deps.onPlayerAction,
   });
@@ -53,6 +56,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       actionControls: deps.actionControls,
       burstChoiceDialog: deps.burstChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
+      onLoadingStart: deps.onLoadingStart,
+      onLoadingEnd: deps.onLoadingEnd,
+      onReportError: deps.onReportError,
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
@@ -66,6 +72,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       groupDialog: null,
       burstChoiceDialog: deps.burstChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
+      onLoadingStart: deps.onLoadingStart,
+      onLoadingEnd: deps.onLoadingEnd,
+      onReportError: deps.onReportError,
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
@@ -78,6 +87,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       actionControls: deps.actionControls,
       optionChoiceDialog: deps.optionChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
+      onLoadingStart: deps.onLoadingStart,
+      onLoadingEnd: deps.onLoadingEnd,
+      onReportError: deps.onReportError,
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
@@ -91,6 +103,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       promptChoiceDialog: deps.promptChoiceDialog,
       tutorTopDeckRevealDialog: deps.tutorTopDeckRevealDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
+      onLoadingStart: deps.onLoadingStart,
+      onLoadingEnd: deps.onLoadingEnd,
+      onReportError: deps.onReportError,
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
@@ -103,6 +118,9 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       actionControls: deps.actionControls,
       tokenChoiceDialog: deps.tokenChoiceDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
+      onLoadingStart: deps.onLoadingStart,
+      onLoadingEnd: deps.onLoadingEnd,
+      onReportError: deps.onReportError,
       onTimerPause: deps.onTimerPause,
       onTimerResume: deps.onTimerResume,
     });
@@ -123,6 +141,8 @@ export function createSelectionActionController(deps: SelectionActionControllerD
     clearSelection: () => selectionHandler?.clearSelectionUI({ clearEngine: true }),
     refreshNeutral: () => getController()?.refreshActions("neutral"),
     reportError: reportActionError,
+    onLoadingStart: deps.onLoadingStart,
+    onLoadingEnd: deps.onLoadingEnd,
   });
   const actionStepTriggerHandler = new ActionStepTriggerHandler({
     getSelectedHandCard: () => selectionHandler?.getSelectedHandCard(),

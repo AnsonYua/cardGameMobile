@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { createPromptDialog } from "./PromptDialog";
+import { SimplePromptModal } from "./dialog/SimplePromptModal";
 
 export type ErrorDialogOpts = {
   headerText?: string;
@@ -10,19 +9,21 @@ export type ErrorDialogOpts = {
 };
 
 export class ErrorDialog {
-  private container?: Phaser.GameObjects.Container;
+  private modal: SimplePromptModal;
   private cfg = {
     ...DEFAULT_CARD_DIALOG_CONFIG,
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(private scene: Phaser.Scene) {
+    this.modal = new SimplePromptModal(scene, this.cfg);
+  }
 
   show(opts: ErrorDialogOpts) {
-    this.hide();
+    void this.hide();
     const headerText = opts.headerText ?? "Error";
     const message = (opts.message ?? "").trim() || "Something went wrong.";
-    const dialog = createPromptDialog(this.scene, this.cfg, {
+    this.modal.show({
       headerText,
       promptText: message,
       buttons: [
@@ -38,17 +39,9 @@ export class ErrorDialog {
       closeOnBackdrop: false,
       showCloseButton: false,
     });
-    this.container = dialog.dialog;
-    animateDialogIn(this.scene, this.container);
   }
 
   async hide() {
-    if (!this.container) return;
-    const target = this.container;
-    this.container = undefined;
-    animateDialogOut(this.scene, target, () => {
-      target.destroy();
-    });
+    await this.modal.hide();
   }
 }
-

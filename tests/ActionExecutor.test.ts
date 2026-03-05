@@ -25,6 +25,8 @@ function createExecutor(overrides: Partial<any> = {}) {
     clearSelection: vi.fn(),
     refreshNeutral: vi.fn(),
     reportError: vi.fn(),
+    onLoadingStart: vi.fn(),
+    onLoadingEnd: vi.fn(),
     ...overrides,
   };
 
@@ -98,5 +100,52 @@ describe("ActionExecutor", () => {
       gameId: "game_latest",
       actionType: "confirmBattle",
     });
+  });
+
+  it("fires loading hooks around successful player action", async () => {
+    const { deps, executor } = createExecutor({
+      engine: {
+        getSnapshot: vi.fn(() => ({
+          raw: {
+            gameEnv: {
+              currentBattle: { status: "ACTION_STEP" },
+            },
+          },
+        })),
+        updateGameStatus: vi.fn(async () => undefined),
+      },
+    });
+
+    await executor.handleSkipAction();
+
+    expect(deps.onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(deps.onLoadingEnd).toHaveBeenCalledTimes(1);
+    expect(deps.onLoadingStart.mock.invocationCallOrder[0]).toBeLessThan(deps.onLoadingEnd.mock.invocationCallOrder[0]);
+  });
+
+  it("unwinds loading hooks when player action fails", async () => {
+    const { deps, executor } = createExecutor({
+      api: {
+        playerAction: vi.fn(async () => {
+          throw new Error("forced failure");
+        }),
+      },
+      engine: {
+        getSnapshot: vi.fn(() => ({
+          raw: {
+            gameEnv: {
+              currentBattle: { status: "ACTION_STEP" },
+            },
+          },
+        })),
+        updateGameStatus: vi.fn(async () => undefined),
+      },
+    });
+
+    await executor.handleSkipAction();
+
+    expect(deps.reportError).toHaveBeenCalledTimes(1);
+    expect(deps.onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(deps.onLoadingEnd).toHaveBeenCalledTimes(1);
   });
 });

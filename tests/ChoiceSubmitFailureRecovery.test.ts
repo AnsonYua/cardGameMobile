@@ -5,6 +5,8 @@ import { BlockerFlowManager } from "../src/phaser/controllers/BlockerFlowManager
 
 describe("choice submit failure recovery", () => {
   it("keeps burst choice flow active when confirmBurstChoice fails", async () => {
+    const onLoadingStart = vi.fn();
+    const onLoadingEnd = vi.fn();
     const api = {
       confirmBurstChoice: vi.fn().mockRejectedValue(new Error("forced failure")),
     } as any;
@@ -18,6 +20,8 @@ describe("choice submit failure recovery", () => {
       actionControls: null,
       burstChoiceDialog: { hide: vi.fn(), isOpen: vi.fn().mockReturnValue(false) } as any,
       refreshActions: vi.fn(),
+      onLoadingStart,
+      onLoadingEnd,
     });
 
     (manager as any).queueEntry = {
@@ -35,10 +39,14 @@ describe("choice submit failure recovery", () => {
       eventId: "burst_1",
       confirmed: true,
     });
+    expect(onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(onLoadingEnd).toHaveBeenCalledTimes(1);
     expect(manager.isActive()).toBe(true);
   });
 
-  it("returns false and keeps dialogs open when group burst confirm fails", async () => {
+  it("returns false and keeps dialog dismissed when group burst confirm fails", async () => {
+    const onLoadingStart = vi.fn();
+    const onLoadingEnd = vi.fn();
     const api = {
       confirmBurstChoice: vi.fn().mockRejectedValue(new Error("forced failure")),
     } as any;
@@ -51,15 +59,21 @@ describe("choice submit failure recovery", () => {
       groupDialog: { hide: vi.fn(), isOpen: vi.fn().mockReturnValue(true), show: vi.fn() } as any,
       burstChoiceDialog,
       refreshActions: vi.fn(),
+      onLoadingStart,
+      onLoadingEnd,
     });
 
     const ok = await (manager as any).submitChoice("burst_event_1", true);
 
     expect(ok).toBe(false);
-    expect(burstChoiceDialog.hide).not.toHaveBeenCalled();
+    expect(burstChoiceDialog.hide).toHaveBeenCalledTimes(1);
+    expect(onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(onLoadingEnd).toHaveBeenCalledTimes(1);
   });
 
   it("does not clear blocker flow state when confirmBlockerChoice fails", async () => {
+    const onLoadingStart = vi.fn();
+    const onLoadingEnd = vi.fn();
     const api = {
       confirmBlockerChoice: vi.fn().mockRejectedValue(new Error("forced failure")),
     } as any;
@@ -73,6 +87,8 @@ describe("choice submit failure recovery", () => {
       refreshActions: vi.fn(),
       slotGate: { disable: vi.fn(), enable: vi.fn() } as any,
       onPlayerAction: vi.fn(),
+      onLoadingStart,
+      onLoadingEnd,
     });
 
     (manager as any).queueEntry = { id: "blocker_1", playerId: "p1", data: {} };
@@ -87,6 +103,8 @@ describe("choice submit failure recovery", () => {
       notificationId: "note_blocker_1",
       selectedTargets: [],
     });
+    expect(onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(onLoadingEnd).toHaveBeenCalledTimes(1);
     expect(manager.isActive()).toBe(true);
   });
 });

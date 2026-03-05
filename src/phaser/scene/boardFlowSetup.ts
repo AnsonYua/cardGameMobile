@@ -17,6 +17,7 @@ import { PromptChoiceFlowManager } from "../controllers/PromptChoiceFlowManager"
 import { TokenChoiceFlowManager } from "../controllers/TokenChoiceFlowManager";
 import { EffectTargetController } from "../controllers/EffectTargetController";
 import type { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
+import type { InteractionHooks } from "../controllers/InteractionHooks";
 
 type BoardFlowSetupParams = {
   scene: Phaser.Scene;
@@ -39,7 +40,7 @@ type BoardFlowSetupParams = {
   onPlayerAction?: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 export function setupBoardFlows(params: BoardFlowSetupParams) {
   const burstFlow = new BurstChoiceFlowManager({
@@ -49,6 +50,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     actionControls: params.actionControls,
     burstChoiceDialog: params.dialogs.burstChoiceDialog,
     refreshActions: params.onRefreshActions,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
   });
@@ -60,6 +64,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     actionControls: params.actionControls,
     optionChoiceDialog: params.dialogs.optionChoiceDialog,
     refreshActions: params.onRefreshActions,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
   });
@@ -72,6 +79,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     promptChoiceDialog: params.dialogs.promptChoiceDialog,
     tutorTopDeckRevealDialog: params.dialogs.tutorTopDeckRevealDialog,
     refreshActions: params.onRefreshActions,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
   });
@@ -84,6 +94,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     groupDialog: params.dialogs.burstChoiceGroupDialog,
     burstChoiceDialog: params.dialogs.burstChoiceDialog,
     refreshActions: params.onRefreshActions,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
   });
@@ -96,6 +109,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     api: params.api,
     scene: params.scene,
     onPlayerAction: params.onPlayerAction,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     getSlotAreaCenter: params.getSlotAreaCenter,
   });
 
@@ -106,6 +122,9 @@ export function setupBoardFlows(params: BoardFlowSetupParams) {
     actionControls: params.actionControls,
     tokenChoiceDialog: params.dialogs.tokenChoiceDialog,
     refreshActions: params.onRefreshActions,
+    onLoadingStart: params.onLoadingStart,
+    onLoadingEnd: params.onLoadingEnd,
+    onReportError: params.onReportError,
     onTimerPause: params.onTimerPause,
     onTimerResume: params.onTimerResume,
   });

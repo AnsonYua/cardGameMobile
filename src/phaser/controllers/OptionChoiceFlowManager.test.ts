@@ -84,5 +84,113 @@ describe("OptionChoiceFlowManager", () => {
     });
     expect(updateGameStatus).toHaveBeenCalledWith("game_1", "playerId_1");
   });
-});
 
+  test("hides dialog and wraps submit with loading callbacks", async () => {
+    const confirmOptionChoice = vi.fn(async () => ({ success: true }));
+    const updateGameStatus = vi.fn(async () => undefined);
+    const onLoadingStart = vi.fn();
+    const onLoadingEnd = vi.fn();
+    let shownConfig: any;
+    const dialog = {
+      isOpen: vi.fn(() => false),
+      show: vi.fn((config: any) => {
+        shownConfig = config;
+      }),
+      hide: vi.fn(),
+    };
+
+    const manager = new OptionChoiceFlowManager({
+      api: { confirmOptionChoice } as any,
+      engine: { updateGameStatus } as any,
+      gameContext: { gameId: "game_1", playerId: "playerId_1" } as any,
+      refreshActions: vi.fn(),
+      optionChoiceDialog: dialog as any,
+      onLoadingStart,
+      onLoadingEnd,
+    });
+
+    const note = {
+      id: "option_choice_attack_1",
+      type: "OPTION_CHOICE",
+      payload: {
+        event: {
+          id: "option_choice_attack_1",
+          type: "OPTION_CHOICE",
+          playerId: "playerId_1",
+          status: "DECLARED",
+          data: {
+            userDecisionMade: false,
+            availableOptions: [{ index: 0, label: "A" }],
+          },
+        },
+      },
+    };
+
+    const raw = { gameEnv: { notificationQueue: [note] } };
+    const handlePromise = manager.handleNotification(note as any, raw as any);
+    await shownConfig.onSelect(0);
+    await handlePromise;
+
+    expect(dialog.hide).toHaveBeenCalledTimes(1);
+    expect(onLoadingStart).toHaveBeenCalledTimes(1);
+    expect(onLoadingEnd).toHaveBeenCalledTimes(1);
+    expect(dialog.hide.mock.invocationCallOrder[0]).toBeLessThan(confirmOptionChoice.mock.invocationCallOrder[0]);
+    expect(onLoadingStart.mock.invocationCallOrder[0]).toBeLessThan(confirmOptionChoice.mock.invocationCallOrder[0]);
+    expect(onLoadingEnd.mock.invocationCallOrder[0]).toBeGreaterThan(confirmOptionChoice.mock.invocationCallOrder[0]);
+  });
+
+  test("keeps dialog dismissed on failure and allows submit retry", async () => {
+    const confirmOptionChoice = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("forced failure"))
+      .mockResolvedValueOnce({ success: true });
+    const updateGameStatus = vi.fn(async () => undefined);
+    const onReportError = vi.fn();
+    let shownConfig: any;
+    const dialog = {
+      isOpen: vi.fn(() => false),
+      show: vi.fn((config: any) => {
+        shownConfig = config;
+      }),
+      hide: vi.fn(),
+    };
+
+    const manager = new OptionChoiceFlowManager({
+      api: { confirmOptionChoice } as any,
+      engine: { updateGameStatus } as any,
+      gameContext: { gameId: "game_1", playerId: "playerId_1" } as any,
+      refreshActions: vi.fn(),
+      optionChoiceDialog: dialog as any,
+      onReportError,
+    });
+
+    const note = {
+      id: "option_choice_attack_1",
+      type: "OPTION_CHOICE",
+      payload: {
+        event: {
+          id: "option_choice_attack_1",
+          type: "OPTION_CHOICE",
+          playerId: "playerId_1",
+          status: "DECLARED",
+          data: {
+            userDecisionMade: false,
+            availableOptions: [{ index: 0, label: "A" }],
+          },
+        },
+      },
+    };
+
+    const raw = { gameEnv: { notificationQueue: [note] } };
+    const handlePromise = manager.handleNotification(note as any, raw as any);
+    await shownConfig.onSelect(0);
+    await handlePromise;
+
+    await (manager as any).submitChoice(0);
+
+    expect(confirmOptionChoice).toHaveBeenCalledTimes(2);
+    expect(updateGameStatus).toHaveBeenCalledTimes(1);
+    expect(dialog.hide).toHaveBeenCalledTimes(2);
+    expect(onReportError).toHaveBeenCalledTimes(1);
+  });
+});

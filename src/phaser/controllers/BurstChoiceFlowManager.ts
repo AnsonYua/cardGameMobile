@@ -6,6 +6,8 @@ import type { BurstChoiceDialog } from "../ui/BurstChoiceDialog";
 import { findCardByUid } from "../utils/CardLookup";
 import { findActiveBurstChoiceNotification } from "../utils/NotificationUtils";
 import { createLogger } from "../utils/logger";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type BurstChoiceDeps = {
   api: ApiManager;
@@ -16,7 +18,7 @@ type BurstChoiceDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 export class BurstChoiceFlowManager {
   private readonly log = createLogger("BurstChoiceFlow");
@@ -256,6 +258,7 @@ export class BurstChoiceFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
+    const eventId = this.queueEntry.eventId ?? this.queueEntry.id;
     this.requestPending = true;
     const confirmed = userDecision === "ACTIVATE";
     this.log.debug("submitChoice", {
@@ -265,22 +268,27 @@ export class BurstChoiceFlowManager {
       playerId,
       gameId,
     });
+    this.deps.burstChoiceDialog?.hide();
+    this.shownEntryId = this.queueEntry.id;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmBurstChoice({
-        gameId,
-        playerId,
-        eventId: this.queueEntry.eventId ?? this.queueEntry.id,
-        confirmed,
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmBurstChoice({
+          gameId,
+          playerId,
+          eventId,
+          confirmed,
+        });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
       });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
       this.resolvePending();
       this.clear();
     } catch (err) {
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
       console.error("[BurstChoiceFlowManager] confirmBurstChoice failed", {
         gameId,
         playerId,
-        eventId: this.queueEntry.eventId ?? this.queueEntry.id,
+        eventId,
         userDecision,
         error: err,
       });

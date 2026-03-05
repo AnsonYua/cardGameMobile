@@ -5,6 +5,8 @@ import type { ApiManager } from "../api/ApiManager";
 import type { AttackTargetCoordinator } from "./AttackTargetCoordinator";
 import { getAttackUnitTargets } from "./attackTargetPolicy";
 import { isBattleActionStep } from "../game/battleUtils";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 export class ActionExecutor {
   constructor(
@@ -20,7 +22,7 @@ export class ActionExecutor {
       clearSelection: () => void;
       refreshNeutral: () => void;
       reportError?: (err: any) => void;
-    },
+    } & Pick<InteractionHooks, "onLoadingStart" | "onLoadingEnd">,
   ) {}
 
   private async runPlayerAction(
@@ -30,13 +32,15 @@ export class ActionExecutor {
     const sanitizedPayload = this.sanitizeActionPayload(payload);
     if (!sanitizedPayload) return;
     try {
-      await this.deps.api.playerAction(sanitizedPayload);
-      const latestContext = this.getLatestContext();
-      if (!latestContext) return;
-      await this.deps.engine.updateGameStatus(latestContext.gameId, latestContext.playerId);
-      if (opts.cancelOnSuccess) {
-        this.handleCancelSelection();
-      }
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.playerAction(sanitizedPayload);
+        const latestContext = this.getLatestContext();
+        if (!latestContext) return;
+        await this.deps.engine.updateGameStatus(latestContext.gameId, latestContext.playerId);
+        if (opts.cancelOnSuccess) {
+          this.handleCancelSelection();
+        }
+      });
     } catch (err) {
       this.deps.reportError?.(err);
       if (opts.cancelOnError) {

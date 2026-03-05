@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
-import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
-import { createPromptDialog } from "./PromptDialog";
+import { SimplePromptModal } from "./dialog/SimplePromptModal";
 
 type GameOverDialogOpts = {
   isWinner: boolean;
@@ -9,18 +8,20 @@ type GameOverDialogOpts = {
 };
 
 export class GameOverDialog {
-  private container?: Phaser.GameObjects.Container;
+  private modal: SimplePromptModal;
   private cfg = {
     ...DEFAULT_CARD_DIALOG_CONFIG,
     z: { ...DEFAULT_CARD_DIALOG_CONFIG.z, dialog: 3000 },
   };
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(private scene: Phaser.Scene) {
+    this.modal = new SimplePromptModal(scene, this.cfg);
+  }
 
   show(opts: GameOverDialogOpts) {
-    this.hide();
+    void this.hide();
     const headerText = opts.isWinner ? "You win the game" : "You lost the game";
-    const dialog = createPromptDialog(this.scene, this.cfg, {
+    this.modal.show({
       headerText,
       promptText: "",
       buttons: [
@@ -36,16 +37,9 @@ export class GameOverDialog {
       closeOnBackdrop: false,
       showCloseButton: false,
     });
-    this.container = dialog.dialog;
-    animateDialogIn(this.scene, this.container);
   }
 
   async hide() {
-    if (!this.container) return;
-    const target = this.container;
-    this.container = undefined;
-    animateDialogOut(this.scene, target, () => {
-      target.destroy();
-    });
+    await this.modal.hide();
   }
 }

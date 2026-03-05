@@ -84,6 +84,9 @@ import { findActiveBlockerChoiceFromRaw } from "./controllers/choice/ChoiceFlowU
 import { sliceEventsForBlockingChoice } from "./animations/ChoiceNotificationWindow";
 import { autoFollowChoiceOwner } from "./controllers/choice/AutoFollowChoiceOwner";
 import { updateSession } from "./game/SessionStore";
+import { showActionError } from "./controllers/ActionErrorUtils";
+import type { InteractionHooks } from "./controllers/InteractionHooks";
+import { InteractionLoadingController } from "./scene/InteractionLoadingController";
 
 export class BoardScene extends Phaser.Scene {
   constructor() {
@@ -124,7 +127,7 @@ export class BoardScene extends Phaser.Scene {
   private headerControls: BoardUiControls["headerControls"] | null = null;
   private actionDispatcher = new ActionDispatcher();
   private debugControls?: DebugControls;
-  private loadingText?: Phaser.GameObjects.Text;
+  private interactionLoading?: InteractionLoadingController;
   private slotControls: BoardUiControls["slotControls"] | null = null;
   private selectionAction?: SelectionActionController;
   private effectTargetController?: EffectTargetController;
@@ -194,6 +197,12 @@ export class BoardScene extends Phaser.Scene {
     this.actionControls = controls.actionControls;
     this.headerControls = controls.headerControls;
     this.slotControls = controls.slotControls;
+    this.interactionLoading = new InteractionLoadingController(
+      this,
+      (visible, label) => this.headerControls?.setInteractionLoading?.(visible, label),
+    );
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.interactionLoading?.destroy());
+    const interactionHooks = this.getInteractionHooks();
 
     const timerBindings = createTurnTimerBindings(this, this.headerControls);
     this.turnTimer = timerBindings.timer;
@@ -252,6 +261,9 @@ export class BoardScene extends Phaser.Scene {
       getSlotAreaCenter: (owner) => this.slotControls?.getSlotAreaCenter?.(owner),
       onRefreshActions: () => this.selectionAction?.refreshActions("neutral"),
       onPlayerAction: () => this.turnTimer?.reset(),
+      onLoadingStart: interactionHooks.onLoadingStart,
+      onLoadingEnd: interactionHooks.onLoadingEnd,
+      onReportError: interactionHooks.onReportError,
       ...createTimerPauseResumeHandlers({
         engineGetRaw: () => this.engine.getSnapshot().raw as any,
         timer: this.turnTimer,
@@ -308,6 +320,8 @@ export class BoardScene extends Phaser.Scene {
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
       onGameEnded: (info) => this.handleGameEnded(info),
+      onLoadingStart: interactionHooks.onLoadingStart,
+      onLoadingEnd: interactionHooks.onLoadingEnd,
       ...createTurnStartDrawHandlers({
         gate: this.turnStartDrawGate,
         timer: this.turnTimer,
@@ -408,6 +422,9 @@ export class BoardScene extends Phaser.Scene {
         this.actionControls?.setState?.({ descriptors: [] });
       },
       onPlayerAction: () => this.turnTimer?.reset(),
+      onLoadingStart: interactionHooks.onLoadingStart,
+      onLoadingEnd: interactionHooks.onLoadingEnd,
+      onReportError: interactionHooks.onReportError,
       ...createTimerPauseResumeHandlers({
         engineGetRaw: () => this.engine.getSnapshot().raw as any,
         timer: this.turnTimer,
@@ -1191,25 +1208,27 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private showLoading() {
-    if (this.loadingText) {
-      this.loadingText.setVisible(true);
-      return;
-    }
-    const cam = this.cameras.main;
-    this.loadingText = this.add
-      .text(cam.centerX, cam.centerY, "Loading...", {
-        fontSize: "24px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-        backgroundColor: "rgba(0,0,0,0.7)",
-        padding: { x: 12, y: 8 },
-      })
-      .setOrigin(0.5)
-      .setDepth(2000);
+    this.interactionLoading?.showLoading();
   }
 
   private hideLoading() {
-    this.loadingText?.setVisible(false);
+    this.interactionLoading?.hideLoading();
+  }
+
+  private beginInteractionLoading(label?: string) {
+    this.interactionLoading?.begin(label);
+  }
+
+  private endInteractionLoading() {
+    this.interactionLoading?.end();
+  }
+
+  private getInteractionHooks(): InteractionHooks {
+    return {
+      onLoadingStart: () => this.beginInteractionLoading(),
+      onLoadingEnd: () => this.endInteractionLoading(),
+      onReportError: (err, opts) => showActionError(this.errorDialogUi, err, { headerText: opts?.headerText }),
+    };
   }
 
   private showTrashArea(owner: "opponent" | "player") {

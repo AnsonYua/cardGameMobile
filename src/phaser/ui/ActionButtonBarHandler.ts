@@ -5,7 +5,7 @@ import { toColor } from "./types";
 
 type ActionButtonConfig = {
   label: string;
-  onClick?: () => void;
+  onClick?: () => void | Promise<void>;
   enabled?: boolean;
   primary?: boolean;
 };
@@ -63,6 +63,7 @@ export class ActionButtonBarHandler {
   private onPointerUpOutside?: () => void;
   private onUpdate?: (_time: number, delta: number) => void;
   private lastScrollKey = "";
+  private actionInFlight = false;
 
   // Mirrors HandAreaHandler layout so the bar can sit just above the hand.
   private handLayout = {
@@ -157,8 +158,13 @@ export class ActionButtonBarHandler {
   async invokeByIndex(index: number): Promise<boolean> {
     const buttons = this.getRenderableDescriptors();
     const target = buttons[index];
-    if (!target || target.enabled === false || typeof target.onClick !== "function") return false;
-    await Promise.resolve(target.onClick());
+    if (!target || target.enabled === false || typeof target.onClick !== "function" || this.actionInFlight) return false;
+    this.actionInFlight = true;
+    try {
+      await Promise.resolve(target.onClick());
+    } finally {
+      this.actionInFlight = false;
+    }
     return true;
   }
 
@@ -452,18 +458,24 @@ export class ActionButtonBarHandler {
       .rectangle(x, y, w, h, 0x000000, 0)
       .setInteractive({ useHandCursor: enabled })
       .setDepth(depth + 3);
-    hit.on("pointerup", (_pointer: any, _localX: number, _localY: number, event: any) => {
+    hit.on("pointerup", async (_pointer: any, _localX: number, _localY: number, event: any) => {
       if (!enabled) return;
       if (this.dragSuppressClick) {
         this.dragSuppressClick = false;
         return;
       }
+      if (this.actionInFlight) return;
       // Prevent underlying interactive game objects (hand/slots) from also receiving this click.
       event?.stopPropagation?.();
-      if (actionIndex !== null) {
-        this.onAction(actionIndex);
+      this.actionInFlight = true;
+      try {
+        if (actionIndex !== null) {
+          this.onAction(actionIndex);
+        }
+        await Promise.resolve(config.onClick?.());
+      } finally {
+        this.actionInFlight = false;
       }
-      config.onClick?.();
     });
     this.hitAreas.push(hit);
     if (container) container.add(hit);

@@ -15,6 +15,8 @@ import {
 } from "../utils/burstChoiceGroupUtils";
 import { resolveBurstChoiceCard } from "../utils/burstChoiceCardResolver";
 import { createLogger } from "../utils/logger";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type GroupDeps = {
   api: ApiManager;
@@ -26,7 +28,7 @@ type GroupDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 type GroupNote = {
   id: string;
@@ -272,15 +274,18 @@ export class BurstChoiceGroupFlowManager {
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return false;
     this.requestPending = true;
+    await this.deps.burstChoiceDialog?.hide();
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmBurstChoice({ gameId, playerId, eventId, confirmed });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      await this.deps.burstChoiceDialog?.hide();
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmBurstChoice({ gameId, playerId, eventId, confirmed });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
+      });
       this.requestPending = false;
       this.deps.refreshActions();
       return true;
     } catch (err) {
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
       console.error("[BurstChoiceGroupFlowManager] confirmBurstChoice failed", {
         gameId,
         playerId,
@@ -305,10 +310,12 @@ export class BurstChoiceGroupFlowManager {
     }
     await this.hideAll();
     try {
-      await this.deps.api.acknowledgeEvents({ gameId, playerId, eventIds: [note.id] });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.acknowledgeEvents({ gameId, playerId, eventIds: [note.id] });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
+      });
     } catch (err) {
-      void err;
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
     } finally {
       this.resolvePending();
       this.clear();

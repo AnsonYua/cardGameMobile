@@ -8,6 +8,8 @@ import { mapAvailableTargetsToSlotTargets, type SlotTarget } from "./TargetSlotM
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { SlotInteractionGate } from "./SlotInteractionGate";
 import { findActiveBlockerChoiceFromRaw } from "./choice/ChoiceFlowUtils";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type BlockerDeps = {
   api: ApiManager;
@@ -19,7 +21,7 @@ type BlockerDeps = {
   refreshActions: () => void;
   slotGate: SlotInteractionGate;
   onPlayerAction?: (actionId: string) => void;
-};
+} & InteractionHooks;
 
 export class BlockerFlowManager {
   private queueEntry?: any;
@@ -144,20 +146,23 @@ export class BlockerFlowManager {
     this.requestPending = true;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmBlockerChoice({
-        gameId,
-        playerId,
-        eventId: this.queueEntry.id,
-        notificationId: this.notificationId,
-        selectedTargets: targets,
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmBlockerChoice({
+          gameId,
+          playerId,
+          eventId: this.queueEntry.id,
+          notificationId: this.notificationId,
+          selectedTargets: targets,
+        });
+        this.deps.onPlayerAction?.("confirmBlockerChoice");
+        await this.deps.engine.updateGameStatus(gameId, playerId);
       });
-      this.deps.onPlayerAction?.("confirmBlockerChoice");
-      await this.deps.engine.updateGameStatus(gameId, playerId);
       this.requestPending = false;
       this.clear();
       this.deps.refreshActions();
       return;
     } catch (error) {
+      this.deps.onReportError?.(error, { headerText: "Action Failed" });
       console.error("[BlockerFlowManager] confirmBlockerChoice failed", {
         gameId,
         playerId,

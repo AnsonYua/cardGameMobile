@@ -12,6 +12,8 @@ import {
 } from "../utils/TokenChoiceNotificationUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 import { mapTokenChoiceToDialogView } from "./choice/TokenChoiceViewMapper";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type TokenChoiceDeps = {
   api: ApiManager;
@@ -22,7 +24,7 @@ type TokenChoiceDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 export class TokenChoiceFlowManager {
   private readonly log = createLogger("TokenChoiceFlow");
@@ -201,27 +203,30 @@ export class TokenChoiceFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
+    const eventId = this.note.id;
     this.requestPending = true;
-    this.submittedId = this.note.id;
+    this.submittedId = eventId;
     this.submittedAt = Date.now();
     this.deps.tokenChoiceDialog?.hide();
-    this.shownId = this.note.id;
+    this.shownId = eventId;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmTokenChoice({
-        gameId,
-        playerId,
-        eventId: this.note.id,
-        selectedChoiceIndex,
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmTokenChoice({
+          gameId,
+          playerId,
+          eventId,
+          selectedChoiceIndex,
+        });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
+        // If the backend immediately marked the notification complete, acknowledge right away.
+        const latest = findLatestTokenChoiceFromRaw(this.deps.engine.getSnapshot().raw, { preferId: eventId });
+        if (latest?.id === eventId && latest.isCompleted) {
+          await this.onCompleted(latest);
+        }
       });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      // If the backend immediately marked the notification complete, acknowledge right away.
-      const latest = findLatestTokenChoiceFromRaw(this.deps.engine.getSnapshot().raw, { preferId: this.note?.id });
-      if (latest?.id === this.note.id && latest.isCompleted) {
-        await this.onCompleted(latest);
-      }
     } catch (err) {
-      void err;
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
       this.submittedId = undefined;
       this.submittedAt = undefined;
       this.shownId = undefined;
@@ -245,11 +250,13 @@ export class TokenChoiceFlowManager {
     this.deps.tokenChoiceDialog?.hide();
     this.deps.refreshActions();
     try {
-      await this.deps.engine.updateGameStatus(gameId, playerId);
-      await this.deps.api.acknowledgeEvents({ gameId, playerId, eventIds: [note.id] });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.engine.updateGameStatus(gameId, playerId);
+        await this.deps.api.acknowledgeEvents({ gameId, playerId, eventIds: [note.id] });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
+      });
     } catch (err) {
-      void err;
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
     } finally {
       this.ackPending = false;
       this.resolvePending();

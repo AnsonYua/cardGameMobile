@@ -84,6 +84,11 @@ export class HeaderHandler {
   private nameLabel?: Phaser.GameObjects.Text;
   private handLabel?: Phaser.GameObjects.Text;
   private timerBar?: TimerBar;
+  private loadingContainer?: Phaser.GameObjects.Container;
+  private loadingBg?: Phaser.GameObjects.Rectangle;
+  private loadingLabel?: Phaser.GameObjects.Text;
+  private interactionLoadingVisible = false;
+  private interactionLoadingLabel = "Processing...";
 
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
@@ -159,6 +164,7 @@ export class HeaderHandler {
     this.drawStatus(containerRight - 5, containerY - 18);
     this.drawTurnLabel(containerRight - 5, containerY + 2);
     this.drawTimerBar(containerLeft, containerTop + height - 2, containerW);
+    this.drawLoadingStrip(containerX, containerTop, containerW);
   }
 
   updateState(state: Partial<HeaderState>) {
@@ -189,6 +195,13 @@ export class HeaderHandler {
 
   setTimerVisible(visible: boolean) {
     this.timerBar?.setVisible(visible);
+  }
+
+  setInteractionLoading(visible: boolean, label?: string) {
+    this.interactionLoadingVisible = visible;
+    this.interactionLoadingLabel = (label || "Processing...").trim() || "Processing...";
+    this.loadingLabel?.setText(this.interactionLoadingLabel);
+    this.loadingContainer?.setVisible(visible);
   }
 
   private drawStatus(x: number, y: number) {
@@ -228,6 +241,35 @@ export class HeaderHandler {
       this.timerBar.setProgress(1, 0);
     }
     this.timerBar.setPosition(x, y);
+  }
+
+  private drawLoadingStrip(centerX: number, containerTop: number, containerW: number) {
+    this.loadingContainer?.destroy();
+    this.loadingContainer = undefined;
+    this.loadingBg = undefined;
+    this.loadingLabel = undefined;
+
+    const stripHeight = 22;
+    const stripWidth = Math.min(260, Math.max(170, Math.floor(containerW * 0.32)));
+    const y = containerTop + stripHeight / 2 + 2;
+    const container = this.scene.add.container(centerX, y).setDepth(this.depth + 3);
+    const bg = this.scene
+      .add.rectangle(0, 0, stripWidth, stripHeight, 0x0b1e7f, 0.92)
+      .setStrokeStyle(1, 0x9cb8ff, 0.85);
+    const label = this.scene
+      .add.text(0, 0, this.interactionLoadingLabel, {
+        fontSize: "12px",
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        color: "#f5f8ff",
+        align: "center",
+      })
+      .setOrigin(0.5);
+    container.add([bg, label]);
+    container.setVisible(this.interactionLoadingVisible);
+    this.loadingContainer = container;
+    this.loadingBg = bg;
+    this.loadingLabel = label;
   }
 
   private drawAvatarHit(x: number, y: number, w: number, h: number) {

@@ -49,6 +49,7 @@ export type HeaderControls = {
   setAvatarHandler: (handler: () => void) => void;
   setTimerProgress?: (progress: number, secondsLeft: number) => void;
   setTimerVisible?: (visible: boolean) => void;
+  setInteractionLoading?: (visible: boolean, label?: string) => void;
 };
 
 export function createHandControls(hand: HandAreaHandler): HandControls {
@@ -97,5 +98,6 @@ export function createHeaderControls(header: HeaderHandler): HeaderControls {
     setAvatarHandler: (handler: () => void) => header.setAvatarHandler(handler),
     setTimerProgress: (progress, secondsLeft) => header.setTimerProgress(progress, secondsLeft),
     setTimerVisible: (visible) => header.setTimerVisible(visible),
+    setInteractionLoading: (visible, label) => header.setInteractionLoading(visible, label),
   };
 }

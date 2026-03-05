@@ -12,6 +12,8 @@ import { mapSlotToApiTargetRef } from "./targeting/TargetChoiceMapping";
 import { resolveTargetChoiceHeader } from "./targeting/TargetChoiceTitles";
 import { resolveTargetChoiceEffectDescription } from "./targeting/TargetChoiceEffectDescription";
 import { buildTargetChoiceHint } from "./targeting/TargetChoiceHintBuilder";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type ShowManualOpts = {
   targets: SlotViewModel[];
@@ -35,7 +37,7 @@ export class EffectTargetController {
       scene: Phaser.Scene;
       getSlotAreaCenter?: (owner: "player" | "opponent") => { x: number; y: number } | undefined;
       onPlayerAction?: () => void;
-    },
+    } & InteractionHooks,
   ) {}
 
   async handleTargetChoiceNotification(note: SlotNotification, raw: any): Promise<void> {
@@ -173,22 +175,26 @@ export class EffectTargetController {
           return;
         }
         void (async () => {
+          await this.deps.dialog.hide();
           try {
-            await this.deps.api.cancelChoice({
-              gameId: this.deps.gameContext.gameId || "",
-              playerId: selfId || "",
-              eventId,
-            });
-            if (notificationId) {
-              await this.deps.api.acknowledgeEvents({
+            await withInteractionLoading(this.deps, async () => {
+              await this.deps.api.cancelChoice({
                 gameId: this.deps.gameContext.gameId || "",
                 playerId: selfId || "",
-                eventIds: [notificationId],
+                eventId,
               });
-            }
-            this.deps.onPlayerAction?.();
-            await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+              if (notificationId) {
+                await this.deps.api.acknowledgeEvents({
+                  gameId: this.deps.gameContext.gameId || "",
+                  playerId: selfId || "",
+                  eventIds: [notificationId],
+                });
+              }
+              this.deps.onPlayerAction?.();
+              await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+            });
           } catch (err) {
+            this.deps.onReportError?.(err, { headerText: "Action Failed" });
             // eslint-disable-next-line no-console
             console.error("[EffectTargetController] cancelChoice failed", {
               eventId,
@@ -235,23 +241,27 @@ export class EffectTargetController {
               const deduped = Array.from(
                 new Map(selectedTargets.map((t) => [`${t.carduid}:${t.zone}:${t.playerId}`, t] as const)).values(),
               );
+              await this.deps.dialog.hide();
               try {
-                await this.deps.api.confirmTargetChoice({
-                  gameId: this.deps.gameContext.gameId || "",
-                  playerId: selfId || "",
-                  eventId,
-                  selectedTargets: deduped,
-                });
-                if (notificationId) {
-                  await this.deps.api.acknowledgeEvents({
+                await withInteractionLoading(this.deps, async () => {
+                  await this.deps.api.confirmTargetChoice({
                     gameId: this.deps.gameContext.gameId || "",
                     playerId: selfId || "",
-                    eventIds: [notificationId],
+                    eventId,
+                    selectedTargets: deduped,
                   });
-                }
-                this.deps.onPlayerAction?.();
-                await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+                  if (notificationId) {
+                    await this.deps.api.acknowledgeEvents({
+                      gameId: this.deps.gameContext.gameId || "",
+                      playerId: selfId || "",
+                      eventIds: [notificationId],
+                    });
+                  }
+                  this.deps.onPlayerAction?.();
+                  await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+                });
               } catch (err) {
+                this.deps.onReportError?.(err, { headerText: "Action Failed" });
                 // eslint-disable-next-line no-console
                 console.error("[EffectTargetController] confirmTargetChoice failed", {
                   eventId,
@@ -286,23 +296,27 @@ export class EffectTargetController {
               await finish();
               return;
             }
+            await this.deps.dialog.hide();
             try {
-              await this.deps.api.confirmTargetChoice({
-                gameId: this.deps.gameContext.gameId || "",
-                playerId: selfId || "",
-                eventId,
-                selectedTargets: [mapSlotToTarget(slot)],
-              });
-              if (notificationId) {
-                await this.deps.api.acknowledgeEvents({
+              await withInteractionLoading(this.deps, async () => {
+                await this.deps.api.confirmTargetChoice({
                   gameId: this.deps.gameContext.gameId || "",
                   playerId: selfId || "",
-                  eventIds: [notificationId],
+                  eventId,
+                  selectedTargets: [mapSlotToTarget(slot)],
                 });
-              }
-              this.deps.onPlayerAction?.();
-              await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+                if (notificationId) {
+                  await this.deps.api.acknowledgeEvents({
+                    gameId: this.deps.gameContext.gameId || "",
+                    playerId: selfId || "",
+                    eventIds: [notificationId],
+                  });
+                }
+                this.deps.onPlayerAction?.();
+                await this.deps.engine.updateGameStatus(this.deps.gameContext.gameId ?? undefined, selfId ?? undefined);
+              });
             } catch (err) {
+              this.deps.onReportError?.(err, { headerText: "Action Failed" });
               // eslint-disable-next-line no-console
               console.error("[EffectTargetController] confirmTargetChoice failed", {
                 eventId,

@@ -21,6 +21,8 @@ import type { BoardUiControls } from "./boardUiSetup";
 import type { GameEndInfo } from "./gameEndHelpers";
 import type { EffectTargetController } from "../controllers/EffectTargetController";
 import { submitDeckFromStorage } from "../game/deckSubmissionFlow";
+import { withInteractionLoading } from "../controllers/InteractionHooks";
+import type { InteractionHooks } from "../controllers/InteractionHooks";
 
 export type AnimationPipelineSetup = {
   animationQueue: AnimationQueue;
@@ -65,7 +67,7 @@ export type AnimationPipelineParams = {
   onGameEnded?: (info: GameEndInfo) => void;
   onTurnStartDrawPopupStart?: () => void;
   onTurnStartDrawPopupEnd?: () => void;
-};
+} & Pick<InteractionHooks, "onLoadingStart" | "onLoadingEnd">;
 
 export function setupAnimationPipeline(params: AnimationPipelineParams): AnimationPipelineSetup {
   const {
@@ -92,6 +94,8 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     updateHandArea,
     shouldRefreshHandForEvent,
     handleAnimationQueueIdle,
+    onLoadingStart,
+    onLoadingEnd,
     onTurnStartDrawPopupStart,
     onTurnStartDrawPopupEnd,
   } = params;
@@ -133,23 +137,25 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       if (!gameId || !playerId) {
         return;
       }
-      try {
-        await submitDeckFromStorage({
-          gameId,
-          playerId,
-          source: "ready",
-          emptyDeckMessage: "Deck is empty. Please build a deck before readying up.",
-          submit: (payload) => api.submitDeck({ gameId, playerId, ...payload }),
-        });
-      } catch (err) {
-        window.alert(err instanceof Error ? err.message : "Deck submission failed.");
-        return;
-      }
-      dialogCoordinator.markMulliganDecisionSubmitted();
-      await api.startReady({ gameId, playerId, isRedraw });
-      const snapshot = await engine.updateGameStatus(gameId, playerId);
-      dialogCoordinator.updateFromSnapshot(snapshot);
-      await engine.loadGameResources(gameId, playerId, snapshot.raw);
+      await withInteractionLoading({ onLoadingStart, onLoadingEnd }, async () => {
+        try {
+          await submitDeckFromStorage({
+            gameId,
+            playerId,
+            source: "ready",
+            emptyDeckMessage: "Deck is empty. Please build a deck before readying up.",
+            submit: (payload) => api.submitDeck({ gameId, playerId, ...payload }),
+          });
+        } catch (err) {
+          window.alert(err instanceof Error ? err.message : "Deck submission failed.");
+          return;
+        }
+        dialogCoordinator.markMulliganDecisionSubmitted();
+        await api.startReady({ gameId, playerId, isRedraw });
+        const snapshot = await engine.updateGameStatus(gameId, playerId);
+        dialogCoordinator.updateFromSnapshot(snapshot);
+        await engine.loadGameResources(gameId, playerId, snapshot.raw);
+      });
     },
     chooseFirstPlayer: async (chosenFirstPlayerId) => {
       const gameId = gameContext.gameId;
@@ -157,8 +163,10 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       if (!gameId || !playerId) {
         return;
       }
-      await api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });
-      await engine.updateGameStatus(gameId, playerId);
+      await withInteractionLoading({ onLoadingStart, onLoadingEnd }, async () => {
+        await api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });
+        await engine.updateGameStatus(gameId, playerId);
+      });
     },
     resolveSlotOwnerByPlayer,
     getTargetAnchorProviders,

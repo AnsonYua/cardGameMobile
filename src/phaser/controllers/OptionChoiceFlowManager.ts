@@ -8,6 +8,8 @@ import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 import { mapOptionChoiceToDialogView } from "./choice/OptionChoiceViewMapper";
 import { withTutorSelectionStepHeader } from "./choice/TutorStepHeader";
+import { withInteractionLoading } from "./InteractionHooks";
+import type { InteractionHooks } from "./InteractionHooks";
 
 type OptionChoiceDeps = {
   api: ApiManager;
@@ -18,7 +20,7 @@ type OptionChoiceDeps = {
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
-};
+} & InteractionHooks;
 
 export class OptionChoiceFlowManager {
   private readonly log = createLogger("OptionChoiceFlow");
@@ -196,22 +198,25 @@ export class OptionChoiceFlowManager {
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
     if (!gameId || !playerId) return;
+    const eventId = this.queueEntry.id;
     this.requestPending = true;
-    this.submittedEntryId = this.queueEntry.id;
+    this.submittedEntryId = eventId;
     this.submittedAt = Date.now();
     this.deps.optionChoiceDialog?.hide();
-    this.shownEntryId = this.queueEntry.id;
+    this.shownEntryId = eventId;
     this.deps.refreshActions();
     try {
-      await this.deps.api.confirmOptionChoice({
-        gameId,
-        playerId,
-        eventId: this.queueEntry.id,
-        selectedOptionIndex,
+      await withInteractionLoading(this.deps, async () => {
+        await this.deps.api.confirmOptionChoice({
+          gameId,
+          playerId,
+          eventId,
+          selectedOptionIndex,
+        });
+        await this.deps.engine.updateGameStatus(gameId, playerId);
       });
-      await this.deps.engine.updateGameStatus(gameId, playerId);
     } catch (err) {
-      void err;
+      this.deps.onReportError?.(err, { headerText: "Action Failed" });
       // If submit failed, allow immediate retry.
       this.submittedEntryId = undefined;
       this.submittedAt = undefined;
