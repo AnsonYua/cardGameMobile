@@ -15,5 +15,5 @@ export function wireBoardUiHandlers(deps: UiBindingDeps) {
   deps.controls.slotControls?.setSlotClickHandler?.((slot) => deps.selectionAction?.handleSlotCardSelected(slot));
   deps.controls.baseControls?.setBaseClickHandler?.((payload) => deps.selectionAction?.handleBaseCardSelected(payload));
   deps.controls.trashControls?.setTrashClickHandler?.((owner) => deps.showTrashArea(owner));
-  deps.controls.headerControls?.setAvatarHandler(() => deps.showDebugControls());
+  deps.controls.headerControls?.setMenuHandler(() => deps.showDebugControls());
 }

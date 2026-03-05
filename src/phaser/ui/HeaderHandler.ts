@@ -68,22 +68,35 @@ export class DrawHelpers {
   }
 }
 
-type HeaderLayout = { height: number; padding: number; avatar: number };
-type HeaderState = { handCount: number; name: string; opponentHand?: number | string };
+type HeaderLayout = { height: number; padding: number; menuButton: number };
+type HeaderState = { handCount: number; opponentHand?: number | string };
 type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 
 const HEADER_BG_ALPHA = 1;
 const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "softPulse";
+const HEADER_THEME = {
+  base: "#101a24",
+  topGlow: "#2f4f66",
+  glassSheen: "#9fe7ff",
+  bottomShade: "#060b12",
+  bottomLine: "#7be8ff",
+  menuFill: "#1b3347",
+  menuStroke: "#b5eeff",
+  menuIcon: "#ecfbff",
+  statusText: "#f4fbff",
+  detailText: "#ccefff",
+  textStroke: "#07101a",
+} as const;
 
 export class HeaderHandler {
-  private layout: HeaderLayout = { height: 60, padding: 10, avatar: 45 };
-  private state: HeaderState = { handCount: 8, name: "Opponent", opponentHand: "-" };
+  private layout: HeaderLayout = { height: 60, padding: 10, menuButton: 45 };
+  private state: HeaderState = { handCount: 8, opponentHand: "-" };
   private depth = 1000;
   private statusLabel?: Phaser.GameObjects.Text;
   private turnLabel?: Phaser.GameObjects.Text;
-  private avatarHit?: Phaser.GameObjects.Rectangle;
-  private onAvatar?: () => void;
-  private nameLabel?: Phaser.GameObjects.Text;
+  private menuHit?: Phaser.GameObjects.Rectangle;
+  private menuIcon?: Phaser.GameObjects.Graphics;
+  private onMenu?: () => void;
   private handLabel?: Phaser.GameObjects.Text;
   private timerBar?: TimerBar;
   private loadingContainer?: Phaser.GameObjects.Container;
@@ -103,7 +116,7 @@ export class HeaderHandler {
   constructor(private scene: Phaser.Scene, private palette: Palette, private drawHelpers: DrawHelpers) {}
 
   draw(offset: Offset) {
-    const { height, padding, avatar } = this.layout;
+    const { height, padding, menuButton } = this.layout;
     const { handCount, opponentHand } = this.state;
 
     const containerW = BASE_W;
@@ -114,41 +127,96 @@ export class HeaderHandler {
     const containerRight = containerX + containerW / 2;
     const containerTop = containerY - height / 2;
 
+    const highlightH = Math.round(height * 0.46);
+    const sheenH = Math.round(height * 0.22);
+    const bottomShadeH = Math.round(height * 0.30);
+    const lineColor = this.drawHelpers.toColor(HEADER_THEME.bottomLine);
+
     this.drawHelpers.drawRoundedRect({
       x: containerX,
       y: containerY,
       width: containerW,
       height,
       radius: 0,
-      fillColor: "#153ae0",
-      fillAlpha: HEADER_BG_ALPHA,
+      fillColor: HEADER_THEME.base,
+      fillAlpha: HEADER_BG_ALPHA * 0.96,
       strokeColor: this.palette.ink,
       strokeAlpha: 0,
       strokeWidth: 0,
     }).setDepth(this.depth);
+    this.drawHelpers.drawRoundedRectOrigin({
+      x: containerLeft,
+      y: containerTop,
+      width: containerW,
+      height: highlightH,
+      radius: 0,
+      fillColor: HEADER_THEME.topGlow,
+      fillAlpha: 0.3,
+      strokeWidth: 0,
+    }).setDepth(this.depth + 1);
+    this.drawHelpers.drawRoundedRectOrigin({
+      x: containerLeft,
+      y: containerTop + 4,
+      width: containerW,
+      height: sheenH,
+      radius: 0,
+      fillColor: HEADER_THEME.glassSheen,
+      fillAlpha: 0.14,
+      strokeWidth: 0,
+    }).setDepth(this.depth + 2);
+    this.drawHelpers.drawRoundedRectOrigin({
+      x: containerLeft,
+      y: containerTop + height - bottomShadeH,
+      width: containerW,
+      height: bottomShadeH,
+      radius: 0,
+      fillColor: HEADER_THEME.bottomShade,
+      fillAlpha: 0.5,
+      strokeWidth: 0,
+    }).setDepth(this.depth + 1);
+    this.scene.add
+      .rectangle(containerX, containerTop + height - 1, containerW, 2, lineColor, 0.72)
+      .setDepth(this.depth + 2);
 
-    // Avatar block
-    const avatarX = containerLeft + padding + avatar / 2 + (BASE_W-400)/2;
-    const avatarY = containerY;
+    // Left menu button
+    const menuX = containerLeft + padding + menuButton / 2 + (BASE_W - 400) / 2;
+    const menuY = containerY;
     this.drawHelpers.drawRoundedRect({
-      x: avatarX,
-      y: avatarY,
-      width: avatar,
-      height: avatar,
-      radius: 6,
-      fillColor: "#ffffff",
-      fillAlpha: 1,
-      strokeColor: this.palette.ink,
-      strokeAlpha: 1,
+      x: menuX,
+      y: menuY,
+      width: menuButton + 6,
+      height: menuButton + 6,
+      radius: 10,
+      fillColor: "#9deeff",
+      fillAlpha: 0.1,
+      strokeWidth: 0,
+    }).setDepth(this.depth + 1);
+    this.drawHelpers.drawRoundedRect({
+      x: menuX,
+      y: menuY,
+      width: menuButton,
+      height: menuButton,
+      radius: 8,
+      fillColor: HEADER_THEME.menuFill,
+      fillAlpha: 0.96,
+      strokeColor: HEADER_THEME.menuStroke,
+      strokeAlpha: 0.95,
       strokeWidth: 2,
-    }).setDepth(this.depth);
-    this.drawAvatarHit(avatarX, avatarY, avatar, avatar);
+    }).setDepth(this.depth + 2);
+    this.drawHelpers.drawRoundedRectOrigin({
+      x: menuX - menuButton / 2 + 2,
+      y: menuY - menuButton / 2 + 2,
+      width: menuButton - 4,
+      height: Math.round((menuButton - 4) * 0.45),
+      radius: 6,
+      fillColor: "#b5f3ff",
+      fillAlpha: 0.18,
+      strokeWidth: 0,
+    }).setDepth(this.depth + 3);
+    this.drawMenuIcon(menuX, menuY, menuButton);
+    this.drawMenuHit(menuX, menuY, menuButton, menuButton);
 
-    // Remove left-side opponent name label; keep only avatar.
-    this.nameLabel?.destroy();
-    this.nameLabel = undefined;
-
-    const turnTextX = containerRight - 5;
+    const turnTextX = containerRight - 12;
     const turnY = containerY + 2;
 
     // Opponent hand under turn label in the top-right info stack.
@@ -159,14 +227,16 @@ export class HeaderHandler {
     this.handLabel?.destroy();
     this.handLabel = this.scene.add
       .text(handTextX, handY, `Opponent Hand: ${handDisplay}`, {
-        fontSize: "14px",
+        fontSize: "13px",
         fontFamily: "Arial",
-        color:"#ffffff",
+        color: HEADER_THEME.detailText,
+        stroke: HEADER_THEME.textStroke,
+        strokeThickness: 2,
       })
       .setOrigin(1, 0.5)
-      .setDepth(this.depth);
+      .setDepth(this.depth + 3);
 
-    this.drawStatus(containerRight - 5, containerY - 18);
+    this.drawStatus(turnTextX, containerY - 18);
     this.drawTurnLabel(turnTextX, turnY);
     this.drawTimerBar(containerLeft, containerTop + height - 2, containerW);
     this.drawLoadingStrip(containerX, containerTop, containerW);
@@ -177,9 +247,9 @@ export class HeaderHandler {
     this.syncLabelsFromState();
   }
 
-  setAvatarHandler(handler: () => void) {
-    this.onAvatar = handler;
-    this.avatarHit?.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
+  setMenuHandler(handler: () => void) {
+    this.onMenu = handler;
+    this.menuHit?.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onMenu?.());
   }
   setStatusText(text: string) {
     if (!this.statusLabel) return;
@@ -219,25 +289,29 @@ export class HeaderHandler {
     this.statusLabel?.destroy();
     this.statusLabel = this.scene.add
       .text(x, y, "Status: idle", {
-        fontSize: "16px",
+        fontSize: "15px",
         fontFamily: "Arial",
         fontStyle: "bold",
-        color: "#ffffff",
+        color: HEADER_THEME.statusText,
+        stroke: HEADER_THEME.textStroke,
+        strokeThickness: 3,
       })
       .setOrigin(1, 0.5) // Right-align so the text hugs the CTA/right edge consistently.
-      .setDepth(this.depth + 1);
+      .setDepth(this.depth + 3);
   }
 
   private drawTurnLabel(x: number, y: number) {
     this.turnLabel?.destroy();
     this.turnLabel = this.scene.add
       .text(x, y, "Turn: -", {
-        fontSize: "14px",
+        fontSize: "13px",
         fontFamily: "Arial",
-        color: "#ffffff",
+        color: HEADER_THEME.detailText,
+        stroke: HEADER_THEME.textStroke,
+        strokeThickness: 2,
       })
       .setOrigin(1, 0.5)
-      .setDepth(this.depth + 1);
+      .setDepth(this.depth + 3);
   }
 
   private drawTimerBar(x: number, y: number, width: number) {
@@ -267,8 +341,8 @@ export class HeaderHandler {
     const y = containerTop + stripHeight / 2 + 2;
     const container = this.scene.add.container(centerX, y).setDepth(this.depth + 3);
     const bg = this.scene
-      .add.rectangle(0, 0, stripWidth, stripHeight, 0x0b1e7f, 0.92)
-      .setStrokeStyle(1, 0x9cb8ff, 0.85);
+      .add.rectangle(0, 0, stripWidth, stripHeight, this.drawHelpers.toColor("#173244"), 0.92)
+      .setStrokeStyle(1, this.drawHelpers.toColor("#8cecff"), 0.82);
     const indicator = this.createLoadingIndicator(stripWidth);
     const label = this.scene
       .add.text(8, -1, this.interactionLoadingLabel, {
@@ -276,6 +350,8 @@ export class HeaderHandler {
         fontFamily: "Arial",
         fontStyle: "bold",
         color: "#f5f8ff",
+        stroke: HEADER_THEME.textStroke,
+        strokeThickness: 2,
         align: "center",
       })
       .setOrigin(0.5);
@@ -469,18 +545,30 @@ export class HeaderHandler {
     }
   }
 
-  private drawAvatarHit(x: number, y: number, w: number, h: number) {
-    this.avatarHit?.destroy();
-    this.avatarHit = this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(this.depth + 2);
-    if (this.onAvatar) {
-      this.avatarHit.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onAvatar?.());
+  private drawMenuIcon(x: number, y: number, size: number) {
+    const lineLength = Math.round(size * 0.46);
+    const gap = Math.round(size * 0.16);
+    const half = Math.floor(lineLength / 2);
+    const lineX1 = x - half;
+    const lineX2 = x + half;
+
+    this.menuIcon?.destroy();
+    this.menuIcon = this.scene.add.graphics().setDepth(this.depth + 4);
+    this.menuIcon.lineStyle(3, this.drawHelpers.toColor(HEADER_THEME.menuIcon), 1);
+    this.menuIcon.lineBetween(lineX1, y - gap, lineX2, y - gap);
+    this.menuIcon.lineBetween(lineX1, y, lineX2, y);
+    this.menuIcon.lineBetween(lineX1, y + gap, lineX2, y + gap);
+  }
+
+  private drawMenuHit(x: number, y: number, w: number, h: number) {
+    this.menuHit?.destroy();
+    this.menuHit = this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(this.depth + 2);
+    if (this.onMenu) {
+      this.menuHit.setInteractive({ useHandCursor: true }).on("pointerdown", () => this.onMenu?.());
     }
   }
 
   private syncLabelsFromState() {
-    if (this.nameLabel) {
-      this.nameLabel.setText(this.state.name);
-    }
     if (this.handLabel) {
       const handLabel = this.state.opponentHand !== undefined ? this.state.opponentHand : this.state.handCount;
       const handDisplay = handLabel === null || handLabel === undefined || handLabel === "" ? "-" : `${handLabel}`;

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiManager, type LobbyRoomSummary } from "../phaser/api/ApiManager";
-import { requestJoinToken } from "./JoinTokenPrompt";
 
 type LobbyViewProps = {
   isFallback?: boolean;
@@ -49,13 +48,14 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
     };
   }, [api]);
 
-  const handleJoin = async (gameId: string) => {
+  const handleJoin = async (room: LobbyRoomSummary) => {
+    const gameId = room.gameId;
     setJoiningId(gameId);
     setErrorMessage(null);
     try {
-      const joinToken = requestJoinToken("Enter invite token from host:");
+      const joinToken = typeof room.joinToken === "string" ? room.joinToken : null;
       if (!joinToken) {
-        setErrorMessage("Join cancelled. Invite token is required.");
+        setErrorMessage("This room is not joinable right now.");
         setJoiningId(null);
         return;
       }
@@ -137,10 +137,10 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
                 <button
                   className="lobby-join-button"
                   type="button"
-                  onClick={() => handleJoin(room.gameId)}
-                  disabled={joiningId === room.gameId}
+                  onClick={() => handleJoin(room)}
+                  disabled={joiningId === room.gameId || !room.joinToken}
                 >
-                  {joiningId === room.gameId ? "Joining..." : "Join"}
+                  {joiningId === room.gameId ? "Joining..." : room.joinToken ? "Join" : "Locked"}
                 </button>
               </div>
             ))}

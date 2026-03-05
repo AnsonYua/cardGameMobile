@@ -120,8 +120,8 @@ export class BoardUI {
     this.header.setStatusText(text);
   }
 
-  setAvatarHandler(handler: () => void) {
-    this.header.setAvatarHandler(handler);
+  setMenuHandler(handler: () => void) {
+    this.header.setMenuHandler(handler);
   }
 
   getBaseControls(): ShieldAreaControls {

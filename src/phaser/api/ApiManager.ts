@@ -58,6 +58,7 @@ export type ChooseFirstPlayerPayload = {
 export type LobbyRoomSummary = {
   gameId: string;
   createdAt: string;
+  joinToken?: string | null;
 };
 export type LobbyListResponse = {
   success: boolean;

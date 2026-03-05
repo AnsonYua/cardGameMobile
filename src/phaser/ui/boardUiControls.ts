@@ -46,7 +46,7 @@ export type HeaderControls = {
   setStatus: (text: string) => void;
   setStatusFromEngine?: (status: any, opts?: { offlineFallback?: boolean }) => void;
   setTurnText?: (text: string, color?: string) => void;
-  setAvatarHandler: (handler: () => void) => void;
+  setMenuHandler: (handler: () => void) => void;
   setTimerProgress?: (progress: number, secondsLeft: number) => void;
   setTimerVisible?: (visible: boolean) => void;
   setInteractionLoading?: (visible: boolean, label?: string) => void;
@@ -95,7 +95,7 @@ export function createHeaderControls(header: HeaderHandler): HeaderControls {
       }
     },
     setTurnText: (text: string, color?: string) => header.setTurnText(text, color),
-    setAvatarHandler: (handler: () => void) => header.setAvatarHandler(handler),
+    setMenuHandler: (handler: () => void) => header.setMenuHandler(handler),
     setTimerProgress: (progress, secondsLeft) => header.setTimerProgress(progress, secondsLeft),
     setTimerVisible: (visible) => header.setTimerVisible(visible),
     setInteractionLoading: (visible, label) => header.setInteractionLoading(visible, label),
