@@ -124,15 +124,15 @@ export class CardResourceLoader {
   private getImageUrl(path: string, baseUrl: string) {
     const trimmedBase = baseUrl.replace(/\/$/, "");
     const trimmedPath = path.replace(/^\//, "");
-    // Images served by API under /api/game/image/<path>
-    return `${trimmedBase}/api/game/image/${trimmedPath}`;
+    // Default hand/card-grid textures use thumbnail assets.
+    return `${trimmedBase}/api/game/image/thumb/${trimmedPath}`;
   }
 
-  private getPeviewImageUrl(path: string, baseUrl: string) {
+  private getPreviewImageUrl(path: string, baseUrl: string) {
     const trimmedBase = baseUrl.replace(/\/$/, "");
     const trimmedPath = path.replace(/^\//, "");
-    // Images served by API under /api/game/image/<path>
-    return `${trimmedBase}/api/game/image/previews/${trimmedPath}`;
+    // Preview (long-click) textures use full-size assets.
+    return `${trimmedBase}/api/game/image/${trimmedPath}`;
   }
 
 
@@ -297,7 +297,7 @@ export class CardResourceLoader {
       const previewKey = `${key}-preview`;
       const cacheBust = Date.now();
       const url = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
-      const previewUrl = `${this.getPeviewImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      const previewUrl = `${this.getPreviewImageUrl(path, baseUrl)}?t=${cacheBust}`;
       if (!url || !previewUrl) return;
 
       [

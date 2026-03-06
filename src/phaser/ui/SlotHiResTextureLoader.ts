@@ -38,7 +38,6 @@ export function buildSlotHiResCandidateUrls(baseUrl: string, setId: string, card
     withBase(`/api/game/image/${setId}/${cardId}.jpeg`),
     withBase(`/api/game/image/${cardId}.png`),
     withBase(`/api/game/image/${cardId}.jpeg`),
-    withBase(`/api/game/image/previews/${setId}/${cardId}.jpeg`),
   ];
 }
 

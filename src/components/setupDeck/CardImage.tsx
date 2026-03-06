@@ -1,4 +1,4 @@
-import { buildApiImageUrl, getCardPreviewPath } from "./utils";
+import { buildApiImageUrl, getCardImagePath } from "./utils";
 
 type Props = {
   apiBaseUrl: string;
@@ -9,9 +9,9 @@ type Props = {
 };
 
 export function CardImage({ apiBaseUrl, setId, cardId, alt, badgeText = null }: Props) {
-  const previewPath = getCardPreviewPath(setId, cardId);
-  const imgSrc = buildApiImageUrl(apiBaseUrl, previewPath);
-  const fallbackSrc = buildApiImageUrl(apiBaseUrl, "previews/cardback.png");
+  const thumbPath = getCardImagePath(setId, cardId, "thumb");
+  const imgSrc = buildApiImageUrl(apiBaseUrl, thumbPath);
+  const fallbackSrc = buildApiImageUrl(apiBaseUrl, "thumb/cardback.png");
 
   const imageElement = (
     <div className="deck-card-imagewrap">

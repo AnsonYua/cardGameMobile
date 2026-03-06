@@ -36,7 +36,12 @@ export const formatCardSubtitle = (card: any) => {
   return parts.join(" · ");
 };
 
-export const getCardPreviewPath = (setId: string, cardId: string) => `previews/${setId}/${cardId}.jpeg`;
+export const getCardImagePath = (setId: string, cardId: string, variant: "thumb" | "full" = "thumb") => {
+  const variantPrefix = variant === "thumb" ? "thumb/" : "";
+  return `${variantPrefix}${setId}/${cardId}.jpeg`;
+};
+
+export const getCardPreviewPath = (setId: string, cardId: string) => getCardImagePath(setId, cardId, "full");
 
 export const buildApiImageUrl = (apiBaseUrl: string, imagePath: string) => {
   const base = typeof apiBaseUrl === "string" ? apiBaseUrl.replace(/\/+$/, "") : "";
