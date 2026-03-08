@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PlayCardAnimationManager } from "./PlayCardAnimationManager";
 import type { SlotViewModel, SlotCardView, SlotPositionMap, SlotOwner } from "../ui/SlotTypes";
-import { toBaseKey, toPreviewKey, type HandCardView } from "../ui/HandTypes";
+import { toFullKey, toFullTextureKey, toThumbKey, type HandCardView } from "../ui/HandTypes";
 import { UI_LAYOUT } from "../ui/UiLayoutConfig";
 import type { DrawPopupOpts } from "../ui/DrawPopupDialog";
 import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
@@ -177,7 +177,7 @@ export class NotificationAnimationController {
             carduid: payload?.carduid,
             cardId: fallbackCardId,
             cardType: payload?.cardType ?? "command",
-            textureKey: toBaseKey(fallbackCardId),
+            textureKey: toFullKey(fallbackCardId),
             cardData: {
               id: fallbackCardId,
               cardId: fallbackCardId,
@@ -400,7 +400,7 @@ export class NotificationAnimationController {
       ap: baseCard?.fieldCardValue?.totalAP ?? 0,
       hp: baseCard?.fieldCardValue?.totalHP ?? 0,
     };
-    const textureKey = baseCard ? toPreviewKey(baseCard.cardId ?? baseCard.id) : undefined;
+    const textureKey = baseCard ? toThumbKey(baseCard.cardId ?? baseCard.id) : undefined;
     await this.deps.playAnimator.play({
       textureKey,
       fallbackLabel: baseCard?.cardId ?? payload.carduid,
@@ -467,7 +467,7 @@ export class NotificationAnimationController {
     if (this.deps.renderHandPreview) {
       this.deps.renderHandPreview(cardContainer, card);
     } else {
-      const texKey = (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(card.cardId);
+      const texKey = toFullTextureKey(card.textureKey) ?? toFullKey(card.cardId);
       const hasTexture = texKey && this.deps.scene.textures.exists(texKey);
       const fallback = hasTexture
         ? this.deps.scene.add.image(0, 0, texKey!).setDisplaySize(80, 112)
@@ -521,7 +521,7 @@ export class NotificationAnimationController {
     const cardType = data?.cardType ?? card.cardType;
     const cardId = data?.cardId ?? data?.id ?? card.id ?? fallbackUid;
     const baseTextureKey =
-      (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(cardId);
+      toFullTextureKey(card.textureKey) ?? toFullKey(cardId);
     return {
       cardId,
       cardType,
@@ -542,8 +542,7 @@ export class NotificationAnimationController {
     const ap = isPilotCommand ? pilotStats?.ap ?? 0 : data?.ap ?? card.cardData?.ap;
     const hp = isPilotCommand ? pilotStats?.hp ?? 0 : data?.hp ?? card.cardData?.hp;
     const cardId = data?.cardId ?? data?.id ?? card.id;
-    // Use full art for popups (non-preview) when possible.
-    const textureKey = (card.textureKey ? String(card.textureKey).replace(/-preview$/i, "") : undefined) ?? toBaseKey(cardId);
+    const textureKey = toFullTextureKey(card.textureKey) ?? toFullKey(cardId);
     return {
       color: 0x2a2d38,
       textureKey,

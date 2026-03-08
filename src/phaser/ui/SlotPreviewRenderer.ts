@@ -178,7 +178,7 @@ function drawFallbackCard(
 
 function toTextureKey(card?: SlotCardView) {
   if (!card?.textureKey) return undefined;
-  return card.textureKey.replaceAll("-preview", "");
+  return card.textureKey.replace(/-thumb$/i, "");
 }
 
 function getUnitBadgeLabel(card: SlotCardView) {

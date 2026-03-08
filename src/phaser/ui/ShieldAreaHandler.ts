@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
-import { toPreviewKey } from "./HandTypes";
+import { toThumbKey } from "./HandTypes";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager";
 
@@ -162,7 +162,7 @@ export class ShieldAreaHandler {
     const key: BaseSide = isOpponent ? "opponent" : "player";
     const card = this.baseCards[key];
     if (!card) return;
-    const targetKey = cardId === "base_default" ? "baseCard" : cardId ? toPreviewKey(cardId) : "baseCard";
+    const targetKey = cardId === "base_default" ? "baseCard" : cardId ? toThumbKey(cardId) : "baseCard";
     if (!(card instanceof Phaser.GameObjects.Image)) return;
     if (targetKey && this.scene.textures.exists(targetKey)) {
       card.setTexture(targetKey);
@@ -251,11 +251,11 @@ export class ShieldAreaHandler {
         };
         const field = baseCard?.fieldCardValue || {};
         const stats = { ap: field.totalAP ?? 0, hp: field.totalHP ?? 0 };
-        const textureKey = toPreviewKey(baseCard?.cardId) || baseCard?.cardId;
+        const textureKey = baseCard?.cardId === "base_default" ? "baseCard" : toThumbKey(baseCard?.cardId) || baseCard?.cardId;
         const size = { w: anchor.w ?? this.config.baseSize.w, h: anchor.h ?? this.config.baseSize.h };
         // Match hand/unit flight visuals (use default PlayCardAnimationManager sizing).
         this.playAnimator.play({
-          textureKey: textureKey === "base_default-preview" ? "baseCard" : textureKey,
+          textureKey,
           fallbackLabel: baseCard?.cardId,
           start,
           end: { x: anchor.x, y: anchor.y },

@@ -68,7 +68,7 @@ import { createTurnTimerBindings } from "./scene/boardTimerBindings";
 import { setupBoardFlows } from "./scene/boardFlowSetup";
 import { getEnergyStatus, getOpponentHandCount, resolvePlayerIds } from "./scene/boardStatusHelpers";
 import { shouldHideHandForStartGame, shouldRefreshHandForEvent } from "./scene/boardHandHelpers";
-import { toPreviewKey } from "./ui/HandTypes";
+import { toThumbKey } from "./ui/HandTypes";
 import { isDebugFlagEnabled } from "./utils/debugFlags";
 import {
   createTimerPauseResumeHandlers,
@@ -814,10 +814,9 @@ export class BoardScene extends Phaser.Scene {
     if (gameId && playerId && !this.handResourceReloadInFlight) {
       const missingKeySet = new Set<string>();
       cards.forEach((card) => {
-        const previewKey = toPreviewKey(card.cardId ?? null);
-        const baseKey = card.textureKey;
-        // Hand cards should render preview art when cardId exists.
-        const requiredKey = previewKey ?? baseKey;
+        const thumbKey = toThumbKey(card.cardId ?? null);
+        const fullKey = card.textureKey;
+        const requiredKey = thumbKey ?? fullKey;
         if (!requiredKey) return;
         if (this.textures.exists(requiredKey)) return;
         missingKeySet.add(requiredKey);

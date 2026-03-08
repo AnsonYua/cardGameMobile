@@ -1,4 +1,4 @@
-import { toBaseKey, type HandCardView } from "../ui/HandTypes";
+import { toFullKey, type HandCardView } from "../ui/HandTypes";
 import type { SlotCardView } from "../ui/SlotTypes";
 
 type CommandPopupDeps = {
@@ -27,7 +27,7 @@ function buildFallbackCommandPreview(fallbackUid?: string): HandCardView {
   const fallbackCardId = extractCardIdFromUid(fallbackUid);
   return {
     color: 0x2a2d38,
-    textureKey: toBaseKey(fallbackCardId),
+    textureKey: toFullKey(fallbackCardId),
     cardType: "command",
     cardId: fallbackCardId,
     ap: 0,

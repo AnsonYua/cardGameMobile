@@ -1,4 +1,4 @@
-import { toBaseKey } from "./HandTypes";
+import { toThumbKey } from "./HandTypes";
 import { SlotCardView, SlotOwner, SlotViewModel } from "./SlotTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 
@@ -49,7 +49,7 @@ export class SlotPresenter {
   private toCard(card: any): SlotCardView | undefined {
     if (!card) return undefined;
     const id = typeof card === "string" ? card : card.cardId;
-    const textureKey = toBaseKey(id);
+    const textureKey = toThumbKey(id);
     const cardType = typeof card === "string" ? undefined : card.cardData?.cardType;
     const cardUid = typeof card === "string" ? undefined : card.carduid ?? card.cardUid ?? card.uid ?? card.id;
     if (isDebugFlagEnabled("debug.textures") && !id && cardUid && !slotPresenterDebugSeen.has(String(cardUid))) {

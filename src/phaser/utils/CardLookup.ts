@@ -1,4 +1,4 @@
-import { toPreviewKey } from "../ui/HandTypes";
+import { toThumbKey } from "../ui/HandTypes";
 import type { SlotCardView } from "../ui/SlotTypes";
 import { resolveCardUid } from "./CardUid";
 
@@ -66,7 +66,7 @@ const matchCard = (card: any, targetUid: string): SlotCardView | undefined => {
   const uid = resolveCardUid(card);
   if (!uid || uid !== targetUid) return undefined;
   const id = typeof card === "string" ? card : card.cardId ?? card.id ?? uid;
-  const textureKey = typeof card === "string" ? undefined : toPreviewKey(card.cardId ?? card.id ?? uid);
+  const textureKey = typeof card === "string" ? undefined : toThumbKey(card.cardId ?? card.id ?? uid);
   return {
     id,
     textureKey,

@@ -15,7 +15,12 @@ const stripPathAndExtension = (id: string) => {
   return base.replace(/\.(png|jpe?g)$/i, "");
 };
 
-export const toBaseKey = (cardId?: string | null) => (cardId ? stripPathAndExtension(cardId) : undefined);
+export const toFullKey = (cardId?: string | null) => (cardId ? stripPathAndExtension(cardId) : undefined);
 
-export const toPreviewKey = (cardId?: string | null) =>
-  cardId ? stripPathAndExtension(cardId) + "-preview" : undefined;
+export const toThumbKey = (cardId?: string | null) => {
+  const fullKey = toFullKey(cardId);
+  return fullKey ? `${fullKey}-thumb` : undefined;
+};
+
+export const toFullTextureKey = (textureKey?: string | null) =>
+  textureKey ? String(textureKey).replace(/-thumb$/i, "") : undefined;

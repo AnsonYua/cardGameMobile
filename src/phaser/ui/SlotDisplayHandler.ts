@@ -6,7 +6,7 @@ import { PlayCardAnimationManager } from "../animations/PlayCardAnimationManager
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { PreviewController } from "./PreviewController";
 import { renderSlotPreviewCard } from "./SlotPreviewRenderer";
-import { toBaseKey, toPreviewKey } from "./HandTypes";
+import { toFullKey, toFullTextureKey, toThumbKey } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { computeHandCardSize } from "../utils/handCardSizing";
 import { computeDisplaySizeFromTexture } from "./cardSizing";
@@ -461,25 +461,25 @@ export class SlotDisplayHandler {
     isPilot = false,
     pilotSliceRatio = this.config.slot.pilotSliceRatio
   ) {
-    const resolvedTextureKey = this.resolveTextureKey(fallbackLabel, textureKey);
+    const resolvedTextureKey = this.resolveBoardTextureKey(fallbackLabel, textureKey);
     const hasTexture = !!(resolvedTextureKey && this.scene.textures.exists(resolvedTextureKey));
     if (isDebugFlagEnabled("debug.textures") && textureKey && !hasTexture && !slotTextureDebugSeen.has(textureKey)) {
       slotTextureDebugSeen.add(textureKey);
-      const baseFromKey = textureKey.replace(/-preview$/i, "");
+      const fullFromKey = toFullTextureKey(textureKey);
       const cardId = fallbackLabel;
-      const previewFromId = toPreviewKey(cardId ?? null);
-      const baseFromId = toBaseKey(cardId ?? null);
+      const thumbFromId = toThumbKey(cardId ?? null);
+      const fullFromId = toFullKey(cardId ?? null);
       // eslint-disable-next-line no-console
       console.debug("[textures] missing slot texture", {
         textureKey,
-        baseFromKey,
-        baseFromKeyExists: this.scene.textures.exists(baseFromKey),
+        fullFromKey,
+        fullFromKeyExists: fullFromKey ? this.scene.textures.exists(fullFromKey) : false,
         fallbackLabel,
         fallbackLabelExists: fallbackLabel ? this.scene.textures.exists(fallbackLabel) : false,
-        previewFromId,
-        previewFromIdExists: previewFromId ? this.scene.textures.exists(previewFromId) : false,
-        baseFromId,
-        baseFromIdExists: baseFromId ? this.scene.textures.exists(baseFromId) : false,
+        thumbFromId,
+        thumbFromIdExists: thumbFromId ? this.scene.textures.exists(thumbFromId) : false,
+        fullFromId,
+        fullFromIdExists: fullFromId ? this.scene.textures.exists(fullFromId) : false,
       });
     }
     const scale = isPilot ? pilotSliceRatio : 1;
@@ -751,7 +751,7 @@ export class SlotDisplayHandler {
         w: cardW,
         h: cardH,
         depthOffset: 0,
-        resolveTextureKey: (card) => this.resolveTextureKey(card?.id, card?.textureKey),
+        resolveTextureKey: (card) => this.resolvePreviewTextureKey(card?.id, card?.textureKey),
       });
     });
   }
@@ -809,9 +809,19 @@ export class SlotDisplayHandler {
     });
   }
 
-  private resolveTextureKey(cardId?: string, baseTextureKey?: string) {
+  private resolveBoardTextureKey(cardId?: string, baseTextureKey?: string) {
+    const normalizedBase = baseTextureKey ? String(baseTextureKey) : undefined;
+    if (normalizedBase && this.scene.textures.exists(normalizedBase)) return normalizedBase;
+    const thumbKey = toThumbKey(cardId);
+    if (thumbKey && this.scene.textures.exists(thumbKey)) return thumbKey;
+    const fullKey = toFullKey(cardId);
+    if (fullKey && this.scene.textures.exists(fullKey)) return fullKey;
+    return normalizedBase ?? thumbKey ?? fullKey;
+  }
+
+  private resolvePreviewTextureKey(cardId?: string, baseTextureKey?: string) {
     const hiResTextureKey = cardId ? this.hiResLoader.getLoadedKey(cardId) : undefined;
-    const normalizedBase = baseTextureKey ? String(baseTextureKey).replace(/-preview$/i, "") : undefined;
+    const normalizedBase = baseTextureKey ? toFullTextureKey(baseTextureKey) : undefined;
     return resolveSlotTextureKey({
       hiResTextureKey,
       baseTextureKey: normalizedBase,

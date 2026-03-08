@@ -1,6 +1,6 @@
 import type { SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotNotification } from "./NotificationAnimationController";
-import { toPreviewKey } from "../ui/HandTypes";
+import { toThumbKey } from "../ui/HandTypes";
 
 export type ResolveSlotOwnerByPlayer = (playerId?: string) => SlotOwner | undefined;
 
@@ -36,7 +36,7 @@ function toSlotCard(payload?: SlotCardPayload) {
   if (!id) return undefined;
   return {
     id,
-    textureKey: toPreviewKey(id),
+    textureKey: toThumbKey(id),
     cardUid: toCardUid(payload),
     cardType: payload?.cardData?.cardType,
     isRested: payload?.isRested,
@@ -88,4 +88,3 @@ export function buildBattleResolvedSnapshotSlots(
 
   return [attackerSlot, targetSlot].filter(Boolean) as SlotViewModel[];
 }
-

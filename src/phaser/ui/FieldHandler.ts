@@ -8,7 +8,7 @@ import { EnergyBarHandler, EnergyCounts } from "./EnergyBarHandler";
 import { SlotDisplayHandler } from "./SlotDisplayHandler";
 import { UI_LAYOUT } from "./UiLayoutConfig";
 import { SlotOwner, SlotPositionMap, SlotViewModel, SlotCardView } from "./SlotTypes";
-import { toPreviewKey } from "./HandTypes";
+import { toFullKey, toThumbKey } from "./HandTypes";
 
 export type FieldConfig = {
   slotW: number;
@@ -458,12 +458,12 @@ export class FieldHandler {
           card?.id ??
           card?.uid ??
           (typeof card?.card === "string" ? card.card : undefined));
-    const preferredTexture = cardId ? (toPreviewKey(cardId) || cardId) : undefined;
+    const preferredTexture = cardId ? (toThumbKey(cardId) || cardId) : undefined;
     const textureKey =
       preferredTexture && this.scene.textures.exists(preferredTexture)
         ? preferredTexture
-        : cardId && this.scene.textures.exists(cardId)
-          ? cardId
+        : cardId && this.scene.textures.exists(toFullKey(cardId) || cardId)
+          ? (toFullKey(cardId) || cardId)
           : this.scene.textures.exists("deckBack")
             ? "deckBack"
             : undefined;

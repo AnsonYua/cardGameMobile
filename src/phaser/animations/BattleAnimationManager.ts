@@ -9,7 +9,7 @@ import {
   shouldSuppressMissingTargetPlaceholder,
 } from "../utils/BattleAnimationPolicy";
 import { FxToolkit } from "./FxToolkit";
-import { toPreviewKey } from "../ui/HandTypes";
+import { toThumbKey } from "../ui/HandTypes";
 
 type BattleAnimationManagerConfig = {
   scene: Phaser.Scene;
@@ -235,7 +235,7 @@ export class BattleAnimationManager {
         : payload.forcedTargetCarduid ?? payload.targetCarduid ?? payload.targetUnitUid;
     const label = role === "attacker" ? payload.attackerName : payload.targetName;
     const cardId = this.extractCardId(uid);
-    const textureKey = cardId ? toPreviewKey(cardId) : undefined;
+    const textureKey = cardId ? toThumbKey(cardId) : undefined;
     const id = label || uid || (role === "attacker" ? "Attacker" : "Target");
     const card: SlotCardView = {
       id,
@@ -404,7 +404,7 @@ export class BattleAnimationManager {
   private toSlotCard(card: any): SlotCardView | undefined {
     if (!card) return undefined;
     const id = card.cardId ?? card.id;
-    const textureKey = id ? toPreviewKey(id) : undefined;
+    const textureKey = id ? toThumbKey(id) : undefined;
     const cardUid = card.carduid ?? card.cardUid ?? card.uid ?? card.id;
     return { id, textureKey, cardType: card.cardData?.cardType, isRested: card.isRested, cardData: card.cardData, cardUid };
   }

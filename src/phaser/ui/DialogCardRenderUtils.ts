@@ -20,26 +20,24 @@ type CardLike = {
 export function resolveDialogTextureKey(
   scene: Phaser.Scene,
   textureKey?: string,
-  opts: { preferPreview?: boolean } = {},
+  opts: { preferThumb?: boolean } = {},
 ) {
   if (!textureKey) return undefined;
-  const preferPreview = opts.preferPreview !== false;
+  const preferThumb = opts.preferThumb !== false;
   const key = String(textureKey);
-  const baseKey = key.replace(/-preview$/i, "");
-  const previewKey = key.toLowerCase().endsWith("-preview") ? key : `${key}-preview`;
+  const fullKey = key.replace(/-thumb$/i, "");
+  const thumbKey = key.toLowerCase().endsWith("-thumb") ? key : `${fullKey}-thumb`;
 
-  if (preferPreview) {
-    // Prefer preview textures (same as trash grid), then fall back to the base key.
-    if (previewKey && scene.textures.exists(previewKey)) return previewKey;
+  if (preferThumb) {
+    if (thumbKey && scene.textures.exists(thumbKey)) return thumbKey;
     if (scene.textures.exists(key)) return key;
-    if (baseKey && scene.textures.exists(baseKey)) return baseKey;
+    if (fullKey && scene.textures.exists(fullKey)) return fullKey;
     return undefined;
   }
 
-  // Prefer full art when requested (used for reveal-style popups).
+  if (fullKey && scene.textures.exists(fullKey)) return fullKey;
   if (scene.textures.exists(key)) return key;
-  if (baseKey && scene.textures.exists(baseKey)) return baseKey;
-  if (previewKey && scene.textures.exists(previewKey)) return previewKey;
+  if (thumbKey && scene.textures.exists(thumbKey)) return thumbKey;
   return undefined;
 }
 

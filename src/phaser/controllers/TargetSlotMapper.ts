@@ -1,4 +1,4 @@
-import { toPreviewKey } from "../ui/HandTypes";
+import { toThumbKey } from "../ui/HandTypes";
 import type { SlotCardView, SlotOwner, SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
@@ -101,7 +101,7 @@ function buildSlotCardView(target: any): SlotCardView | undefined {
   return {
     id: cardId,
     cardType: cardCore?.cardType,
-    textureKey: toPreviewKey(cardId),
+    textureKey: toThumbKey(cardId),
     cardUid: target.carduid ?? target.cardUid ?? undefined,
     cardData: cardCore ?? target.cardData,
   };

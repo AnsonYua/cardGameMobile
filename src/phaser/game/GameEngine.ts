@@ -443,7 +443,7 @@ export class GameEngine {
       }
       this.resourceLoadInFlight = true;
       const bundle = await this.match.getGameResourceBundle(token, {
-        includePreviews: true,
+        includeThumbs: true,
         includeBothDecks: true,
         allowEnvScanFallback: opts.allowEnvScanFallback === true,
       });

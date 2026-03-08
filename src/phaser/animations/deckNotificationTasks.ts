@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import { toBaseKey } from "../ui/HandTypes";
+import { toFullKey } from "../ui/HandTypes";
 import {
   findHandRevealedCard,
   findTopDeckViewedCard,
@@ -23,9 +23,9 @@ type PopupDeps = {
 
 type SlotNotificationLike = { type?: string; payload?: any };
 
-function buildPopupCardDataFromPartial(entry: any, opts: { preferPreview?: boolean } = {}): PopupCard {
+function buildPopupCardDataFromPartial(entry: any, opts: { preferThumb?: boolean } = {}): PopupCard {
   const cardId = entry?.cardId ?? entry?.id ?? entry?.carduid ?? entry?.cardUid ?? "card";
-  const textureKey = toBaseKey(String(cardId));
+  const textureKey = toFullKey(String(cardId));
   const name = entry?.name ?? entry?.cardData?.name;
   const traits = Array.isArray(entry?.traits) ? entry.traits : entry?.cardData?.traits;
   const cardType = entry?.cardType ?? entry?.cardData?.cardType ?? "command";
@@ -41,7 +41,7 @@ function buildPopupCardDataFromPartial(entry: any, opts: { preferPreview?: boole
       cardType,
     },
     textureKey,
-    preferPreview: opts.preferPreview,
+    preferThumb: opts.preferThumb,
   };
 }
 
@@ -75,8 +75,7 @@ export function createTopDeckViewedTask(
         cardData: { id: "hidden", name: "Hidden Card", cardType: "command" },
       };
     }
-    // Reveal-style popup: prefer full art (non "-preview") when available.
-    return buildPopupCardDataFromPartial(entry, { preferPreview: false });
+    return buildPopupCardDataFromPartial(entry, { preferThumb: false });
   });
 
   const header = "Top of Deck";
@@ -132,10 +131,10 @@ export function createCardsMovedToDeckBottomTask(
       (uid
         ? revealedCards.find((entry) => String(entry?.carduid ?? entry?.cardUid ?? "") === uid)
         : undefined) ?? revealedCards[idx];
-    if (revealedByPayload) return buildPopupCardDataFromPartial(revealedByPayload, { preferPreview: false });
+    if (revealedByPayload) return buildPopupCardDataFromPartial(revealedByPayload, { preferThumb: false });
 
     const found = uid ? ctx.cardLookup?.findCardByUid?.(uid) : undefined;
-    if (found) return { ...deps.buildPopupCardData(found, uid), preferPreview: false };
+    if (found) return { ...deps.buildPopupCardData(found, uid), preferThumb: false };
 
     const revealedByHandNote = uid
       ? findHandRevealedCard(ctx.notificationQueue ?? [], {
@@ -144,7 +143,7 @@ export function createCardsMovedToDeckBottomTask(
           cardUid: uid,
         })
       : undefined;
-    if (revealedByHandNote) return buildPopupCardDataFromPartial(revealedByHandNote, { preferPreview: false });
+    if (revealedByHandNote) return buildPopupCardDataFromPartial(revealedByHandNote, { preferThumb: false });
 
     const partial = uid
       ? findTopDeckViewedCard(ctx.notificationQueue ?? [], {
@@ -153,13 +152,13 @@ export function createCardsMovedToDeckBottomTask(
           cardUid: uid,
         })
       : undefined;
-    if (partial) return buildPopupCardDataFromPartial(partial, { preferPreview: false });
+    if (partial) return buildPopupCardDataFromPartial(partial, { preferThumb: false });
 
     return {
       cardId: uid || `hidden_bottom_${payload?.timestamp ?? "event"}_${idx + 1}`,
       cardType: "command",
       cardData: { id: "hidden", name: "Unknown Card", cardType: "command" },
-      preferPreview: false,
+      preferThumb: false,
     };
   });
 

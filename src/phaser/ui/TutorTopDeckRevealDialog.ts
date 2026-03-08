@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
-import { toBaseKey } from "./HandTypes";
+import { toFullKey } from "./HandTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import {
   getTutorStep2EligibilityHint,
@@ -169,7 +169,7 @@ export class TutorTopDeckRevealDialog {
         card: {
           cardId: card.cardId,
           label: card.name || card.cardId,
-          textureKey: toBaseKey(card.cardId) || card.cardId,
+          textureKey: toFullKey(card.cardId) || card.cardId,
         },
       });
       },

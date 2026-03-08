@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { HandLayoutRenderer } from "./HandLayoutRenderer";
-import type { HandCardView } from "./HandTypes";
+import { toFullKey, toFullTextureKey, type HandCardView } from "./HandTypes";
 import type { Offset, Palette } from "./types";
 import { buildHandLayout, type HandLayoutState } from "./HandLayout";
 import { HandRenderer } from "./HandRenderer";
@@ -152,7 +152,7 @@ export class HandAreaHandler {
   renderPreviewCard(container: Phaser.GameObjects.Container, card: HandCardView) {
     const cardW = UI_LAYOUT.hand.preview.cardWidth;
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
-    const texKey = card.textureKey;
+    const texKey = toFullKey(card.cardId) ?? toFullTextureKey(card.textureKey) ?? card.textureKey;
     const badgeLabel = getBadgeLabel(card);
     this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, badgeLabel, card, {
       badgeSize: UI_LAYOUT.hand.preview.badgeSize,
@@ -180,7 +180,7 @@ export class HandAreaHandler {
     const cardH = cardW * UI_LAYOUT.hand.preview.cardAspect;
     this.previewController.start((container) => {
       this.previewCardUid = card.uid;
-      const texKey = card.textureKey;
+      const texKey = toFullKey(card.cardId) ?? toFullTextureKey(card.textureKey) ?? card.textureKey;
       const insideLabel = getBadgeLabel(card);
       this.layout.renderPreview(container, 0, 0, cardW, cardH, texKey, insideLabel, card, {
         badgeSize: UI_LAYOUT.hand.preview.badgeSize,

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG } from "./CardDialogLayout";
 import { CardRowChoiceDialog } from "./CardRowChoiceDialog";
-import { toBaseKey } from "./HandTypes";
+import { toThumbKey } from "./HandTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 
 export type TokenChoiceDialogChoice = {
@@ -130,8 +130,7 @@ export class TokenChoiceDialog {
 
   private resolveTextureKey(cardId?: string) {
     if (!cardId) return undefined;
-    const base = toBaseKey(cardId);
-    // Prefer full card art if loaded; otherwise let TrashCardGridRenderer fall back to preview keys.
-    return base ? base : undefined;
+    const thumb = toThumbKey(cardId);
+    return thumb ? thumb : undefined;
   }
 }

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { drawPreviewBadge } from "./PreviewBadge";
 import { DrawHelpers } from "./HeaderHandler";
 import { Palette } from "./types";
-import { toBaseKey, toPreviewKey, type HandCardView } from "./HandTypes";
+import { toFullKey, toFullTextureKey, toThumbKey, type HandCardView } from "./HandTypes";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { getCardStatsLabel, getDialogBadgeTypeKey } from "./DialogCardRenderUtils";
 import { computeDialogStatBadgePlacement } from "./DialogBadgePlacement";
@@ -62,18 +62,18 @@ export class HandLayoutRenderer {
       const key = card.textureKey;
       if (!textureDebugSeen.has(key)) {
         textureDebugSeen.add(key);
-        const baseFromKey = key.replace(/-preview$/i, "");
-        const previewFromId = toPreviewKey(card.cardId ?? null);
-        const baseFromId = toBaseKey(card.cardId ?? null);
+        const fullFromKey = toFullTextureKey(key);
+        const thumbFromId = toThumbKey(card.cardId ?? null);
+        const fullFromId = toFullKey(card.cardId ?? null);
         // eslint-disable-next-line no-console
         console.debug("[textures] missing hand texture", {
           key,
-          baseFromKey,
-          baseFromKeyExists: this.scene.textures.exists(baseFromKey),
-          previewFromId,
-          previewFromIdExists: previewFromId ? this.scene.textures.exists(previewFromId) : false,
-          baseFromId,
-          baseFromIdExists: baseFromId ? this.scene.textures.exists(baseFromId) : false,
+          fullFromKey,
+          fullFromKeyExists: fullFromKey ? this.scene.textures.exists(fullFromKey) : false,
+          thumbFromId,
+          thumbFromIdExists: thumbFromId ? this.scene.textures.exists(thumbFromId) : false,
+          fullFromId,
+          fullFromIdExists: fullFromId ? this.scene.textures.exists(fullFromId) : false,
           cardId: card.cardId,
           cardType: card.cardType,
         });

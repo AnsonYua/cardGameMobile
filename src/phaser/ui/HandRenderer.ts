@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { toBaseKey, toPreviewKey, type HandCardView } from "./HandTypes";
+import { toFullKey, toFullTextureKey, toThumbKey, type HandCardView } from "./HandTypes";
 import type { HandLayoutState } from "./HandLayout";
 import type { HandLayoutRenderer } from "./HandLayoutRenderer";
 
@@ -202,20 +202,15 @@ export class HandRenderer {
   }
 
   private resolveHandTextureKey(card: HandCardView) {
-    const baseFromId = toBaseKey(card.cardId);
-    const previewFromId = toPreviewKey(card.cardId);
+    const fullFromId = toFullKey(card.cardId);
+    const thumbFromId = toThumbKey(card.cardId);
     const provided = card.textureKey;
-    const providedPreview = provided
-      ? provided.toLowerCase().endsWith("-preview")
-        ? provided
-        : `${provided}-preview`
-      : undefined;
-    const providedBase = provided?.replace(/-preview$/i, "");
-    const candidates = [previewFromId, providedPreview, provided, baseFromId, providedBase];
+    const providedFull = toFullTextureKey(provided);
+    const candidates = [thumbFromId, provided, fullFromId, providedFull];
 
     for (const key of candidates) {
       if (key && this.scene.textures.exists(key)) return key;
     }
-    return previewFromId ?? providedPreview ?? provided ?? baseFromId ?? providedBase;
+    return thumbFromId ?? provided ?? fullFromId ?? providedFull;
   }
 }

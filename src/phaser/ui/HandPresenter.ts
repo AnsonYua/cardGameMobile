@@ -1,4 +1,4 @@
-import { HandCardView, toBaseKey } from "./HandTypes";
+import { HandCardView, toThumbKey } from "./HandTypes";
 import { isBattleActionStep } from "../game/battleUtils";
 import { getPilotDesignationStats, hasPilotDesignationRule } from "../utils/pilotDesignation";
 import { isDebugFlagEnabled } from "../utils/debugFlags";
@@ -14,7 +14,7 @@ export class HandPresenter {
       const uid = card?.carduid ?? card?.uid ?? card?.id ?? card?.cardId;
       const cardId = card?.cardId ?? card?.id;
       const data = card?.cardData;
-      const textureKey = toBaseKey(cardId);
+      const textureKey = toThumbKey(cardId);
       if (isDebugFlagEnabled("debug.textures")) {
         const debugKey = `${playerId}:${String(uid)}`;
         if (!handDebugSeen.has(debugKey)) {

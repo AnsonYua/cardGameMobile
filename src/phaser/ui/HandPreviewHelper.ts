@@ -3,7 +3,7 @@ import { getCardStatsLabel } from "./DialogCardRenderUtils";
 
 export function toTextureKey(textureKey?: string) {
   if (!textureKey) return undefined;
-  return textureKey.replace(/-preview$/, "");
+  return textureKey.replace(/-thumb$/, "");
 }
 
 export function getBadgeLabel(card: HandCardView) {

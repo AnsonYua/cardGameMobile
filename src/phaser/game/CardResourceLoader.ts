@@ -52,7 +52,7 @@ const initialStats = (): LoadStats => ({
 
 export class CardResourceLoader {
   private stats: LoadStats = initialStats();
-  private loadedResources = new Map<string, { path: string; isPreview: boolean; loadTime: number; attempts: number }>();
+  private loadedResources = new Map<string, { path: string; isThumb: boolean; loadTime: number; attempts: number }>();
   private loadingKeys = new Set<string>();
 
   constructor(private scene: Phaser.Scene) {}
@@ -124,15 +124,13 @@ export class CardResourceLoader {
   private getImageUrl(path: string, baseUrl: string) {
     const trimmedBase = baseUrl.replace(/\/$/, "");
     const trimmedPath = path.replace(/^\//, "");
-    // Default hand/card-grid textures use thumbnail assets.
-    return `${trimmedBase}/api/game/image/thumb/${trimmedPath}`;
+    return `${trimmedBase}/api/game/image/${trimmedPath}`;
   }
 
-  private getPreviewImageUrl(path: string, baseUrl: string) {
+  private getThumbImageUrl(path: string, baseUrl: string) {
     const trimmedBase = baseUrl.replace(/\/$/, "");
     const trimmedPath = path.replace(/^\//, "");
-    // Preview (long-click) textures use full-size assets.
-    return `${trimmedBase}/api/game/image/${trimmedPath}`;
+    return `${trimmedBase}/api/game/image/thumb/${trimmedPath}`;
   }
 
 
@@ -265,7 +263,7 @@ export class CardResourceLoader {
       load.once(`filecomplete-image-${key}`, () => {
         URL.revokeObjectURL(objectUrl);
         this.loadingKeys.delete(key);
-        this.loadedResources.set(key, { path: key, isPreview: key.endsWith('-preview'), loadTime: performance.now() - start, attempts: 1 });
+        this.loadedResources.set(key, { path: key, isThumb: key.endsWith("-thumb"), loadTime: performance.now() - start, attempts: 1 });
         this.stats.successfulLoads += 1;
         this.stats.loadedResourcesCount = this.loadedResources.size;
         if (isDebugFlagEnabled("debug.textures") && !resourceDebugSeen.has(key)) {
@@ -294,16 +292,16 @@ export class CardResourceLoader {
     let totalQueued = 0;
     paths.forEach((path) => {
       const key = this.getImageKey(path);
-      const previewKey = `${key}-preview`;
+      const thumbKey = `${key}-thumb`;
       const cacheBust = Date.now();
-      const url = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
-      const previewUrl = `${this.getPreviewImageUrl(path, baseUrl)}?t=${cacheBust}`;
-      if (!url || !previewUrl) return;
+      const fullUrl = `${this.getImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      const thumbUrl = `${this.getThumbImageUrl(path, baseUrl)}?t=${cacheBust}`;
+      if (!fullUrl || !thumbUrl) return;
 
       [
-        { key, url, isPreview: false },
-        { key: previewKey, url: previewUrl, isPreview: true },
-      ].forEach(({ key: k, url: u, isPreview }) => {
+        { key, url: fullUrl, isThumb: false },
+        { key: thumbKey, url: thumbUrl, isThumb: true },
+      ].forEach(({ key: k, url: u, isThumb }) => {
         if (this.scene.textures.exists(k)) {
           this.stats.cachedHits += 1;
           return;
@@ -317,7 +315,7 @@ export class CardResourceLoader {
         // Phaser emits filecomplete-<type>-<key> for per-file completion.
         load.once(`filecomplete-image-${k}`, () => {
           this.loadingKeys.delete(k);
-          this.loadedResources.set(k, { path, isPreview, loadTime: performance.now() - start, attempts: 1 });
+          this.loadedResources.set(k, { path, isThumb, loadTime: performance.now() - start, attempts: 1 });
           this.stats.successfulLoads += 1;
           this.stats.loadedResourcesCount = this.loadedResources.size;
         });
