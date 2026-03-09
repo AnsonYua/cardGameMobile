@@ -14,5 +14,7 @@ export type TestButtonPopupConfig = Partial<
   joinToken?: string;
   isAutoPolling?: boolean;
   joinUrlBase?: string;
+  currentSeatUrl?: string;
+  opponentSeatUrl?: string;
   scenarioPicker?: ScenarioPickerConfig;
 };

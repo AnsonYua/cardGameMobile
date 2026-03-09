@@ -8,6 +8,7 @@ import { ApiManager } from "../api/ApiManager";
 import { updateSession } from "../game/SessionStore";
 import { resolveScenarioPlayerId, type ScenarioPlayerSelector } from "../game/SeatSelector";
 import { requestJoinToken } from "../../components/JoinTokenPrompt";
+import { buildScenarioSeatUrl } from "../ui/gameUrlBuilders";
 
 const DEFAULT_SCENARIO_PATH = "GD01/GD01-118/draw2_dis1";
 const SCENARIO_PRESET_GROUPS = {
@@ -643,6 +644,8 @@ export class DebugControls {
   private pollInFlight = false;
   private scenarioResourceFallbackEnabled = false;
   private selectedScenarioPath = DEFAULT_SCENARIO_PATH;
+  private scenarioCurrentSeatUrl?: string;
+  private scenarioOpponentSeatUrl?: string;
 
   constructor(
     private scene: Phaser.Scene,
@@ -663,13 +666,23 @@ export class DebugControls {
       this.popup = new TestButtonPopup(this.scene as any);
     }
 
+    const hasScenarioSeatLinks = !!(this.scenarioCurrentSeatUrl || this.scenarioOpponentSeatUrl);
     const config: TestButtonPopupConfig = {
-      button1: { label: "Test JoinBtn", onClick: () => this.handleTestJoinButton() },
+      button1: {
+        label: hasScenarioSeatLinks ? "Open Opponent Seat" : "Test JoinBtn",
+        onClick: () => (hasScenarioSeatLinks ? this.handleOpenOpponentSeat() : this.handleTestJoinButton()),
+      },
       button2: { label: "Test PollingBtn", onClick: () => this.handleTestPolling() },
       button3: { label: "SetScenario", onClick: () => this.handleSetScenario() },
       button4: { label: this.pollEvent ? "Stop Auto Polling" : "Start Auto Polling", onClick: () => this.toggleAutoPolling() },
       button5: { label: "Test ConfirmBattle (opp)", onClick: () => this.handleConfirmBattleOpponent() },
       button6: { label: "Test ResolveBattle", onClick: () => this.handleResolveBattle() },
+      button7: this.scenarioCurrentSeatUrl
+        ? { label: "Copy Current Seat URL", onClick: () => this.copyScenarioSeatUrl("currentPlayer") }
+        : undefined,
+      button8: this.scenarioOpponentSeatUrl
+        ? { label: "Copy Opponent Seat URL", onClick: () => this.copyScenarioSeatUrl("opponent") }
+        : undefined,
       scenarioPicker: {
         title: "Scenario presets",
         options: [...SCENARIO_PRESETS],
@@ -684,6 +697,8 @@ export class DebugControls {
       gameId: this.context.gameId ?? undefined,
       joinToken: this.context.joinToken ?? undefined,
       isAutoPolling: true,
+      currentSeatUrl: this.scenarioCurrentSeatUrl,
+      opponentSeatUrl: this.scenarioOpponentSeatUrl,
     };
     this.popup.show(config);
   }
@@ -753,6 +768,8 @@ export class DebugControls {
 
       this.context.gameId = gameId;
       this.context.playerId = desiredPlayerId;
+      this.scenarioCurrentSeatUrl = this.buildScenarioSeatUrl(gameId, "currentPlayer");
+      this.scenarioOpponentSeatUrl = this.buildScenarioSeatUrl(gameId, "opponent");
       this.scenarioResourceFallbackEnabled = true;
       this.engine.setAllowEnvScanFallbackDefault(true);
 
@@ -776,6 +793,51 @@ export class DebugControls {
       console.error("Set scenario failed", err);
     }
   }
+
+  private buildScenarioSeatUrl(gameId: string, player: ScenarioPlayerSelector): string {
+    return buildScenarioSeatUrl({
+      gameId,
+      player,
+      isAutoPolling: true,
+    });
+  }
+
+  private copyScenarioSeatUrl(player: ScenarioPlayerSelector) {
+    const url = player === "opponent" ? this.scenarioOpponentSeatUrl : this.scenarioCurrentSeatUrl;
+    if (!url) return;
+    this.copyText(url);
+  }
+
+  private handleOpenOpponentSeat() {
+    if (!this.scenarioOpponentSeatUrl || typeof window === "undefined") return;
+    window.open(this.scenarioOpponentSeatUrl, "_blank", "noopener,noreferrer");
+  }
+
+  private copyText(text: string) {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => this.execFallbackCopy(text));
+      return;
+    }
+    this.execFallbackCopy(text);
+  }
+
+  private execFallbackCopy(text: string) {
+    if (typeof document === "undefined") return;
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch {
+      // no-op
+    }
+  }
+
   private async handleTestPolling(silentRefresh = false, opts?: { skipPopupHide?: boolean; source?: string }) {
     try {
       if (!opts?.skipPopupHide) {

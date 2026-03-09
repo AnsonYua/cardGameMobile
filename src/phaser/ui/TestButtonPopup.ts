@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { createTestButtonPopupView } from "./TestButtonPopupView";
 import type { TestButtonPopupConfig } from "./TestButtonPopupTypes";
+import { buildLobbyJoinUrl } from "./gameUrlBuilders";
 
 export type { TestButtonPopupConfig } from "./TestButtonPopupTypes";
 
@@ -54,13 +55,16 @@ export class TestButtonPopup {
 
   private handleCopyGameLink(config: TestButtonPopupConfig) {
     if (!config.gameId) return;
-    const joinUrl = this.buildJoinUrl({
-      base: config.joinUrlBase,
-      gameId: config.gameId,
-      joinToken: config.joinToken,
-      isAutoPolling: config.isAutoPolling,
-    });
-    this.copyToClipboard(joinUrl);
+    const targetUrl =
+      config.opponentSeatUrl ??
+      config.currentSeatUrl ??
+      buildLobbyJoinUrl({
+        base: config.joinUrlBase,
+        gameId: config.gameId,
+        joinToken: config.joinToken,
+        isAutoPolling: config.isAutoPolling,
+      });
+    this.copyToClipboard(targetUrl);
     void this.hide();
   }
 
@@ -70,18 +74,6 @@ export class TestButtonPopup {
       return;
     }
     this.execFallbackCopy(text);
-  }
-
-  private buildJoinUrl(opts: { base?: string; gameId: string; joinToken?: string; isAutoPolling?: boolean }): string {
-    const origin =
-      opts.base ??
-      (typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost:5173");
-    const url = new URL("/game", origin);
-    url.searchParams.set("mode", "join");
-    url.searchParams.set("gameId", opts.gameId);
-    url.searchParams.set("isAutoPolling", String(opts.isAutoPolling ?? true));
-    if (opts.joinToken) url.searchParams.set("joinToken", opts.joinToken);
-    return url.toString();
   }
 
   private execFallbackCopy(text: string) {

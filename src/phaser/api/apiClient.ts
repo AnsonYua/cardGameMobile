@@ -1,4 +1,4 @@
-import { getSessionToken } from "../game/SessionStore";
+import { getSessionToken, updateSession } from "../game/SessionStore";
 
 export class ApiError extends Error {
   constructor(
@@ -82,6 +82,65 @@ export class ApiClient {
     return getSessionToken();
   }
 
+  private extractRequestGameId(path: string, body?: Record<string, any>): string | null {
+    if (typeof body?.gameId === "string" && body.gameId.length > 0) {
+      return body.gameId;
+    }
+    try {
+      const base = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "http://localhost";
+      const url = new URL(path, base);
+      const gameId = url.searchParams.get("gameId");
+      return gameId && gameId.length > 0 ? gameId : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private getSeatSessionRecoveryParams(requestGameId: string | null): { gameId: string; player: "currentPlayer" | "opponent" } | null {
+    if (typeof window === "undefined" || !window.location) return null;
+    const params = new URLSearchParams(window.location.search);
+    const allowSeatSessionFallback =
+      params.get("allowSeatSessionFallback") === "1" || params.get("allowSeatSessionFallback") === "true";
+    if (!allowSeatSessionFallback) return null;
+
+    const gameId = requestGameId || params.get("gameId") || params.get("gameid") || params.get("roomid");
+    if (!gameId) return null;
+
+    const player = params.get("player") === "opponent" ? "opponent" : "currentPlayer";
+    return { gameId, player };
+  }
+
+  private async tryRefreshSeatSession(requestGameId: string | null): Promise<string | null> {
+    const params = this.getSeatSessionRecoveryParams(requestGameId);
+    if (!params) return null;
+
+    const resolveUrl = this.buildUrl("/api/game/test/resolveSeatSession");
+    const res = await fetch(resolveUrl, {
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        gameId: params.gameId,
+        player: params.player,
+      }),
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success || !json?.sessionToken || !json?.resolvedPlayerId) {
+      return null;
+    }
+
+    updateSession({
+      gameId: params.gameId,
+      playerId: json.resolvedPlayerId,
+      sessionToken: json.sessionToken,
+      sessionExpiresAt: json.sessionExpiresAt ?? null,
+    });
+    return json.sessionToken;
+  }
+
   private async requestJson(
     method: "POST" | "GET",
     path: string,
@@ -127,6 +186,7 @@ export class ApiClient {
     url: string,
     body: Record<string, any>,
     opts?: AuthOptions,
+    allowRetry = true,
   ): Promise<GameResourceBundleResponse> {
     const token = this.getAuthToken(opts);
     const res = await fetch(url, {
@@ -156,6 +216,17 @@ export class ApiClient {
       } catch {
         // ignore parse errors
       }
+      if (
+        allowRetry &&
+        opts?.auth &&
+        res.status === 401 &&
+        parsed?.errorCode === "SESSION_EXPIRED"
+      ) {
+        const refreshedToken = await this.tryRefreshSeatSession(this.extractRequestGameId(url, body));
+        if (refreshedToken) {
+          return this.doFetchRaw(url, body, { ...opts, authToken: refreshedToken }, false);
+        }
+      }
       throw new ApiError(message, res.status, parsed);
     }
 
@@ -167,6 +238,7 @@ export class ApiClient {
     method: "POST" | "GET",
     body?: Record<string, any>,
     opts?: AuthOptions,
+    allowRetry = true,
   ) {
     const token = this.getAuthToken(opts);
     const res = await fetch(url, {
@@ -180,6 +252,17 @@ export class ApiClient {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
+      if (
+        allowRetry &&
+        opts?.auth &&
+        res.status === 401 &&
+        json?.errorCode === "SESSION_EXPIRED"
+      ) {
+        const refreshedToken = await this.tryRefreshSeatSession(this.extractRequestGameId(url, body));
+        if (refreshedToken) {
+          return this.doFetchJson(url, method, body, { ...opts, authToken: refreshedToken }, false);
+        }
+      }
       const serverMsg =
         (json && typeof json === "object" && (json as any).error && String((json as any).error)) ||
         (json && typeof json === "object" && (json as any).message && String((json as any).message)) ||

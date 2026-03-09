@@ -22,7 +22,7 @@ export type TestButtonPopupView = {
 export function createTestButtonPopupView(params: CreateTestButtonPopupViewParams): TestButtonPopupView {
   const { scene, depth, tweenDuration, config, onHide, onButtonClick, onCopyGameLink } = params;
   const { width, height } = scene.scale;
-  const { gameId } = config;
+  const { gameId, currentSeatUrl, opponentSeatUrl } = config;
   const buttonKeys = ["button1", "button2", "button3", "button4", "button5", "button6", "button7", "button8"] as const;
   const buttons = buttonKeys.map((key) => config[key]).filter(Boolean) as PopupButton[];
 
@@ -266,8 +266,14 @@ export function createTestButtonPopupView(params: CreateTestButtonPopupViewParam
       strokeColor: THEME.panelStroke,
     });
 
+    const footerCopyLabel = opponentSeatUrl
+      ? "Tap to copy opponent seat URL"
+      : currentSeatUrl
+        ? "Tap to copy current seat URL"
+        : "Tap to copy join link";
+
     const footerText = scene.add
-      .text(0, footerY, `Game ID: ${gameId}\nTap to copy join link`, {
+      .text(0, footerY, `Game ID: ${gameId}\n${footerCopyLabel}`, {
         fontSize: "12px",
         fontFamily: "Arial",
         color: THEME.textPrimary,
