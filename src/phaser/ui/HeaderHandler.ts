@@ -76,6 +76,13 @@ type LoadingVisualVariant = "orbital" | "minimalDots" | "softPulse";
 const HEADER_BG_ALPHA = 1;
 const LOADING_VISUAL_VARIANT: LoadingVisualVariant = "softPulse";
 const HEADER_THEME = HEADER_WAITING_THEME;
+const LOADING_STRIP_HEIGHT = 32;
+const LOADING_STRIP_MIN_WIDTH = 210;
+const LOADING_STRIP_MAX_WIDTH = 320;
+const LOADING_STRIP_WIDTH_RATIO = 0.38;
+const LOADING_LABEL_FONT_SIZE = "15px";
+const LOADING_LABEL_OFFSET_X = 16;
+const LOADING_INDICATOR_OFFSET_X = 22;
 
 export class HeaderHandler {
   private layout: HeaderLayout = { height: 60, padding: 10, menuButton: 45 };
@@ -325,8 +332,11 @@ export class HeaderHandler {
     this.loadingIndicatorNodes = [];
     this.loadingLabel = undefined;
 
-    const stripHeight = 24;
-    const stripWidth = Math.min(260, Math.max(170, Math.floor(containerW * 0.32)));
+    const stripHeight = LOADING_STRIP_HEIGHT;
+    const stripWidth = Math.min(
+      LOADING_STRIP_MAX_WIDTH,
+      Math.max(LOADING_STRIP_MIN_WIDTH, Math.floor(containerW * LOADING_STRIP_WIDTH_RATIO)),
+    );
     const y = containerTop + stripHeight / 2 + 2;
     const container = this.scene.add.container(centerX, y).setDepth(this.depth + 3);
     const bg = this.scene
@@ -334,8 +344,8 @@ export class HeaderHandler {
       .setStrokeStyle(1, this.drawHelpers.toColor(HEADER_THEME.loadingStroke), 0.82);
     const indicator = this.createLoadingIndicator(stripWidth);
     const label = this.scene
-      .add.text(8, -1, this.interactionLoadingLabel, {
-        fontSize: "12px",
+      .add.text(LOADING_LABEL_OFFSET_X, -1, this.interactionLoadingLabel, {
+        fontSize: LOADING_LABEL_FONT_SIZE,
         fontFamily: "Arial",
         fontStyle: "bold",
         color: "#f5f8ff",
@@ -422,13 +432,13 @@ export class HeaderHandler {
   }
 
   private createLoadingIndicator(stripWidth: number): Phaser.GameObjects.Container {
-    const indicator = this.scene.add.container(-stripWidth / 2 + 16, 0);
+    const indicator = this.scene.add.container(-stripWidth / 2 + LOADING_INDICATOR_OFFSET_X, 0);
     this.loadingIndicatorNodes = [];
 
     if (this.loadingVariant === "minimalDots") {
-      const offsets = [-4, 0, 4];
+      const offsets = [-6, 0, 6];
       offsets.forEach((x) => {
-        const dot = this.scene.add.circle(x, 0, 1.9, 0xe8f0ff, 0.55);
+        const dot = this.scene.add.circle(x, 0, 2.6, 0xe8f0ff, 0.55);
         indicator.add(dot);
         this.loadingIndicatorNodes.push(dot);
       });
@@ -436,16 +446,16 @@ export class HeaderHandler {
     }
 
     if (this.loadingVariant === "softPulse") {
-      const glow = this.scene.add.circle(0, 0, 5.2, 0xbdd0ff, 0.16);
-      const core = this.scene.add.circle(0, 0, 2.2, 0xeaf2ff, 0.95);
+      const glow = this.scene.add.circle(0, 0, 7.8, 0xbdd0ff, 0.16);
+      const core = this.scene.add.circle(0, 0, 3.4, 0xeaf2ff, 0.95);
       indicator.add([glow, core]);
       this.loadingIndicatorNodes.push(glow, core);
       return indicator;
     }
 
     // orbital (default): rotating accent dot around a ring.
-    const ring = this.scene.add.circle(0, 0, 5, 0x000000, 0).setStrokeStyle(1, 0x9cb8ff, 0.7);
-    const dot = this.scene.add.circle(0, -5, 1.8, 0xe8f0ff, 1);
+    const ring = this.scene.add.circle(0, 0, 7, 0x000000, 0).setStrokeStyle(1, 0x9cb8ff, 0.7);
+    const dot = this.scene.add.circle(0, -7, 2.4, 0xe8f0ff, 1);
     indicator.add([ring, dot]);
     this.loadingIndicatorNodes.push(ring, dot);
     return indicator;
