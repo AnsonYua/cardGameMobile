@@ -158,14 +158,7 @@ export class ActionButtonBarHandler {
   async invokeByIndex(index: number): Promise<boolean> {
     const buttons = this.getRenderableDescriptors();
     const target = buttons[index];
-    if (!target || target.enabled === false || typeof target.onClick !== "function" || this.actionInFlight) return false;
-    this.actionInFlight = true;
-    try {
-      await Promise.resolve(target.onClick());
-    } finally {
-      this.actionInFlight = false;
-    }
-    return true;
+    return this.runAction(target, null);
   }
 
   async invokePrimary(): Promise<boolean> {
@@ -182,14 +175,7 @@ export class ActionButtonBarHandler {
       if (e === this.background) return;
       (e as any).setVisible?.(visible);
     });
-    this.hitAreas.forEach((h) => {
-      h.setVisible(visible);
-      if (visible) {
-        h.setInteractive({ useHandCursor: true });
-      } else {
-        h.disableInteractive();
-      }
-    });
+    this.syncHitAreaInteractivity();
     this.waitingLabel?.setVisible(visible);
   }
 
@@ -328,6 +314,7 @@ export class ActionButtonBarHandler {
       this.drawButton(x, barY, btn.width, btnHeight, btn.config, 900, btn.color, btn.actionIndex, this.buttonContainer);
       currentX += btn.width + btnGap;
     });
+    this.syncHitAreaInteractivity();
     this.setVisible(this.visible);
   }
 
@@ -464,22 +451,47 @@ export class ActionButtonBarHandler {
         this.dragSuppressClick = false;
         return;
       }
-      if (this.actionInFlight) return;
       // Prevent underlying interactive game objects (hand/slots) from also receiving this click.
       event?.stopPropagation?.();
-      this.actionInFlight = true;
-      try {
-        if (actionIndex !== null) {
-          this.onAction(actionIndex);
-        }
-        await Promise.resolve(config.onClick?.());
-      } finally {
-        this.actionInFlight = false;
-      }
+      await this.runAction(config, actionIndex);
     });
     this.hitAreas.push(hit);
     if (container) container.add(hit);
     this.elements.push(hit);
+  }
+
+  private async runAction(target?: ActionButtonConfig, actionIndex: number | null = null): Promise<boolean> {
+    if (!target || target.enabled === false || this.actionInFlight) return false;
+    const hasActionHandler = actionIndex !== null;
+    const hasOnClick = typeof target.onClick === "function";
+    if (!hasActionHandler && !hasOnClick) return false;
+
+    this.actionInFlight = true;
+    this.syncHitAreaInteractivity();
+
+    try {
+      if (hasActionHandler) {
+        await Promise.resolve(this.onAction(actionIndex));
+      }
+      if (hasOnClick) {
+        await Promise.resolve(target.onClick?.());
+      }
+      return true;
+    } finally {
+      this.actionInFlight = false;
+      this.syncHitAreaInteractivity();
+    }
+  }
+
+  private syncHitAreaInteractivity() {
+    this.hitAreas.forEach((h) => {
+      h.setVisible(this.visible);
+      if (this.visible && !this.actionInFlight) {
+        h.setInteractive({ useHandCursor: true });
+        return;
+      }
+      h.disableInteractive();
+    });
   }
 
   private ensureScrollBindings() {
