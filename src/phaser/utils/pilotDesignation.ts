@@ -1,6 +1,11 @@
+import { isPilotDesignationRule } from "./effectAction";
+
 type PilotDesignationRule = {
   effectId?: string;
   action?: string;
+  compiledEffectNode?: {
+    playMode?: string;
+  };
   parameters?: Record<string, any>;
 };
 
@@ -12,10 +17,7 @@ export function getCardEffectRules(cardData: any): any[] {
 export function findPilotDesignationRule(cardData: any): PilotDesignationRule | undefined {
   const rules = getCardEffectRules(cardData);
   return rules.find(
-    (rule: any) =>
-      rule?.effectId === "pilot_designation" ||
-      rule?.effectId === "pilotDesignation" ||
-      rule?.action === "designate_pilot",
+    (rule: any) => isPilotDesignationRule(rule),
   );
 }
 
@@ -33,4 +35,3 @@ export function getPilotDesignationStats(cardData: any): { ap: number; hp: numbe
     hp: Number.isFinite(hp) ? hp : 0,
   };
 }
-

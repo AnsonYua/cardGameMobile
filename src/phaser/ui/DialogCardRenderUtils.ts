@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { isPilotDesignationRule } from "../utils/effectAction";
 
 export type DialogBadgeTypeKey = "unit" | "pilot" | "base" | "command" | "pilotCommand" | "default";
 
@@ -82,10 +83,7 @@ export function isStrictPilotDesignation(card: CardLike) {
   if (card?.fromPilotDesignation === true) return true;
   const rules: any[] = card?.cardData?.effects?.rules || [];
   return rules.some(
-    (rule) =>
-      rule?.effectId === "pilot_designation" ||
-      rule?.effectId === "pilotDesignation" ||
-      rule?.action === "designate_pilot",
+    (rule) => isPilotDesignationRule(rule),
   );
 }
 
