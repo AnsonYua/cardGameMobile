@@ -6,7 +6,7 @@ type UiBindingDeps = {
   actionDispatcher: { dispatch: (index: number) => void };
   selectionAction?: SelectionActionController;
   showTrashArea: (owner: "opponent" | "player") => void;
-  showDebugControls: () => void;
+  showMenuDialog: () => void;
 };
 
 export function wireBoardUiHandlers(deps: UiBindingDeps) {
@@ -15,5 +15,5 @@ export function wireBoardUiHandlers(deps: UiBindingDeps) {
   deps.controls.slotControls?.setSlotClickHandler?.((slot) => deps.selectionAction?.handleSlotCardSelected(slot));
   deps.controls.baseControls?.setBaseClickHandler?.((payload) => deps.selectionAction?.handleBaseCardSelected(payload));
   deps.controls.trashControls?.setTrashClickHandler?.((owner) => deps.showTrashArea(owner));
-  deps.controls.headerControls?.setMenuHandler(() => deps.showDebugControls());
+  deps.controls.headerControls?.setMenuHandler(() => deps.showMenuDialog());
 }

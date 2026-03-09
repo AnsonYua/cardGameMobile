@@ -10,6 +10,7 @@ import { GameEngine, type GameStatusSnapshot, type ActionSource } from "./game/G
 import { ActionDispatcher } from "./controllers/ActionDispatcher";
 import { GameContextStore } from "./game/GameContextStore";
 import { DebugControls } from "./controllers/DebugControls";
+import { ShareGameDialog } from "./ui/ShareGameDialog";
 import { TurnStateController } from "./game/TurnStateController";
 import { getTurnOwnerId } from "./game/turnOwner";
 import { HandPresenter } from "./ui/HandPresenter";
@@ -128,6 +129,7 @@ export class BoardScene extends Phaser.Scene {
   private headerControls: BoardUiControls["headerControls"] | null = null;
   private actionDispatcher = new ActionDispatcher();
   private debugControls?: DebugControls;
+  private shareGameDialog?: ShareGameDialog;
   private interactionLoading?: InteractionLoadingController;
   private slotControls: BoardUiControls["slotControls"] | null = null;
   private selectionAction?: SelectionActionController;
@@ -344,6 +346,7 @@ export class BoardScene extends Phaser.Scene {
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext, {
       shouldDeferPolling: () => this.animationQueue?.isRunning?.() ?? false,
     });
+    this.shareGameDialog = new ShareGameDialog(this);
     this.sessionController = new SessionController({
       match: this.match,
       engine: this.engine,
@@ -502,7 +505,11 @@ export class BoardScene extends Phaser.Scene {
       actionDispatcher: this.actionDispatcher,
       selectionAction: this.selectionAction,
       showTrashArea: this.showTrashArea.bind(this),
-      showDebugControls: () => this.debugControls?.show(),
+      showMenuDialog: () =>
+        this.shareGameDialog?.show({
+          gameId: this.gameContext.gameId,
+          joinToken: this.gameContext.joinToken ?? null,
+        }),
     });
     this.ui.drawAll(this.offset);
     this.hideDefaultUI();
