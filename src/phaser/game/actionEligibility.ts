@@ -1,6 +1,7 @@
 import type { SelectionTarget } from "./SelectionStore";
 import { getTurnOwnerId } from "./turnOwner";
 import { filterActivatedEffectRulesByAvailability } from "./activatedEffectAvailability";
+import { getEffectActivationWindows, getEffectEventTrigger, hasEffectActivationWindow } from "./effectTiming";
 import { normalizePhaseToken } from "./phaseUtils";
 import { SLOT_KEYS } from "./slotUtils";
 import { evaluateComparisonFilter } from "../utils/comparisonFilter";
@@ -270,18 +271,15 @@ export function commandHasTimingWindow(
   const playRules = rules.filter((rule) => (rule?.type || "").toString().toLowerCase() === "play");
   if (!playRules.length) return false;
 
-  const hasExplicitWindow = playRules.some((rule) => {
-    const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    return windows.some((window) => normalizePhaseToken(window) === currentPhase);
-  });
+  const hasExplicitWindow = playRules.some((rule) => hasEffectActivationWindow(rule, currentPhase));
   if (hasExplicitWindow) return true;
 
   const mainPhaseToken = normalizePhaseToken("MAIN_PHASE");
   if (currentPhase !== mainPhaseToken) return false;
 
   return playRules.some((rule) => {
-    const windows: any[] = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    return windows.length === 0;
+    const windows = getEffectActivationWindows(rule);
+    return windows.length === 0 && !getEffectEventTrigger(rule);
   });
 }
 
@@ -306,8 +304,7 @@ export function getActivatedEffectRules(cardData?: any, phase?: string | null) {
   if (!currentPhase) return [];
   return rules.filter((rule) => {
     if ((rule?.type || "").toString().toLowerCase() !== "activated") return false;
-    const windows = Array.isArray(rule?.timing?.windows) ? rule.timing.windows : [];
-    return windows.some((window: string) => normalizePhaseToken(window) === currentPhase);
+    return hasEffectActivationWindow(rule, currentPhase);
   });
 }
 

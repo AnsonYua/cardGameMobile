@@ -1,9 +1,9 @@
 import type { GameContext } from "../game/GameContextStore";
 import type { ActionControls } from "./ControllerTypes";
+import { hasEffectActivationWindow } from "../game/effectTiming";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { GameEngine } from "../game/GameEngine";
-import { normalizePhaseToken } from "../game/phaseUtils";
 import { getActionStepActivatedEffectOptionsForSlot, slotHasActionStepActivatedEffects } from "./ActionStepEffectOptions";
 import {
   ActionTargetEntry,
@@ -74,10 +74,7 @@ export class ActionStepCoordinator {
 
   cardDataHasActionStepWindow(cardData: any) {
     const rules: any[] = Array.isArray(cardData?.effects?.rules) ? cardData.effects.rules : [];
-    return rules.some((r) => {
-      const wins: any[] = Array.isArray(r?.timing?.windows) ? r.timing.windows : [];
-      return wins.some((w) => normalizePhaseToken(w) === "ACTION_STEP");
-    });
+    return rules.some((rule) => hasEffectActivationWindow(rule, "ACTION_STEP"));
   }
 
   slotHasActionStepWindow(slot?: SlotViewModel) {
