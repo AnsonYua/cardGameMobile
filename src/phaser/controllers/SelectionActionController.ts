@@ -56,7 +56,7 @@ export type SelectionActionControllerDeps = {
   burstChoiceDialog?: import("../ui/BurstChoiceDialog").BurstChoiceDialog | null;
   optionChoiceDialog?: import("../ui/OptionChoiceDialog").OptionChoiceDialog | null;
   promptChoiceDialog?: import("../ui/PromptChoiceDialog").PromptChoiceDialog | null;
-  tutorTopDeckRevealDialog?: import("../ui/TutorTopDeckRevealDialog").TutorTopDeckRevealDialog | null;
+  topDeckSelectionReviewDialog?: import("../ui/TopDeckSelectionReviewDialog").TopDeckSelectionReviewDialog | null;
   tokenChoiceDialog?: import("../ui/TokenChoiceDialog").TokenChoiceDialog | null;
   errorDialog?: import("../ui/ErrorDialog").ErrorDialog | null;
   onTimerPause?: () => void;

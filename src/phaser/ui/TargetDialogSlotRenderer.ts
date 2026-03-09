@@ -53,7 +53,7 @@ export function renderTargetDialogSlot(opts: RenderTargetDialogSlotOpts) {
   let slotCardEnd = -1;
 
   if (slot.pilot) {
-    const pilotTex = resolveDialogTextureKey(scene, slot.pilot.textureKey);
+    const pilotTex = resolveDialogTextureKey(scene, slot.pilot.textureKey, { preferThumb: false });
     const pilotImg = pilotTex
       ? scene.add.image(x, y + pilotOffsetY, pilotTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
       : scene.add.rectangle(x, y + pilotOffsetY, cardW, cardH, 0xcbd3df, 1).setOrigin(0.5);
@@ -82,7 +82,7 @@ export function renderTargetDialogSlot(opts: RenderTargetDialogSlotOpts) {
   }
 
   if (slot.unit) {
-    const unitTex = resolveDialogTextureKey(scene, slot.unit.textureKey);
+    const unitTex = resolveDialogTextureKey(scene, slot.unit.textureKey, { preferThumb: false });
     const unitImg = unitTex
       ? scene.add.image(x, y + pilotOffsetY * badges.unitYOffsetFactor, unitTex).setDisplaySize(cardW, cardH).setOrigin(0.5)
       : scene.add.rectangle(x, y + pilotOffsetY * badges.unitYOffsetFactor, cardW, cardH, 0xcbd3df, 0.9).setOrigin(0.5);

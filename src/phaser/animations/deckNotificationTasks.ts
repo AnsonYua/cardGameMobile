@@ -3,8 +3,8 @@ import { toFullKey } from "../ui/HandTypes";
 import {
   findHandRevealedCard,
   findTopDeckViewedCard,
-  hasActiveTutorRevealPrompt,
-} from "../utils/TutorNotificationUtils";
+  hasActiveTopDeckSelectionReviewPrompt,
+} from "../utils/TopDeckSelectionNotificationUtils";
 
 type PopupCard = any;
 
@@ -53,7 +53,7 @@ export function createTopDeckViewedTask(
   const playerId = payload?.playerId ? String(payload.playerId) : "";
   if (!ctx.currentPlayerId || playerId !== ctx.currentPlayerId) return null;
   if (
-    hasActiveTutorRevealPrompt(ctx.notificationQueue ?? [], {
+    hasActiveTopDeckSelectionReviewPrompt(ctx.notificationQueue ?? [], {
       playerId,
       sourceCarduid: payload?.sourceCarduid,
       effectId: payload?.effectId,

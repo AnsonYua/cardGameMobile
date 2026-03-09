@@ -96,7 +96,7 @@ export function renderChoiceCardPlate(params: {
 
   const rawTextureKey = params.card.textureKey || params.card.cardId;
   const textureKey = rawTextureKey
-    ? resolveDialogTextureKey(params.scene, rawTextureKey, { preferThumb: true })
+    ? resolveDialogTextureKey(params.scene, rawTextureKey, { preferThumb: false })
     : undefined;
 
   if (textureKey && params.scene.textures.exists(textureKey)) {

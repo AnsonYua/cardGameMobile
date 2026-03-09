@@ -3,7 +3,7 @@ import type { GameContext } from "../game/GameContextStore";
 import type { GameEngine } from "../game/GameEngine";
 import type { ActionControls } from "./ControllerTypes";
 import type { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
-import type { TutorTopDeckRevealDialog } from "../ui/TutorTopDeckRevealDialog";
+import type { TopDeckSelectionReviewDialog } from "../ui/TopDeckSelectionReviewDialog";
 import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
@@ -17,7 +17,7 @@ type PromptChoiceDeps = {
   gameContext: GameContext;
   actionControls?: ActionControls | null;
   promptChoiceDialog?: PromptChoiceDialog | null;
-  tutorTopDeckRevealDialog?: TutorTopDeckRevealDialog | null;
+  topDeckSelectionReviewDialog?: TopDeckSelectionReviewDialog | null;
   refreshActions: () => void;
   onTimerPause?: () => void;
   onTimerResume?: () => void;
@@ -146,7 +146,7 @@ export class PromptChoiceFlowManager {
 
   private showDialog(rawSnapshot?: any) {
     if (!this.queueEntry) return;
-    const hasDialog = this.deps.promptChoiceDialog || this.deps.tutorTopDeckRevealDialog;
+    const hasDialog = this.deps.promptChoiceDialog || this.deps.topDeckSelectionReviewDialog;
     if (!hasDialog) return;
     if (this.shownEntryId === this.queueEntry.id && isPromptChoiceDialogOpen(this.queueEntry, this.deps)) return;
 
@@ -161,7 +161,7 @@ export class PromptChoiceFlowManager {
       entry: this.queueEntry,
       rawSnapshot,
       promptChoiceDialog: this.deps.promptChoiceDialog,
-      tutorTopDeckRevealDialog: this.deps.tutorTopDeckRevealDialog,
+      topDeckSelectionReviewDialog: this.deps.topDeckSelectionReviewDialog,
       resolveTimeoutIndex: (options) => this.resolveTimeoutIndex(options),
       onSubmit: async (index) => {
         await this.submitChoice(index);

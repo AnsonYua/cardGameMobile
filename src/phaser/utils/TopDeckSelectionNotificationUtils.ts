@@ -9,7 +9,7 @@ function getPromptChoiceData(note: SlotNotificationLike): any {
   return event?.data ?? {};
 }
 
-function isActiveTutorRevealPrompt(note: SlotNotificationLike): boolean {
+function isActiveTopDeckSelectionReviewPrompt(note: SlotNotificationLike): boolean {
   const type = (note?.type ?? "").toString().toUpperCase();
   if (type !== "PROMPT_CHOICE") return false;
   const payload = note?.payload ?? {};
@@ -20,7 +20,7 @@ function isActiveTutorRevealPrompt(note: SlotNotificationLike): boolean {
   if (data?.userDecisionMade === true) return false;
   const choiceId = (data?.choiceId ?? "").toString();
   const kind = (data?.context?.kind ?? "").toString();
-  return choiceId === "tutor_top_deck_reveal_confirm" || kind === "TUTOR_TOP_DECK_REVEAL_CONFIRM";
+  return choiceId === "top_deck_selection_review_confirm" || kind === "TOP_DECK_SELECTION_REVIEW_CONFIRM";
 }
 
 export function findTopDeckViewedCard(
@@ -73,7 +73,7 @@ export function findHandRevealedCard(
   return undefined;
 }
 
-export function hasActiveTutorRevealPrompt(
+export function hasActiveTopDeckSelectionReviewPrompt(
   notificationQueue: SlotNotificationLike[],
   opts: { playerId?: string; sourceCarduid?: string; effectId?: string } = {},
 ) {
@@ -84,12 +84,12 @@ export function hasActiveTutorRevealPrompt(
 
   for (let i = queue.length - 1; i >= 0; i -= 1) {
     const note = queue[i];
-    if (!note || !isActiveTutorRevealPrompt(note)) continue;
+    if (!note || !isActiveTopDeckSelectionReviewPrompt(note)) continue;
     const data = getPromptChoiceData(note);
     if (playerId && data?.playerId && String(data.playerId) !== playerId) continue;
-    const contextSource = (data?.context?.tutor?.sourceCarduid ?? data?.sourceCarduid ?? "").toString();
+    const contextSource = (data?.context?.topDeckSelection?.sourceCarduid ?? data?.sourceCarduid ?? "").toString();
     if (sourceCarduid && contextSource && contextSource !== sourceCarduid) continue;
-    const contextEffectId = (data?.context?.tutor?.effect?.effectId ?? "").toString();
+    const contextEffectId = (data?.context?.topDeckSelection?.effect?.effectId ?? "").toString();
     if (effectId && contextEffectId && contextEffectId !== effectId) continue;
     return true;
   }

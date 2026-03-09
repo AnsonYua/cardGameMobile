@@ -24,7 +24,7 @@ export function renderSingleCardDialogSlot(opts: {
   const { scene, container, slot, card, x, y, cardW, cardH } = opts;
   const scale = Math.max(0.1, Math.min(1, opts.scale ?? 0.9));
 
-  const tex = resolveDialogTextureKey(scene, card.textureKey);
+  const tex = resolveDialogTextureKey(scene, card.textureKey, { preferThumb: false });
   const w = cardW * scale;
   const h = cardH * scale;
   const img = tex

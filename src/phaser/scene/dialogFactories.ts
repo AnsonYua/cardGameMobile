@@ -16,7 +16,7 @@ import { BurstChoiceGroupDialog } from "../ui/BurstChoiceGroupDialog";
 import { OptionChoiceDialog } from "../ui/OptionChoiceDialog";
 import { TokenChoiceDialog } from "../ui/TokenChoiceDialog";
 import { PromptChoiceDialog } from "../ui/PromptChoiceDialog";
-import { TutorTopDeckRevealDialog } from "../ui/TutorTopDeckRevealDialog";
+import { TopDeckSelectionReviewDialog } from "../ui/TopDeckSelectionReviewDialog";
 import { ErrorDialog } from "../ui/ErrorDialog";
 import { GameOverDialog } from "../ui/GameOverDialog";
 import { TargetNoticeDialog } from "../ui/TargetNoticeDialog";
@@ -72,7 +72,7 @@ export function createTimedDialogs(
     burstChoiceGroupDialog: new BurstChoiceGroupDialog(scene),
     optionChoiceDialog: new OptionChoiceDialog(scene, timerController),
     promptChoiceDialog: new PromptChoiceDialog(scene, timerController),
-    tutorTopDeckRevealDialog: new TutorTopDeckRevealDialog(scene, timerController),
+    topDeckSelectionReviewDialog: new TopDeckSelectionReviewDialog(scene, timerController),
     tokenChoiceDialog: new TokenChoiceDialog(scene, timerController),
   };
 }

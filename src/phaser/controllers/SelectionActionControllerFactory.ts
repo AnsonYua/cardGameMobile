@@ -101,7 +101,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
       gameContext: deps.gameContext,
       actionControls: deps.actionControls,
       promptChoiceDialog: deps.promptChoiceDialog,
-      tutorTopDeckRevealDialog: deps.tutorTopDeckRevealDialog,
+      topDeckSelectionReviewDialog: deps.topDeckSelectionReviewDialog,
       refreshActions: () => getController()?.refreshActions("neutral"),
       onLoadingStart: deps.onLoadingStart,
       onLoadingEnd: deps.onLoadingEnd,

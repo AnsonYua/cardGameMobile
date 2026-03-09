@@ -4,9 +4,9 @@ import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import { toFullKey } from "./HandTypes";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import {
-  getTutorStep2EligibilityHint,
-  type TutorTopDeckRevealCard,
-} from "../controllers/choice/TutorTopDeckRevealContext";
+  getTopDeckSelectionStep2EligibilityHint,
+  type TopDeckSelectionReviewCard,
+} from "../controllers/choice/TopDeckSelectionReviewContext";
 import { DIALOG_TEXT, createDialogActionButton } from "./dialog/DialogStyleTokens";
 import { resolveDialogHeaderGap } from "./dialog/DialogHeaderGap";
 import { renderChoiceCardPlate } from "./choice/ChoiceCardPlateRenderer";
@@ -15,10 +15,10 @@ import {
   forEachChoiceCardPlatePosition,
 } from "./choice/ChoiceCardPlateGrid";
 
-export type TutorTopDeckRevealDialogOptions = {
+export type TopDeckSelectionReviewDialogOptions = {
   headerText: string;
   promptText?: string;
-  cards: TutorTopDeckRevealCard[];
+  cards: TopDeckSelectionReviewCard[];
   continueLabel?: string;
   showOverlay?: boolean;
   showTimer?: boolean;
@@ -26,7 +26,7 @@ export type TutorTopDeckRevealDialogOptions = {
   onTimeout?: () => Promise<void> | void;
 };
 
-export class TutorTopDeckRevealDialog {
+export class TopDeckSelectionReviewDialog {
   private dialogTimer: DialogTimerPresenter;
   private dialog?: Phaser.GameObjects.Container;
   private automationState?: {
@@ -49,7 +49,7 @@ export class TutorTopDeckRevealDialog {
     this.destroy();
   }
 
-  show(opts: TutorTopDeckRevealDialogOptions) {
+  show(opts: TopDeckSelectionReviewDialogOptions) {
     this.destroy();
 
     const cfg = {
@@ -164,7 +164,7 @@ export class TutorTopDeckRevealDialog {
         cardHeight: plateGrid.imageHeight,
         state: "read_only",
         enabled: true,
-        hintText: getTutorStep2EligibilityHint(card),
+        hintText: getTopDeckSelectionStep2EligibilityHint(card),
         interactive: false,
         card: {
           cardId: card.cardId,

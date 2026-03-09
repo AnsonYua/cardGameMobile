@@ -142,7 +142,7 @@ export class BoardScene extends Phaser.Scene {
   private burstChoiceGroupDialogUi?: BurstChoiceGroupDialog;
   private optionChoiceDialogUi?: import("./ui/OptionChoiceDialog").OptionChoiceDialog;
   private promptChoiceDialogUi?: import("./ui/PromptChoiceDialog").PromptChoiceDialog;
-  private tutorTopDeckRevealDialogUi?: import("./ui/TutorTopDeckRevealDialog").TutorTopDeckRevealDialog;
+  private topDeckSelectionReviewDialogUi?: import("./ui/TopDeckSelectionReviewDialog").TopDeckSelectionReviewDialog;
   private tokenChoiceDialogUi?: import("./ui/TokenChoiceDialog").TokenChoiceDialog;
   private burstFlow?: BurstChoiceFlowManager;
   private burstGroupFlow?: BurstChoiceGroupFlowManager;
@@ -239,7 +239,7 @@ export class BoardScene extends Phaser.Scene {
     this.burstChoiceGroupDialogUi = dialogs.burstChoiceGroupDialog;
     this.optionChoiceDialogUi = dialogs.optionChoiceDialog;
     this.promptChoiceDialogUi = dialogs.promptChoiceDialog;
-    this.tutorTopDeckRevealDialogUi = dialogs.tutorTopDeckRevealDialog;
+    this.topDeckSelectionReviewDialogUi = dialogs.topDeckSelectionReviewDialog;
     this.tokenChoiceDialogUi = dialogs.tokenChoiceDialog;
     this.gameOverDialogUi = dialogs.gameOverDialog;
 
@@ -255,7 +255,7 @@ export class BoardScene extends Phaser.Scene {
         burstChoiceGroupDialog: dialogs.burstChoiceGroupDialog,
         optionChoiceDialog: dialogs.optionChoiceDialog,
         promptChoiceDialog: dialogs.promptChoiceDialog,
-        tutorTopDeckRevealDialog: dialogs.tutorTopDeckRevealDialog,
+        topDeckSelectionReviewDialog: dialogs.topDeckSelectionReviewDialog,
         tokenChoiceDialog: dialogs.tokenChoiceDialog,
       },
       actionControls: this.actionControls,
@@ -377,7 +377,7 @@ export class BoardScene extends Phaser.Scene {
       burstChoiceDialog: this.burstChoiceDialogUi,
       optionChoiceDialog: this.optionChoiceDialogUi,
       promptChoiceDialog: this.promptChoiceDialogUi,
-      tutorTopDeckRevealDialog: this.tutorTopDeckRevealDialogUi,
+      topDeckSelectionReviewDialog: this.topDeckSelectionReviewDialogUi,
       tokenChoiceDialog: this.tokenChoiceDialogUi,
       errorDialog: this.errorDialogUi,
       burstFlow: this.burstFlow,
@@ -521,7 +521,7 @@ export class BoardScene extends Phaser.Scene {
         },
         dialogs: {
           promptChoiceDialog: this.promptChoiceDialogUi,
-          tutorTopDeckRevealDialog: this.tutorTopDeckRevealDialogUi,
+          topDeckSelectionReviewDialog: this.topDeckSelectionReviewDialogUi,
           optionChoiceDialog: this.optionChoiceDialogUi,
           tokenChoiceDialog: this.tokenChoiceDialogUi,
           burstChoiceDialog: this.burstChoiceDialogUi,

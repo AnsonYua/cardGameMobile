@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, type CardDialogConfig } from "./CardDialogLayout";
-import { toThumbKey } from "./HandTypes";
+import { toFullKey } from "./HandTypes";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
 import { resolveOptionChoiceLayout, type OptionChoiceLayoutHint } from "../controllers/choice/OptionChoiceLayoutResolver";
@@ -229,8 +229,7 @@ export class OptionChoiceDialog {
 
   private resolveTextureKey(cardId?: string) {
     if (!cardId) return undefined;
-    const thumb = toThumbKey(cardId);
-    return thumb || undefined;
+    return toFullKey(cardId) || undefined;
   }
 
   private destroy() {

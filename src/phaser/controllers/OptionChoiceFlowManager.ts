@@ -7,7 +7,7 @@ import { createLogger } from "../utils/logger";
 import { buildChoiceEntryFromNotification, findActiveChoiceEntryFromRaw } from "./choice/ChoiceFlowUtils";
 import { applyChoiceActionBarState, cleanupDialog, isChoiceOwner } from "./choice/ChoiceUiLifecycle";
 import { mapOptionChoiceToDialogView } from "./choice/OptionChoiceViewMapper";
-import { withTutorSelectionStepHeader } from "./choice/TutorStepHeader";
+import { withTopDeckSelectionOptionStepHeader } from "./choice/TopDeckSelectionStepHeader";
 import { withInteractionLoading } from "./InteractionHooks";
 import type { InteractionHooks } from "./InteractionHooks";
 
@@ -164,7 +164,7 @@ export class OptionChoiceFlowManager {
       index: Number(o?.index ?? 0),
       action: (o?.payload?.action ?? "").toString() || undefined,
     }));
-    const headerText = withTutorSelectionStepHeader(
+    const headerText = withTopDeckSelectionOptionStepHeader(
       (this.queueEntry?.data?.headerText ?? "Choose Option").toString(),
       this.queueEntry?.data?.context,
     );

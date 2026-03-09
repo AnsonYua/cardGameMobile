@@ -1,5 +1,5 @@
 import { findCardByUid } from "../../utils/CardLookup";
-import { findTopDeckViewedCard } from "../../utils/TutorNotificationUtils";
+import { findTopDeckViewedCard } from "../../utils/TopDeckSelectionNotificationUtils";
 
 export function resolveOptionCardId(raw: any, option: any): string | undefined {
   const payload = option?.payload ?? {};

@@ -13,7 +13,7 @@ import {
   renderOptionChoiceTextDialog,
   renderTopBottomCardDecisionDialog,
 } from "./optionChoice/OptionChoiceDialogRenderers";
-import { toThumbKey } from "./HandTypes";
+import { toFullKey } from "./HandTypes";
 
 export type PromptChoiceDialogButton = {
   label: string;
@@ -187,8 +187,7 @@ export class PromptChoiceDialog {
 
   private resolveTextureKey(cardId?: string) {
     if (!cardId) return undefined;
-    const thumb = toThumbKey(cardId);
-    return thumb || undefined;
+    return toFullKey(cardId) || undefined;
   }
 
   private destroy() {

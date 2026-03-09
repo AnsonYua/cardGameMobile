@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { toFullKey, toThumbKey, type HandCardView } from "./HandTypes";
+import { toFullKey, type HandCardView } from "./HandTypes";
 import {
   getCardStatsLabel,
   getDialogBadgeOffset,
@@ -187,14 +187,14 @@ export class TrashCardGridRenderer {
   }
 
   private getCardTexture(card: any) {
-    const preferThumb = card?.preferThumb !== false;
+    const preferThumb = card?.preferThumb === true;
     const explicit = card?.textureKey;
     if (explicit) {
       return resolveDialogTextureKey(this.scene, String(explicit), { preferThumb });
     }
     const cardId = card?.cardId ?? card?.cardData?.id ?? card?.cardData?.cardId;
     if (cardId === "base" || cardId === "base_default") return "baseCard";
-    return resolveDialogTextureKey(this.scene, toThumbKey(cardId) || cardId, { preferThumb });
+    return resolveDialogTextureKey(this.scene, toFullKey(cardId) || cardId, { preferThumb });
   }
 
   private getPreviewTexture(card: any) {

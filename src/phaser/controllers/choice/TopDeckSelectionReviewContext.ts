@@ -1,4 +1,4 @@
-export type TutorTopDeckRevealCard = {
+export type TopDeckSelectionReviewCard = {
   carduid: string;
   cardId: string;
   name?: string;
@@ -8,17 +8,13 @@ export type TutorTopDeckRevealCard = {
   interactionState?: "read_only" | "selectable";
 };
 
-export function isTutorTopDeckRevealPrompt(context: any): boolean {
+export function isTopDeckSelectionReviewPrompt(context: any): boolean {
   const kind = (context?.kind ?? "").toString();
-  return kind === "TUTOR_TOP_DECK_REVEAL_CONFIRM" || kind === "DEPLOY_FROM_TOP_DECK_REVIEW_CONFIRM";
+  return kind === "TOP_DECK_SELECTION_REVIEW_CONFIRM";
 }
 
-export function getTutorTopDeckRevealCards(context: any): TutorTopDeckRevealCard[] {
-  const cards = Array.isArray(context?.tutor?.lookedCards)
-    ? context.tutor.lookedCards
-    : Array.isArray(context?.deployFromTopDeck?.lookedCards)
-      ? context.deployFromTopDeck.lookedCards
-      : [];
+export function getTopDeckSelectionReviewCards(context: any): TopDeckSelectionReviewCard[] {
+  const cards = Array.isArray(context?.topDeckSelection?.lookedCards) ? context.topDeckSelection.lookedCards : [];
   if (!Array.isArray(cards)) return [];
   return cards
     .filter((c: any) => !!c && typeof c === "object")
@@ -29,6 +25,6 @@ export function getTutorTopDeckRevealCards(context: any): TutorTopDeckRevealCard
     }));
 }
 
-export function getTutorStep2EligibilityHint(card: TutorTopDeckRevealCard): string {
+export function getTopDeckSelectionStep2EligibilityHint(card: TopDeckSelectionReviewCard): string {
   return card.step2Eligible ? "Eligible in Step 2" : "Not eligible in Step 2";
 }
