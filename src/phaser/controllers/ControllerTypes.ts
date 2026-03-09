@@ -2,7 +2,16 @@ import type { SlotViewModel, SlotOwner } from "../ui/SlotTypes";
 
 export type ActionControls = {
   setState?: (state: { descriptors: any[] }) => void;
-  setWaitingForOpponent?: (waiting: boolean, overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) => void;
+  setWaitingForOpponent?: (
+    waiting: boolean,
+    overrideButtons?: {
+      label: string;
+      onClick?: () => void;
+      enabled?: boolean;
+      primary?: boolean;
+      triggersRequestLoading?: boolean;
+    }[],
+  ) => void;
   setWaitingLabel?: (label: string) => void;
 };
 

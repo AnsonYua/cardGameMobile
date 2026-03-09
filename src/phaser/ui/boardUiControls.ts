@@ -25,17 +25,33 @@ export type ActionControls = {
   fadeIn: (duration?: number) => void;
   setButtons: (labels: string[]) => void;
   setActionHandler: (handler: (index: number) => void) => void;
-  setDescriptors: (buttons: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[]) => void;
+  setDescriptors: (
+    buttons: {
+      label: string;
+      onClick?: () => void;
+      enabled?: boolean;
+      primary?: boolean;
+      triggersRequestLoading?: boolean;
+    }[],
+  ) => void;
   setState: (state: { descriptors: any[] }) => void;
   setWaitingForOpponent: (
     waiting: boolean,
-    overrideButtons?: { label: string; onClick?: () => void; enabled?: boolean; primary?: boolean }[],
+    overrideButtons?: {
+      label: string;
+      onClick?: () => void;
+      enabled?: boolean;
+      primary?: boolean;
+      triggersRequestLoading?: boolean;
+    }[],
   ) => void;
   setWaitingLabel: (label: string) => void;
   getAutomationState?: () => {
     visible: boolean;
     waitingMode: boolean;
     waitingLabel: string;
+    transientLoading?: boolean;
+    loadingLabel?: string;
     buttons: { label: string; enabled: boolean; primary?: boolean }[];
   };
   invokeByIndex?: (index: number) => Promise<boolean> | boolean;

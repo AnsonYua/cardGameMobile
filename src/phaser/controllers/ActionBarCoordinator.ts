@@ -162,6 +162,7 @@ export class ActionBarCoordinator {
             {
               label: "Skip Blocker Phase",
               enabled: true,
+              triggersRequestLoading: true,
               onClick: () => this.deps.blockerFlow.skipBlockerStep(),
             },
           ],

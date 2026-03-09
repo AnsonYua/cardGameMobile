@@ -23,7 +23,7 @@ export function isMainPhase(raw: any, playerId: string) {
 }
 
 export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerReady: boolean, allowAttackShield: boolean) {
-  const descriptors: Array<{ id: string; label: string; enabled: boolean; primary?: boolean }> = [];
+  const descriptors: ActionDescriptor[] = [];
   if (opponentHasUnit) {
     descriptors.push({
       id: "attackUnit",
@@ -38,6 +38,7 @@ export function buildSlotActionDescriptors(opponentHasUnit: boolean, attackerRea
       label: "Attack Shield",
       enabled: attackerReady,
       primary: !descriptors.some((d) => d.primary),
+      triggersRequestLoading: true,
     });
   }
   descriptors.push({

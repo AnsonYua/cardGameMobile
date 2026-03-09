@@ -18,6 +18,7 @@ export type ActionDescriptor = {
   enabled: boolean;
   primary?: boolean;
   reason?: string;
+  triggersRequestLoading?: boolean;
 };
 
 export type ActionHandler = (ctx: ActionContext) => Promise<void | boolean>;

@@ -86,6 +86,7 @@ export class BlockerFlowManager {
         {
           label: "Skip Blocker Phase",
           enabled: !this.requestPending,
+          triggersRequestLoading: true,
           onClick: () => this.skipBlockerStep(),
         },
       ],

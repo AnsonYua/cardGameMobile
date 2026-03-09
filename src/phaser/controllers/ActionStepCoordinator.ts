@@ -122,6 +122,7 @@ export class ActionStepCoordinator {
             label: "Skip Action-Step",
             enabled: true,
             primary: true,
+            triggersRequestLoading: true,
             onClick: async () => {
               await this.deps.callbacks.onSkipAction();
             },
@@ -133,7 +134,13 @@ export class ActionStepCoordinator {
   }
 
   private buildDescriptorsForSelection(selection: any, targets: ActionTargetEntry[]) {
-    const descriptors: Array<{ label: string; enabled?: boolean; primary?: boolean; onClick?: () => Promise<void> | void }> = [];
+    const descriptors: Array<{
+      label: string;
+      enabled?: boolean;
+      primary?: boolean;
+      triggersRequestLoading?: boolean;
+      onClick?: () => Promise<void> | void;
+    }> = [];
     const raw = this.deps.engine.getSnapshot().raw as any;
     if (
       !selection ||
@@ -145,6 +152,7 @@ export class ActionStepCoordinator {
         label: "Trigger Card Effect",
         primary: true,
         enabled: true,
+        triggersRequestLoading: true,
         onClick: async () => {
           await this.deps.callbacks.onTriggerSelection(selection);
         },
@@ -164,6 +172,7 @@ export class ActionStepCoordinator {
           label: "Trigger Pilot Effect",
           enabled: true,
           primary: true,
+          triggersRequestLoading: slotEffects.pilot.options.length === 1,
           onClick: async () => {
             await this.deps.callbacks.onTriggerPilot(slot);
           },
@@ -174,6 +183,7 @@ export class ActionStepCoordinator {
           label: "Trigger Unit Effect",
           enabled: true,
           primary: pilotHasEffect ? false : true,
+          triggersRequestLoading: slotEffects.unit.options.length === 1,
           onClick: async () => {
             await this.deps.callbacks.onTriggerUnit(slot);
           },

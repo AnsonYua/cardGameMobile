@@ -229,6 +229,7 @@ export class SelectionActionController {
       label: d.label,
       enabled: d.enabled,
       primary: d.primary,
+      triggersRequestLoading: d.triggersRequestLoading === true,
       onClick: async () => {
         await this.runActionThenRefresh(d.id, "neutral");
       },

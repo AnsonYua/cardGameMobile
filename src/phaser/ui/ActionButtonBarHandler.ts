@@ -8,6 +8,7 @@ type ActionButtonConfig = {
   onClick?: () => void | Promise<void>;
   enabled?: boolean;
   primary?: boolean;
+  triggersRequestLoading?: boolean;
 };
 type ActionBarState = {
   descriptors: ActionButtonConfig[];
@@ -30,6 +31,8 @@ export class ActionButtonBarHandler {
   private visible = true;
   private background?: Phaser.GameObjects.GameObject;
   private waitingLabelText = "Waiting for opponent...";
+  private transientLoading = false;
+  private transientLoadingLabelText = "Loading...";
   private buttonContainer?: Phaser.GameObjects.Container;
   private maskShape?: Phaser.GameObjects.Graphics;
   private maskRect?: Phaser.Geom.Rectangle;
@@ -112,6 +115,7 @@ export class ActionButtonBarHandler {
       onClick: b?.onClick ?? (() => {}),
       enabled: b?.enabled ?? true,
       primary: (b as any)?.primary ?? false,
+      triggersRequestLoading: b?.triggersRequestLoading === true,
     }));
     this.setState({ descriptors: normalized });
   }
@@ -142,15 +146,20 @@ export class ActionButtonBarHandler {
   }
 
   getAutomationState() {
-    const buttons = this.getRenderableDescriptors().map((button) => ({
-      label: String(button.label || ""),
-      enabled: button.enabled !== false,
-      primary: button.primary === true,
-    }));
+    const buttons =
+      this.transientLoading || (this.waitingMode && !this.waitingOverride)
+        ? []
+        : this.getRenderableDescriptors().map((button) => ({
+            label: String(button.label || ""),
+            enabled: button.enabled !== false,
+            primary: button.primary === true,
+          }));
     return {
       visible: this.visible,
       waitingMode: this.waitingMode,
       waitingLabel: this.waitingLabelText,
+      transientLoading: this.transientLoading,
+      loadingLabel: this.transientLoadingLabelText,
       buttons,
     };
   }
@@ -250,8 +259,13 @@ export class ActionButtonBarHandler {
 
     this.waitingLabel?.destroy();
     this.waitingTween?.remove();
+    if (this.transientLoading) {
+      this.drawStatusLabel(barY, this.transientLoadingLabelText);
+      this.setVisible(this.visible);
+      return;
+    }
     if (this.waitingMode && !this.waitingOverride) {
-      this.drawWaitingLabel(barY);
+      this.drawStatusLabel(barY, this.waitingLabelText);
       this.setVisible(this.visible);
       return;
     }
@@ -467,6 +481,10 @@ export class ActionButtonBarHandler {
     if (!hasActionHandler && !hasOnClick) return false;
 
     this.actionInFlight = true;
+    const shouldShowTransientLoading = target.triggersRequestLoading === true;
+    if (shouldShowTransientLoading) {
+      this.setTransientLoading(true);
+    }
     this.syncHitAreaInteractivity();
 
     try {
@@ -479,7 +497,26 @@ export class ActionButtonBarHandler {
       return true;
     } finally {
       this.actionInFlight = false;
+      if (shouldShowTransientLoading) {
+        this.setTransientLoading(false);
+      }
       this.syncHitAreaInteractivity();
+    }
+  }
+
+  private setTransientLoading(loading: boolean, label = "Loading...") {
+    const nextLabel = label?.trim() ? label.trim() : "Loading...";
+    if (loading) {
+      this.transientLoading = true;
+      this.transientLoadingLabelText = nextLabel;
+      this.draw(this.lastOffset);
+      return;
+    }
+    const changed = this.transientLoading || this.transientLoadingLabelText !== nextLabel;
+    this.transientLoading = false;
+    this.transientLoadingLabelText = nextLabel;
+    if (changed) {
+      this.draw(this.lastOffset);
     }
   }
 
@@ -601,11 +638,11 @@ export class ActionButtonBarHandler {
     if (this.rightArrow) this.rightArrow.setVisible(false);
   }
 
-  private drawWaitingLabel(y: number) {
+  private drawStatusLabel(y: number, label: string) {
     this.waitingLabel?.destroy();
     this.waitingLabel = this.scene
       .add
-      .text(INTERNAL_W / 2, y, this.waitingLabelText, {
+      .text(INTERNAL_W / 2, y, label, {
         fontSize: "16px",
         fontFamily: "Arial",
         color: "#ffffff",

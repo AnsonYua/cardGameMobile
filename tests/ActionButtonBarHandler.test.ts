@@ -172,7 +172,13 @@ function createScene() {
 }
 
 function createHandler(
-  descriptors: Array<{ label: string; onClick?: () => Promise<void> | void; enabled?: boolean; primary?: boolean }>,
+  descriptors: Array<{
+    label: string;
+    onClick?: () => Promise<void> | void;
+    enabled?: boolean;
+    primary?: boolean;
+    triggersRequestLoading?: boolean;
+  }>,
 ) {
   const scene = createScene();
   const handler = new ActionButtonBarHandler(scene as any);
@@ -197,14 +203,17 @@ describe("ActionButtonBarHandler", () => {
           release = resolve;
         }),
     );
-    const { handler, hitAreas } = createHandler([{ label: "Attack", onClick }]);
+    const { handler, hitAreas } = createHandler([{ label: "Attack", onClick, triggersRequestLoading: true }]);
     const [attackButton] = hitAreas;
 
     const firstTap = click(attackButton);
 
     expect(onClick).toHaveBeenCalledTimes(1);
     expect((handler as any).actionInFlight).toBe(true);
-    expect(hitAreas.every((hit) => hit.interactive === false)).toBe(true);
+    expect(handler.getAutomationState().transientLoading).toBe(true);
+    expect(handler.getAutomationState().loadingLabel).toBe("Loading...");
+    expect(handler.getAutomationState().buttons).toHaveLength(0);
+    expect(((handler as any).hitAreas as FakeGameObject[])).toHaveLength(0);
 
     const secondTap = click(attackButton);
 
@@ -214,10 +223,11 @@ describe("ActionButtonBarHandler", () => {
     await Promise.all([firstTap, secondTap]);
 
     expect((handler as any).actionInFlight).toBe(false);
-    expect(hitAreas.every((hit) => hit.interactive === true)).toBe(true);
+    expect(handler.getAutomationState().transientLoading).toBe(false);
+    expect(((handler as any).hitAreas as FakeGameObject[]).every((hit) => hit.interactive === true)).toBe(true);
   });
 
-  it("disables every action-bar button while one action is still running", async () => {
+  it("hides every action-bar button while a request action is still running", async () => {
     let release!: () => void;
     const firstAction = vi.fn(
       () =>
@@ -226,16 +236,16 @@ describe("ActionButtonBarHandler", () => {
         }),
     );
     const secondAction = vi.fn(async () => undefined);
-    const { hitAreas } = createHandler([
-      { label: "Play", onClick: firstAction },
-      { label: "Skip", onClick: secondAction },
+    const { handler, hitAreas } = createHandler([
+      { label: "Play", onClick: firstAction, triggersRequestLoading: true },
+      { label: "Skip", onClick: secondAction, triggersRequestLoading: true },
     ]);
     const [playButton, skipButton] = hitAreas;
 
     const firstTap = click(playButton);
 
     expect(firstAction).toHaveBeenCalledTimes(1);
-    expect(hitAreas.every((hit) => hit.interactive === false)).toBe(true);
+    expect(((handler as any).hitAreas as FakeGameObject[])).toHaveLength(0);
 
     await click(skipButton);
 
@@ -244,7 +254,31 @@ describe("ActionButtonBarHandler", () => {
     release();
     await firstTap;
 
-    expect(hitAreas.every((hit) => hit.interactive === true)).toBe(true);
+    expect(((handler as any).hitAreas as FakeGameObject[]).every((hit) => hit.interactive === true)).toBe(true);
+  });
+
+  it("does not enter transient loading for local-only action-bar buttons", async () => {
+    let release!: () => void;
+    const onClick = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { handler, hitAreas } = createHandler([{ label: "Cancel", onClick }]);
+    const [cancelButton] = hitAreas;
+
+    const clickPromise = click(cancelButton);
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect((handler as any).actionInFlight).toBe(true);
+    expect(handler.getAutomationState().transientLoading).toBe(false);
+    expect(handler.getAutomationState().buttons).toHaveLength(1);
+
+    release();
+    await clickPromise;
+
+    expect(handler.getAutomationState().transientLoading).toBe(false);
   });
 
   it("re-enables the action bar after a failed action so the user can retry", async () => {
@@ -252,18 +286,46 @@ describe("ActionButtonBarHandler", () => {
       .fn<() => Promise<void>>()
       .mockRejectedValueOnce(new Error("forced failure"))
       .mockResolvedValueOnce(undefined);
-    const { handler, hitAreas } = createHandler([{ label: "Confirm", onClick }]);
+    const { handler, hitAreas } = createHandler([{ label: "Confirm", onClick, triggersRequestLoading: true }]);
     const [confirmButton] = hitAreas;
 
     await expect(click(confirmButton)).rejects.toThrow("forced failure");
 
     expect((handler as any).actionInFlight).toBe(false);
+    expect(handler.getAutomationState().transientLoading).toBe(false);
     expect(confirmButton.interactive).toBe(true);
 
     await click(confirmButton);
 
     expect(onClick).toHaveBeenCalledTimes(2);
     expect(confirmButton.interactive).toBe(true);
+  });
+
+  it("reveals the latest waiting state after request loading clears", async () => {
+    let release!: () => void;
+    const onClick = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { handler, hitAreas } = createHandler([{ label: "End Turn", onClick, triggersRequestLoading: true }]);
+    const [endTurnButton] = hitAreas;
+
+    const firstTap = click(endTurnButton);
+
+    handler.setWaitingLabel("Waiting for opponent...");
+    handler.setWaitingForOpponent(true);
+
+    expect(handler.getAutomationState().transientLoading).toBe(true);
+    expect(handler.getAutomationState().buttons).toHaveLength(0);
+
+    release();
+    await firstTap;
+
+    expect(handler.getAutomationState().transientLoading).toBe(false);
+    expect(handler.getAutomationState().waitingMode).toBe(true);
+    expect(handler.getAutomationState().buttons).toHaveLength(0);
   });
 
   it("prevents duplicate playerAction requests from rapid action-bar taps", async () => {
@@ -302,6 +364,7 @@ describe("ActionButtonBarHandler", () => {
     const { hitAreas } = createHandler([
       {
         label: "Skip Action-Step",
+        triggersRequestLoading: true,
         onClick: async () => {
           await executor.handleSkipAction();
         },

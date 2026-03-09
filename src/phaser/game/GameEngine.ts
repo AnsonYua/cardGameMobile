@@ -270,6 +270,7 @@ export class GameEngine {
           label: "Play Card",
           enabled: canPlay,
           primary: true,
+          triggersRequestLoading: true,
         });
       } else if (cardType === "unit") {
         descriptors.push({
@@ -277,14 +278,17 @@ export class GameEngine {
           label: "Play Card",
           enabled: canPlay,
           primary: true,
+          triggersRequestLoading: true,
         });
       } else if (cardType === "pilot") {
         const hasPairable = hasPairableUnit(this.lastRaw, ctx.playerId);
+        const willSubmitImmediately = !!this.pilotTargetUid;
         descriptors.push({
           id: "playPilotFromHand",
           label: "Play Card",
           enabled: canPlay && hasPairable,
           primary: true,
+          triggersRequestLoading: willSubmitImmediately,
         });
       } else if (cardType === "command") {
         const phase = (this.lastRaw as any)?.gameEnv?.phase;
@@ -292,11 +296,13 @@ export class GameEngine {
         const isPilotDesignation = fromPilotDesignation;
         const canPilotDuringMain = isCanonicalMainPhase(phase) && hasPairableUnit(this.lastRaw, ctx.playerId);
         const enabled = canPlay && (hasTimingWindow || (isPilotDesignation && canPilotDuringMain));
+        const triggersRequestLoading = !(fromPilotDesignation && !isBattleActionStep(this.lastRaw));
         descriptors.push({
           id: "playCommandFromHand",
           label: "Play Card",
           enabled,
           primary: true,
+          triggersRequestLoading,
         });
       }
 
@@ -364,6 +370,7 @@ export class GameEngine {
       label: "End Turn",
       enabled: true,
       primary: !descriptors.some((d) => d.primary),
+      triggersRequestLoading: true,
     });
     return descriptors;
   }
