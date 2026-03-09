@@ -8,6 +8,7 @@ type LobbyViewProps = {
 type LobbyStatus = "idle" | "loading" | "error";
 
 const POLL_INTERVAL_MS = 7000;
+const AI_MODE_ENABLED = false;
 
 const formatTimestamp = (value: string) => {
   const date = new Date(value);
@@ -92,7 +93,9 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
             <button
               className="lobby-create-button"
               type="button"
+              disabled={!AI_MODE_ENABLED}
               onClick={() => {
+                if (!AI_MODE_ENABLED) return;
                 const params = new URLSearchParams({
                   mode: "host",
                   aimode: "true",
@@ -101,6 +104,7 @@ export function LobbyView({ isFallback = false }: LobbyViewProps) {
                 });
                 window.location.href = `/game?${params.toString()}`;
               }}
+              title={!AI_MODE_ENABLED ? "Play with AI is currently disabled." : undefined}
             >
               Player with AI
             </button>

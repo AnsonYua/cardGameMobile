@@ -84,6 +84,14 @@ body,
   transform: translateY(-1px);
 }
 
+.lobby-create-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  border-color: rgba(124, 196, 255, 0.35);
+  background: rgba(71, 101, 210, 0.2);
+}
+
 .lobby-list {
   display: grid;
   gap: 12px;
