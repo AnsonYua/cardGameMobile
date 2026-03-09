@@ -192,7 +192,7 @@ export class ShareGameDialog {
         .rectangle(0, copyButtonY, copyButtonW, copyButtonH, 0x000000, 0.001)
         .setDepth(this.depth + 5);
       copyButtonHit.setInteractive({ useHandCursor: true });
-      copyButtonHit.on("pointerdown", () => this.handleCopy(shareUrl, copyButtonLabel));
+      copyButtonHit.on("pointerdown", () => void this.handleCopy(shareUrl, copyButtonLabel));
       copyButtonHit.on("pointerover", () =>
         redrawRoundedGraphics({
           target: copyButtonBg,
@@ -262,9 +262,9 @@ export class ShareGameDialog {
     });
   }
 
-  private handleCopy(targetUrl: string, label: Phaser.GameObjects.Text) {
-    this.copyToClipboard(targetUrl);
-    label.setText("Copied");
+  private async handleCopy(targetUrl: string, label: Phaser.GameObjects.Text) {
+    const copied = await this.copyToClipboard(targetUrl);
+    label.setText(copied ? "Copied" : "Copy Failed");
     this.copyResetTimer?.remove(false);
     this.copyResetTimer = this.scene.time.delayedCall(1200, () => {
       if (label.active) {
@@ -274,28 +274,53 @@ export class ShareGameDialog {
     });
   }
 
-  private copyToClipboard(text: string) {
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).catch(() => this.execFallbackCopy(text));
-      return;
+  private async copyToClipboard(text: string): Promise<boolean> {
+    if (this.execFallbackCopy(text)) {
+      return true;
     }
-    this.execFallbackCopy(text);
+
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
   }
 
-  private execFallbackCopy(text: string) {
-    if (typeof document === "undefined") return;
+  private execFallbackCopy(text: string): boolean {
+    if (typeof document === "undefined") return false;
+
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     try {
       const textarea = document.createElement("textarea");
       textarea.value = text;
       textarea.style.position = "fixed";
-      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      textarea.style.left = "0";
+      textarea.style.width = "1px";
+      textarea.style.height = "1px";
+      textarea.style.padding = "0";
+      textarea.style.border = "0";
+      textarea.style.outline = "0";
+      textarea.style.boxShadow = "none";
+      textarea.style.background = "transparent";
+      textarea.style.opacity = "0";
+      textarea.style.fontSize = "16px";
+      textarea.setAttribute("readonly", "");
       document.body.appendChild(textarea);
-      textarea.focus();
+      textarea.focus({ preventScroll: true });
       textarea.select();
-      document.execCommand("copy");
+      textarea.setSelectionRange(0, textarea.value.length);
+      const copied = document.execCommand("copy");
       document.body.removeChild(textarea);
+      activeElement?.focus?.({ preventScroll: true });
+      return copied;
     } catch {
-      // no-op
+      return false;
     }
   }
 
