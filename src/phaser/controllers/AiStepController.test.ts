@@ -14,6 +14,99 @@ function createScene() {
 }
 
 describe("AiStepController", () => {
+  test("bootstraps a setup-phase AI step immediately after a snapshot update", async () => {
+    const scene = createScene();
+    const api = {
+      advanceAiStep: vi.fn(async () => ({
+        success: true,
+        gameEnv: { aiPlayerIds: ["player_ai"], phase: "REDRAW_PHASE" },
+        aiAutoplay: { isAiMatch: true, hasMoreAiWork: false, throttleWaitMs: 0 },
+      })),
+    };
+    const engine = {
+      getSnapshot: vi.fn(() => ({
+        raw: {
+          aiAutoplay: { hasMoreAiWork: true, throttleWaitMs: 0 },
+          gameEnv: { aiPlayerIds: ["player_ai"], phase: "DECIDE_FIRST_PLAYER_PHASE" },
+        },
+      })),
+      updateGameStatus: vi.fn(async () => undefined),
+    };
+    const contextStore = {
+      get: vi.fn(() => ({
+        gameId: "game_1",
+        playerId: "player_human",
+        isAutoPolling: true,
+        isAiMatch: true,
+      })),
+    };
+
+    const controller = new AiStepController({
+      scene: scene as any,
+      api: api as any,
+      engine: engine as any,
+      contextStore: contextStore as any,
+      isAnimationQueueRunning: () => false,
+    });
+
+    controller.handleSnapshotUpdated();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(api.advanceAiStep).toHaveBeenCalledTimes(1);
+    expect(api.advanceAiStep).toHaveBeenCalledWith({
+      gameId: "game_1",
+      playerId: "player_human",
+    });
+  });
+
+  test("does not bootstrap a non-setup AI step before animation idle", async () => {
+    const scene = createScene();
+    const api = {
+      advanceAiStep: vi.fn(async () => ({
+        success: true,
+        gameEnv: { aiPlayerIds: ["player_ai"] },
+        aiAutoplay: { isAiMatch: true, hasMoreAiWork: false, throttleWaitMs: 0 },
+      })),
+    };
+    const engine = {
+      getSnapshot: vi.fn(() => ({
+        raw: {
+          aiAutoplay: { hasMoreAiWork: true, throttleWaitMs: 0 },
+          gameEnv: { aiPlayerIds: ["player_ai"], phase: "MAIN_PHASE" },
+        },
+      })),
+      updateGameStatus: vi.fn(async () => undefined),
+    };
+    const contextStore = {
+      get: vi.fn(() => ({
+        gameId: "game_1",
+        playerId: "player_human",
+        isAutoPolling: true,
+        isAiMatch: true,
+      })),
+    };
+
+    const controller = new AiStepController({
+      scene: scene as any,
+      api: api as any,
+      engine: engine as any,
+      contextStore: contextStore as any,
+      isAnimationQueueRunning: () => false,
+    });
+
+    controller.handleSnapshotUpdated();
+    await Promise.resolve();
+
+    expect(api.advanceAiStep).not.toHaveBeenCalled();
+
+    controller.handleAnimationQueueIdle();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(api.advanceAiStep).toHaveBeenCalledTimes(1);
+  });
+
   test("advances one AI step after animation idle in AI matches", async () => {
     const scene = createScene();
     const api = {

@@ -29,13 +29,28 @@ export class AiStepController {
     this.syncFromLatestSnapshot("animation_idle");
   }
 
-  private syncFromLatestSnapshot(source: string) {
+  handleSnapshotUpdated() {
+    this.syncFromLatestSnapshot("snapshot_updated", { allowSetupBootstrap: true });
+  }
+
+  private syncFromLatestSnapshot(source: string, opts: { allowSetupBootstrap?: boolean } = {}) {
     const raw = this.deps.engine.getSnapshot().raw as any;
     if (!this.shouldDriveAi(raw)) {
       this.clearRetry();
       return;
     }
-    if (this.inFlight || this.deps.isAnimationQueueRunning()) {
+    if (this.inFlight) {
+      return;
+    }
+
+    const isSetupLike = this.isSetupLike(raw);
+    if (opts.allowSetupBootstrap && !isSetupLike) {
+      return;
+    }
+    if (this.deps.isAnimationQueueRunning() && !(opts.allowSetupBootstrap && isSetupLike)) {
+      return;
+    }
+    if (!opts.allowSetupBootstrap && isSetupLike) {
       return;
     }
 
@@ -68,6 +83,15 @@ export class AiStepController {
     const value = Number(raw?.retryAfterMs ?? raw?.aiAutoplay?.throttleWaitMs ?? 0);
     if (!Number.isFinite(value) || value <= 0) return 0;
     return Math.max(50, Math.round(value));
+  }
+
+  private isSetupLike(raw: any): boolean {
+    const phase = raw?.gameEnv?.phase ?? raw?.phase;
+    if (phase === "DECIDE_FIRST_PLAYER_PHASE" || phase === "REDRAW_PHASE") {
+      return true;
+    }
+    const unresolved = findLatestUnresolvedChoiceOwner(raw);
+    return Boolean(unresolved?.ownerPlayerId) && !this.hasBlockingSelfPrompt(raw, this.deps.contextStore.get().playerId ?? "");
   }
 
   private scheduleRetry(delayMs: number, source: string) {

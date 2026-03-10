@@ -16,6 +16,7 @@ type EventBindingDeps = {
   pilotFlow?: { showPilotDesignationDialog: () => void; showPilotTargetDialog: (actionId: string) => void } | null;
   selectionAction?: { refreshActions: (source: "neutral") => void } | null;
   onMainPhaseUpdate: (silent: boolean, snapshot: GameStatusSnapshot) => void;
+  onStatusUpdate?: (snapshot: GameStatusSnapshot) => void;
   onShowLoading: () => void;
   onHideLoading: () => void;
 };
@@ -49,6 +50,7 @@ export function bindBoardSceneEvents(deps: EventBindingDeps) {
   deps.engine.events.on(ENGINE_EVENTS.LOADING_END, () => deps.onHideLoading());
   deps.engine.events.on(ENGINE_EVENTS.STATUS, (snapshot: GameStatusSnapshot) => {
     deps.dialogCoordinator.updateFromSnapshot(snapshot);
+    deps.onStatusUpdate?.(snapshot);
   });
   deps.match.events.on("status", () => {
     deps.dialogCoordinator.updateFromSnapshot();

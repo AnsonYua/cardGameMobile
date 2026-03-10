@@ -494,6 +494,7 @@ export class BoardScene extends Phaser.Scene {
       pilotFlow: this.pilotFlow,
       selectionAction: this.selectionAction,
       onMainPhaseUpdate: (silent, snapshot) => this.mainPhaseUpdate(silent, snapshot),
+      onStatusUpdate: () => this.aiStepController?.handleSnapshotUpdated(),
       onShowLoading: () => this.showLoading(),
       onHideLoading: () => this.hideLoading(),
     });
