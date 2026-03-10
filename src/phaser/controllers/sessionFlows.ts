@@ -114,7 +114,7 @@ export async function runHostFlow(
     isAutoPolling?: boolean;
   },
 ) {
-  const { match, contextStore, debugControls } = deps;
+  const { match, engine, contextStore, debugControls } = deps;
   const context = contextStore.get();
   const hostName = params.playerName || context.playerName || "Demo Player";
   contextStore.update({
@@ -146,6 +146,11 @@ export async function runHostFlow(
     source: "host",
     emptyDeckMessage: "Deck is empty. Please setup your deck before creating a room.",
     submit: (payload) => match.submitDeck(hostGameId, hostPlayerId, payload),
+  });
+  const statusPayload = (await match.getGameStatus(hostGameId, hostPlayerId)) as GameStatusResponse;
+  await engine.updateGameStatus(hostGameId, hostPlayerId, {
+    statusPayload,
+    allowEnvScanFallback: false,
   });
   void debugControls;
 }

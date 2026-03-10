@@ -21,7 +21,8 @@ export class MatchStateMachine {
     this.transition(GameStatus.CreatingRoom);
     const resp = await this.session.startAsHost(gameConfig, opts);
     this.gameId = resp?.gameId ?? resp?.roomId ?? null;
-    this.transition(GameStatus.WaitingOpponent);
+    const isAiMatch = Array.isArray((resp as any)?.gameEnv?.aiPlayerIds) && (resp as any).gameEnv.aiPlayerIds.length > 0;
+    this.transition(isAiMatch ? GameStatus.Ready : GameStatus.WaitingOpponent);
     return resp;
     /*
     // Placeholder: simulate opponent join after short delay.

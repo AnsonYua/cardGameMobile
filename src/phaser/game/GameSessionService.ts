@@ -47,7 +47,8 @@ export class GameSessionService {
       sessionToken: resp?.sessionToken,
       sessionExpiresAt: resp?.sessionExpiresAt,
     });
-    this.status = GameStatus.WaitingOpponent;
+    const isAiMatch = Array.isArray((resp as any)?.gameEnv?.aiPlayerIds) && (resp as any).gameEnv.aiPlayerIds.length > 0;
+    this.status = isAiMatch ? GameStatus.Ready : GameStatus.WaitingOpponent;
     return resp;
   }
 
