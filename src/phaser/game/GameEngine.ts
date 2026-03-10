@@ -22,6 +22,8 @@ import { isBattleActionStep, isBattleStateConsistent } from "./battleUtils";
 import { createLogger } from "../utils/logger";
 import { hasPilotDesignationRule } from "../utils/pilotDesignation";
 import { isMainPhase as isCanonicalMainPhase } from "./phaseUtils";
+import { resolveImmediateAbilityActivation } from "../controllers/ability/immediateAbilityActivation";
+import { analyzeUnitPlaySubmission } from "../controllers/unit/unitPlaySubmission";
 
 export type GameStatusSnapshot = {
   status: any;
@@ -273,12 +275,17 @@ export class GameEngine {
           triggersRequestLoading: true,
         });
       } else if (cardType === "unit") {
+        const unitPlay = analyzeUnitPlaySubmission({
+          raw: this.lastRaw,
+          playerId: ctx.playerId,
+          selectionUid: selection.uid,
+        });
         descriptors.push({
           id: "playUnitFromHand",
           label: "Play Card",
           enabled: canPlay,
           primary: true,
-          triggersRequestLoading: true,
+          triggersRequestLoading: unitPlay.submitsImmediately,
         });
       } else if (cardType === "pilot") {
         const hasPairable = hasPairableUnit(this.lastRaw, ctx.playerId);
@@ -326,11 +333,18 @@ export class GameEngine {
         ...(slotCards?.pilot ? getActivatedEffectOptions(slotCards.pilot, raw, playerId) : []),
       ];
       if (options.length) {
+        const immediateActivation = resolveImmediateAbilityActivation({
+          raw,
+          selection,
+          playerId,
+        });
+        const hasEnabledActivation = options.some((option) => option?.enabled === true);
         descriptors.push({
           id: "activateEffect",
           label: "Activate Effect",
-          enabled: true,
+          enabled: hasEnabledActivation,
           primary: true,
+          triggersRequestLoading: !!immediateActivation,
         });
       }
       descriptors.push({
@@ -348,11 +362,18 @@ export class GameEngine {
         const baseCard = findBaseCard(raw, playerId);
         const options = getActivatedEffectOptions(baseCard, raw, playerId);
         if (options.length) {
+          const immediateActivation = resolveImmediateAbilityActivation({
+            raw,
+            selection,
+            playerId,
+          });
+          const hasEnabledActivation = options.some((option) => option?.enabled === true);
           descriptors.push({
             id: "activateEffect",
             label: "Activate Effect",
-            enabled: true,
+            enabled: hasEnabledActivation,
             primary: true,
+            triggersRequestLoading: !!immediateActivation,
           });
         }
       }

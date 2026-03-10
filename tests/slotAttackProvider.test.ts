@@ -208,4 +208,40 @@ describe("slotAttackProvider", () => {
     expect(attackUnit).toBeTruthy();
     expect(attackUnit?.enabled).toBe(true);
   });
+
+  it("preserves request-loading metadata for Attack Shield", () => {
+    const raw = {
+      gameEnv: {
+        phase: "MAIN_PHASE",
+        players: {
+          playerId_1: {
+            zones: {
+              slot1: {
+                unit: {
+                  carduid: "slot1_unit",
+                  cardData: {
+                    effects: {
+                      rules: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const descriptors = buildSlotAttackActionDescriptors({
+      raw,
+      selection: { kind: "slot", owner: "player", slotId: "slot1" },
+      selectedSlot: createSelectedSlot("slot1"),
+      opponentUnitSlots: [],
+      playerId: "playerId_1",
+    });
+
+    const attackShield = descriptors.find((d) => d.id === "attackShieldArea");
+    expect(attackShield).toBeTruthy();
+    expect(attackShield?.triggersRequestLoading).toBe(true);
+  });
 });

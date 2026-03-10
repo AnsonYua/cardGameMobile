@@ -4,7 +4,12 @@ import { hasEffectActivationWindow } from "../game/effectTiming";
 import type { SlotViewModel } from "../ui/SlotTypes";
 import type { SlotPresenter } from "../ui/SlotPresenter";
 import type { GameEngine } from "../game/GameEngine";
-import { getActionStepActivatedEffectOptionsForSlot, slotHasActionStepActivatedEffects } from "./ActionStepEffectOptions";
+import {
+  getActionStepActivatedEffectOptionsForSlot,
+  getSingleEnabledActionStepEffectOption,
+  hasEnabledActionStepEffect,
+  slotHasActionStepActivatedEffects,
+} from "./ActionStepEffectOptions";
 import {
   ActionTargetEntry,
   getActionTargetsForPlayer,
@@ -167,12 +172,16 @@ export class ActionStepCoordinator {
       });
       const pilotHasEffect = slotEffects.pilot.options.length > 0;
       const unitHasEffect = slotEffects.unit.options.length > 0;
+      const pilotEnabled = hasEnabledActionStepEffect(slotEffects.pilot);
+      const unitEnabled = hasEnabledActionStepEffect(slotEffects.unit);
+      const singleEnabledPilotEffect = getSingleEnabledActionStepEffectOption(slotEffects.pilot);
+      const singleEnabledUnitEffect = getSingleEnabledActionStepEffectOption(slotEffects.unit);
       if (pilotHasEffect) {
         descriptors.push({
           label: "Trigger Pilot Effect",
-          enabled: true,
+          enabled: pilotEnabled,
           primary: true,
-          triggersRequestLoading: slotEffects.pilot.options.length === 1,
+          triggersRequestLoading: !!singleEnabledPilotEffect,
           onClick: async () => {
             await this.deps.callbacks.onTriggerPilot(slot);
           },
@@ -181,9 +190,9 @@ export class ActionStepCoordinator {
       if (unitHasEffect) {
         descriptors.push({
           label: "Trigger Unit Effect",
-          enabled: true,
+          enabled: unitEnabled,
           primary: pilotHasEffect ? false : true,
-          triggersRequestLoading: slotEffects.unit.options.length === 1,
+          triggersRequestLoading: !!singleEnabledUnitEffect,
           onClick: async () => {
             await this.deps.callbacks.onTriggerUnit(slot);
           },

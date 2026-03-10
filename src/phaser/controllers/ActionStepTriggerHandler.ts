@@ -5,7 +5,10 @@ import type { GameEngine } from "../game/GameEngine";
 import type { ActionTargetEntry } from "./ActionStepUtils";
 import type { ActionExecutor } from "./ActionExecutor";
 import type { AbilityActivationFlowController } from "./AbilityActivationFlowController";
-import { getActionStepActivatedEffectOptionsForSlotCard } from "./ActionStepEffectOptions";
+import {
+  getActionStepActivatedEffectOptionsForSlotCard,
+  getSingleEnabledActionStepEffectOption,
+} from "./ActionStepEffectOptions";
 
 export class ActionStepTriggerHandler {
   constructor(
@@ -72,8 +75,9 @@ export class ActionStepTriggerHandler {
       return;
     }
 
-    if (resolved.options.length === 1) {
-      await this.deps.actionExecutor.handleActivateCardAbility(resolved.carduid, resolved.options[0].effectId);
+    const singleEnabledOption = getSingleEnabledActionStepEffectOption(resolved);
+    if (singleEnabledOption) {
+      await this.deps.actionExecutor.handleActivateCardAbility(resolved.carduid, singleEnabledOption.effectId);
       return;
     }
 

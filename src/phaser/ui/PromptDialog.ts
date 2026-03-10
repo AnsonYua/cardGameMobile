@@ -66,7 +66,7 @@ export function createPromptDialog(
   tempHeader?.destroy();
   tempPrompt?.destroy();
 
-  const { dialog, content, header } = createDialogShell(scene, cfg, layout, {
+  const { dialog, content, header, closeButton, closeLabel, overlay } = createDialogShell(scene, cfg, layout, {
     centerX: cam.centerX,
     centerY: cam.centerY,
     headerText: opts.headerText,
@@ -115,5 +115,5 @@ export function createPromptDialog(
   if (prompt) nodes.push(prompt);
   buttons.forEach((btn) => nodes.push(btn.rect, btn.txt));
   content.add(nodes);
-  return { dialog, buttons, layout };
+  return { dialog, buttons, layout, closeButton, closeLabel, overlay };
 }

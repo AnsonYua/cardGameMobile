@@ -25,6 +25,7 @@ import { getUserFacingActionErrorMessage, showActionError } from "./ActionErrorU
 import { isDebugFlagEnabled } from "../utils/debugFlags";
 import { withInteractionLoading } from "./InteractionHooks";
 import type { InteractionHooks } from "./InteractionHooks";
+import { resolveImmediateAbilityActivation } from "./ability/immediateAbilityActivation";
 
 type HandControls = {
   setHand: (cards: HandCardView[], opts?: { preserveSelectionUid?: string }) => void;
@@ -187,6 +188,19 @@ export class SelectionActionController {
     if (actionId === "activateEffect") {
       const rawSnapshot: any = this.deps.engine.getSnapshot().raw;
       const selectionSnapshot: any = this.deps.engine.getSelection();
+      const immediateActivation = resolveImmediateAbilityActivation({
+        raw: rawSnapshot,
+        selection: selectionSnapshot,
+        playerId: this.deps.gameContext.playerId,
+      });
+      if (immediateActivation) {
+        await this.actionExecutor.handleActivateCardAbility(
+          immediateActivation.carduid,
+          immediateActivation.effectId,
+        );
+        this.deps.onPlayerAction?.(actionId);
+        return;
+      }
       await this.abilityFlow.showAbilityChoiceDialog({ raw: rawSnapshot, selection: selectionSnapshot });
       // Reset selection + action bar to defaults while the dialog is open.
       this.selectionHandler.clearSelectionUI({ clearEngine: true });

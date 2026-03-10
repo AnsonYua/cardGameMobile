@@ -188,5 +188,6 @@ export function buildSlotAttackActionDescriptors(input: {
       label: d.label,
       enabled: d.enabled,
       primary: d.primary,
+      triggersRequestLoading: d.triggersRequestLoading === true,
     }));
 }

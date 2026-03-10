@@ -88,3 +88,16 @@ export function slotHasActionStepActivatedEffects(params: {
   const resolved = getActionStepActivatedEffectOptionsForSlot(params);
   return resolved.unit.options.length > 0 || resolved.pilot.options.length > 0;
 }
+
+export function getSingleEnabledActionStepEffectOption(
+  resolution?: ActionStepCardEffectResolution,
+): ActivatedEffectOption | undefined {
+  const enabled = Array.isArray(resolution?.options)
+    ? resolution.options.filter((option) => option?.enabled === true)
+    : [];
+  return enabled.length === 1 ? enabled[0] : undefined;
+}
+
+export function hasEnabledActionStepEffect(resolution?: ActionStepCardEffectResolution): boolean {
+  return Array.isArray(resolution?.options) && resolution.options.some((option) => option?.enabled === true);
+}

@@ -13,6 +13,7 @@ import {
   toUserFacingActionError,
   UNIT_BOARD_FULL_REPLACE_MESSAGE,
 } from "./unit/UnitReplaceFlowUtils";
+import { analyzeUnitPlaySubmission } from "./unit/unitPlaySubmission";
 
 type CostReplacementChoice = {
   useCostReplacement: true;
@@ -42,6 +43,16 @@ export class UnitFlowController {
 
     const replacement = await this.resolveCostReplacementChoice(ctx);
     if (replacement.cancelled) {
+      return false;
+    }
+
+    const submission = analyzeUnitPlaySubmission({
+      raw: this.deps?.engine?.getSnapshot().raw,
+      playerId: ctx.playerId,
+      selectionUid: sel.uid,
+    });
+    if (submission.requiresBoardReplacementSelection && this.canShowReplaceDialog()) {
+      this.openReplaceDialog(ctx, replacement.choice);
       return false;
     }
 
