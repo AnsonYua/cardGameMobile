@@ -32,7 +32,7 @@ export function createSelectionActionController(deps: SelectionActionControllerD
   const getController = () => controller;
 
   const slotGate = new SlotInteractionGate(deps.slotControls ?? null);
-  const attackCoordinator = new AttackTargetCoordinator(deps.actionControls ?? null);
+  const attackCoordinator = new AttackTargetCoordinator(deps.actionControls ?? null, slotGate);
   const blockerFlow = new BlockerFlowManager({
     api: deps.api,
     engine: deps.engine,

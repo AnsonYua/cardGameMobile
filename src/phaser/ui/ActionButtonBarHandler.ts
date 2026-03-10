@@ -504,7 +504,7 @@ export class ActionButtonBarHandler {
     }
   }
 
-  private setTransientLoading(loading: boolean, label = "Loading...") {
+  setTransientLoading(loading: boolean, label = "Loading...") {
     const nextLabel = label?.trim() ? label.trim() : "Loading...";
     if (loading) {
       this.transientLoading = true;

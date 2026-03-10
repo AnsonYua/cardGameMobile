@@ -2,6 +2,7 @@ import type { SlotViewModel, SlotOwner } from "../ui/SlotTypes";
 
 export type ActionControls = {
   setState?: (state: { descriptors: any[] }) => void;
+  setTransientLoading?: (loading: boolean, label?: string) => void;
   setWaitingForOpponent?: (
     waiting: boolean,
     overrideButtons?: {

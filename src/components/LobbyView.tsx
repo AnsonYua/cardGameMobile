@@ -8,7 +8,7 @@ type LobbyViewProps = {
 type LobbyStatus = "idle" | "loading" | "error";
 
 const POLL_INTERVAL_MS = 7000;
-const AI_MODE_ENABLED = false;
+const AI_MODE_ENABLED = true;
 
 const formatTimestamp = (value: string) => {
   const date = new Date(value);

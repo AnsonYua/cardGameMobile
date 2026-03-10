@@ -35,6 +35,7 @@ export type ActionControls = {
     }[],
   ) => void;
   setState: (state: { descriptors: any[] }) => void;
+  setTransientLoading: (loading: boolean, label?: string) => void;
   setWaitingForOpponent: (
     waiting: boolean,
     overrideButtons?: {
@@ -93,6 +94,7 @@ export function createActionControls(actions: ActionButtonBarHandler): ActionCon
     setActionHandler: (handler: (index: number) => void) => actions.setActionHandler(handler),
     setDescriptors: (buttons) => actions.setDescriptors(buttons),
     setState: (state: { descriptors: any[] }) => actions.setState(state),
+    setTransientLoading: (loading: boolean, label?: string) => actions.setTransientLoading(loading, label),
     setWaitingForOpponent: (waiting, overrideButtons) => actions.setWaitingForOpponent(waiting, overrideButtons),
     setWaitingLabel: (label: string) => actions.setWaitingLabel(label),
     getAutomationState: () => actions.getAutomationState(),
