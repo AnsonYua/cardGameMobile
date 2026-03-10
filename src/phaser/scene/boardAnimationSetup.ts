@@ -64,6 +64,7 @@ export type AnimationPipelineParams = {
   updateHandArea: (opts: { skipAnimation?: boolean }) => void;
   shouldRefreshHandForEvent: (event: SlotNotification) => boolean;
   handleAnimationQueueIdle: () => void;
+  onPostRefreshComplete?: () => void;
   onGameEnded?: (info: GameEndInfo) => void;
   onTurnStartDrawPopupStart?: () => void;
   onTurnStartDrawPopupEnd?: () => void;
@@ -94,6 +95,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
     updateHandArea,
     shouldRefreshHandForEvent,
     handleAnimationQueueIdle,
+    onPostRefreshComplete,
     onLoadingStart,
     onLoadingEnd,
     onTurnStartDrawPopupStart,
@@ -154,6 +156,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
         await api.startReady({ gameId, playerId, isRedraw });
         const snapshot = await engine.updateGameStatus(gameId, playerId);
         dialogCoordinator.updateFromSnapshot(snapshot);
+        onPostRefreshComplete?.();
         await engine.loadGameResources(gameId, playerId, snapshot.raw);
       });
     },
@@ -166,6 +169,7 @@ export function setupAnimationPipeline(params: AnimationPipelineParams): Animati
       await withInteractionLoading({ onLoadingStart, onLoadingEnd }, async () => {
         await api.chooseFirstPlayer({ gameId, playerId, chosenFirstPlayerId });
         await engine.updateGameStatus(gameId, playerId);
+        onPostRefreshComplete?.();
       });
     },
     resolveSlotOwnerByPlayer,

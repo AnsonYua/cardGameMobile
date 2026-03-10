@@ -330,6 +330,7 @@ export class BoardScene extends Phaser.Scene {
       updateHandArea: (opts) => this.updateHandArea(opts),
       shouldRefreshHandForEvent: (event) => this.shouldRefreshHandForEvent(event),
       handleAnimationQueueIdle: () => this.handleAnimationQueueIdle(),
+      onPostRefreshComplete: () => this.aiStepController?.handleSnapshotUpdated(),
       onGameEnded: (info) => this.handleGameEnded(info),
       onLoadingStart: interactionHooks.onLoadingStart,
       onLoadingEnd: interactionHooks.onLoadingEnd,

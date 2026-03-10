@@ -33,6 +33,13 @@ export type GameStatusSnapshot = {
 
 export type ActionSource = "hand" | "slot" | "base" | "neutral";
 
+type UpdateGameStatusOptions = {
+  fromScenario?: boolean;
+  silent?: boolean;
+  statusPayload?: GameStatusResponse | null;
+  allowEnvScanFallback?: boolean;
+};
+
 export class GameEngine {
   public events = new Phaser.Events.EventEmitter();
   private readonly log = createLogger("GameEngine");
@@ -49,6 +56,7 @@ export class GameEngine {
   private pilotTargetUid?: string;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
+  private statusRefreshQueue: Promise<void> = Promise.resolve();
 
   constructor(scene: Phaser.Scene, private match: MatchStateMachine, private contextStore: GameContextStore) {
     this.resourceLoader = new CardResourceLoader(scene);
@@ -64,12 +72,25 @@ export class GameEngine {
   async updateGameStatus(
     gameId?: string,
     playerId?: string,
-    opts: {
-      fromScenario?: boolean;
-      silent?: boolean;
-      statusPayload?: GameStatusResponse | null;
-      allowEnvScanFallback?: boolean;
-    } = {},
+    opts: UpdateGameStatusOptions = {},
+  ) {
+    if (!gameId || !playerId) return this.getSnapshot();
+
+    const run = this.statusRefreshQueue.then(
+      () => this.performUpdateGameStatus(gameId, playerId, opts),
+      () => this.performUpdateGameStatus(gameId, playerId, opts),
+    );
+    this.statusRefreshQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async performUpdateGameStatus(
+    gameId: string,
+    playerId: string,
+    opts: UpdateGameStatusOptions = {},
   ) {
     if (!gameId || !playerId) return this.getSnapshot();
     const snapshotNow = () => this.getSnapshot();
