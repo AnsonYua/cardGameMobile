@@ -55,6 +55,10 @@ export type ChooseFirstPlayerPayload = {
   playerId: string;
   chosenFirstPlayerId: string;
 };
+export type AdvanceAiStepPayload = {
+  gameId: string;
+  playerId: string;
+};
 export type LobbyRoomSummary = {
   gameId: string;
   createdAt: string;
@@ -209,6 +213,10 @@ export class ApiManager {
 
   endTurn(payload: { playerId: string; gameId: string }) {
     return this.client.postJson("/api/game/player/endTurn", payload, { auth: true });
+  }
+
+  advanceAiStep(payload: AdvanceAiStepPayload): Promise<any> {
+    return this.client.postJson("/api/game/player/advanceAiStep", payload, { auth: true });
   }
 
   confirmTargetChoice(payload: {

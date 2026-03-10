@@ -93,6 +93,9 @@ export class GameEngine {
       const normalizedResponse = this.normalizeBattleState(response);
       this.logStatusPoll(gameId, playerId, normalizedResponse);
       this.logStatusQueues(normalizedResponse);
+      this.contextStore.update({
+        isAiMatch: this.deriveIsAiMatch(normalizedResponse),
+      });
 
       // Prefer explicit status fields, otherwise fall back to the entire payload.
       // If the backend omits a status (common during polling), keep the last known status so UI (header) doesn't revert.
@@ -171,6 +174,12 @@ export class GameEngine {
   private deriveStatus(response: GameStatusResponse, previousStatus: any) {
     const fallback = typeof response === "string" ? response : previousStatus;
     return response?.status ?? response?.gameStatus ?? fallback;
+  }
+
+  private deriveIsAiMatch(response: GameStatusResponse): boolean {
+    if (response?.aiAutoplay?.isAiMatch === true) return true;
+    const aiPlayerIds = response?.gameEnv?.aiPlayerIds;
+    return Array.isArray(aiPlayerIds) && aiPlayerIds.length > 0;
   }
 
   private normalizeBattleState(response: GameStatusResponse): GameStatusResponse {

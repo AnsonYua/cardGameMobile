@@ -56,6 +56,7 @@ import { disableBoardInputs } from "./scene/inputGate";
 import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
 import { SessionController } from "./controllers/SessionController";
+import { AiStepController } from "./controllers/AiStepController";
 import { TurnStartDrawGate } from "./controllers/TurnStartDrawGate";
 import { createLogger } from "./utils/logger";
 import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
@@ -162,6 +163,7 @@ export class BoardScene extends Phaser.Scene {
   private gameOverDialogUi?: GameOverDialog;
   private dialogCoordinator = new DialogCoordinator(this.match, this.contextStore);
   private sessionController?: SessionController;
+  private aiStepController?: AiStepController;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -204,7 +206,10 @@ export class BoardScene extends Phaser.Scene {
       this,
       (visible, label) => this.headerControls?.setInteractionLoading?.(visible, label),
     );
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.interactionLoading?.destroy());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.interactionLoading?.destroy();
+      this.aiStepController?.destroy();
+    });
     const interactionHooks = this.getInteractionHooks();
 
     const timerBindings = createTurnTimerBindings(this, this.headerControls);
@@ -345,6 +350,13 @@ export class BoardScene extends Phaser.Scene {
     });
     this.debugControls = new DebugControls(this, this.match, this.engine, this.gameContext, {
       shouldDeferPolling: () => this.animationQueue?.isRunning?.() ?? false,
+    });
+    this.aiStepController = new AiStepController({
+      scene: this,
+      api: this.api,
+      engine: this.engine,
+      contextStore: this.contextStore,
+      isAnimationQueueRunning: () => this.animationQueue?.isRunning?.() ?? false,
     });
     this.shareGameDialog = new ShareGameDialog(this);
     this.sessionController = new SessionController({
@@ -1110,6 +1122,10 @@ export class BoardScene extends Phaser.Scene {
 
 
   private handleAnimationQueueIdle() {
+    void this.handlePostAnimationQueueIdle();
+  }
+
+  private async handlePostAnimationQueueIdle() {
     const snapshot = this.engine.getSnapshot();
     const raw = snapshot.raw as any;
     if (!raw) return;
@@ -1127,7 +1143,8 @@ export class BoardScene extends Phaser.Scene {
       this.updateHandArea({ skipAnimation: true });
       this.refreshActionBarState(raw);
     }
-    void this.debugControls?.flushDeferredPoll();
+    await this.debugControls?.flushDeferredPoll();
+    this.aiStepController?.handleAnimationQueueIdle();
   }
 
   private async runActionThenRefresh(actionId: string, actionSource: ActionSource = "neutral") {

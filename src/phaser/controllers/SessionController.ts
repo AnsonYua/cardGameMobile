@@ -37,6 +37,7 @@ export class SessionController {
 
       contextStore.update({ mode });
       contextStore.update({ playerSelector });
+      contextStore.update({ isAutoPolling });
       if (gameId) contextStore.update({ gameId });
       if (joinToken) contextStore.update({ joinToken });
 

@@ -6,6 +6,8 @@ export type GameContext = {
   playerName: string;
   gameId: string | null;
   joinToken?: string | null;
+  isAutoPolling: boolean;
+  isAiMatch: boolean;
   playerSelector: ScenarioPlayerSelector;
   mode: GameMode;
   lastStatus: any;
@@ -17,6 +19,8 @@ export class GameContextStore {
     playerName: "Demo Player",
     gameId: null,
     joinToken: null,
+    isAutoPolling: false,
+    isAiMatch: false,
     playerSelector: "currentPlayer",
     mode: GameMode.Host,
     lastStatus: null,

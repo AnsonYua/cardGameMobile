@@ -93,15 +93,17 @@ export async function runJoinFlow(
     playerId: resolvedPlayerId,
     deckCount: deckSubmitResult.deckCount,
   });
-  contextStore.update({ playerId: resolvedPlayerId, playerName: joinName });
+  contextStore.update({
+    playerId: resolvedPlayerId,
+    playerName: joinName,
+    isAutoPolling: params.isAutoPolling === true,
+  });
   const statusPayload = (await match.getGameStatus(params.gameId, resolvedPlayerId)) as GameStatusResponse;
   await engine.updateGameStatus(params.gameId, resolvedPlayerId, {
     statusPayload,
     allowEnvScanFallback,
   });
-  if (params.isAutoPolling) {
-    await debugControls?.startAutoPolling();
-  }
+  void debugControls;
 }
 
 export async function runHostFlow(
@@ -115,7 +117,10 @@ export async function runHostFlow(
   const { match, contextStore, debugControls } = deps;
   const context = contextStore.get();
   const hostName = params.playerName || context.playerName || "Demo Player";
-  contextStore.update({ playerName: hostName });
+  contextStore.update({
+    playerName: hostName,
+    isAutoPolling: params.isAutoPolling === true,
+  });
   const hostResp = await match.startAsHost({ playerName: hostName }, { aiMode: params.aiMode });
   const state = match.getState();
   if (state.gameId) {
@@ -123,6 +128,9 @@ export async function runHostFlow(
   }
   if (hostResp?.playerId) {
     contextStore.update({ playerId: hostResp.playerId });
+  }
+  if (Array.isArray((hostResp as any)?.gameEnv?.aiPlayerIds)) {
+    contextStore.update({ isAiMatch: (hostResp as any).gameEnv.aiPlayerIds.length > 0 });
   }
   if (hostResp?.joinToken) {
     contextStore.update({ joinToken: hostResp.joinToken });
@@ -139,7 +147,5 @@ export async function runHostFlow(
     emptyDeckMessage: "Deck is empty. Please setup your deck before creating a room.",
     submit: (payload) => match.submitDeck(hostGameId, hostPlayerId, payload),
   });
-  if (params.isAutoPolling) {
-    await debugControls?.startAutoPolling();
-  }
+  void debugControls;
 }

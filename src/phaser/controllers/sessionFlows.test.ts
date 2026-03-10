@@ -75,8 +75,9 @@ describe("runJoinFlow", () => {
     expect(match.adoptJoinSession).toHaveBeenCalledWith("scenario_1");
     expect(engine.setAllowEnvScanFallbackDefault).toHaveBeenCalledWith(true);
     expect(debugControls.setScenarioResourceFallbackEnabled).toHaveBeenCalledWith(true);
+    expect(contextStore.update).toHaveBeenCalledWith(expect.objectContaining({ isAutoPolling: true }));
     expect(mocks.submitDeckFromStorage).toHaveBeenCalledTimes(1);
     expect(getGameStatus).toHaveBeenCalledWith("scenario_1", "playerId_2");
-    expect(debugControls.startAutoPolling).toHaveBeenCalledTimes(1);
+    expect(debugControls.startAutoPolling).not.toHaveBeenCalled();
   });
 });
