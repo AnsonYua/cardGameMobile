@@ -23,6 +23,7 @@ type BurstChoiceDeps = {
 export class BurstChoiceFlowManager {
   private readonly log = createLogger("BurstChoiceFlow");
   private queueEntry?: any;
+  private lastRawSnapshot?: any;
   private requestPending = false;
   private shownEntryId?: string;
   private pendingResolve?: () => void;
@@ -36,6 +37,7 @@ export class BurstChoiceFlowManager {
    * Used when another blocking choice currently owns queue progression.
    */
   reconcileResolvedState(raw: any) {
+    this.lastRawSnapshot = raw;
     const notifications = this.getNotificationQueue(raw);
     const preferChoiceKey = this.queueEntry?.eventId ?? this.queueEntry?.id;
     const active = findActiveBurstChoiceNotification(notifications, { preferChoiceKey });
@@ -55,6 +57,7 @@ export class BurstChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
+    this.lastRawSnapshot = raw;
     const notifications = this.getNotificationQueue(raw);
     const preferChoiceKey = this.queueEntry?.eventId ?? this.queueEntry?.id;
     const active = findActiveBurstChoiceNotification(notifications, { preferChoiceKey });
@@ -98,6 +101,7 @@ export class BurstChoiceFlowManager {
   }
 
   async handleNotification(notification: any, raw: any): Promise<void> {
+    this.lastRawSnapshot = raw;
     const entry = this.buildEntryFromNotification(notification);
     if (!entry || !this.isBurstChoiceEntry(entry)) return;
     this.queueEntry = entry;
@@ -293,6 +297,8 @@ export class BurstChoiceFlowManager {
         error: err,
       });
       this.requestPending = false;
+      this.shownEntryId = undefined;
+      this.showDialog(this.lastRawSnapshot);
       this.deps.refreshActions();
       return;
     } finally {
@@ -328,6 +334,7 @@ export class BurstChoiceFlowManager {
 
   private clear() {
     this.queueEntry = undefined;
+    this.lastRawSnapshot = undefined;
     this.requestPending = false;
     this.shownEntryId = undefined;
     this.pendingNotificationId = undefined;

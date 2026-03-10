@@ -68,6 +68,7 @@ export class MultiTargetDialog {
   private selectedTargets: SlotViewModel[] = [];
   private lastTargets: SlotViewModel[] = [];
   private dialogTimer: DialogTimerPresenter;
+  private submitting = false;
 
   constructor(
     private scene: Phaser.Scene,
@@ -104,6 +105,7 @@ export class MultiTargetDialog {
 
   show(opts: MultiTargetDialogShowOpts) {
     void this.hide();
+    this.submitting = false;
 
     const min = Math.max(0, Number(opts.min) || 0);
     const max = Math.max(1, Number(opts.max) || 1);
@@ -201,7 +203,11 @@ export class MultiTargetDialog {
       {
         closeOnBackdrop,
         showCloseButton,
-        onClose: () => void this.hide(),
+        onClose: () => {
+          if (this.submitting) return;
+          this.submitting = true;
+          void this.hide();
+        },
       },
     );
     this.overlay = shell.overlay;
@@ -281,7 +287,7 @@ export class MultiTargetDialog {
     };
 
     this.dialogTimer.attach(dialog, timerLayout, async () => {
-      if (!this.lastOnConfirm || !this.open) return;
+      if (!this.lastOnConfirm || !this.open || this.submitting) return;
       const desired = Math.max(0, min);
       const picked: SlotViewModel[] = [];
       for (let i = 0; i < targets.length && picked.length < desired; i++) {
@@ -293,11 +299,13 @@ export class MultiTargetDialog {
       if (picked.length < desired) return;
 
       const onConfirm = this.lastOnConfirm;
+      this.submitting = true;
       this.lastOnClose = undefined;
       try {
         await onConfirm([...picked]);
         await this.hide();
       } catch (err) {
+        this.submitting = false;
         // eslint-disable-next-line no-console
         console.error("[MultiTargetDialog] timeout auto-confirm failed", err);
       }
@@ -343,16 +351,18 @@ export class MultiTargetDialog {
     };
 
     confirmBtn.on("pointerup", async () => {
-      if (!this.lastOnConfirm || !this.open) return;
+      if (!this.lastOnConfirm || !this.open || this.submitting) return;
       const count = this.selectedTargets.length;
       if (count < min || count > max) return;
       const onConfirm = this.lastOnConfirm;
+      this.submitting = true;
       setConfirmEnabled(false);
       this.lastOnClose = undefined;
       try {
         await onConfirm([...this.selectedTargets]);
         await this.hide();
       } catch (err) {
+        this.submitting = false;
         // eslint-disable-next-line no-console
         console.error("[MultiTargetDialog] confirm failed", err);
         updateUi();

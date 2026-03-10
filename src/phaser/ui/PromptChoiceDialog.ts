@@ -35,6 +35,7 @@ export type PromptChoiceDialogOptions = {
 export class PromptChoiceDialog {
   private container?: Phaser.GameObjects.Container;
   private dialogTimer: DialogTimerPresenter;
+  private submitting = false;
   private automationState?: {
     headerText: string;
     promptText: string;
@@ -59,6 +60,7 @@ export class PromptChoiceDialog {
 
   show(opts: PromptChoiceDialogOptions) {
     this.destroy();
+    this.submitting = false;
     this.automationState = {
       headerText: opts.headerText,
       promptText: opts.promptText ?? "",
@@ -95,9 +97,11 @@ export class PromptChoiceDialog {
           promptText: opts.promptText ?? "",
           showOverlay: opts.showOverlay ?? true,
           showTimer: opts.showTimer ?? false,
-          onTimeout: opts.onTimeout,
+          onTimeout: async () => {
+            await this.runLocked(opts.onTimeout);
+          },
           onSelect: async (index) => {
-            await choiceButtons.get(index)?.onClick();
+            await this.runLocked(choiceButtons.get(index)?.onClick);
           },
           decision: topBottom,
           resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
@@ -113,9 +117,11 @@ export class PromptChoiceDialog {
             promptText: opts.promptText ?? "",
             showOverlay: opts.showOverlay ?? true,
             showTimer: opts.showTimer ?? false,
-            onTimeout: opts.onTimeout,
+            onTimeout: async () => {
+              await this.runLocked(opts.onTimeout);
+            },
             onSelect: async (index) => {
-              await choiceButtons.get(index)?.onClick();
+              await this.runLocked(choiceButtons.get(index)?.onClick);
             },
             options: choices,
           });
@@ -128,9 +134,11 @@ export class PromptChoiceDialog {
             promptText: opts.promptText ?? "",
             showOverlay: opts.showOverlay ?? true,
             showTimer: opts.showTimer ?? false,
-            onTimeout: opts.onTimeout,
+            onTimeout: async () => {
+              await this.runLocked(opts.onTimeout);
+            },
             onSelect: async (index) => {
-              await choiceButtons.get(index)?.onClick();
+              await this.runLocked(choiceButtons.get(index)?.onClick);
             },
             cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
             textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
@@ -144,7 +152,12 @@ export class PromptChoiceDialog {
       const dialog = createPromptDialog(this.scene, this.cfg, {
         headerText: opts.headerText,
         promptText: opts.promptText,
-        buttons: opts.buttons,
+        buttons: opts.buttons.map((button) => ({
+          ...button,
+          onClick: async () => {
+            await this.runLocked(button.onClick);
+          },
+        })),
         showOverlay: opts.showOverlay ?? true,
         closeOnBackdrop: false,
         showCloseButton: false,
@@ -153,7 +166,7 @@ export class PromptChoiceDialog {
       this.container = dialog.dialog;
       if (opts.showTimer) {
         this.dialogTimer.attach(dialog.dialog, dialog.layout, async () => {
-          await opts.onTimeout?.();
+          await this.runLocked(opts.onTimeout);
         });
       }
     }
@@ -181,7 +194,7 @@ export class PromptChoiceDialog {
       target = buttons.find((button) => button.label.toLowerCase() === labelOrIndex.toLowerCase());
     }
     if (!target || target.enabled === false) return false;
-    await Promise.resolve(target.onClick());
+    await this.runLocked(target.onClick);
     return true;
   }
 
@@ -197,5 +210,11 @@ export class PromptChoiceDialog {
     this.container = undefined;
     this.automationState = undefined;
     animateDialogOut(this.scene, target, () => target.destroy());
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 }

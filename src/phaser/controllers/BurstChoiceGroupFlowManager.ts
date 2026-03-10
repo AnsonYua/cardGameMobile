@@ -244,27 +244,32 @@ export class BurstChoiceGroupFlowManager {
         const success = await this.submitChoice(eventId, confirmed);
         if (success) {
           finish();
+          return;
         }
+        if (!finished) renderDialog();
+      };
+      const renderDialog = () => {
+        dialog.show({
+          card,
+          header: "Burst Card",
+          showButtons: true,
+          showBack: true,
+          showTimer: true,
+          showOverlay: false,
+          onBack: openList,
+          onTrigger: async () => {
+            await submit(true);
+          },
+          onCancel: async () => {
+            await submit(false);
+          },
+          onTimeout: async () => {
+            await submit(true);
+          },
+        });
       };
 
-      dialog.show({
-        card,
-        header: "Burst Card",
-        showButtons: true,
-        showBack: true,
-        showTimer: true,
-        showOverlay: false,
-        onBack: openList,
-        onTrigger: async () => {
-          await submit(true);
-        },
-        onCancel: async () => {
-          await submit(false);
-        },
-        onTimeout: async () => {
-          await submit(true);
-        },
-      });
+      renderDialog();
     });
   }
 

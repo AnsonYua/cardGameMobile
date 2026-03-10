@@ -33,6 +33,7 @@ export type OptionChoiceDialogOptions = {
 export class OptionChoiceDialog {
   private dialogTimer: DialogTimerPresenter;
   private dialog?: Phaser.GameObjects.Container;
+  private submitting = false;
   private automationState?: {
     headerText: string;
     promptText: string;
@@ -60,6 +61,7 @@ export class OptionChoiceDialog {
 
   show(opts: OptionChoiceDialogOptions) {
     this.destroy();
+    this.submitting = false;
 
     const choices = normalizeOptionChoices(opts.choices);
     const layout = resolveOptionChoiceLayout(choices, opts.layoutHint);
@@ -105,8 +107,12 @@ export class OptionChoiceDialog {
         promptText,
         showOverlay: opts.showOverlay ?? true,
         showTimer: opts.showTimer ?? false,
-        onTimeout: opts.onTimeout,
-        onSelect: opts.onSelect,
+        onTimeout: async () => {
+          await this.runLocked(opts.onTimeout);
+        },
+        onSelect: async (index) => {
+          await this.runLocked(() => opts.onSelect?.(index));
+        },
         options: choices,
       });
       return;
@@ -135,8 +141,12 @@ export class OptionChoiceDialog {
         promptText,
         showOverlay: opts.showOverlay ?? true,
         showTimer: opts.showTimer ?? false,
-        onTimeout: opts.onTimeout,
-        onSelect: opts.onSelect,
+        onTimeout: async () => {
+          await this.runLocked(opts.onTimeout);
+        },
+        onSelect: async (index) => {
+          await this.runLocked(() => opts.onSelect?.(index));
+        },
         decision: topBottom,
         resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
       });
@@ -164,8 +174,12 @@ export class OptionChoiceDialog {
         promptText,
         showOverlay: opts.showOverlay ?? true,
         showTimer: opts.showTimer ?? false,
-        onTimeout: opts.onTimeout,
-        onSelect: opts.onSelect,
+        onTimeout: async () => {
+          await this.runLocked(opts.onTimeout);
+        },
+        onSelect: async (index) => {
+          await this.runLocked(() => opts.onSelect?.(index));
+        },
         decision: {
           topIndex: takeBottom.takeIndex,
           bottomIndex: takeBottom.bottomIndex,
@@ -194,8 +208,12 @@ export class OptionChoiceDialog {
       promptText,
       showOverlay: opts.showOverlay ?? true,
       showTimer: opts.showTimer ?? false,
-      onTimeout: opts.onTimeout,
-      onSelect: opts.onSelect,
+      onTimeout: async () => {
+        await this.runLocked(opts.onTimeout);
+      },
+      onSelect: async (index) => {
+        await this.runLocked(() => opts.onSelect?.(index));
+      },
       cardChoices: choices.filter((choice) => choice.mode === "card" && !!choice.cardId),
       textChoices: layout === "hybrid" ? choices.filter((choice) => choice.mode === "text" || !choice.cardId) : [],
       resolveTextureKey: (cardId) => this.resolveTextureKey(cardId),
@@ -223,7 +241,7 @@ export class OptionChoiceDialog {
     if (!this.dialog || !this.automationState) return false;
     const target = this.automationState.choices.find((choice) => choice.index === index);
     if (!target || target.enabled === false || !this.automationState.onSelect) return false;
-    await Promise.resolve(this.automationState.onSelect(index));
+    await this.runLocked(() => this.automationState?.onSelect?.(index));
     return true;
   }
 
@@ -239,6 +257,12 @@ export class OptionChoiceDialog {
       this.dialog = undefined;
     }
     this.automationState = undefined;
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 }
 

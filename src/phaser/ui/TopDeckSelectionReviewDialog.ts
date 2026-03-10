@@ -29,6 +29,7 @@ export type TopDeckSelectionReviewDialogOptions = {
 export class TopDeckSelectionReviewDialog {
   private dialogTimer: DialogTimerPresenter;
   private dialog?: Phaser.GameObjects.Container;
+  private submitting = false;
   private automationState?: {
     headerText: string;
     promptText: string;
@@ -51,6 +52,7 @@ export class TopDeckSelectionReviewDialog {
 
   show(opts: TopDeckSelectionReviewDialogOptions) {
     this.destroy();
+    this.submitting = false;
 
     const cfg = {
       ...DEFAULT_CARD_DIALOG_CONFIG,
@@ -186,7 +188,7 @@ export class TopDeckSelectionReviewDialog {
       label: continueLabel,
       enabled: true,
       onClick: async () => {
-        await opts.onContinue?.();
+        await this.runLocked(opts.onContinue);
       },
     });
 
@@ -194,7 +196,7 @@ export class TopDeckSelectionReviewDialog {
 
     if (opts.showTimer) {
       this.dialogTimer.attach(shell.dialog, layout, async () => {
-        await opts.onTimeout?.();
+        await this.runLocked(opts.onTimeout);
       });
     }
   }
@@ -212,7 +214,7 @@ export class TopDeckSelectionReviewDialog {
 
   async continue(): Promise<boolean> {
     if (!this.dialog || !this.automationState?.onContinue) return false;
-    await Promise.resolve(this.automationState.onContinue());
+    await this.runLocked(this.automationState.onContinue);
     return true;
   }
 
@@ -223,5 +225,11 @@ export class TopDeckSelectionReviewDialog {
       this.dialog = undefined;
     }
     this.automationState = undefined;
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 }

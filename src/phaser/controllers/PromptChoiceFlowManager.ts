@@ -26,6 +26,7 @@ type PromptChoiceDeps = {
 export class PromptChoiceFlowManager {
   private readonly log = createLogger("PromptChoiceFlow");
   private queueEntry?: any;
+  private lastRawSnapshot?: any;
   private requestPending = false;
   private shownEntryId?: string;
   private submittedEntryId?: string;
@@ -36,6 +37,7 @@ export class PromptChoiceFlowManager {
   constructor(private deps: PromptChoiceDeps) {}
 
   async handleNotification(notification: any, raw: any): Promise<void> {
+    this.lastRawSnapshot = raw;
     const entry = buildChoiceEntryFromNotification(notification);
     if (!entry || !this.isPromptChoiceEntry(entry)) return;
     const decisionMade = entry?.data?.userDecisionMade === true;
@@ -67,6 +69,7 @@ export class PromptChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
+    this.lastRawSnapshot = raw;
     const entry = findActiveChoiceEntryFromRaw(raw, "PROMPT_CHOICE");
     if (!entry || !this.isPromptChoiceEntry(entry)) {
       if (this.queueEntry) {
@@ -191,6 +194,7 @@ export class PromptChoiceFlowManager {
     hidePromptChoiceDialogs(this.deps);
     this.shownEntryId = eventId;
     this.deps.refreshActions();
+    let submitAccepted = false;
     try {
       await withInteractionLoading(this.deps, async () => {
         await this.deps.api.confirmOptionChoice({
@@ -201,14 +205,18 @@ export class PromptChoiceFlowManager {
         });
         await this.deps.engine.updateGameStatus(gameId, playerId);
       });
+      submitAccepted = true;
     } catch (err) {
       this.deps.onReportError?.(err, { headerText: "Action Failed" });
       this.submittedEntryId = undefined;
       this.submittedAt = undefined;
       this.shownEntryId = undefined;
+      this.showDialog(this.lastRawSnapshot);
     } finally {
       this.requestPending = false;
-      this.resolvePending();
+      if (submitAccepted) {
+        this.resolvePending();
+      }
       this.deps.refreshActions();
     }
   }
@@ -228,6 +236,7 @@ export class PromptChoiceFlowManager {
   private clear() {
     const entryId = this.queueEntry?.id;
     this.queueEntry = undefined;
+    this.lastRawSnapshot = undefined;
     this.requestPending = false;
     this.shownEntryId = undefined;
     this.submittedEntryId = undefined;

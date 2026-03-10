@@ -139,7 +139,7 @@ describe("OptionChoiceFlowManager", () => {
     expect(onLoadingEnd.mock.invocationCallOrder[0]).toBeGreaterThan(confirmOptionChoice.mock.invocationCallOrder[0]);
   });
 
-  test("keeps dialog dismissed on failure and allows submit retry", async () => {
+  test("reopens dialog on failure and allows submit retry", async () => {
     const confirmOptionChoice = vi
       .fn()
       .mockRejectedValueOnce(new Error("forced failure"))
@@ -184,13 +184,17 @@ describe("OptionChoiceFlowManager", () => {
     const raw = { gameEnv: { notificationQueue: [note] } };
     const handlePromise = manager.handleNotification(note as any, raw as any);
     await shownConfig.onSelect(0);
-    await handlePromise;
+    expect(confirmOptionChoice).toHaveBeenCalledTimes(1);
+    expect(dialog.show).toHaveBeenCalledTimes(2);
+    expect(dialog.hide).toHaveBeenCalledTimes(1);
+    expect(onReportError).toHaveBeenCalledTimes(1);
 
-    await (manager as any).submitChoice(0);
+    await shownConfig.onSelect(0);
+    await handlePromise;
 
     expect(confirmOptionChoice).toHaveBeenCalledTimes(2);
     expect(updateGameStatus).toHaveBeenCalledTimes(1);
     expect(dialog.hide).toHaveBeenCalledTimes(2);
-    expect(onReportError).toHaveBeenCalledTimes(1);
+    expect(dialog.show).toHaveBeenCalledTimes(2);
   });
 });

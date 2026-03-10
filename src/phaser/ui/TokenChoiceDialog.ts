@@ -31,6 +31,7 @@ type RenderCard = {
 
 export class TokenChoiceDialog {
   private dialog: CardRowChoiceDialog<RenderCard>;
+  private submitting = false;
   private automationState?: {
     headerText: string;
     choices: TokenChoiceDialogChoice[];
@@ -56,6 +57,7 @@ export class TokenChoiceDialog {
   }
 
   show(opts: TokenChoiceDialogOptions) {
+    this.submitting = false;
     const choices = Array.isArray(opts.choices) ? opts.choices : [];
     const cards: RenderCard[] = choices.map((choice) => {
       const cardId = (choice.cardId ?? "").toString() || undefined;
@@ -98,10 +100,10 @@ export class TokenChoiceDialog {
       },
       isCardEnabled: (card) => card.__enabled,
       onSelectCard: async (card) => {
-        await opts.onSelect?.(card.__choiceIndex);
+        await this.runLocked(() => opts.onSelect?.(card.__choiceIndex));
       },
       onTimeout: async () => {
-        await opts.onTimeout?.();
+        await this.runLocked(opts.onTimeout);
       },
     });
   }
@@ -124,12 +126,18 @@ export class TokenChoiceDialog {
     if (!this.dialog.isOpen() || !this.automationState) return false;
     const target = this.automationState.choices.find((choice) => choice.index === index);
     if (!target || target.enabled === false || !this.automationState.onSelect) return false;
-    await Promise.resolve(this.automationState.onSelect(index));
+    await this.runLocked(() => this.automationState?.onSelect?.(index));
     return true;
   }
 
   private resolveTextureKey(cardId?: string) {
     if (!cardId) return undefined;
     return toFullKey(cardId) || undefined;
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 }

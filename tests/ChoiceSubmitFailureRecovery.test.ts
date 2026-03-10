@@ -4,34 +4,57 @@ import { BurstChoiceGroupFlowManager } from "../src/phaser/controllers/BurstChoi
 import { BlockerFlowManager } from "../src/phaser/controllers/BlockerFlowManager";
 
 describe("choice submit failure recovery", () => {
-  it("keeps burst choice flow active when confirmBurstChoice fails", async () => {
+  it("reopens burst choice dialog when confirmBurstChoice fails", async () => {
     const onLoadingStart = vi.fn();
     const onLoadingEnd = vi.fn();
     const api = {
-      confirmBurstChoice: vi.fn().mockRejectedValue(new Error("forced failure")),
+      confirmBurstChoice: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("forced failure"))
+        .mockResolvedValueOnce({ success: true }),
     } as any;
     const engine = {
       updateGameStatus: vi.fn(),
     } as any;
+    let shownConfig: any;
+    const burstChoiceDialog = {
+      hide: vi.fn(),
+      isOpen: vi.fn().mockReturnValue(false),
+      show: vi.fn((config: any) => {
+        shownConfig = config;
+      }),
+    };
     const manager = new BurstChoiceFlowManager({
       api,
       engine,
       gameContext: { gameId: "g1", playerId: "p1" } as any,
       actionControls: null,
-      burstChoiceDialog: { hide: vi.fn(), isOpen: vi.fn().mockReturnValue(false) } as any,
+      burstChoiceDialog: burstChoiceDialog as any,
       refreshActions: vi.fn(),
       onLoadingStart,
       onLoadingEnd,
     });
-
-    (manager as any).queueEntry = {
-      id: "burst_1",
-      eventId: "burst_1",
-      playerId: "p1",
-      data: { userDecisionMade: false },
+    const note = {
+      id: "note_1",
+      type: "BURST_EFFECT_CHOICE",
+      payload: {
+        event: {
+          id: "burst_1",
+          type: "BURST_EFFECT_CHOICE",
+          playerId: "p1",
+          status: "DECLARED",
+          data: {
+            userDecisionMade: false,
+            carduid: "c1",
+            availableTargets: [{ carduid: "c1", cardId: "CARD_1" }],
+          },
+        },
+      },
     };
+    const raw = { gameEnv: { notificationQueue: [note] } };
+    const handlePromise = manager.handleNotification(note as any, raw as any);
 
-    await (manager as any).submitChoice("ACTIVATE");
+    await shownConfig.onTrigger();
 
     expect(api.confirmBurstChoice).toHaveBeenCalledWith({
       gameId: "g1",
@@ -39,18 +62,34 @@ describe("choice submit failure recovery", () => {
       eventId: "burst_1",
       confirmed: true,
     });
+    expect(burstChoiceDialog.hide).toHaveBeenCalledTimes(1);
+    expect(burstChoiceDialog.show).toHaveBeenCalledTimes(2);
     expect(onLoadingStart).toHaveBeenCalledTimes(1);
     expect(onLoadingEnd).toHaveBeenCalledTimes(1);
     expect(manager.isActive()).toBe(true);
+
+    await shownConfig.onTrigger();
+    await handlePromise;
+
+    expect(api.confirmBurstChoice).toHaveBeenCalledTimes(2);
   });
 
-  it("returns false and keeps dialog dismissed when group burst confirm fails", async () => {
+  it("reopens the single burst dialog when group confirm fails", async () => {
     const onLoadingStart = vi.fn();
     const onLoadingEnd = vi.fn();
     const api = {
-      confirmBurstChoice: vi.fn().mockRejectedValue(new Error("forced failure")),
+      confirmBurstChoice: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("forced failure"))
+        .mockResolvedValueOnce({ success: true }),
     } as any;
-    const burstChoiceDialog = { hide: vi.fn() } as any;
+    let shownConfig: any;
+    const burstChoiceDialog = {
+      hide: vi.fn(async () => undefined),
+      show: vi.fn((config: any) => {
+        shownConfig = config;
+      }),
+    } as any;
     const manager = new BurstChoiceGroupFlowManager({
       api,
       engine: { updateGameStatus: vi.fn() } as any,
@@ -62,13 +101,28 @@ describe("choice submit failure recovery", () => {
       onLoadingStart,
       onLoadingEnd,
     });
+    const event = {
+      id: "burst_event_1",
+      playerId: "p1",
+      data: {
+        playerId: "p1",
+        availableTargets: [{ carduid: "c1", cardId: "CARD_1" }],
+      },
+    };
+    const raw = {};
 
-    const ok = await (manager as any).submitChoice("burst_event_1", true);
+    const choicePromise = (manager as any).showSingleBurstChoice(event, raw);
+    await shownConfig.onTrigger();
 
-    expect(ok).toBe(false);
     expect(burstChoiceDialog.hide).toHaveBeenCalledTimes(1);
+    expect(burstChoiceDialog.show).toHaveBeenCalledTimes(2);
     expect(onLoadingStart).toHaveBeenCalledTimes(1);
     expect(onLoadingEnd).toHaveBeenCalledTimes(1);
+
+    await shownConfig.onTrigger();
+    await choicePromise;
+
+    expect(api.confirmBurstChoice).toHaveBeenCalledTimes(2);
   });
 
   it("does not clear blocker flow state when confirmBlockerChoice fails", async () => {

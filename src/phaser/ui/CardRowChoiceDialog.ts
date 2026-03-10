@@ -25,6 +25,7 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
   private gridRenderer: TrashCardGridRenderer;
   private dialogTimer: DialogTimerPresenter;
   private open = false;
+  private submitting = false;
 
   constructor(
     private scene: Phaser.Scene,
@@ -51,6 +52,7 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
 
   show(opts: CardRowChoiceDialogOptions<TCard>) {
     this.hide();
+    this.submitting = false;
     const cam = this.scene.cameras.main;
     const showCards = opts.showCards ?? true;
     const showOverlay = opts.showOverlay ?? true;
@@ -88,7 +90,7 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
       content.add([msg]);
       if (showTimer) {
         this.dialogTimer.attach(dialog, layout, async () => {
-          await opts.onTimeout?.();
+          await this.runLocked(opts.onTimeout);
         });
       }
       return;
@@ -114,14 +116,20 @@ export class CardRowChoiceDialog<TCard extends Record<string, any>> {
       isCardInteractive: isEnabled,
       onPointerUp: async (card: any) => {
         if (!isEnabled(card)) return;
-        await opts.onSelectCard?.(card);
+        await this.runLocked(() => opts.onSelectCard?.(card));
       },
     });
 
     if (showTimer) {
       this.dialogTimer.attach(dialog, layout, async () => {
-        await opts.onTimeout?.();
+        await this.runLocked(opts.onTimeout);
       });
     }
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 }

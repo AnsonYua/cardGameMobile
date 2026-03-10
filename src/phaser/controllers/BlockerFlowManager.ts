@@ -136,14 +136,14 @@ export class BlockerFlowManager {
     if (!target) return;
     const payload = this.buildTargetPayload(slot, target);
     if (!payload) return;
-    await this.postBlockChoice([payload]);
+    return this.postBlockChoice([payload]);
   }
 
   private async postBlockChoice(targets: Array<{ carduid: string; zone: string; playerId: string }>) {
-    if (!this.queueEntry) return;
+    if (!this.queueEntry) return false;
     const gameId = this.deps.gameContext.gameId;
     const playerId = this.deps.gameContext.playerId;
-    if (!gameId || !playerId) return;
+    if (!gameId || !playerId) return false;
     this.requestPending = true;
     this.deps.refreshActions();
     try {
@@ -161,7 +161,7 @@ export class BlockerFlowManager {
       this.requestPending = false;
       this.clear();
       this.deps.refreshActions();
-      return;
+      return true;
     } catch (error) {
       this.deps.onReportError?.(error, { headerText: "Action Failed" });
       console.error("[BlockerFlowManager] confirmBlockerChoice failed", {
@@ -175,7 +175,7 @@ export class BlockerFlowManager {
       // Keep blocker state/dialog recoverable on failure.
       this.requestPending = false;
       this.deps.refreshActions();
-      return;
+      return false;
     }
   }
 

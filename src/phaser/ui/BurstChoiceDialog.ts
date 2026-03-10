@@ -32,6 +32,7 @@ export class BurstChoiceDialog {
   private previewLayout: HandLayoutRenderer;
   private buttonTargets: Phaser.GameObjects.Rectangle[] = [];
   private open = false;
+  private submitting = false;
   private automationState?: {
     headerText: string;
     showButtons: boolean;
@@ -83,6 +84,7 @@ export class BurstChoiceDialog {
 
   show(opts: BurstChoiceDialogOptions) {
     this.hide();
+    this.submitting = false;
     const cam = this.scene.cameras.main;
     const headerText = opts.header || "Burst Card";
     const showButtons = opts.showButtons ?? false;
@@ -130,14 +132,14 @@ export class BurstChoiceDialog {
       backButton.setStrokeStyle(2, 0xffffff, 0.5);
       backButton.setInteractive({ useHandCursor: true });
       backButton.on("pointerup", async () => {
-        await opts.onBack?.();
+        await this.runLocked(opts.onBack);
       });
       const backLabel = this.scene.add
         .text(x, y, "←", { fontSize: "18px", fontFamily: "Arial", color: "#f5f6f7", align: "center" })
         .setOrigin(0.5);
       backLabel.setInteractive({ useHandCursor: true });
       backLabel.on("pointerup", async () => {
-        await opts.onBack?.();
+        await this.runLocked(opts.onBack);
       });
       dialog.add([backButton, backLabel]);
       this.buttonTargets.push(backButton);
@@ -187,7 +189,7 @@ export class BurstChoiceDialog {
         rect.setStrokeStyle(2, 0x5b6068, 1);
         rect.setInteractive({ useHandCursor: true });
         rect.on("pointerup", async () => {
-          await onClick?.();
+          await this.runLocked(onClick);
         });
         const text = this.scene.add.text(x, buttonY, label, {
           fontSize: "15px",
@@ -208,7 +210,7 @@ export class BurstChoiceDialog {
 
     if (showTimer) {
       this.dialogTimer.attach(dialog, layout, async () => {
-        await opts.onTimeout?.();
+        await this.runLocked(opts.onTimeout);
       });
     }
   }
@@ -225,14 +227,20 @@ export class BurstChoiceDialog {
   async choose(decision: "trigger" | "cancel"): Promise<boolean> {
     if (!this.open || !this.automationState || !this.automationState.showButtons) return false;
     if (decision === "trigger" && this.automationState.onTrigger) {
-      await Promise.resolve(this.automationState.onTrigger());
+      await this.runLocked(this.automationState.onTrigger);
       return true;
     }
     if (decision === "cancel" && this.automationState.onCancel) {
-      await Promise.resolve(this.automationState.onCancel());
+      await this.runLocked(this.automationState.onCancel);
       return true;
     }
     return false;
+  }
+
+  private async runLocked(action?: () => Promise<void> | void) {
+    if (!action || this.submitting) return;
+    this.submitting = true;
+    await Promise.resolve(action());
   }
 
   private startPreview(card: any) {

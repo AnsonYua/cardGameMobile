@@ -8,7 +8,7 @@ describe("showPromptChoiceDialog", () => {
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
     };
-    const tutorTopDeckRevealDialog = {
+    const topDeckSelectionReviewDialog = {
       show: vi.fn(),
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
@@ -36,7 +36,7 @@ describe("showPromptChoiceDialog", () => {
         },
       },
       promptChoiceDialog: promptChoiceDialog as any,
-      tutorTopDeckRevealDialog: tutorTopDeckRevealDialog as any,
+      topDeckSelectionReviewDialog: topDeckSelectionReviewDialog as any,
       onSubmit: async () => {},
       resolveTimeoutIndex: () => 0,
     });
@@ -56,7 +56,7 @@ describe("showPromptChoiceDialog", () => {
       label: "Gundam",
       enabled: true,
     });
-    expect(tutorTopDeckRevealDialog.hide).toHaveBeenCalledTimes(1);
+    expect(topDeckSelectionReviewDialog.hide).toHaveBeenCalledTimes(1);
   });
 
   it("keeps text-only PROMPT_CHOICE on the existing button-style dialog", () => {
@@ -65,7 +65,7 @@ describe("showPromptChoiceDialog", () => {
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
     };
-    const tutorTopDeckRevealDialog = {
+    const topDeckSelectionReviewDialog = {
       show: vi.fn(),
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
@@ -83,7 +83,7 @@ describe("showPromptChoiceDialog", () => {
         },
       },
       promptChoiceDialog: promptChoiceDialog as any,
-      tutorTopDeckRevealDialog: tutorTopDeckRevealDialog as any,
+      topDeckSelectionReviewDialog: topDeckSelectionReviewDialog as any,
       onSubmit: async () => {},
       resolveTimeoutIndex: () => 0,
     });
@@ -104,7 +104,7 @@ describe("showPromptChoiceDialog", () => {
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
     };
-    const tutorTopDeckRevealDialog = {
+    const topDeckSelectionReviewDialog = {
       show: vi.fn(),
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
@@ -136,7 +136,7 @@ describe("showPromptChoiceDialog", () => {
         },
       },
       promptChoiceDialog: promptChoiceDialog as any,
-      tutorTopDeckRevealDialog: tutorTopDeckRevealDialog as any,
+      topDeckSelectionReviewDialog: topDeckSelectionReviewDialog as any,
       onSubmit: async () => {},
       resolveTimeoutIndex: () => 0,
     });
@@ -151,13 +151,13 @@ describe("showPromptChoiceDialog", () => {
     });
   });
 
-  it("keeps tutor reveal prompt on TutorTopDeckRevealDialog", () => {
+  it("keeps top-deck selection review prompt on TopDeckSelectionReviewDialog", () => {
     const promptChoiceDialog = {
       show: vi.fn(),
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
     };
-    const tutorTopDeckRevealDialog = {
+    const topDeckSelectionReviewDialog = {
       show: vi.fn(),
       hide: vi.fn(),
       isOpen: vi.fn(() => false),
@@ -170,20 +170,20 @@ describe("showPromptChoiceDialog", () => {
           promptText: "Review the looked cards, then continue.",
           availableOptions: [{ index: 0, label: "Continue" }],
           context: {
-            kind: "TUTOR_TOP_DECK_REVEAL_CONFIRM",
-            tutor: {
+            kind: "TOP_DECK_SELECTION_REVIEW_CONFIRM",
+            topDeckSelection: {
               lookedCards: [{ carduid: "a", cardId: "GD01-001", name: "Gundam", matchesFilters: true }],
             },
           },
         },
       },
       promptChoiceDialog: promptChoiceDialog as any,
-      tutorTopDeckRevealDialog: tutorTopDeckRevealDialog as any,
+      topDeckSelectionReviewDialog: topDeckSelectionReviewDialog as any,
       onSubmit: async () => {},
       resolveTimeoutIndex: () => 0,
     });
 
     expect(promptChoiceDialog.hide).toHaveBeenCalledTimes(1);
-    expect(tutorTopDeckRevealDialog.show).toHaveBeenCalledTimes(1);
+    expect(topDeckSelectionReviewDialog.show).toHaveBeenCalledTimes(1);
   });
 });

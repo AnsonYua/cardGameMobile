@@ -25,6 +25,7 @@ type OptionChoiceDeps = {
 export class OptionChoiceFlowManager {
   private readonly log = createLogger("OptionChoiceFlow");
   private queueEntry?: any;
+  private lastRawSnapshot?: any;
   private requestPending = false;
   private shownEntryId?: string;
   private submittedEntryId?: string;
@@ -35,6 +36,7 @@ export class OptionChoiceFlowManager {
   constructor(private deps: OptionChoiceDeps) {}
 
   async handleNotification(notification: any, raw: any): Promise<void> {
+    this.lastRawSnapshot = raw;
     const entry = buildChoiceEntryFromNotification(notification);
     if (!entry || !this.isOptionChoiceEntry(entry)) return;
     const decisionMade = entry?.data?.userDecisionMade === true;
@@ -67,6 +69,7 @@ export class OptionChoiceFlowManager {
   }
 
   syncDecisionState(raw: any) {
+    this.lastRawSnapshot = raw;
     const entry = findActiveChoiceEntryFromRaw(raw, "OPTION_CHOICE");
     if (!entry || !this.isOptionChoiceEntry(entry)) {
       if (this.queueEntry) {
@@ -205,6 +208,7 @@ export class OptionChoiceFlowManager {
     this.deps.optionChoiceDialog?.hide();
     this.shownEntryId = eventId;
     this.deps.refreshActions();
+    let submitAccepted = false;
     try {
       await withInteractionLoading(this.deps, async () => {
         await this.deps.api.confirmOptionChoice({
@@ -215,15 +219,19 @@ export class OptionChoiceFlowManager {
         });
         await this.deps.engine.updateGameStatus(gameId, playerId);
       });
+      submitAccepted = true;
     } catch (err) {
       this.deps.onReportError?.(err, { headerText: "Action Failed" });
       // If submit failed, allow immediate retry.
       this.submittedEntryId = undefined;
       this.submittedAt = undefined;
       this.shownEntryId = undefined;
+      this.showDialog(this.lastRawSnapshot);
     } finally {
       this.requestPending = false;
-      this.resolvePending();
+      if (submitAccepted) {
+        this.resolvePending();
+      }
       this.deps.refreshActions();
     }
   }
@@ -243,6 +251,7 @@ export class OptionChoiceFlowManager {
   private clear() {
     const entryId = this.queueEntry?.id;
     this.queueEntry = undefined;
+    this.lastRawSnapshot = undefined;
     this.requestPending = false;
     this.shownEntryId = undefined;
     this.submittedEntryId = undefined;

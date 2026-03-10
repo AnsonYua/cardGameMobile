@@ -210,6 +210,7 @@ export class TokenChoiceFlowManager {
     this.deps.tokenChoiceDialog?.hide();
     this.shownId = eventId;
     this.deps.refreshActions();
+    let submitAccepted = false;
     try {
       await withInteractionLoading(this.deps, async () => {
         await this.deps.api.confirmTokenChoice({
@@ -225,14 +226,18 @@ export class TokenChoiceFlowManager {
           await this.onCompleted(latest);
         }
       });
+      submitAccepted = true;
     } catch (err) {
       this.deps.onReportError?.(err, { headerText: "Action Failed" });
       this.submittedId = undefined;
       this.submittedAt = undefined;
       this.shownId = undefined;
+      this.showDialog();
     } finally {
       this.requestPending = false;
-      this.resolvePending();
+      if (submitAccepted) {
+        this.resolvePending();
+      }
       this.deps.refreshActions();
     }
   }

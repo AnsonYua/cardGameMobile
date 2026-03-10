@@ -18,7 +18,7 @@ import type { InteractionHooks } from "./InteractionHooks";
 type ShowManualOpts = {
   targets: SlotViewModel[];
   header?: string;
-  onSelect: (slot: SlotViewModel) => Promise<void> | void;
+  onSelect: (slot: SlotViewModel) => Promise<boolean | void> | boolean | void;
   showCloseButton?: boolean;
 };
 
@@ -168,6 +168,12 @@ export class EffectTargetController {
         isMulti,
       });
       const subHeader = buildTargetChoiceHint({ raw, payload, data, availableTargets });
+      let reopenDialog: (() => void) | undefined;
+      const retryIfStillActive = () => {
+        if (this.activeEffectChoiceId !== eventId) return false;
+        reopenDialog?.();
+        return true;
+      };
 
       const confirmEmptyIfAllowed = () => {
         if (!allowEmptySelection || !selfId) {
@@ -202,9 +208,11 @@ export class EffectTargetController {
               notificationId,
               error: err,
             });
-          } finally {
-            await finish();
+            if (retryIfStillActive()) {
+              return;
+            }
           }
+          await finish();
         })();
       };
 
@@ -218,7 +226,7 @@ export class EffectTargetController {
       };
 
       if (isMulti) {
-        try {
+        const renderMultiDialog = () => {
           this.deps.dialog.showMulti({
             targets,
             header: subHeader ? `${header}\n${subHeader}` : header,
@@ -270,11 +278,17 @@ export class EffectTargetController {
                   notificationId,
                   error: err,
                 });
-                throw err;
+                if (retryIfStillActive()) {
+                  return;
+                }
               }
               await finish();
             },
           });
+        };
+        reopenDialog = renderMultiDialog;
+        try {
+          renderMultiDialog();
         } catch (err) {
           // eslint-disable-next-line no-console
           console.error("[EffectTargetController] showMulti failed", err);
@@ -283,7 +297,7 @@ export class EffectTargetController {
         return;
       }
 
-      try {
+      const renderSingleDialog = () => {
         this.deps.dialog.show({
           targets,
           header,
@@ -296,6 +310,7 @@ export class EffectTargetController {
               await finish();
               return;
             }
+            const selectedTarget = mapSlotToTarget(slot);
             await this.deps.dialog.hide();
             try {
               await withInteractionLoading(this.deps, async () => {
@@ -303,7 +318,7 @@ export class EffectTargetController {
                   gameId: this.deps.gameContext.gameId || "",
                   playerId: selfId || "",
                   eventId,
-                  selectedTargets: [mapSlotToTarget(slot)],
+                  selectedTargets: [selectedTarget],
                 });
                 if (notificationId) {
                   await this.deps.api.acknowledgeEvents({
@@ -321,15 +336,21 @@ export class EffectTargetController {
               console.error("[EffectTargetController] confirmTargetChoice failed", {
                 eventId,
                 playerId: selfId,
-                selectedTargets: [mapSlotToTarget(slot)],
+                selectedTargets: [selectedTarget],
                 notificationId,
                 error: err,
               });
-              throw err;
+              if (retryIfStillActive()) {
+                return;
+              }
             }
             await finish();
           },
         });
+      };
+      reopenDialog = renderSingleDialog;
+      try {
+        renderSingleDialog();
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[EffectTargetController] show failed", err);
@@ -341,22 +362,40 @@ export class EffectTargetController {
   async showManualTargets(opts: ShowManualOpts) {
     this.manualOpen = true;
     this.activeEffectChoiceId = undefined;
-    this.deps.dialog.show({
-      targets: opts.targets,
-      header: opts.header ?? "Choose a Target",
-      showCloseButton: opts.showCloseButton ?? false,
-      onSelect: async (slot) => {
-        try {
-          await opts.onSelect(slot);
-          this.deps.onPlayerAction?.();
-        } finally {
+    let submitting = false;
+    const renderDialog = () => {
+      this.deps.dialog.show({
+        targets: opts.targets,
+        header: opts.header ?? "Choose a Target",
+        showCloseButton: opts.showCloseButton ?? false,
+        onSelect: async (slot) => {
+          submitting = true;
+          await this.deps.dialog.hide();
+          try {
+            const success = await opts.onSelect(slot);
+            if (success === false) {
+              submitting = false;
+              if (this.manualOpen) {
+                renderDialog();
+              }
+              return;
+            }
+            this.manualOpen = false;
+            this.deps.onPlayerAction?.();
+          } catch (err) {
+            submitting = false;
+            if (this.manualOpen) {
+              renderDialog();
+            }
+          }
+        },
+        onClose: () => {
+          if (submitting) return;
           this.manualOpen = false;
-        }
-      },
-      onClose: () => {
-        this.manualOpen = false;
-      },
-    });
+        },
+      });
+    };
+    renderDialog();
   }
 
 }

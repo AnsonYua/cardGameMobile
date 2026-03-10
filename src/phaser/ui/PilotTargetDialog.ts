@@ -37,6 +37,7 @@ export class PilotTargetDialog {
   private dialogTimer: DialogTimerPresenter;
   private multiDialog: MultiTargetDialog;
   private scrollList?: ScrollList;
+  private submitting = false;
 
   private cfg = {
     z: { overlay: 2599, dialog: 2600 },
@@ -128,6 +129,7 @@ export class PilotTargetDialog {
 
   show(opts: PilotTargetDialogShowOpts) {
     void this.hide();
+    this.submitting = false;
     const cam = this.scene.cameras.main;
     const closeOnBackdrop = false;
     const showCloseButton = opts.showCloseButton ?? true;
@@ -219,7 +221,11 @@ export class PilotTargetDialog {
       {
         closeOnBackdrop,
         showCloseButton,
-        onClose: () => void this.hide(),
+        onClose: () => {
+          if (this.submitting) return;
+          this.submitting = true;
+          void this.hide();
+        },
       },
     );
     this.overlay = shell.overlay;
@@ -284,10 +290,14 @@ export class PilotTargetDialog {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
+        if (this.submitting) return;
+        this.submitting = true;
+        this.lastOnClose = undefined;
         try {
           await opts.onSelect(slot);
           await this.hide();
         } catch (err) {
+          this.submitting = false;
           // eslint-disable-next-line no-console
           console.error("[PilotTargetDialog] onSelect failed", { error: err });
         }
@@ -366,6 +376,7 @@ export class PilotTargetDialog {
         visibleRows,
       },
       async () => {
+        if (this.submitting) return;
         const selected = await this.selectTarget(0);
         if (selected) await this.hide();
       },
@@ -384,8 +395,16 @@ export class PilotTargetDialog {
   async selectTarget(index = 0): Promise<boolean> {
     const target = this.lastTargets[index];
     if (!this.openSingle || !target || !this.lastOnSelect) return false;
-    await this.lastOnSelect(target);
-    return true;
+    if (this.submitting) return false;
+    this.submitting = true;
+    this.lastOnClose = undefined;
+    try {
+      await this.lastOnSelect(target);
+      return true;
+    } catch (err) {
+      this.submitting = false;
+      throw err;
+    }
   }
 
   getAutomationState() {
