@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DEFAULT_CARD_DIALOG_CONFIG, computePromptDialogLayout, createDialogShell } from "./CardDialogLayout";
 import { animateDialogIn, animateDialogOut } from "./DialogAnimator";
 import { createPromptDialog } from "./PromptDialog";
+import { runDismissFirstSubmit } from "./dialog/runDismissFirstSubmit";
 
 export type AbilityChoiceDialogOption = {
   label: string;
@@ -228,13 +229,16 @@ export class AbilityChoiceDialog {
 
   private async runLocked(action?: () => Promise<void> | void, onClose?: () => void) {
     if (!action || this.submitting || this.closing) return;
-    this.submitting = true;
-    this.disableInteractiveTargets();
-    await this.hide(onClose);
-    try {
-      await Promise.resolve(action());
-    } finally {
-      this.submitting = false;
-    }
+    await runDismissFirstSubmit({
+      isSubmitting: this.submitting,
+      setSubmitting: (submitting) => {
+        this.submitting = submitting;
+      },
+      beforeDismiss: () => {
+        this.disableInteractiveTargets();
+      },
+      dismiss: () => this.hide(onClose),
+      submit: action,
+    });
   }
 }

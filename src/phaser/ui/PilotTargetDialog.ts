@@ -12,6 +12,7 @@ import { getCompactDialogTimerHeaderGap } from "./timerBarStyles";
 import { computeDialogHeaderLayout, computeScrollMaskOverflowX } from "./dialogUtils";
 import { createTargetDialogShell } from "./TargetDialogShell";
 import { shouldUseBoardSlotSprite } from "./TargetDialogRenderPolicy";
+import { runDismissFirstSubmit } from "./dialog/runDismissFirstSubmit";
 
 export type PilotTargetDialogShowOpts = {
   targets: SlotViewModel[];
@@ -290,14 +291,19 @@ export class PilotTargetDialog {
         if (this.previewController.isActive()) return;
         this.previewController.cancelPending();
         if (!slot || !isSelectable) return;
-        if (this.submitting) return;
-        this.submitting = true;
-        this.lastOnClose = undefined;
         try {
-          await opts.onSelect(slot);
-          await this.hide();
+          await runDismissFirstSubmit({
+            isSubmitting: this.submitting,
+            setSubmitting: (submitting) => {
+              this.submitting = submitting;
+            },
+            beforeDismiss: () => {
+              this.lastOnClose = undefined;
+            },
+            dismiss: () => this.hide(),
+            submit: () => opts.onSelect(slot),
+          });
         } catch (err) {
-          this.submitting = false;
           // eslint-disable-next-line no-console
           console.error("[PilotTargetDialog] onSelect failed", { error: err });
         }

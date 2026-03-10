@@ -5,6 +5,7 @@ import { getDialogTimerHeaderGap } from "./timerBarStyles";
 import { DialogTimerPresenter } from "./DialogTimerPresenter";
 import { createPromptDialog } from "./PromptDialog";
 import type { TurnTimerController } from "../controllers/TurnTimerController";
+import { runDismissFirstSubmit } from "./dialog/runDismissFirstSubmit";
 
 type PilotDesignationDialogOpts = {
   onPilot: () => Promise<void> | void;
@@ -118,13 +119,16 @@ export class PilotDesignationDialog {
 
   private async runLocked(action?: () => Promise<void> | void, onClose?: () => void) {
     if (!action || this.submitting || this.closing) return;
-    this.submitting = true;
-    this.disableInteractiveTargets();
-    await this.hide(onClose);
-    try {
-      await Promise.resolve(action());
-    } finally {
-      this.submitting = false;
-    }
+    await runDismissFirstSubmit({
+      isSubmitting: this.submitting,
+      setSubmitting: (submitting) => {
+        this.submitting = submitting;
+      },
+      beforeDismiss: () => {
+        this.disableInteractiveTargets();
+      },
+      dismiss: () => this.hide(onClose),
+      submit: action,
+    });
   }
 }
