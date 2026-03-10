@@ -87,11 +87,7 @@ export class AiStepController {
 
   private isSetupLike(raw: any): boolean {
     const phase = raw?.gameEnv?.phase ?? raw?.phase;
-    if (phase === "DECIDE_FIRST_PLAYER_PHASE" || phase === "REDRAW_PHASE") {
-      return true;
-    }
-    const unresolved = findLatestUnresolvedChoiceOwner(raw);
-    return Boolean(unresolved?.ownerPlayerId) && !this.hasBlockingSelfPrompt(raw, this.deps.contextStore.get().playerId ?? "");
+    return phase === "DECIDE_FIRST_PLAYER_PHASE" || phase === "REDRAW_PHASE";
   }
 
   private scheduleRetry(delayMs: number, source: string) {

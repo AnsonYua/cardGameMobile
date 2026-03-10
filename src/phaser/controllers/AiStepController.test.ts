@@ -107,6 +107,63 @@ describe("AiStepController", () => {
     expect(api.advanceAiStep).toHaveBeenCalledTimes(1);
   });
 
+  test("does not bootstrap on a mid-match AI-owned target choice during snapshot update", async () => {
+    const scene = createScene();
+    const api = {
+      advanceAiStep: vi.fn(async () => ({
+        success: true,
+        gameEnv: { aiPlayerIds: ["player_ai"] },
+        aiAutoplay: { isAiMatch: true, hasMoreAiWork: false, throttleWaitMs: 0 },
+      })),
+    };
+    const engine = {
+      getSnapshot: vi.fn(() => ({
+        raw: {
+          aiAutoplay: { hasMoreAiWork: true, throttleWaitMs: 0 },
+          gameEnv: {
+            aiPlayerIds: ["player_ai"],
+            phase: "MAIN_PHASE",
+            notificationQueue: [
+              {
+                id: "choice_ai_1",
+                type: "TARGET_CHOICE",
+                payload: {
+                  event: {
+                    id: "choice_ai_1",
+                    type: "TARGET_CHOICE",
+                    playerId: "player_ai",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      })),
+      updateGameStatus: vi.fn(async () => undefined),
+    };
+    const contextStore = {
+      get: vi.fn(() => ({
+        gameId: "game_1",
+        playerId: "player_human",
+        isAutoPolling: true,
+        isAiMatch: true,
+      })),
+    };
+
+    const controller = new AiStepController({
+      scene: scene as any,
+      api: api as any,
+      engine: engine as any,
+      contextStore: contextStore as any,
+      isAnimationQueueRunning: () => false,
+    });
+
+    controller.handleSnapshotUpdated();
+    await Promise.resolve();
+
+    expect(api.advanceAiStep).not.toHaveBeenCalled();
+  });
+
   test("advances one AI step after animation idle in AI matches", async () => {
     const scene = createScene();
     const api = {

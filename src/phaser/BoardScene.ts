@@ -57,6 +57,7 @@ import { findBaseCard, findCardByUid } from "./utils/CardLookup";
 import { DialogCoordinator } from "./controllers/DialogCoordinator";
 import { SessionController } from "./controllers/SessionController";
 import { AiStepController } from "./controllers/AiStepController";
+import { MatchSyncController } from "./controllers/MatchSyncController";
 import { TurnStartDrawGate } from "./controllers/TurnStartDrawGate";
 import { createLogger } from "./utils/logger";
 import { setupBoardUi, type BoardUiControls } from "./scene/boardUiSetup";
@@ -164,6 +165,7 @@ export class BoardScene extends Phaser.Scene {
   private dialogCoordinator = new DialogCoordinator(this.match, this.contextStore);
   private sessionController?: SessionController;
   private aiStepController?: AiStepController;
+  private matchSyncController?: MatchSyncController;
   private pilotFlow?: PilotFlowController;
   private commandFlow?: CommandFlowController;
   private unitFlow?: UnitFlowController;
@@ -209,6 +211,7 @@ export class BoardScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.interactionLoading?.destroy();
       this.aiStepController?.destroy();
+      this.matchSyncController?.destroy();
     });
     const interactionHooks = this.getInteractionHooks();
 
@@ -358,6 +361,13 @@ export class BoardScene extends Phaser.Scene {
       contextStore: this.contextStore,
       isAnimationQueueRunning: () => this.animationQueue?.isRunning?.() ?? false,
     });
+    this.matchSyncController = new MatchSyncController({
+      scene: this,
+      engine: this.engine,
+      contextStore: this.contextStore,
+      isAnimationQueueRunning: () => this.animationQueue?.isRunning?.() ?? false,
+      onRefreshComplete: () => this.aiStepController?.handleSnapshotUpdated(),
+    });
     this.shareGameDialog = new ShareGameDialog(this);
     this.sessionController = new SessionController({
       match: this.match,
@@ -494,7 +504,6 @@ export class BoardScene extends Phaser.Scene {
       pilotFlow: this.pilotFlow,
       selectionAction: this.selectionAction,
       onMainPhaseUpdate: (silent, snapshot) => this.mainPhaseUpdate(silent, snapshot),
-      onStatusUpdate: () => this.aiStepController?.handleSnapshotUpdated(),
       onShowLoading: () => this.showLoading(),
       onHideLoading: () => this.hideLoading(),
     });
@@ -1144,6 +1153,7 @@ export class BoardScene extends Phaser.Scene {
       this.updateHandArea({ skipAnimation: true });
       this.refreshActionBarState(raw);
     }
+    await this.matchSyncController?.flushDeferredPoll();
     await this.debugControls?.flushDeferredPoll();
     this.aiStepController?.handleAnimationQueueIdle();
   }
@@ -1303,6 +1313,12 @@ export class BoardScene extends Phaser.Scene {
     this.offlineFallback = false;
     this.dialogCoordinator.resetSession();
     await this.sessionController?.initSession(window.location.search);
+    this.aiStepController?.handleSnapshotUpdated();
+    if (this.contextStore.get().isAutoPolling) {
+      this.matchSyncController?.start();
+    } else {
+      this.matchSyncController?.stop();
+    }
   }
 
 }
