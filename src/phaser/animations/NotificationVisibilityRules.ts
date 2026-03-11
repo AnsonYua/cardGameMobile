@@ -26,6 +26,11 @@ export function resolveCardAddedToHandView(params: {
   }
 
   const sourceZone = (params.payload?.sourceZone ?? "").toString().toLowerCase();
+  // Shield cards are hidden information unless they were already publicly revealed by burst flow.
+  if (sourceZone === "shield" || sourceZone === "shieldarea") {
+    return { visible: false, reason: "hidden" };
+  }
+
   if (sourceZone === "trash") {
     return { visible: true, mode: "opponent_reveal", title: "Opponent Revealed Card Added to Hand" };
   }
